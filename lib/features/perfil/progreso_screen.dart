@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:math' as math;
-import '../../core/theme/ginga_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/theme/ginga_theme.dart';
+import 'mi_progreso_screen.dart';
+import 'mi_progreso_screen.dart';
 
 class ProgresoScreen extends StatelessWidget {
   const ProgresoScreen({super.key});
@@ -19,6 +21,8 @@ class ProgresoScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 20),
+
+              // ── Header ──────────────────────────
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -27,24 +31,17 @@ class ProgresoScreen extends StatelessWidget {
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
                           color: GingaColors.textPrimary)),
-                // Busca esto:
-IconButton(
-  onPressed: () {},
-  icon: const Icon(Icons.settings_outlined,
-      color: GingaColors.textSecondary, size: 22),
-),
-
-// Reemplaza por:
-IconButton(
-  onPressed: () async {
-    await FirebaseAuth.instance.signOut();
-    if (context.mounted) context.go('/login');
-  },
-  icon: const Icon(Icons.logout,
-      color: GingaColors.textSecondary, size: 22),
-),
+                  IconButton(
+                    onPressed: () async {
+                      await FirebaseAuth.instance.signOut();
+                      if (context.mounted) context.go('/login');
+                    },
+                    icon: const Icon(Icons.logout,
+                        color: GingaColors.textSecondary, size: 22),
+                  ),
                 ],
               ),
+
               const SizedBox(height: 24),
               Center(child: _ProgressCircle()),
               const SizedBox(height: 20),
@@ -76,30 +73,50 @@ IconButton(
                   ],
                 ),
               ),
+
               const SizedBox(height: 28),
               _SectionHeader(title: 'Tus Logros', actionLabel: 'Ver todas'),
               const SizedBox(height: 12),
               _LogrosRow(),
+
               const SizedBox(height: 28),
               _SectionHeader(title: 'Actividad Semanal', actionLabel: ''),
               const SizedBox(height: 12),
               _ActividadSemanal(),
+
               const SizedBox(height: 28),
               _SectionHeader(title: 'Próximos Desafíos', actionLabel: ''),
               const SizedBox(height: 12),
-              _DesafioCard(
-                icon: Icons.music_note_outlined,
-                titulo: 'Domina el toque Iuna',
-                subtitulo: 'Practica en 2 rodas más',
-                color: GingaColors.brandGreen,
+
+              // ── Desafíos con navegación a Mi Progreso ──
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const MiProgresoScreen()),
+                ),
+                child: _DesafioCard(
+                  icon: Icons.music_note_outlined,
+                  titulo: 'Domina el toque Iuna',
+                  subtitulo: 'Practica en 2 rodas más',
+                  color: GingaColors.brandGreen,
+                ),
               ),
               const SizedBox(height: 10),
-              _DesafioCard(
-                icon: Icons.groups_outlined,
-                titulo: 'Asistencia Roda de Sábado',
-                subtitulo: 'Participa en 2 rodas más',
-                color: GingaColors.accentAmber,
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const MiProgresoScreen()),
+                ),
+                child: _DesafioCard(
+                  icon: Icons.groups_outlined,
+                  titulo: 'Asistencia Roda de Sábado',
+                  subtitulo: 'Participa en 2 rodas más',
+                  color: GingaColors.accentAmber,
+                ),
               ),
+
               const SizedBox(height: 32),
             ],
           ),
@@ -217,12 +234,22 @@ class _LogrosRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final logros = [
-      _LogroData(icon: Icons.music_note, label: 'Primer Toque', color: GingaColors.brandGreen),
-      _LogroData(icon: Icons.local_fire_department, label: '2 días seguidos', color: GingaColors.accentAmber),
-      _LogroData(icon: Icons.person, label: 'Maestro\nAngola', color: GingaColors.textSecondary),
+      _LogroData(
+          icon: Icons.music_note,
+          label: 'Primer Toque',
+          color: GingaColors.brandGreen),
+      _LogroData(
+          icon: Icons.local_fire_department,
+          label: '2 días seguidos',
+          color: GingaColors.accentAmber),
+      _LogroData(
+          icon: Icons.person,
+          label: 'Maestro\nAngola',
+          color: GingaColors.textSecondary),
     ];
     return Row(
-      children: logros.map((l) => Expanded(child: _LogroBadge(logro: l))).toList(),
+      children:
+          logros.map((l) => Expanded(child: _LogroBadge(logro: l))).toList(),
     );
   }
 }
@@ -248,7 +275,9 @@ class _LogroBadge extends StatelessWidget {
         Text(logro.label,
             textAlign: TextAlign.center,
             style: GoogleFonts.nunito(
-                fontSize: 11, color: GingaColors.textSecondary, height: 1.3)),
+                fontSize: 11,
+                color: GingaColors.textSecondary,
+                height: 1.3)),
       ],
     );
   }
@@ -256,7 +285,9 @@ class _LogroBadge extends StatelessWidget {
 
 class _ActividadSemanal extends StatelessWidget {
   final List<double> _valores = [0.3, 0.5, 0.8, 0.4, 1.0, 0.6, 0.2];
-  final List<String> _dias = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
+  final List<String> _dias = [
+    'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -302,7 +333,8 @@ class _ActividadSemanal extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: GingaColors.cardLight,
               borderRadius: BorderRadius.circular(GingaRadius.md),

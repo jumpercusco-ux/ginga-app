@@ -5,6 +5,8 @@ import 'package:ginga_app/features/auth/role_selection_screen.dart';
 import 'package:ginga_app/features/auth/profile_creation_screen.dart';
 import 'package:ginga_app/features/auth/login_screen.dart';
 import 'package:ginga_app/features/home/home_screen.dart';
+import 'package:ginga_app/features/instructor/instructor_clase_screen.dart';
+
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -24,6 +26,10 @@ final appRouter = GoRouter(
       path: '/login',
       builder: (context, state) => const LoginScreen(),
     ),
+    GoRoute(
+  path: '/instructor-clase',
+  builder: (context, state) => const InstructorClaseScreen(),
+),
     GoRoute(
       path: '/onboarding',
       builder: (context, state) => const OnboardingScreen(),

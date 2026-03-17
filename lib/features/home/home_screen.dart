@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/ginga_theme.dart';
-import '../eventos/eventos_screen.dart'; // ← AGREGA ESTA LÍNEA
+import '../eventos/eventos_screen.dart';
 import '../perfil/progreso_screen.dart';
-
-
+import '../biblioteca/practicar_toque_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,15 +20,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
-     body: IndexedStack(
-  index: _selectedTab,
-  children: const [
-    _HomeDashboard(),
-    EventosScreen(),           // ← este cambio
-    _PlaceholderTab(label: 'Biblioteca'),
-const ProgresoScreen(),
-  ],
-),
+      body: IndexedStack(
+        index: _selectedTab,
+        children: const [
+          _HomeDashboard(),
+          EventosScreen(),
+          PracticarToqueScreen(),
+          ProgresoScreen(),
+        ],
+      ),
       bottomNavigationBar: _GingaBottomNav(
         currentIndex: _selectedTab,
         onTap: (i) => setState(() => _selectedTab = i),
@@ -54,23 +53,44 @@ class _HomeDashboard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-
-            // ── Header ──────────────────────────────
             _Header(),
-
             const SizedBox(height: 20),
-
-            // ── Banner Workshop (Amber) ──────────────
             _WorkshopBanner(),
-
             const SizedBox(height: 20),
-
-            // ── Check-in rápido ─────────────────────
             _CheckInCard(),
+            const SizedBox(height: 12),
+
+            // ── Botón temporal Instructor ────────────
+            GestureDetector(
+              onTap: () => context.go('/instructor-clase'),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: GingaColors.brandGreen,
+                  borderRadius: BorderRadius.circular(GingaRadius.lg),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.school, color: Colors.white, size: 20),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Vista Instructor (Prueba)',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const Spacer(),
+                    const Icon(Icons.arrow_forward_ios,
+                        color: Colors.white, size: 14),
+                  ],
+                ),
+              ),
+            ),
 
             const SizedBox(height: 20),
-
-            // ── Clases del día ──────────────────────
             _SectionTitle(title: 'Clases del día', actionLabel: 'Ver todas'),
             const SizedBox(height: 12),
             _ClaseCard(
@@ -99,14 +119,11 @@ class _HomeDashboard extends StatelessWidget {
               instructor: 'Mestre Orue',
               cupos: '11 cupos disponibles',
             ),
-
             const SizedBox(height: 20),
-
-            // ── Últimas noticias ────────────────────
-            _SectionTitle(title: 'Últimas noticias', actionLabel: 'JUMPER STUDIO'),
+            _SectionTitle(
+                title: 'Últimas noticias', actionLabel: 'JUMPER STUDIO'),
             const SizedBox(height: 12),
             _NoticiasRow(),
-
             const SizedBox(height: 28),
           ],
         ),
@@ -160,7 +177,6 @@ class _Header extends StatelessWidget {
           ],
         ),
         const Spacer(),
-        // Tiempo en la escuela
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -184,7 +200,6 @@ class _Header extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        // Avatar
         CircleAvatar(
           radius: 20,
           backgroundColor: GingaColors.cardLight,
@@ -203,7 +218,7 @@ class _Header extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────
-//  WORKSHOP BANNER (Amber)
+//  WORKSHOP BANNER
 // ─────────────────────────────────────────
 
 class _WorkshopBanner extends StatelessWidget {
@@ -240,8 +255,8 @@ class _WorkshopBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: const Color(0xFF412402),
                     borderRadius: BorderRadius.circular(GingaRadius.full),
@@ -365,43 +380,28 @@ class _ClaseCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Hora
           SizedBox(
             width: 44,
-            child: Text(
-              hora,
-              style: GoogleFonts.montserrat(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: GingaColors.textPrimary,
-              ),
-            ),
+            child: Text(hora,
+                style: GoogleFonts.montserrat(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textPrimary)),
           ),
           const SizedBox(width: 10),
-
-          // Línea separadora
-          Container(
-            width: 1,
-            height: 40,
-            color: GingaColors.borderLight,
-          ),
+          Container(width: 1, height: 40, color: GingaColors.borderLight),
           const SizedBox(width: 10),
-
-          // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Text(
-                      nivel,
-                      style: GoogleFonts.montserrat(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary,
-                      ),
-                    ),
+                    Text(nivel,
+                        style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textPrimary)),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -410,38 +410,25 @@ class _ClaseCard extends StatelessWidget {
                         color: badgeColor.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(
-                        badge,
-                        style: GoogleFonts.montserrat(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: badgeColor,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
+                      child: Text(badge,
+                          style: GoogleFonts.montserrat(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: badgeColor,
+                              letterSpacing: 0.5)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  instructor,
-                  style: GoogleFonts.nunito(
-                    fontSize: 12,
-                    color: GingaColors.textSecondary,
-                  ),
-                ),
-                Text(
-                  cupos,
-                  style: GoogleFonts.nunito(
-                    fontSize: 11,
-                    color: GingaColors.textSecondary,
-                  ),
-                ),
+                Text(instructor,
+                    style: GoogleFonts.nunito(
+                        fontSize: 12, color: GingaColors.textSecondary)),
+                Text(cupos,
+                    style: GoogleFonts.nunito(
+                        fontSize: 11, color: GingaColors.textSecondary)),
               ],
             ),
           ),
-
-          // Botón Reservar
           Container(
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -449,14 +436,11 @@ class _ClaseCard extends StatelessWidget {
               color: GingaColors.brandGreen,
               borderRadius: BorderRadius.circular(GingaRadius.full),
             ),
-            child: Text(
-              'Reservar',
-              style: GoogleFonts.montserrat(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
+            child: Text('Reservar',
+                style: GoogleFonts.montserrat(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white)),
           ),
         ],
       ),
@@ -471,7 +455,6 @@ class _ClaseCard extends StatelessWidget {
 class _SectionTitle extends StatelessWidget {
   final String title;
   final String actionLabel;
-
   const _SectionTitle({required this.title, required this.actionLabel});
 
   @override
@@ -479,22 +462,16 @@ class _SectionTitle extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: GoogleFonts.montserrat(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: GingaColors.textPrimary,
-          ),
-        ),
-        Text(
-          actionLabel,
-          style: GoogleFonts.nunito(
-            fontSize: 12,
-            color: GingaColors.brandGreen,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        Text(title,
+            style: GoogleFonts.montserrat(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: GingaColors.textPrimary)),
+        Text(actionLabel,
+            style: GoogleFonts.nunito(
+                fontSize: 12,
+                color: GingaColors.brandGreen,
+                fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -510,18 +487,14 @@ class _NoticiasRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _NoticiaCard(
-            titulo: 'Nueva Roda de Domingo',
-            subtitulo: 'Preparate para la entrega...',
-          ),
-        ),
+            child: _NoticiaCard(
+                titulo: 'Nueva Roda de Domingo',
+                subtitulo: 'Preparate para la entrega...')),
         const SizedBox(width: 12),
         Expanded(
-          child: _NoticiaCard(
-            titulo: 'Tips: Movimientos',
-            subtitulo: 'Mejora tu ginga en casa...',
-          ),
-        ),
+            child: _NoticiaCard(
+                titulo: 'Tips: Movimientos',
+                subtitulo: 'Mejora tu ginga en casa...')),
       ],
     );
   }
@@ -530,7 +503,6 @@ class _NoticiasRow extends StatelessWidget {
 class _NoticiaCard extends StatelessWidget {
   final String titulo;
   final String subtitulo;
-
   const _NoticiaCard({required this.titulo, required this.subtitulo});
 
   @override
@@ -544,7 +516,6 @@ class _NoticiaCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Imagen placeholder
           Container(
             height: 90,
             decoration: BoxDecoration(
@@ -564,26 +535,19 @@ class _NoticiaCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  titulo,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(titulo,
+                    style: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textPrimary),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 3),
-                Text(
-                  subtitulo,
-                  style: GoogleFonts.nunito(
-                    fontSize: 11,
-                    color: GingaColors.textSecondary,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(subtitulo,
+                    style: GoogleFonts.nunito(
+                        fontSize: 11, color: GingaColors.textSecondary),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -615,55 +579,28 @@ class _GingaBottomNav extends StatelessWidget {
       backgroundColor: Colors.white,
       selectedItemColor: GingaColors.brandGreen,
       unselectedItemColor: GingaColors.textSecondary,
-      selectedLabelStyle: GoogleFonts.montserrat(
-          fontSize: 11, fontWeight: FontWeight.w600),
+      selectedLabelStyle:
+          GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600),
       unselectedLabelStyle: GoogleFonts.montserrat(fontSize: 11),
       elevation: 12,
       items: const [
         BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          activeIcon: Icon(Icons.home),
-          label: 'Home',
-        ),
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home'),
         BottomNavigationBarItem(
-          icon: Icon(Icons.groups_outlined),
-          activeIcon: Icon(Icons.groups),
-          label: 'A Roda',
-        ),
+            icon: Icon(Icons.groups_outlined),
+            activeIcon: Icon(Icons.groups),
+            label: 'A Roda'),
         BottomNavigationBarItem(
-          icon: Icon(Icons.menu_book_outlined),
-          activeIcon: Icon(Icons.menu_book),
-          label: 'Biblioteca',
-        ),
+            icon: Icon(Icons.menu_book_outlined),
+            activeIcon: Icon(Icons.menu_book),
+            label: 'Biblioteca'),
         BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          activeIcon: Icon(Icons.person),
-          label: 'Perfil',
-        ),
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Perfil'),
       ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────
-//  PLACEHOLDER TABS (Sprint 3+)
-// ─────────────────────────────────────────
-
-class _PlaceholderTab extends StatelessWidget {
-  final String label;
-  const _PlaceholderTab({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        label,
-        style: GoogleFonts.montserrat(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: GingaColors.textSecondary,
-        ),
-      ),
     );
   }
 }
