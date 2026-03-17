@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../eventos/eventos_screen.dart';
 import '../perfil/progreso_screen.dart';
@@ -53,14 +55,14 @@ class _HomeDashboard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-            _Header(),
+            const _Header(),
             const SizedBox(height: 20),
             _WorkshopBanner(),
             const SizedBox(height: 20),
             _CheckInCard(),
             const SizedBox(height: 12),
 
-            // ── Botón temporal Instructor ────────────
+            // Botón temporal Instructor
             GestureDetector(
               onTap: () => context.go('/instructor-clase'),
               child: Container(
@@ -74,14 +76,11 @@ class _HomeDashboard extends StatelessWidget {
                   children: [
                     const Icon(Icons.school, color: Colors.white, size: 20),
                     const SizedBox(width: 10),
-                    Text(
-                      'Vista Instructor (Prueba)',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+                    Text('Vista Instructor (Prueba)',
+                        style: GoogleFonts.montserrat(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white)),
                     const Spacer(),
                     const Icon(Icons.arrow_forward_ios,
                         color: Colors.white, size: 14),
@@ -133,86 +132,110 @@ class _HomeDashboard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────
-//  HEADER
+//  HEADER — datos reales de Firestore
 // ─────────────────────────────────────────
 
 class _Header extends StatelessWidget {
+  const _Header();
+
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        // Datos por defecto mientras carga
+        String nombre = 'Alumno';
+        String corda = 'Iniciación';
+        String inicial = 'A';
+
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>;
+          nombre = data['nombre'] ?? 'Alumno';
+          corda = data['corda'] ?? 'Iniciación';
+          inicial = nombre.isNotEmpty ? nombre[0].toUpperCase() : 'A';
+        }
+
+        return Row(
           children: [
-            Text(
-              '¡Hola, Enrique!',
-              style: GoogleFonts.montserrat(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: GingaColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: GingaColors.brandGreen,
-                    shape: BoxShape.circle,
+            Flexible(
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text('¡Hola, $nombre!',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: GingaColors.textPrimary,
                   ),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  'Corda Verde',
-                  style: GoogleFonts.nunito(
-                    fontSize: 13,
-                    color: GingaColors.brandGreen,
-                    fontWeight: FontWeight.w600,
-                  ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: GingaColors.brandGreen,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      corda,
+                      style: GoogleFonts.nunito(
+                        fontSize: 13,
+                        color: GingaColors.brandGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ],
+            ),),
+            const Spacer(),
+            // Timer
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: GingaColors.cardLight,
+                borderRadius: BorderRadius.circular(GingaRadius.full),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.access_time,
+                      size: 14, color: GingaColors.brandGreen),
+                  const SizedBox(width: 4),
+                  Text('2a 4m',
+                      style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: GingaColors.brandGreen)),
+                ],
+              ),
             ),
-          ],
-        ),
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: GingaColors.cardLight,
-            borderRadius: BorderRadius.circular(GingaRadius.full),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.access_time,
-                  size: 14, color: GingaColors.brandGreen),
-              const SizedBox(width: 4),
-              Text(
-                '2a 4m',
+            const SizedBox(width: 10),
+            // Avatar con inicial real
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: GingaColors.cardLight,
+              child: Text(
+                inicial,
                 style: GoogleFonts.montserrat(
-                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: GingaColors.brandGreen,
+                  fontSize: 16,
                 ),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        CircleAvatar(
-          radius: 20,
-          backgroundColor: GingaColors.cardLight,
-          child: Text(
-            'E',
-            style: GoogleFonts.montserrat(
-              fontWeight: FontWeight.w700,
-              color: GingaColors.brandGreen,
-              fontSize: 16,
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -237,22 +260,16 @@ class _WorkshopBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Workshop con Prof.',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF412402),
-                  ),
-                ),
-                Text(
-                  'Daniel - Abril',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF412402),
-                  ),
-                ),
+                Text('Workshop con Prof.',
+                    style: GoogleFonts.montserrat(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF412402))),
+                Text('Daniel - Abril',
+                    style: GoogleFonts.montserrat(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF412402))),
                 const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -261,14 +278,11 @@ class _WorkshopBanner extends StatelessWidget {
                     color: const Color(0xFF412402),
                     borderRadius: BorderRadius.circular(GingaRadius.full),
                   ),
-                  child: Text(
-                    'Reservar',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: Text('Reservar',
+                      style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white)),
                 ),
               ],
             ),
@@ -311,23 +325,17 @@ class _CheckInCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Check-in rápido',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary,
-                  ),
-                ),
+                Text('Check-in rápido',
+                    style: GoogleFonts.montserrat(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textPrimary)),
                 const SizedBox(height: 4),
-                Text(
-                  'Escanea el código al llegar a la academia',
-                  style: GoogleFonts.nunito(
-                    fontSize: 12,
-                    color: GingaColors.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
+                Text('Escanea el código al llegar a la academia',
+                    style: GoogleFonts.nunito(
+                        fontSize: 12,
+                        color: GingaColors.textSecondary,
+                        height: 1.4)),
               ],
             ),
           ),
