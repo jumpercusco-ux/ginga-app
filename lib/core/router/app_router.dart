@@ -1,5 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:ginga_app/features/onboarding/splash_screen.dart';
+
 import 'package:ginga_app/features/onboarding/onboarding_screen.dart';
 import 'package:ginga_app/features/auth/role_selection_screen.dart';
 import 'package:ginga_app/features/auth/profile_creation_screen.dart';
@@ -9,7 +11,7 @@ import 'package:ginga_app/features/instructor/instructor_clase_screen.dart';
 
 
 final appRouter = GoRouter(
-  initialLocation: '/login',
+  initialLocation: '/splash',
   redirect: (context, state) {
     final user = FirebaseAuth.instance.currentUser;
     final loc = state.matchedLocation;
@@ -22,6 +24,10 @@ final appRouter = GoRouter(
     return null;
   },
   routes: [
+    GoRoute(
+  path: '/splash',
+  builder: (context, state) => const SplashScreen(),
+),
     GoRoute(
       path: '/login',
       builder: (context, state) => const LoginScreen(),

@@ -110,26 +110,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 60),
 
                 // Logo
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: GingaColors.brandGreen,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(Icons.sports_martial_arts,
-                      color: Colors.white, size: 40),
-                ),
-
+                Image.asset('assets/images/logo_ginga.png', width: 140, height: 140),
                 const SizedBox(height: 20),
 
-                Text('Ginga App',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: GingaColors.textPrimary)),
+                // Text('Ginga App',
+                //     style: GoogleFonts.montserrat(
+                //         fontSize: 28,
+                //         fontWeight: FontWeight.w800,
+                //         color: GingaColors.textPrimary)),
 
-                const SizedBox(height: 8),
+                // const SizedBox(height: 8),
 
                 Text('Inicia sesión para continuar',
                     style: GoogleFonts.nunito(

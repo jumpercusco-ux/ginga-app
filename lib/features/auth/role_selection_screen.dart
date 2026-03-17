@@ -50,25 +50,16 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: GingaColors.brandGreen,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.sports_martial_arts,
-                        color: Colors.white, size: 18),
-                  ),
+                  Image.asset('assets/images/logo_ginga.png', width: 100, height: 100),
                   const SizedBox(width: 8),
-                  Text(
-                    'Ginga App',
-                    style: GoogleFonts.montserrat(
-                      color: GingaColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
-                  ),
+                  // Text(
+                  //   'Ginga App',
+                  //   style: GoogleFonts.montserrat(
+                  //     color: GingaColors.textPrimary,
+                  //     fontWeight: FontWeight.w700,
+                  //     fontSize: 15,
+                  //   ),
+                  // ),
                 ],
               ),
 
