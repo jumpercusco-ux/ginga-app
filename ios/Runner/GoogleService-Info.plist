@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyCcdJzaOQCAlkCwIn5JDJQakYpxxtTkwiE</string>
+	<key>GCM_SENDER_ID</key>
+	<string>543186587052</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.jumperstudio.gingaApp2026</string>
+	<key>PROJECT_ID</key>
+	<string>capoeirafiu-ea8ljo</string>
+	<key>STORAGE_BUCKET</key>
+	<string>capoeirafiu-ea8ljo.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:543186587052:ios:48fe3659fb355840d87e09</string>
+</dict>
+</plist>
