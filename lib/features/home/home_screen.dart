@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../eventos/eventos_screen.dart';
 import '../perfil/progreso_screen.dart';
-import '../biblioteca/practicar_toque_screen.dart';
+import '../biblioteca/biblioteca_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: const [
           _HomeDashboard(),
           EventosScreen(),
-          PracticarToqueScreen(),
+          BibliotecaScreen(),
           ProgresoScreen(),
         ],
       ),
