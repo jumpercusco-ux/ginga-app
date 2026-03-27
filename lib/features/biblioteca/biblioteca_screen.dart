@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'practicar_toque_screen.dart';
+import 'package:go_router/go_router.dart';
+import 'tutor_detail_screen.dart';
+
 
 class BibliotecaScreen extends StatelessWidget {
   const BibliotecaScreen({super.key});
@@ -63,13 +66,13 @@ class BibliotecaScreen extends StatelessWidget {
                 tag: 'NUEVO',
                 tagColor: GingaColors.accentAmber,
                 color: GingaColors.accentAmber,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const TutorialesScreen(),
-                  ),
-                ),
-              ),
+              // Busca la _SeccionCard de Tutoriales y cambia su onTap:
+onTap: () => Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => const TutorialDetailScreen(),
+  ),
+),              ),
 
               const SizedBox(height: 14),
 
@@ -116,12 +119,19 @@ class BibliotecaScreen extends StatelessWidget {
               const SizedBox(height: 12),
 
               // Lista de lecciones
-              _LeccionCard(
-                titulo: 'Ginga Básica',
-                nivel: 'Iniciante',
-                duracion: '5 min',
-                icono: Icons.directions_run,
-              ),
+             // Busca donde llamas a _LeccionCard y añade el parámetro onTap:
+_LeccionCard(
+  titulo: 'Passape',
+  nivel: 'Iniciante',
+  duracion: '6 min',
+  icono: Icons.sports_martial_arts,
+  onTap: () => Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const TutorialDetailScreen(),
+    ),
+  ),
+),
               const SizedBox(height: 10),
               _LeccionCard(
                 titulo: 'Au Batido',
@@ -263,101 +273,93 @@ class _LeccionCard extends StatelessWidget {
   final String nivel;
   final String duracion;
   final IconData icono;
+  final VoidCallback? onTap; // 👈 Añadimos esto
 
   const _LeccionCard({
     required this.titulo,
     required this.nivel,
     required this.duracion,
     required this.icono,
+    this.onTap, // 👈 Y esto
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
-      ),
-      child: Row(
-        children: [
-          // Thumbnail
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: GingaColors.backgroundDark,
-              borderRadius: BorderRadius.circular(GingaRadius.md),
+    return GestureDetector( // 👈 Envolvemos en GestureDetector para que funcione el clic
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          border: Border.all(color: GingaColors.borderLight),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: GingaColors.backgroundDark,
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+              ),
+              child: Icon(icono, color: GingaColors.brandGreen, size: 24),
             ),
-            child: Icon(icono, color: GingaColors.brandGreen, size: 24),
-          ),
-          const SizedBox(width: 14),
-          // Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  titulo,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    titulo,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: GingaColors.textPrimary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: GingaColors.cardLight,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        nivel,
-                        style: GoogleFonts.montserrat(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: GingaColors.brandGreen,
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: GingaColors.cardLight,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          nivel,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: GingaColors.brandGreen,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.access_time_outlined,
-                        size: 12, color: GingaColors.textSecondary),
-                    const SizedBox(width: 3),
-                    Text(
-                      duracion,
-                      style: GoogleFonts.nunito(
-                        fontSize: 11,
-                        color: GingaColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      const Icon(Icons.access_time_outlined, size: 12, color: GingaColors.textSecondary),
+                      const SizedBox(width: 3),
+                      Text(duracion, style: GoogleFonts.nunito(fontSize: 11, color: GingaColors.textSecondary)),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          // Play button
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: GingaColors.brandGreen,
-              shape: BoxShape.circle,
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: GingaColors.brandGreen,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.play_arrow, color: Colors.white, size: 20),
             ),
-            child: const Icon(Icons.play_arrow,
-                color: Colors.white, size: 20),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
-
 // ─────────────────────────────────────────
 //  TUTORIALES SCREEN (placeholder)
 // ─────────────────────────────────────────

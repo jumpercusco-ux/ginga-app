@@ -60,72 +60,327 @@ class _HomeDashboard extends StatelessWidget {
             _WorkshopBanner(),
             const SizedBox(height: 20),
             _CheckInCard(),
-            const SizedBox(height: 12),
-
-            // Botón temporal Instructor
-            GestureDetector(
-              onTap: () => context.go('/instructor-clase'),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: GingaColors.brandGreen,
-                  borderRadius: BorderRadius.circular(GingaRadius.lg),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.school, color: Colors.white, size: 20),
-                    const SizedBox(width: 10),
-                    Text('Vista Instructor (Prueba)',
-                        style: GoogleFonts.montserrat(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white)),
-                    const Spacer(),
-                    const Icon(Icons.arrow_forward_ios,
-                        color: Colors.white, size: 14),
-                  ],
-                ),
-              ),
-            ),
-
             const SizedBox(height: 20),
             _SectionTitle(title: 'Clases del día', actionLabel: 'Ver todas'),
             const SizedBox(height: 12),
-            _ClaseCard(
-              hora: '18:00',
-              nivel: 'Iniciantes',
-              badge: 'INICIO',
-              badgeColor: GingaColors.brandGreen,
-              instructor: 'Contra Mestre Orue',
-              cupos: '4 cupos disponibles',
-            ),
-            const SizedBox(height: 10),
-            _ClaseCard(
-              hora: '19:30',
-              nivel: 'Adultos',
-              badge: 'MAGISTRAL',
-              badgeColor: GingaColors.accentAmber,
-              instructor: 'Contra Mestre Cam',
-              cupos: '2 cupos restantes',
-            ),
-            const SizedBox(height: 10),
-            _ClaseCard(
-              hora: '21:00',
-              nivel: 'Avanzados',
-              badge: 'PRO',
-              badgeColor: GingaColors.brandGreen,
-              instructor: 'Mestre Orue',
-              cupos: '11 cupos disponibles',
-            ),
+
+            // ── Clases desde Firestore ───────────────
+            _ClasesFirestore(),
+
             const SizedBox(height: 20),
-            _SectionTitle(
-                title: 'Últimas noticias', actionLabel: 'JUMPER STUDIO'),
+            _SectionTitle(title: 'Últimas noticias', actionLabel: 'Ver todas'),
             const SizedBox(height: 12),
             _NoticiasRow(),
             const SizedBox(height: 28),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+//  CLASES DESDE FIRESTORE
+// ─────────────────────────────────────────
+
+class _ClasesFirestore extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('clases')
+          // .orderBy('hora')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: GingaColors.brandGreen,
+              strokeWidth: 2,
+            ),
+          );
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: GingaColors.cardLight,
+              borderRadius: BorderRadius.circular(GingaRadius.lg),
+            ),
+            child: Center(
+              child: Text(
+                'No hay clases disponibles hoy',
+                style: GoogleFonts.nunito(
+                    fontSize: 14, color: GingaColors.textSecondary),
+              ),
+            ),
+          );
+        }
+
+        final clases = snapshot.data!.docs;
+
+        return Column(
+          children: clases.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final cuposDisponibles = data['cupos_disponibles'] ?? 0;
+            final cuposMax = data['cupos_max'] ?? 10;
+            final badgeColor = data['badge'] == 'Intermedio'
+                ? GingaColors.accentAmber
+                : GingaColors.brandGreen;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _ClaseCardFirestore(
+                claseId: doc.id,
+                hora: data['hora'] ?? '',
+                nivel: data['nivel'] ?? '',
+                badge: data['badge'] ?? '',
+                badgeColor: badgeColor,
+                instructor: data['instructor'] ?? '',
+                cuposDisponibles: cuposDisponibles,
+                cuposMax: cuposMax,
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+//  CLASE CARD CON RESERVA REAL
+// ─────────────────────────────────────────
+
+class _ClaseCardFirestore extends StatefulWidget {
+  final String claseId;
+  final String hora;
+  final String nivel;
+  final String badge;
+  final Color badgeColor;
+  final String instructor;
+  final int cuposDisponibles;
+  final int cuposMax;
+
+  const _ClaseCardFirestore({
+    required this.claseId,
+    required this.hora,
+    required this.nivel,
+    required this.badge,
+    required this.badgeColor,
+    required this.instructor,
+    required this.cuposDisponibles,
+    required this.cuposMax,
+  });
+
+  @override
+  State<_ClaseCardFirestore> createState() => _ClaseCardFirestoreState();
+}
+
+class _ClaseCardFirestoreState extends State<_ClaseCardFirestore> {
+  bool _isReservado = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkReserva();
+  }
+
+  // Verifica si el usuario ya reservó esta clase
+  Future<void> _checkReserva() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final reserva = await FirebaseFirestore.instance
+        .collection('reservas')
+        .where('user_id', isEqualTo: uid)
+        .where('clase_id', isEqualTo: widget.claseId)
+        .get();
+
+    if (mounted && reserva.docs.isNotEmpty) {
+      setState(() => _isReservado = true);
+    }
+  }
+
+  // Lógica de reserva con transacción Firestore
+  Future<void> _reservar() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    if (widget.cuposDisponibles <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No hay cupos disponibles',
+              style: GoogleFonts.nunito(color: Colors.white)),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Transacción atómica — descuenta cupo y crea reserva
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final claseRef = FirebaseFirestore.instance
+            .collection('clases')
+            .doc(widget.claseId);
+
+        final claseDoc = await transaction.get(claseRef);
+        final cupos = claseDoc['cupos_disponibles'] as int;
+
+        if (cupos <= 0) throw Exception('Sin cupos');
+
+        // Descuenta 1 cupo
+        transaction.update(claseRef, {'cupos_disponibles': cupos - 1});
+
+        // Crea la reserva
+        final reservaRef =
+            FirebaseFirestore.instance.collection('reservas').doc();
+        transaction.set(reservaRef, {
+          'user_id': uid,
+          'clase_id': widget.claseId,
+          'nivel': widget.nivel,
+          'hora': widget.hora,
+          'status': 'confirmado',
+          'created_at': FieldValue.serverTimestamp(),
+        });
+      });
+
+      if (mounted) {
+        setState(() => _isReservado = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('¡Reserva confirmada! 🎉',
+                style: GoogleFonts.nunito(color: Colors.white)),
+            backgroundColor: GingaColors.brandGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al reservar. Intenta de nuevo.',
+                style: GoogleFonts.nunito(color: Colors.white)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cuposText = widget.cuposDisponibles == 0
+        ? 'Sin cupos'
+        : '${widget.cuposDisponibles} cupos disponibles';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        border: Border.all(
+          color: _isReservado
+              ? GingaColors.brandGreen.withOpacity(0.4)
+              : GingaColors.borderLight,
+        ),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 44,
+            child: Text(widget.hora,
+                style: GoogleFonts.montserrat(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textPrimary)),
+          ),
+          const SizedBox(width: 10),
+          Container(width: 1, height: 40, color: GingaColors.borderLight),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(widget.nivel,
+                        style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textPrimary)),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: widget.badgeColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(widget.badge,
+                          style: GoogleFonts.montserrat(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: widget.badgeColor,
+                              letterSpacing: 0.5)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(widget.instructor,
+                    style: GoogleFonts.nunito(
+                        fontSize: 12, color: GingaColors.textSecondary)),
+                Text(cuposText,
+                    style: GoogleFonts.nunito(
+                        fontSize: 11,
+                        color: widget.cuposDisponibles == 0
+                            ? Colors.red
+                            : GingaColors.textSecondary)),
+              ],
+            ),
+          ),
+
+          // Botón Reservar / Reservado
+          _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      color: GingaColors.brandGreen, strokeWidth: 2),
+                )
+              : GestureDetector(
+                  onTap: _isReservado ? null : _reservar,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: _isReservado
+                          ? GingaColors.cardLight
+                          : widget.cuposDisponibles == 0
+                              ? GingaColors.borderLight
+                              : GingaColors.brandGreen,
+                      borderRadius:
+                          BorderRadius.circular(GingaRadius.full),
+                    ),
+                    child: Text(
+                      _isReservado ? '✓ Reservado' : 'Reservar',
+                      style: GoogleFonts.montserrat(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _isReservado
+                              ? GingaColors.brandGreen
+                              : Colors.white),
+                    ),
+                  ),
+                ),
+        ],
       ),
     );
   }
@@ -148,7 +403,6 @@ class _Header extends StatelessWidget {
           .doc(uid)
           .snapshots(),
       builder: (context, snapshot) {
-        // Datos por defecto mientras carga
         String nombre = 'Alumno';
         String corda = 'Iniciación';
         String inicial = 'A';
@@ -163,42 +417,42 @@ class _Header extends StatelessWidget {
         return Row(
           children: [
             Flexible(
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text('¡Hola, $nombre!',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: GingaColors.textPrimary,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('¡Hola,',
+                      style: GoogleFonts.montserrat(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: GingaColors.textSecondary)),
+                  Text(nombre,
+                      style: GoogleFonts.montserrat(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: GingaColors.textPrimary)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: GingaColors.brandGreen,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(corda,
+                          style: GoogleFonts.nunito(
+                              fontSize: 13,
+                              color: GingaColors.brandGreen,
+                              fontWeight: FontWeight.w600)),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: GingaColors.brandGreen,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      corda,
-                      style: GoogleFonts.nunito(
-                        fontSize: 13,
-                        color: GingaColors.brandGreen,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),),
+                ],
+              ),
+            ),
             const Spacer(),
-            // Timer
             Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -220,18 +474,14 @@ class _Header extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            // Avatar con inicial real
             CircleAvatar(
               radius: 20,
               backgroundColor: GingaColors.cardLight,
-              child: Text(
-                inicial,
-                style: GoogleFonts.montserrat(
-                  fontWeight: FontWeight.w700,
-                  color: GingaColors.brandGreen,
-                  fontSize: 16,
-                ),
-              ),
+              child: Text(inicial,
+                  style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w700,
+                      color: GingaColors.brandGreen,
+                      fontSize: 16)),
             ),
           ],
         );
@@ -260,12 +510,12 @@ class _WorkshopBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Workshop con Prof.',
+                Text('Taller Intensivo con Prof.',
                     style: GoogleFonts.montserrat(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF412402))),
-                Text('Daniel - Abril',
+                Text('Daniel Vereau \n13 al 28 Abril',
                     style: GoogleFonts.montserrat(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -288,15 +538,10 @@ class _WorkshopBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              color: const Color(0xFF412402).withOpacity(0.15),
-              borderRadius: BorderRadius.circular(GingaRadius.md),
-            ),
-            child: const Icon(Icons.sports_martial_arts,
-                size: 40, color: Color(0xFF412402)),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(GingaRadius.md),
+            child: Image.asset('assets/images/dani.jpg',
+                width: 120, height: 120, fit: BoxFit.cover),
           ),
         ],
       ),
@@ -357,106 +602,6 @@ class _CheckInCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────
-//  CLASE CARD
-// ─────────────────────────────────────────
-
-class _ClaseCard extends StatelessWidget {
-  final String hora;
-  final String nivel;
-  final String badge;
-  final Color badgeColor;
-  final String instructor;
-  final String cupos;
-
-  const _ClaseCard({
-    required this.hora,
-    required this.nivel,
-    required this.badge,
-    required this.badgeColor,
-    required this.instructor,
-    required this.cupos,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 44,
-            child: Text(hora,
-                style: GoogleFonts.montserrat(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary)),
-          ),
-          const SizedBox(width: 10),
-          Container(width: 1, height: 40, color: GingaColors.borderLight),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(nivel,
-                        style: GoogleFonts.montserrat(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary)),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: badgeColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(badge,
-                          style: GoogleFonts.montserrat(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: badgeColor,
-                              letterSpacing: 0.5)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(instructor,
-                    style: GoogleFonts.nunito(
-                        fontSize: 12, color: GingaColors.textSecondary)),
-                Text(cupos,
-                    style: GoogleFonts.nunito(
-                        fontSize: 11, color: GingaColors.textSecondary)),
-              ],
-            ),
-          ),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: GingaColors.brandGreen,
-              borderRadius: BorderRadius.circular(GingaRadius.full),
-            ),
-            child: Text('Reservar',
-                style: GoogleFonts.montserrat(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────
 //  SECTION TITLE
 // ─────────────────────────────────────────
 
@@ -495,14 +640,20 @@ class _NoticiasRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-            child: _NoticiaCard(
-                titulo: 'Nueva Roda de Domingo',
-                subtitulo: 'Preparate para la entrega...')),
+          child: _NoticiaCard(
+            titulo: 'Roda de Sábado',
+            subtitulo: 'Preparate para poner a prueba...',
+            imagePath: 'assets/images/roda.jpg',
+          ),
+        ),
         const SizedBox(width: 12),
         Expanded(
-            child: _NoticiaCard(
-                titulo: 'Tips: Movimientos',
-                subtitulo: 'Mejora tu ginga en casa...')),
+          child: _NoticiaCard(
+            titulo: 'Tips: Movimientos',
+            subtitulo: 'Mejora tu ginga y técnica en casa...',
+            imagePath: 'assets/images/moves.jpg',
+          ),
+        ),
       ],
     );
   }
@@ -511,7 +662,13 @@ class _NoticiasRow extends StatelessWidget {
 class _NoticiaCard extends StatelessWidget {
   final String titulo;
   final String subtitulo;
-  const _NoticiaCard({required this.titulo, required this.subtitulo});
+  final String? imagePath;
+
+  const _NoticiaCard({
+    required this.titulo,
+    required this.subtitulo,
+    this.imagePath,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -524,19 +681,24 @@ class _NoticiaCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 90,
-            decoration: BoxDecoration(
-              color: GingaColors.backgroundDark,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(GingaRadius.lg),
-                topRight: Radius.circular(GingaRadius.lg),
-              ),
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(GingaRadius.lg),
+              topRight: Radius.circular(GingaRadius.lg),
             ),
-            child: const Center(
-              child: Icon(Icons.sports_martial_arts,
-                  color: GingaColors.brandGreen, size: 32),
-            ),
+            child: imagePath != null
+                ? Image.asset(imagePath!,
+                    height: 90,
+                    width: double.infinity,
+                    fit: BoxFit.cover)
+                : Container(
+                    height: 90,
+                    color: GingaColors.backgroundDark,
+                    child: const Center(
+                      child: Icon(Icons.sports_martial_arts,
+                          color: GingaColors.brandGreen, size: 32),
+                    ),
+                  ),
           ),
           Padding(
             padding: const EdgeInsets.all(10),

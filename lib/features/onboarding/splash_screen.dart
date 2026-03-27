@@ -133,6 +133,8 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
+  // ... mismos imports ...
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -147,7 +149,7 @@ class _SplashScreenState extends State<SplashScreen>
         backgroundColor: Colors.white,
         body: Center(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center, // Centra verticalmente
             children: [
               // ── Logo animado ─────────────────────
               AnimatedBuilder(
@@ -163,14 +165,14 @@ class _SplashScreenState extends State<SplashScreen>
                 },
                 child: Image.asset(
                   'assets/images/logo_ginga.png',
-                  width: 160,
-                  height: 160,
+                  width: 180, // Aumenté un poco el tamaño para compensar el texto faltante
+                  height: 180,
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16), // Espacio corto entre logo y eslogan
 
-              // ── Texto animado ────────────────────
+              // ── Eslogan animado ────────────────────
               AnimatedBuilder(
                 animation: _textController,
                 builder: (context, child) {
@@ -182,52 +184,20 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   );
                 },
-                child: Column(
-                  children: [
-                    Text(
-                      'GINGA APP',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: GingaColors.textPrimary,
-                        letterSpacing: 3,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Comunidad & Entrenamiento',
-                      style: GoogleFonts.nunito(
-                        fontSize: 14,
-                        color: GingaColors.textSecondary,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 60),
-
-              // ── Loading indicator ────────────────
-              AnimatedBuilder(
-                animation: _textController,
-                builder: (context, child) {
-                  return Opacity(
-                    opacity: _textOpacity.value,
-                    child: child,
-                  );
-                },
-                child: SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      GingaColors.brandGreen.withOpacity(0.6),
-                    ),
+                child: Text(
+                  'Comunidad & Entrenamiento',
+                  style: GoogleFonts.nunito(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: GingaColors.textSecondary,
+                    letterSpacing: 0.8,
                   ),
                 ),
               ),
+              
+              // Eliminamos el indicador de carga para que el centrado sea perfecto
+              // Si lo necesitas, puedes dejar un SizedBox vacío
+              const SizedBox(height: 20), 
             ],
           ),
         ),
