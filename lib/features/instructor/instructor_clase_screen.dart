@@ -1,166 +1,213 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/ginga_theme.dart';
+import 'qr_generator_screen.dart';
 
-class InstructorClaseScreen extends StatefulWidget {
-  const InstructorClaseScreen({super.key});
-
-  @override
-  State<InstructorClaseScreen> createState() => _InstructorClaseScreenState();
+// Función global de navegación al QR Generator
+void _navigateToQrGenerator(
+    BuildContext context, String claseId, String nivel, String hora) {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (BuildContext ctx) => QrGeneratorScreen(
+        claseId: claseId,
+        nivel: nivel,
+        hora: hora,
+      ),
+    ),
+  );
 }
 
-class _InstructorClaseScreenState extends State<InstructorClaseScreen> {
-  final List<_AlumnoData> _alumnos = [
-    _AlumnoData(
-      nombre: 'Enrique',
-      corda: 'Corda Verde',
-      initials: 'E',
-      status: _Status.enClase,
-    ),
-    _AlumnoData(
-      nombre: 'Carla',
-      corda: 'Iniciante',
-      initials: 'C',
-      status: _Status.pagoPendiente,
-    ),
-    _AlumnoData(
-      nombre: 'Pedro',
-      corda: 'Corda Amarela',
-      initials: 'P',
-      status: _Status.reservado,
-    ),
-    _AlumnoData(
-      nombre: 'Sofía',
-      corda: 'Corda Verde/Amarela',
-      initials: 'S',
-      status: _Status.enClase,
-    ),
-  ];
+class InstructorClaseScreen extends StatelessWidget {
+  const InstructorClaseScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── AppBar ──────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 8, 16, 0),
-              child: Row(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+
+              // ── Header ──────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new,
-                        size: 18, color: GingaColors.textPrimary),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Vista Instructor',
+                          style: GoogleFonts.montserrat(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: GingaColors.textPrimary)),
+                      Text('Gestión de clases',
+                          style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              color: GingaColors.textSecondary)),
+                    ],
                   ),
-                  Expanded(
-                    child: Text(
-                      'Ginga App',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary,
-                      ),
-                    ),
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: GingaColors.brandGreen,
+                    child: Text('I',
+                        style: GoogleFonts.montserrat(
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            fontSize: 18)),
                   ),
                 ],
               ),
-            ),
 
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-                    // ── Clase actual ─────────────────
-                    _ClaseActualCard(),
+              Text('Clases de hoy',
+                  style: GoogleFonts.montserrat(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: GingaColors.textPrimary)),
 
-                    const SizedBox(height: 24),
+              const SizedBox(height: 12),
 
-                    // ── Lista de alumnos ─────────────
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Lista de Alumnos',
-                          style: GoogleFonts.montserrat(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {},
-                          child: Text(
-                            'Ver todos',
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('clases')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                          color: GingaColors.brandGreen),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: GingaColors.cardLight,
+                        borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      ),
+                      child: Center(
+                        child: Text('No hay clases registradas',
                             style: GoogleFonts.nunito(
-                              fontSize: 13,
-                              color: GingaColors.brandGreen,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                                color: GingaColors.textSecondary)),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: snapshot.data!.docs.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _ClaseInstructorCard(
+                          claseId: doc.id,
+                          hora: data['hora'] ?? '',
+                          nivel: data['nivel'] ?? '',
+                          badge: data['badge'] ?? '',
+                          dias: data['dias'] ?? '',
+                          cuposDisponibles: data['cupos_disponibles'] ?? 0,
+                          cuposMax: data['cupos_max'] ?? 10,
+                          tipo: data['tipo'] ?? 'regular',
                         ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Lista
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _alumnos.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(height: 1, color: GingaColors.borderLight),
-                      itemBuilder: (context, index) {
-                        return _AlumnoTile(alumno: _alumnos[index]);
-                      },
-                    ),
-
-                    const SizedBox(height: 100),
-                  ],
-                ),
+                      );
+                    }).toList(),
+                  );
+                },
               ),
-            ),
-          ],
-        ),
-      ),
 
-      // ── FAB QR Scanner ──────────────────────────
-      floatingActionButton: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          color: GingaColors.brandGreen,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: GingaColors.brandGreen.withOpacity(0.35),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+              const SizedBox(height: 24),
+
+              Text('Reservas recientes',
+                  style: GoogleFonts.montserrat(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: GingaColors.textPrimary)),
+
+              const SizedBox(height: 12),
+
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('reservas')
+                    .limit(5)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: GingaColors.cardLight,
+                        borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      ),
+                      child: Center(
+                        child: Text('No hay reservas aún',
+                            style: GoogleFonts.nunito(
+                                color: GingaColors.textSecondary)),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: snapshot.data!.docs.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      return _ReservaCard(
+                        nivel: data['nivel'] ?? '',
+                        hora: data['hora'] ?? '',
+                        dias: data['dias'] ?? '',
+                        status: data['status'] ?? 'confirmado',
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 32),
+            ],
+          ),
         ),
-        child: const Icon(Icons.qr_code_scanner,
-            color: Colors.white, size: 26),
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────
-//  CLASE ACTUAL CARD
+//  CLASE INSTRUCTOR CARD
 // ─────────────────────────────────────────
 
-class _ClaseActualCard extends StatelessWidget {
+class _ClaseInstructorCard extends StatelessWidget {
+  final String claseId;
+  final String hora;
+  final String nivel;
+  final String badge;
+  final String dias;
+  final int cuposDisponibles;
+  final int cuposMax;
+  final String tipo;
+
+  const _ClaseInstructorCard({
+    required this.claseId,
+    required this.hora,
+    required this.nivel,
+    required this.badge,
+    required this.dias,
+    required this.cuposDisponibles,
+    required this.cuposMax,
+    required this.tipo,
+  });
+
   @override
   Widget build(BuildContext context) {
+    final badgeColor = tipo == 'roda'
+        ? GingaColors.accentAmber
+        : GingaColors.brandGreen;
+
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
@@ -169,82 +216,96 @@ class _ClaseActualCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header con badge inscriptos
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: GingaColors.brandGreen,
+                  borderRadius: BorderRadius.circular(GingaRadius.sm),
+                ),
+                child: Text(hora,
+                    style: GoogleFonts.montserrat(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Clase Actual:',
-                      style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        color: GingaColors.textSecondary,
-                      ),
-                    ),
-                    Text(
-                      'Capoeira Adultos',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: GingaColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.access_time_outlined,
-                            size: 13, color: GingaColors.textSecondary),
-                        const SizedBox(width: 4),
-                        Text(
-                          '19:00 hrs · Sede Lima',
-                          style: GoogleFonts.nunito(
-                            fontSize: 12,
-                            color: GingaColors.textSecondary,
+                        Text(nivel,
+                            style: GoogleFonts.montserrat(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.textPrimary)),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: badgeColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(4),
                           ),
+                          child: Text(badge,
+                              style: GoogleFonts.montserrat(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: badgeColor)),
                         ),
                       ],
                     ),
+                    if (dias.isNotEmpty)
+                      Text(dias,
+                          style: GoogleFonts.nunito(
+                              fontSize: 11,
+                              color: GingaColors.textSecondary)),
                   ],
                 ),
-                // Badge inscriptos
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: GingaColors.cardLight,
-                    borderRadius: BorderRadius.circular(GingaRadius.full),
-                  ),
-                  child: Text(
-                    'Inscritos: 18/25',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: GingaColors.brandGreen,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('$cuposDisponibles/$cuposMax',
+                      style: GoogleFonts.montserrat(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: cuposDisponibles == 0
+                              ? Colors.red
+                              : GingaColors.brandGreen)),
+                  Text('cupos',
+                      style: GoogleFonts.nunito(
+                          fontSize: 10,
+                          color: GingaColors.textSecondary)),
+                ],
+              ),
+            ],
           ),
 
-          // Imagen placeholder
-          Container(
-            height: 120,
+          const SizedBox(height: 14),
+
+          SizedBox(
             width: double.infinity,
-            decoration: const BoxDecoration(
-              color: GingaColors.backgroundDark,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(GingaRadius.lg),
-                bottomRight: Radius.circular(GingaRadius.lg),
+            child: ElevatedButton.icon(
+              onPressed: () =>
+                  _navigateToQrGenerator(context, claseId, nivel, hora),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: GingaColors.brandGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                ),
+                elevation: 0,
               ),
-            ),
-            child: const Center(
-              child: Icon(Icons.sports_martial_arts,
-                  color: GingaColors.brandGreen, size: 48),
+              icon: const Icon(Icons.qr_code, size: 18),
+              label: Text('Generar QR de asistencia',
+                  style: GoogleFonts.montserrat(
+                      fontSize: 13, fontWeight: FontWeight.w700)),
             ),
           ),
         ],
@@ -254,139 +315,75 @@ class _ClaseActualCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────
-//  ALUMNO TILE
+//  RESERVA CARD
 // ─────────────────────────────────────────
 
-class _AlumnoTile extends StatelessWidget {
-  final _AlumnoData alumno;
-  const _AlumnoTile({required this.alumno});
+class _ReservaCard extends StatelessWidget {
+  final String nivel;
+  final String hora;
+  final String dias;
+  final String status;
+
+  const _ReservaCard({
+    required this.nivel,
+    required this.hora,
+    required this.dias,
+    required this.status,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        border: Border.all(color: GingaColors.borderLight),
+      ),
       child: Row(
         children: [
-          // Avatar
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: GingaColors.cardLight,
-            child: Text(
-              alumno.initials,
-              style: GoogleFonts.montserrat(
-                fontWeight: FontWeight.w700,
-                color: GingaColors.brandGreen,
-                fontSize: 15,
-              ),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: GingaColors.brandGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(GingaRadius.sm),
             ),
+            child: const Icon(Icons.person_outline,
+                color: GingaColors.brandGreen, size: 20),
           ),
           const SizedBox(width: 12),
-
-          // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  alumno.nombre,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary,
-                  ),
-                ),
-                Text(
-                  alumno.corda,
-                  style: GoogleFonts.nunito(
-                    fontSize: 12,
-                    color: GingaColors.textSecondary,
-                  ),
-                ),
+                Text(nivel,
+                    style: GoogleFonts.montserrat(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textPrimary)),
+                Text('$hora — $dias',
+                    style: GoogleFonts.nunito(
+                        fontSize: 12, color: GingaColors.textSecondary)),
               ],
             ),
           ),
-
-          // Badge de estado
-          _StatusBadge(status: alumno.status),
-
-          const SizedBox(width: 8),
-
-          // Menú
-          const Icon(Icons.more_vert,
-              size: 18, color: GingaColors.textSecondary),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: GingaColors.brandGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(GingaRadius.full),
+            ),
+            child: Text(status,
+                style: GoogleFonts.montserrat(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.brandGreen)),
+          ),
         ],
       ),
     );
   }
-}
-
-// ─────────────────────────────────────────
-//  STATUS BADGE
-// ─────────────────────────────────────────
-
-class _StatusBadge extends StatelessWidget {
-  final _Status status;
-  const _StatusBadge({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    Color bg;
-    Color text;
-    String label;
-
-    switch (status) {
-      case _Status.enClase:
-        bg = GingaColors.brandGreen.withOpacity(0.12);
-        text = GingaColors.brandGreen;
-        label = 'EN CLASE';
-        break;
-      case _Status.pagoPendiente:
-        bg = GingaColors.accentAmber.withOpacity(0.15);
-        text = const Color(0xFF856200);
-        label = 'PAGO PENDIENTE';
-        break;
-      case _Status.reservado:
-        bg = GingaColors.borderLight;
-        text = GingaColors.textSecondary;
-        label = 'RESERVADO';
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(GingaRadius.sm),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.montserrat(
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
-          color: text,
-          letterSpacing: 0.3,
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────
-//  MODELOS
-// ─────────────────────────────────────────
-
-enum _Status { enClase, pagoPendiente, reservado }
-
-class _AlumnoData {
-  final String nombre;
-  final String corda;
-  final String initials;
-  final _Status status;
-
-  _AlumnoData({
-    required this.nombre,
-    required this.corda,
-    required this.initials,
-    required this.status,
-  });
 }

@@ -66,5 +66,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+<key>NSCameraUsageDescription</key>
+<string>Ginga App necesita la cámara para escanear el QR de asistencia</string>	
 </dict>
 </plist>

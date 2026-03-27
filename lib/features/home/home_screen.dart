@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,6 +6,14 @@ import '../../core/theme/ginga_theme.dart';
 import '../eventos/eventos_screen.dart';
 import '../perfil/progreso_screen.dart';
 import '../biblioteca/biblioteca_screen.dart';
+import 'qr_scanner_screen.dart';
+
+// Función global de navegación al QR Scanner
+void _navigateToQrScanner(BuildContext context) {
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (BuildContext ctx) => QrScannerScreen()),
+  );
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -63,10 +70,7 @@ class _HomeDashboard extends StatelessWidget {
             const SizedBox(height: 20),
             _SectionTitle(title: 'Clases del día', actionLabel: 'Ver todas'),
             const SizedBox(height: 12),
-
-            // ── Clases desde Firestore ───────────────
             _ClasesFirestore(),
-
             const SizedBox(height: 20),
             _SectionTitle(title: 'Últimas noticias', actionLabel: 'Ver todas'),
             const SizedBox(height: 12),
@@ -89,7 +93,6 @@ class _ClasesFirestore extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('clases')
-          // .orderBy('hora')
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -125,7 +128,7 @@ class _ClasesFirestore extends StatelessWidget {
             final data = doc.data() as Map<String, dynamic>;
             final cuposDisponibles = data['cupos_disponibles'] ?? 0;
             final cuposMax = data['cupos_max'] ?? 10;
-            final badgeColor = data['badge'] == 'Intermedio'
+            final badgeColor = data['tipo'] == 'roda'
                 ? GingaColors.accentAmber
                 : GingaColors.brandGreen;
 
@@ -138,6 +141,7 @@ class _ClasesFirestore extends StatelessWidget {
                 badge: data['badge'] ?? '',
                 badgeColor: badgeColor,
                 instructor: data['instructor'] ?? '',
+                dias: data['dias'] ?? '',
                 cuposDisponibles: cuposDisponibles,
                 cuposMax: cuposMax,
               ),
@@ -160,6 +164,7 @@ class _ClaseCardFirestore extends StatefulWidget {
   final String badge;
   final Color badgeColor;
   final String instructor;
+  final String dias;
   final int cuposDisponibles;
   final int cuposMax;
 
@@ -170,6 +175,7 @@ class _ClaseCardFirestore extends StatefulWidget {
     required this.badge,
     required this.badgeColor,
     required this.instructor,
+    required this.dias,
     required this.cuposDisponibles,
     required this.cuposMax,
   });
@@ -188,7 +194,6 @@ class _ClaseCardFirestoreState extends State<_ClaseCardFirestore> {
     _checkReserva();
   }
 
-  // Verifica si el usuario ya reservó esta clase
   Future<void> _checkReserva() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -204,7 +209,6 @@ class _ClaseCardFirestoreState extends State<_ClaseCardFirestore> {
     }
   }
 
-  // Lógica de reserva con transacción Firestore
   Future<void> _reservar() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -223,7 +227,6 @@ class _ClaseCardFirestoreState extends State<_ClaseCardFirestore> {
     setState(() => _isLoading = true);
 
     try {
-      // Transacción atómica — descuenta cupo y crea reserva
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final claseRef = FirebaseFirestore.instance
             .collection('clases')
@@ -234,10 +237,8 @@ class _ClaseCardFirestoreState extends State<_ClaseCardFirestore> {
 
         if (cupos <= 0) throw Exception('Sin cupos');
 
-        // Descuenta 1 cupo
         transaction.update(claseRef, {'cupos_disponibles': cupos - 1});
 
-        // Crea la reserva
         final reservaRef =
             FirebaseFirestore.instance.collection('reservas').doc();
         transaction.set(reservaRef, {
@@ -245,6 +246,7 @@ class _ClaseCardFirestoreState extends State<_ClaseCardFirestore> {
           'clase_id': widget.claseId,
           'nivel': widget.nivel,
           'hora': widget.hora,
+          'dias': widget.dias,
           'status': 'confirmado',
           'created_at': FieldValue.serverTimestamp(),
         });
@@ -333,7 +335,13 @@ class _ClaseCardFirestoreState extends State<_ClaseCardFirestore> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
+                if (widget.dias.isNotEmpty)
+                  Text(widget.dias,
+                      style: GoogleFonts.montserrat(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: GingaColors.textSecondary)),
                 Text(widget.instructor,
                     style: GoogleFonts.nunito(
                         fontSize: 12, color: GingaColors.textSecondary)),
@@ -346,8 +354,6 @@ class _ClaseCardFirestoreState extends State<_ClaseCardFirestore> {
               ],
             ),
           ),
-
-          // Botón Reservar / Reservado
           _isLoading
               ? const SizedBox(
                   width: 20,
@@ -387,7 +393,7 @@ class _ClaseCardFirestoreState extends State<_ClaseCardFirestore> {
 }
 
 // ─────────────────────────────────────────
-//  HEADER — datos reales de Firestore
+//  HEADER
 // ─────────────────────────────────────────
 
 class _Header extends StatelessWidget {
@@ -585,15 +591,18 @@ class _CheckInCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: GingaColors.cardLight,
-              borderRadius: BorderRadius.circular(GingaRadius.md),
+          GestureDetector(
+            onTap: () => _navigateToQrScanner(context),
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: GingaColors.cardLight,
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+              ),
+              child: const Icon(Icons.qr_code_scanner,
+                  size: 30, color: GingaColors.brandGreen),
             ),
-            child: const Icon(Icons.qr_code_scanner,
-                size: 30, color: GingaColors.brandGreen),
           ),
         ],
       ),
