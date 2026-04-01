@@ -16,19 +16,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<_OnboardingData> _pages = [
     _OnboardingData(
-      imagePath: 'assets/images/onboarding_1.jpg',
-      title: 'Tu entrenamiento en un solo lugar',
-      subtitle: 'Gestiona tus clases, eventos y progreso técnico de forma sencilla.',
+      imagePath: 'assets/images/onbo1.jpg',
+     title: 'Reserva tu clase\nde Capoeira',
+    subtitle: 'Ve los horarios disponibles y reserva tu lugar en segundos. Tu primera clase es gratis.',
     ),
     _OnboardingData(
-      imagePath: 'assets/images/onboarding_2.jpg',
-      title: 'Domina el ritmo con IA',
-      subtitle: 'Afinador inteligente, identifica toques y mejora tu musicalidad.',
+      imagePath: 'assets/images/onbo2.jpg',
+        title: 'Sigue tu camino\nde graduación',
+    subtitle: 'Registra tu asistencia, acumula experiencia y avanza en tu corda paso a paso.',
     ),
     _OnboardingData(
-      imagePath: 'assets/images/onboarding_3.jpg',
-      title: 'Cultura y Comunidad',
-      subtitle: 'Accede a tutoriales, historia y participa en eventos internacionales.',
+      imagePath: 'assets/images/onbo3.jpg',
+     title: 'Sumérgete en la \nesencia de la capoeira',
+    subtitle: 'Practica el berimbau, aprende cantigas y descubre la cultura de la Capoeira.',
     ),
   ];
 
@@ -39,7 +39,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-      context.go('/role-selection');
+context.go('/profile-creation');
     }
   }
 
@@ -95,29 +95,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Logo
-                    Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: GingaColors.brandGreen,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.sports_martial_arts,
-                              color: Colors.white, size: 18),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Ginga App',
-                          style: GoogleFonts.montserrat(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ],
-                    ),
+                    // Row(
+                    //   children: [
+                    //     Container(
+                    //       width: 32,
+                    //       height: 32,
+                    //       decoration: BoxDecoration(
+                    //         color: GingaColors.brandGreen,
+                    //         borderRadius: BorderRadius.circular(8),
+                    //       ),
+                    //       child: const Icon(Icons.sports_martial_arts,
+                    //           color: Colors.white, size: 18),
+                    //     ),
+                    //     const SizedBox(width: 8),
+                    //     // Text(
+                    //     //   'Ginga App',
+                    //     //   style: GoogleFonts.montserrat(
+                    //     //     color: Colors.white,
+                    //     //     fontWeight: FontWeight.w700,
+                    //     //     fontSize: 15,
+                    //     //   ),
+                    //     // ),
+                    //   ],
+                    // ),
 
                     const SizedBox(height: 24),
 
@@ -198,7 +198,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     // Saltar introducción
                     Center(
                       child: GestureDetector(
-                        onTap: () => context.go('/role-selection'),
+onTap: () => context.go('/profile-creation'),
                         child: Text(
                           'Saltar introducción',
                           style: GoogleFonts.nunito(

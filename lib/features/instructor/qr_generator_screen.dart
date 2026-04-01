@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme/ginga_theme.dart';
@@ -37,6 +38,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
     final fecha =
         '${ahora.year}-${ahora.month.toString().padLeft(2, '0')}-${ahora.day.toString().padLeft(2, '0')}';
 
+    // Crea o recupera la sesión de hoy
     final sesionRef = await FirebaseFirestore.instance
         .collection('sesiones')
         .add({
@@ -54,12 +56,15 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
       _isLoading = false;
     });
 
+    // Escucha asistencias en tiempo real
     FirebaseFirestore.instance
         .collection('asistencias')
         .where('sesion_id', isEqualTo: sesionRef.id)
         .snapshots()
         .listen((snap) {
-      if (mounted) setState(() => _asistencias = snap.docs.length);
+      if (mounted) {
+        setState(() => _asistencias = snap.docs.length);
+      }
     });
   }
 
@@ -76,13 +81,14 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: GingaColors.brandGreen))
+              child: CircularProgressIndicator(
+                  color: GingaColors.brandGreen))
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    // Info clase
+                    // Info de la clase
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
@@ -107,40 +113,46 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
 
                     const SizedBox(height: 32),
 
-                    // QR Placeholder
+                    // QR Code
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(GingaRadius.lg),
                         border: Border.all(color: GingaColors.borderLight),
-                      ),
-                      child: Column(
-                        children: [
-                          const Icon(Icons.qr_code,
-                              size: 160, color: GingaColors.brandGreen),
-                          const SizedBox(height: 8),
-                          Text(
-                            _sesionId ?? '',
-                            style: GoogleFonts.nunito(
-                                fontSize: 10,
-                                color: GingaColors.textSecondary),
-                            textAlign: TextAlign.center,
-                          ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                          )
                         ],
+                      ),
+                      child: QrImageView(
+                        data: _sesionId!,
+                        version: QrVersions.auto,
+                        size: 220,
+                        eyeStyle: const QrEyeStyle(
+                          eyeShape: QrEyeShape.square,
+                          color: GingaColors.brandGreen,
+                        ),
+                        dataModuleStyle: const QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.square,
+                          color: GingaColors.textPrimary,
+                        ),
                       ),
                     ),
 
                     const SizedBox(height: 24),
 
-                    Text('Muestra este QR a tus alumnos',
-                        style: GoogleFonts.nunito(
-                            fontSize: 14,
-                            color: GingaColors.textSecondary)),
+                    Text(
+                      'Muestra este QR a tus alumnos',
+                      style: GoogleFonts.nunito(
+                          fontSize: 14, color: GingaColors.textSecondary),
+                    ),
 
                     const SizedBox(height: 32),
 
-                    // Contador asistencias
+                    // Contador de asistencias en tiempo real
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
@@ -150,20 +162,25 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                       ),
                       child: Column(
                         children: [
-                          Text('$_asistencias',
-                              style: GoogleFonts.montserrat(
-                                  fontSize: 48,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white)),
-                          Text('alumnos registrados',
-                              style: GoogleFonts.nunito(
-                                  fontSize: 14, color: Colors.white70)),
+                          Text(
+                            '$_asistencias',
+                            style: GoogleFonts.montserrat(
+                                fontSize: 48,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white),
+                          ),
+                          Text(
+                            'alumnos registrados',
+                            style: GoogleFonts.nunito(
+                                fontSize: 14, color: Colors.white70),
+                          ),
                         ],
                       ),
                     ),
 
                     const Spacer(),
 
+                    // Botón cerrar sesión
                     SizedBox(
                       width: double.infinity,
                       height: 52,
