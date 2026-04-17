@@ -5,80 +5,93 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Run the app
-flutter run                  # Default device
 flutter run -d ios           # iOS simulator
 flutter run -d android       # Android emulator
-
-# Build
 flutter build apk            # Android APK
 flutter build ios            # iOS
-flutter build web            # Web
-
-# Dependencies
 flutter pub get              # Install packages
-flutter pub upgrade          # Upgrade packages
-
-# Lint & analyze
 flutter analyze              # Static analysis (flutter_lints)
-
-# Tests
 flutter test                 # Run all tests
 flutter test test/widget_test.dart  # Run single test file
 ```
 
 ## Architecture Overview
 
-**Ginga App** is a Capoeira training and community platform built with Flutter + Firebase. It supports two roles: `alumno` (student) and `profesor` (instructor), with role-based routing.
+**Ginga App** is a Capoeira training platform built with Flutter + Firebase. Two roles: `alumno` (student) and `profesor` (instructor).
 
-### Navigation
+### Navigation & Role Routing
 
-GoRouter with auth-based redirect — defined in [lib/core/router/app_router.dart](lib/core/router/app_router.dart).
-
+GoRouter ([lib/core/router/app_router.dart](lib/core/router/app_router.dart)) handles only auth-based redirects:
 - Unauthenticated → `/login`
 - Authenticated → `/home`
-- Role is stored in Firestore `users/{uid}.rol` and read on auth redirect to determine available routes
 
-### Feature Structure
+**Role-based routing happens in `SplashScreen`**, not the router. On launch it reads `users/{uid}.rol` from Firestore and pushes:
+- `profesor` → `/instructor-clase`
+- `alumno` / default → `/home`
+- No profile found → `/profile-creation`
 
-```
-lib/
-├── core/
-│   ├── router/       # GoRouter config
-│   └── theme/        # GingaTheme — colors, typography, spacing tokens (Material3)
-└── features/
-    ├── auth/         # Login, role selection, profile creation
-    ├── home/         # Dashboard with class list and QR scanner (alumno)
-    ├── biblioteca/   # Tutorial library with sections and lessons
-    ├── eventos/      # Events listing
-    ├── perfil/       # User profile and progress (corda/belt tracking)
-    ├── instructor/   # QR code generator and class management (instructor only)
-    └── onboarding/   # Splash screen and onboarding flow
-```
+The router does **not** enforce role guards — nothing prevents direct URL navigation to instructor screens.
+
+### User Status Flow
+
+`users/{uid}.status` drives the entire student dashboard UI:
+
+| Status | Dashboard behavior |
+|---|---|
+| `nuevo` | Shows available classes for trial booking (1 free class) |
+| `prueba` | Shows pending reservation, disables further booking |
+| `activo` | Shows assigned class + QR check-in button |
+| `inactivo` | Shows locked UI with renewal prompt |
+
+Booking uses a Firestore transaction: atomically decrements `clases.cupos_disponibles`, creates a `reservas` doc, and updates user status to `prueba`.
+
+### QR Attendance System
+
+Two-screen flow across roles:
+1. **Instructor** (`qr_generator_screen.dart`): Creates a `sesiones` document, displays its ID as a QR code, streams real-time attendance count
+2. **Student** (`qr_scanner_screen.dart`): Scans QR → reads `sesiones/{id}` → writes to `asistencias` collection
+
+### HomeScreen Layout
+
+`HomeScreen` is a 4-tab `IndexedStack` (no route changes, preserves state):
+1. Dashboard (status-driven content above)
+2. Eventos
+3. Biblioteca
+4. Perfil
 
 ### State Management
 
-No centralized state manager. Each screen uses `StatefulWidget` + `setState()`. Real-time Firestore data is consumed via `StreamBuilder`. The `provider` package is declared but not actively used.
+`StatefulWidget` + `setState()` everywhere. `StreamBuilder` for real-time Firestore. The `provider` package is declared in pubspec but **not used anywhere** — ignore it.
 
-### Data Layer
+### Firestore Collections
 
-No repository/service abstraction. Firebase is called directly from widgets:
-
-```dart
-FirebaseAuth.instance
-FirebaseFirestore.instance
-FirebaseStorage.instance
+```
+users       — rol, nombre, email, sede, corda, fecha_inicio, status, created_at
+clases      — hora, nivel, instructor, dias, badge, tipo (regular|roda), cupos_max, cupos_disponibles
+reservas    — user_id, clase_id, nivel, hora, dias, status, tipo, created_at
+sesiones    — clase_id, instructor_id, nivel, hora, fecha, created_at, activa
+asistencias — sesion_id, user_id, created_at (implied)
 ```
 
-**Key Firestore collections:**
-- `users` — profile data: `rol`, `nombre`, `corda`, etc.
-- `clases` — class data: `hora`, `nivel`, `instructor`, `dias`, `cupos_max`, `cupos_disponibles`
-- `reservas` — reservations: `user_id`, `clase_id`, `status`, `created_at`
+No Firestore security rules or indexes are stored in this repo (managed via Firebase Console).
 
 ### Design System
 
-Custom `GingaTheme` in [lib/core/theme/](lib/core/theme/) — wraps Material3 with brand colors (green/amber), Montserrat + Nunito fonts, spacing scale, and border radius tokens. Always use theme tokens rather than hardcoded values.
+`GingaTheme` in [lib/core/theme/ginga_theme.dart](lib/core/theme/ginga_theme.dart) — always use these tokens, never hardcode values:
+
+- **Colors:** `GingaColors.brandGreen` (#388E3C), `GingaColors.accentAmber` (#FBC02D), plus full light/dark palettes
+- **Spacing:** `GingaSpacing.xs/sm/md/lg/xl/xxl` (4/8/16/24/32/48)
+- **Radius:** `GingaRadius.sm/md/lg/xl/full` (8/12/16/24/100)
+- **Typography:** `GingaTextStyles` — Montserrat (headers) + Nunito (body), light/dark variants
+- Theme mode: `ThemeMode.system` set in `main.dart`
 
 ### Firebase Config
 
-Firebase credentials live in [lib/firebase_options.dart](lib/firebase_options.dart) (auto-generated by FlutterFire CLI — do not edit manually). Firebase project: `capoeirafiu-ea8ljo`.
+`lib/firebase_options.dart` is auto-generated by FlutterFire CLI — do not edit manually. Project: `capoeirafiu-ea8ljo`.
+
+### Known Gaps
+
+- No service/repository layer — Firebase called directly from widgets
+- `eventos` screen uses hardcoded static data, not Firestore
+- No test coverage (placeholder test only)
+- `/tutorial-detail` route defined twice in router (duplicate)

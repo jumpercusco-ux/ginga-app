@@ -96,6 +96,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
             : null,
         'rol': 'alumno',
         'created_at': FieldValue.serverTimestamp(),
+        'status': 'nuevo',//los estados son con minuscula nuevo, prueba, activo, inactivo
       });
 
       if (mounted) context.go('/home');
