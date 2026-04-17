@@ -388,6 +388,22 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
 
                 const SizedBox(height: 16),
 
+                GestureDetector(
+                  onTap: () => context.go('/login'),
+                  child: Text(
+                    '¿Ya tienes cuenta? Inicia sesión',
+                    style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      color: GingaColors.brandGreen,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.underline,
+                      decorationColor: GingaColors.brandGreen,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
                 Text('GINGA APP • COMUNIDAD GLOBAL',
                     style: GoogleFonts.montserrat(
                         fontSize: 10,
