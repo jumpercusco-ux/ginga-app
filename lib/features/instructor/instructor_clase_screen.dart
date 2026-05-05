@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'qr_generator_screen.dart';
 
@@ -25,6 +26,29 @@ class InstructorClaseScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: SizedBox(
+            height: 54,
+            child: ElevatedButton.icon(
+              onPressed: () => context.push('/crear-clase'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: GingaColors.brandGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(GingaRadius.full),
+                ),
+                elevation: 0,
+              ),
+              icon: const Icon(Icons.accessibility_new, size: 20),
+              label: Text('Crea tu clase',
+                  style: GoogleFonts.montserrat(
+                      fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20),

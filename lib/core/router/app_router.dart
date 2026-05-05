@@ -8,6 +8,7 @@ import 'package:ginga_app/features/auth/profile_creation_screen.dart';
 import 'package:ginga_app/features/auth/login_screen.dart';
 import 'package:ginga_app/features/home/home_screen.dart';
 import 'package:ginga_app/features/instructor/instructor_clase_screen.dart';
+import 'package:ginga_app/features/instructor/crear_clase_screen.dart';
 
 // 🟢 NUEVOS IMPORTS
 import 'package:ginga_app/features/biblioteca/practicar_toque_screen.dart';
@@ -53,6 +54,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/instructor-clase',
       builder: (context, state) => const InstructorClaseScreen(),
+    ),
+    GoRoute(
+      path: '/crear-clase',
+      builder: (context, state) => const CrearClaseScreen(),
     ),
     
     // 🟢 NUEVAS RUTAS CONECTADAS
