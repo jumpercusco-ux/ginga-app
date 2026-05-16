@@ -96,6 +96,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
             : null,
         'rol': 'alumno',
         'created_at': FieldValue.serverTimestamp(),
+        'status': 'nuevo',//los estados son con minuscula nuevo, prueba, activo, inactivo
       });
 
       if (mounted) context.go('/home');
@@ -382,6 +383,22 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                               const Icon(Icons.arrow_forward, size: 18),
                             ],
                           ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                GestureDetector(
+                  onTap: () => context.go('/login'),
+                  child: Text(
+                    '¿Ya tienes cuenta? Inicia sesión',
+                    style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      color: GingaColors.brandGreen,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.underline,
+                      decorationColor: GingaColors.brandGreen,
+                    ),
                   ),
                 ),
 

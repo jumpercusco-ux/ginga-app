@@ -39,7 +39,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-context.go('/profile-creation');
+context.go('/login');
     }
   }
 
@@ -198,7 +198,7 @@ context.go('/profile-creation');
                     // Saltar introducción
                     Center(
                       child: GestureDetector(
-onTap: () => context.go('/profile-creation'),
+onTap: () => context.go('/login'),
                         child: Text(
                           'Saltar introducción',
                           style: GoogleFonts.nunito(

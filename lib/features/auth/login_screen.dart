@@ -253,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 // Registro
                 GestureDetector(
-                  onTap: () => context.go('/role-selection'),
+                  onTap: () => context.go('/profile-creation'),
                   child: RichText(
                     text: TextSpan(
                       text: '¿No tienes cuenta? ',
