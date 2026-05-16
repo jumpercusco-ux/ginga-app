@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "543186587052",
+    "project_id": "capoeirafiu-ea8ljo",
+    "storage_bucket": "capoeirafiu-ea8ljo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:543186587052:android:3303ab9969fa965ed87e09",
+        "android_client_info": {
+          "package_name": "com.jumperstudio.ginga_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmBdLTQYFqM6Wds-Gegi_jb4ACF762ZBY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:543186587052:android:02a2b1a1152b96c3d87e09",
+        "android_client_info": {
+          "package_name": "com.mycompany.crmapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmBdLTQYFqM6Wds-Gegi_jb4ACF762ZBY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
