@@ -69,7 +69,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       _scanned = true;
     });
 
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
     try {
