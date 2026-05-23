@@ -79,7 +79,7 @@ final appRouter = GoRouter(
       builder: (context, state) => const TiendaScreen(),
     ),
     GoRoute(
-      path: '/producto-detalle',
+      path: '/producto-detail',
       builder: (context, state) {
         final productoId = state.uri.queryParameters['productoId'] ?? '';
         return ProductoDetalleScreen(productoId: productoId);
