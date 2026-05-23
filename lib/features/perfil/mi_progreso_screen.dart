@@ -456,7 +456,7 @@ class _RequisitoItem extends StatelessWidget {
 //  MODELOS
 // ─────────────────────────────────────────
 
-enum _CordaStatus { activa, completada, pendiente }
+enum _CordaStatus { activa, completada }
 
 class _CordaItem {
   final String nombre;

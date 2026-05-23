@@ -113,14 +113,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 Image.asset('assets/images/logo_ginga.png', width: 140, height: 140),
                 const SizedBox(height: 20),
 
-                // Text('Ginga App',
-                //     style: GoogleFonts.montserrat(
-                //         fontSize: 28,
-                //         fontWeight: FontWeight.w800,
-                //         color: GingaColors.textPrimary)),
-
-                // const SizedBox(height: 8),
-
                 Text('Inicia sesión para continuar',
                     style: GoogleFonts.nunito(
                         fontSize: 14, color: GingaColors.textSecondary)),

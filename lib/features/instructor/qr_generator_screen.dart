@@ -38,34 +38,62 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
     final fecha =
         '${ahora.year}-${ahora.month.toString().padLeft(2, '0')}-${ahora.day.toString().padLeft(2, '0')}';
 
-    // Crea o recupera la sesión de hoy
-    final sesionRef = await FirebaseFirestore.instance
-        .collection('sesiones')
-        .add({
-      'clase_id': widget.claseId,
-      'instructor_id': uid,
-      'nivel': widget.nivel,
-      'hora': widget.hora,
-      'fecha': fecha,
-      'created_at': FieldValue.serverTimestamp(),
-      'activa': true,
-    });
+    try {
+      // Busca si ya existe una sesión activa para esta clase el día de hoy
+      final existencias = await FirebaseFirestore.instance
+          .collection('sesiones')
+          .where('clase_id', isEqualTo: widget.claseId)
+          .where('fecha', isEqualTo: fecha)
+          .where('activa', isEqualTo: true)
+          .get();
 
-    setState(() {
-      _sesionId = sesionRef.id;
-      _isLoading = false;
-    });
+      String sesionId;
 
-    // Escucha asistencias en tiempo real
-    FirebaseFirestore.instance
-        .collection('asistencias')
-        .where('sesion_id', isEqualTo: sesionRef.id)
-        .snapshots()
-        .listen((snap) {
-      if (mounted) {
-        setState(() => _asistencias = snap.docs.length);
+      if (existencias.docs.isNotEmpty) {
+        // Reutiliza la sesión activa existente
+        sesionId = existencias.docs.first.id;
+      } else {
+        // Crea una nueva sesión si no hay una activa hoy
+        final sesionRef = await FirebaseFirestore.instance
+            .collection('sesiones')
+            .add({
+          'clase_id': widget.claseId,
+          'instructor_id': uid,
+          'nivel': widget.nivel,
+          'hora': widget.hora,
+          'fecha': fecha,
+          'created_at': FieldValue.serverTimestamp(),
+          'activa': true,
+        });
+        sesionId = sesionRef.id;
       }
-    });
+
+      if (!mounted) return;
+
+      setState(() {
+        _sesionId = sesionId;
+        _isLoading = false;
+      });
+
+      // Escucha asistencias en tiempo real
+      FirebaseFirestore.instance
+          .collection('asistencias')
+          .where('sesion_id', isEqualTo: sesionId)
+          .snapshots()
+          .listen((snap) {
+        if (mounted) {
+          setState(() => _asistencias = snap.docs.length);
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error al cargar la sesión de hoy',
+              style: GoogleFonts.nunito(color: Colors.white)),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
   }
 
   @override

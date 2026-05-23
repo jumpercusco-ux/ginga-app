@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/ginga_theme.dart';
-import 'evento_detalle_screen.dart';
-
 
 class EventoDetalleScreen extends StatelessWidget {
   const EventoDetalleScreen({super.key});

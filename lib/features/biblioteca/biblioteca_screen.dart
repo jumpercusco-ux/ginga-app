@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'practicar_toque_screen.dart';
-import 'package:go_router/go_router.dart';
 import 'tutor_detail_screen.dart';
 
 

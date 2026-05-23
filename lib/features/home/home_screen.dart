@@ -6,6 +6,7 @@ import '../../core/theme/ginga_theme.dart';
 import '../eventos/eventos_screen.dart';
 import '../perfil/progreso_screen.dart';
 import '../biblioteca/biblioteca_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'qr_scanner_screen.dart';
 
 // Constantes de estado
@@ -78,10 +79,25 @@ class _HomeDashboard extends StatelessWidget {
         }
 
         final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-        final status = data['status'] ?? UserStatus.nuevo;
+        String status = data['status'] ?? UserStatus.nuevo;
         final nombre = data['nombre'] ?? 'Alumno';
         final corda = data['corda'] ?? 'Iniciación';
         final claseId = data['clase_id'] ?? '';
+        final Timestamp? membresiaFin = data['membresia_fin'];
+        
+        // Chequeo de expiración de membresía
+        if (status == UserStatus.activo && data['membresia_fin'] != null) {
+          final Timestamp finTimestamp = data['membresia_fin'];
+          if (DateTime.now().isAfter(finTimestamp.toDate())) {
+            status = UserStatus.inactivo; // Para la UI inmediata
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(uid)
+                  .update({'status': UserStatus.inactivo});
+            });
+          }
+        }
 
         return SafeArea(
           child: SingleChildScrollView(
@@ -92,11 +108,11 @@ class _HomeDashboard extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // Header siempre visible
-                _Header(nombre: nombre, corda: corda),
+                _Header(nombre: nombre, corda: corda, uid: uid ?? ''),
                 const SizedBox(height: 20),
 
                 // Banner según estado
-                _StatusBanner(status: status),
+                _StatusBanner(status: status, membresiaFin: membresiaFin),
                 const SizedBox(height: 20),
 
                 // Contenido según estado
@@ -105,7 +121,10 @@ class _HomeDashboard extends StatelessWidget {
                   claseId: claseId,
                   uid: uid ?? '',
                 ),
+                const SizedBox(height: 20),
 
+                // Promo de la Tienda
+                const _StorePromoBanner(),
                 const SizedBox(height: 20),
 
                 // Noticias — siempre visible
@@ -129,10 +148,36 @@ class _HomeDashboard extends StatelessWidget {
 
 class _StatusBanner extends StatelessWidget {
   final String status;
-  const _StatusBanner({required this.status});
+  final Timestamp? membresiaFin;
+  const _StatusBanner({required this.status, this.membresiaFin});
 
   @override
   Widget build(BuildContext context) {
+    if (status == UserStatus.activo && membresiaFin != null) {
+      final ahora = DateTime.now();
+      final fin = DateTime(membresiaFin!.toDate().year, membresiaFin!.toDate().month, membresiaFin!.toDate().day);
+      final hoy = DateTime(ahora.year, ahora.month, ahora.day);
+      final diasRestantes = fin.difference(hoy).inDays;
+
+      if (diasRestantes >= 0 && diasRestantes <= 5) {
+        final String fechaFormateada = '${fin.day.toString().padLeft(2, '0')}/${fin.month.toString().padLeft(2, '0')}';
+        final String mensajeDias = diasRestantes == 0 
+            ? 'vence HOY ⚠️' 
+            : diasRestantes == 1 
+                ? 'vence MAÑANA ⚠️' 
+                : 'vence en $diasRestantes días ⚠️';
+        
+        return _Banner(
+          color: const Color(0xFFFF9800), // Ámbar / Naranja de advertencia
+          icono: Icons.lock_clock,
+          titulo: 'Alerta de membresía',
+          subtitulo: 'Tu membresía $mensajeDias ($fechaFormateada). Evita la suspensión de tu acceso coordinando tu pago con el profesor.',
+          accion: 'Ver pago',
+          onTap: () {},
+        );
+      }
+    }
+
     switch (status) {
       case UserStatus.nuevo:
         return _Banner(
@@ -276,7 +321,7 @@ class _ContentByStatus extends StatelessWidget {
           ],
         );
 
-      // PRUEBA — ve su reserva pendiente
+      // PRUEBA — ve su reserva pendiente + check-in QR
       case UserStatus.prueba:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,6 +329,8 @@ class _ContentByStatus extends StatelessWidget {
             _SectionTitle(title: 'Tu reserva', actionLabel: ''),
             const SizedBox(height: 12),
             _ReservaPendiente(uid: uid),
+            const SizedBox(height: 16),
+            _CheckInCard(),
           ],
         );
 
@@ -365,7 +412,7 @@ class _ClasesNuevo extends StatelessWidget {
   }
 }
 
-class _ClaseCardNuevo extends StatefulWidget {
+class _ClaseCardNuevo extends StatelessWidget {
   final String claseId;
   final String hora;
   final String nivel;
@@ -389,183 +436,91 @@ class _ClaseCardNuevo extends StatefulWidget {
   });
 
   @override
-  State<_ClaseCardNuevo> createState() => _ClaseCardNuevoState();
-}
-
-class _ClaseCardNuevoState extends State<_ClaseCardNuevo> {
-  bool _isLoading = false;
-  bool _isReservado = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkReserva();
-  }
-
-  Future<void> _checkReserva() async {
-    final reserva = await FirebaseFirestore.instance
-        .collection('reservas')
-        .where('user_id', isEqualTo: widget.uid)
-        .where('clase_id', isEqualTo: widget.claseId)
-        .get();
-    if (mounted && reserva.docs.isNotEmpty) {
-      setState(() => _isReservado = true);
-    }
-  }
-
-  Future<void> _reservarPrueba() async {
-    setState(() => _isLoading = true);
-
-    try {
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        final claseRef = FirebaseFirestore.instance
-            .collection('clases')
-            .doc(widget.claseId);
-        final claseDoc = await transaction.get(claseRef);
-        final cupos = claseDoc['cupos_disponibles'] as int;
-        if (cupos <= 0) throw Exception('Sin cupos');
-
-        transaction.update(claseRef, {'cupos_disponibles': cupos - 1});
-
-        final reservaRef =
-            FirebaseFirestore.instance.collection('reservas').doc();
-        transaction.set(reservaRef, {
-          'user_id': widget.uid,
-          'clase_id': widget.claseId,
-          'nivel': widget.nivel,
-          'hora': widget.hora,
-          'dias': widget.dias,
-          'status': 'confirmado',
-          'tipo': 'prueba',
-          'created_at': FieldValue.serverTimestamp(),
-        });
-
-        // Cambia status del usuario a "prueba"
-        final userRef = FirebaseFirestore.instance
-            .collection('users')
-            .doc(widget.uid);
-        transaction.update(userRef, {'status': UserStatus.prueba});
-      });
-
-      if (mounted) {
-        setState(() => _isReservado = true);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('¡Clase de prueba reservada! 🎉',
-              style: GoogleFonts.nunito(color: Colors.white)),
-          backgroundColor: GingaColors.brandGreen,
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error al reservar. Intenta de nuevo.',
-              style: GoogleFonts.nunito(color: Colors.white)),
-          backgroundColor: Colors.red,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final badgeColor = widget.tipo == 'roda'
+    final badgeColor = tipo == 'roda'
         ? GingaColors.accentAmber
         : GingaColors.brandGreen;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(
-          color: _isReservado
-              ? GingaColors.brandGreen.withOpacity(0.4)
-              : GingaColors.borderLight,
+    return GestureDetector(
+      onTap: () => context.push('/clase-detalle?claseId=$claseId'),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          border: Border.all(
+            color: GingaColors.borderLight,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 44,
-            child: Text(widget.hora,
-                style: GoogleFonts.montserrat(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary)),
-          ),
-          const SizedBox(width: 10),
-          Container(width: 1, height: 40, color: GingaColors.borderLight),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(widget.nivel,
-                        style: GoogleFonts.montserrat(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary)),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: badgeColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(widget.badge,
-                          style: GoogleFonts.montserrat(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: badgeColor)),
-                    ),
-                  ],
-                ),
-                if (widget.dias.isNotEmpty)
-                  Text(widget.dias,
-                      style: GoogleFonts.montserrat(
-                          fontSize: 10,
-                          color: GingaColors.textSecondary)),
-                Text(widget.instructor,
-                    style: GoogleFonts.nunito(
-                        fontSize: 11, color: GingaColors.textSecondary)),
-              ],
+        child: Row(
+          children: [
+            SizedBox(
+              width: 44,
+              child: Text(hora,
+                  style: GoogleFonts.montserrat(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: GingaColors.textPrimary)),
             ),
-          ),
-          _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      color: GingaColors.brandGreen, strokeWidth: 2))
-              : GestureDetector(
-                  onTap: _isReservado ? null : _reservarPrueba,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: _isReservado
-                          ? GingaColors.cardLight
-                          : GingaColors.brandGreen,
-                      borderRadius:
-                          BorderRadius.circular(GingaRadius.full),
-                    ),
-                    child: Text(
-                      _isReservado ? '✓ Reservado' : 'Gratis',
-                      style: GoogleFonts.montserrat(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: _isReservado
-                              ? GingaColors.brandGreen
-                              : Colors.white),
-                    ),
+            const SizedBox(width: 10),
+            Container(width: 1, height: 40, color: GingaColors.borderLight),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(nivel,
+                          style: GoogleFonts.montserrat(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary)),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(badge,
+                            style: GoogleFonts.montserrat(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: badgeColor)),
+                      ),
+                    ],
                   ),
-                ),
-        ],
+                  if (dias.isNotEmpty)
+                    Text(dias,
+                        style: GoogleFonts.montserrat(
+                            fontSize: 10,
+                            color: GingaColors.textSecondary)),
+                  Text(instructor,
+                      style: GoogleFonts.nunito(
+                          fontSize: 11, color: GingaColors.textSecondary)),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: GingaColors.brandGreen,
+                borderRadius:
+                    BorderRadius.circular(GingaRadius.full),
+              ),
+              child: Text(
+                'Gratis',
+                style: GoogleFonts.montserrat(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -604,58 +559,65 @@ class _ReservaPendiente extends StatelessWidget {
         final reserva =
             snapshot.data!.docs.first.data() as Map<String, dynamic>;
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(GingaRadius.lg),
-            border: Border.all(
-                color: GingaColors.accentAmber.withOpacity(0.4)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: GingaColors.accentAmber.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(GingaRadius.md),
+        final String claseId = reserva['clase_id'] ?? '';
+
+        return GestureDetector(
+          onTap: claseId.isNotEmpty
+              ? () => context.push('/clase-detalle?claseId=$claseId')
+              : null,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(GingaRadius.lg),
+              border: Border.all(
+                  color: GingaColors.accentAmber.withOpacity(0.4)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: GingaColors.accentAmber.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                  ),
+                  child: const Icon(Icons.event_available,
+                      color: GingaColors.accentAmber, size: 28),
                 ),
-                child: const Icon(Icons.event_available,
-                    color: GingaColors.accentAmber, size: 28),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(reserva['nivel'] ?? '',
-                        style: GoogleFonts.montserrat(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary)),
-                    Text('${reserva['hora']} — ${reserva['dias']}',
-                        style: GoogleFonts.nunito(
-                            fontSize: 13,
-                            color: GingaColors.textSecondary)),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: GingaColors.accentAmber.withOpacity(0.1),
-                        borderRadius:
-                            BorderRadius.circular(GingaRadius.full),
-                      ),
-                      child: Text('CLASE DE PRUEBA',
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(reserva['nivel'] ?? '',
                           style: GoogleFonts.montserrat(
-                              fontSize: 9,
+                              fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: GingaColors.accentAmber)),
-                    ),
-                  ],
+                              color: GingaColors.textPrimary)),
+                      Text('${reserva['hora']} — ${reserva['dias']}',
+                          style: GoogleFonts.nunito(
+                              fontSize: 13,
+                              color: GingaColors.textSecondary)),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: GingaColors.accentAmber.withOpacity(0.1),
+                          borderRadius:
+                              BorderRadius.circular(GingaRadius.full),
+                        ),
+                        child: Text('CLASE DE PRUEBA',
+                            style: GoogleFonts.montserrat(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.accentAmber)),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -823,7 +785,8 @@ class _ClaseInactivo extends StatelessWidget {
 class _Header extends StatelessWidget {
   final String nombre;
   final String corda;
-  const _Header({required this.nombre, required this.corda});
+  final String uid;
+  const _Header({required this.nombre, required this.corda, required this.uid});
 
   @override
   Widget build(BuildContext context) {
@@ -868,6 +831,10 @@ class _Header extends StatelessWidget {
           ),
         ),
         const Spacer(),
+        if (uid.isNotEmpty) ...[
+          _NotificationsBell(uid: uid),
+          const SizedBox(width: 8),
+        ],
         CircleAvatar(
           radius: 20,
           backgroundColor: GingaColors.cardLight,
@@ -880,6 +847,263 @@ class _Header extends StatelessWidget {
       ],
     );
   }
+}
+
+class _NotificationsBell extends StatelessWidget {
+  final String uid;
+  const _NotificationsBell({required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('notificaciones')
+          .where('leido', isEqualTo: false)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final unreadCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications_outlined, size: 26, color: GingaColors.textPrimary),
+              onPressed: () => _mostrarBuzonNotificaciones(context, uid),
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: GingaColors.backgroundLight,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.lg)),
+    ),
+    builder: (BuildContext sheetContext) {
+      return Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        padding: const EdgeInsets.only(top: 24, left: 20, right: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.notifications, color: GingaColors.brandGreen, size: 24),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Notificaciones',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: GingaColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final unreadDocs = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(uid)
+                        .collection('notificaciones')
+                        .where('leido', isEqualTo: false)
+                        .get();
+                    
+                    final batch = FirebaseFirestore.instance.batch();
+                    for (var doc in unreadDocs.docs) {
+                      batch.update(doc.reference, {'leido': true});
+                    }
+                    await batch.commit();
+                  },
+                  child: Text(
+                    'Marcar leídas',
+                    style: GoogleFonts.nunito(
+                      color: GingaColors.brandGreen,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid)
+                    .collection('notificaciones')
+                    .orderBy('fecha', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen));
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.notifications_none, size: 60, color: GingaColors.textSecondary.withOpacity(0.3)),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No tienes notificaciones aún',
+                            style: GoogleFonts.nunito(color: GingaColors.textSecondary, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final notifs = snapshot.data!.docs;
+
+                  return ListView.builder(
+                    itemCount: notifs.length,
+                    itemBuilder: (context, index) {
+                      final notifDoc = notifs[index];
+                      final data = notifDoc.data() as Map<String, dynamic>;
+                      final String titulo = data['titulo'] ?? 'Alerta';
+                      final String mensaje = data['mensaje'] ?? '';
+                      final String tipo = data['tipo'] ?? 'sistema';
+                      final bool leido = data['leido'] ?? false;
+
+                      // Marcar como leída de forma asíncrona al mostrarse
+                      if (!leido) {
+                        FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(uid)
+                            .collection('notificaciones')
+                            .doc(notifDoc.id)
+                            .update({'leido': true});
+                      }
+
+                      IconData itemIcon = Icons.notifications_none;
+                      Color itemColor = GingaColors.brandGreen;
+
+                      if (tipo == 'asistencia') {
+                        itemIcon = Icons.check_circle_outline;
+                        itemColor = GingaColors.brandGreen;
+                      } else if (tipo == 'membresia') {
+                        itemIcon = Icons.lock_clock;
+                        itemColor = GingaColors.accentAmber;
+                      } else if (tipo == 'bienvenida') {
+                        itemIcon = Icons.star_border;
+                        itemColor = Colors.blue;
+                      }
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: leido ? Colors.transparent : itemColor.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                          border: Border.all(
+                            color: leido ? GingaColors.borderLight : itemColor.withOpacity(0.3),
+                            width: leido ? 1 : 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: itemColor.withOpacity(0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(itemIcon, color: itemColor, size: 20),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        titulo,
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: GingaColors.textPrimary,
+                                        ),
+                                      ),
+                                      if (!leido)
+                                        Container(
+                                          width: 6,
+                                          height: 6,
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    mensaje,
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 12,
+                                      color: GingaColors.textSecondary,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 // ─────────────────────────────────────────
@@ -1167,6 +1391,76 @@ class _GingaBottomNav extends StatelessWidget {
             activeIcon: Icon(Icons.person),
             label: 'Perfil'),
       ],
+    );
+  }
+}
+
+class _StorePromoBanner extends StatelessWidget {
+  const _StorePromoBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: GingaColors.brandGreen.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        border: Border.all(color: GingaColors.brandGreen.withOpacity(0.18)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.storefront, color: GingaColors.brandGreen, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Ginga Store 🥋',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: GingaColors.brandGreen,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Consigue abadás, camisetas e instrumentos oficiales de la academia. Reserva tu pedido y recógelo en clase.',
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    color: GingaColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                GestureDetector(
+                  onTap: () => context.push('/tienda'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: GingaColors.brandGreen,
+                      borderRadius: BorderRadius.circular(GingaRadius.full),
+                    ),
+                    child: Text(
+                      'Explorar Catálogo',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
