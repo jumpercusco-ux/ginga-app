@@ -4,6 +4,7 @@ import '../../core/theme/ginga_theme.dart';
 import 'practicar_toque_screen.dart';
 import 'tutor_detail_screen.dart';
 import 'cultura_screen.dart';
+import 'tutoriales_screen.dart';
 
 
 class BibliotecaScreen extends StatelessWidget {
@@ -66,13 +67,13 @@ class BibliotecaScreen extends StatelessWidget {
                 tag: 'NUEVO',
                 tagColor: GingaColors.accentAmber,
                 color: GingaColors.accentAmber,
-              // Busca la _SeccionCard de Tutoriales y cambia su onTap:
-onTap: () => Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (_) => const TutorialDetailScreen(),
-  ),
-),              ),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TutorialesScreen(),
+                  ),
+                ),
+              ),
 
               const SizedBox(height: 14),
 
@@ -119,25 +120,46 @@ onTap: () => Navigator.push(
               const SizedBox(height: 12),
 
               // Lista de lecciones
-             // Busca donde llamas a _LeccionCard y añade el parámetro onTap:
-_LeccionCard(
-  titulo: 'Passape',
-  nivel: 'Iniciante',
-  duracion: '6 min',
-  icono: Icons.sports_martial_arts,
-  onTap: () => Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const TutorialDetailScreen(),
-    ),
-  ),
-),
+              _LeccionCard(
+                titulo: 'Passape',
+                nivel: 'Iniciante',
+                duracion: '6 min',
+                icono: Icons.sports_martial_arts,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TutorialDetailScreen(
+                      title: 'Passape',
+                      category: 'Ataques',
+                      level: 'Iniciante',
+                      description: 'El passape es un movimiento de ataque circular que utiliza la parte externa del pie. Es fundamental mantener la pierna de apoyo firme y la guardia alta en todo momento para evitar contraataques rápidos.',
+                      tipMestre: 'No quites la vista del oponente durante el giro del pie y mantén la guardia firme.',
+                      tipError: 'Inclinar el tronco demasiado hacia atrás te hace perder el equilibrio y la potencia del golpe.',
+                      imageUrl: 'assets/images/passape.jpg',
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 10),
               _LeccionCard(
                 titulo: 'Au Batido',
                 nivel: 'Graduado',
                 duracion: '8 min',
                 icono: Icons.accessibility_new,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TutorialDetailScreen(
+                      title: 'Au Batido',
+                      category: 'Floreos',
+                      level: 'Graduado',
+                      description: 'El Au Batido (también conocido como Au de Bico) es una de las acrobacias más icónicas y funcionales de la capoeira. Combina un giro de Au (rueda) bloqueado a mitad de camino sobre una sola mano, lanzando una patada defensiva/ofensiva con la pierna libre mientras proteges el rostro.',
+                      tipMestre: 'Fortalece tus muñecas y empuja activamente el suelo con el hombro del brazo de apoyo para ganar altura.',
+                      tipError: 'Dejar caer la cadera antes de completar el bloqueo arruina la postura y puede sobrecargar tu hombro.',
+                      imageUrl: 'assets/images/au_batido.jpg',
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 10),
               _LeccionCard(
@@ -145,6 +167,20 @@ _LeccionCard(
                 nivel: 'Iniciante',
                 duracion: '6 min',
                 icono: Icons.sports_martial_arts,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TutorialDetailScreen(
+                      title: 'Meia Lua de Frente',
+                      category: 'Ataques',
+                      level: 'Iniciante',
+                      description: 'Un movimiento semicircular básico de ataque de afuera hacia adentro. La pierna describe un semicírculo amplio y extendido frente al cuerpo cruzando la línea de guardia del oponente.',
+                      tipMestre: 'Mantén el talón de la pierna de apoyo completamente plantado en el suelo para no perder estabilidad.',
+                      tipError: 'Bajar los brazos durante el recorrido de la patada expone tu cabeza a una contrapatada directa.',
+                      imageUrl: 'assets/images/meia_lua.jpg',
+                    ),
+                  ),
+                ),
               ),
 
               const SizedBox(height: 32),
@@ -360,43 +396,4 @@ class _LeccionCard extends StatelessWidget {
     );
   }
 }
-// ─────────────────────────────────────────
-//  TUTORIALES SCREEN (placeholder)
-// ─────────────────────────────────────────
 
-class TutorialesScreen extends StatelessWidget {
-  const TutorialesScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
-      appBar: AppBar(
-        title: Text('Tutoriales',
-            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
-        backgroundColor: GingaColors.backgroundLight,
-        elevation: 0,
-        foregroundColor: GingaColors.textPrimary,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.play_circle_outline,
-                color: GingaColors.brandGreen, size: 64),
-            const SizedBox(height: 16),
-            Text('Tutoriales On-Demand',
-                style: GoogleFonts.montserrat(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary)),
-            const SizedBox(height: 8),
-            Text('Próximamente — Sprint 8',
-                style: GoogleFonts.nunito(
-                    fontSize: 14, color: GingaColors.textSecondary)),
-          ],
-        ),
-      ),
-    );
-  }
-}

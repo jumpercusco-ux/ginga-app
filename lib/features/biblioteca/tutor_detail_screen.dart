@@ -8,12 +8,20 @@ class TutorialDetailScreen extends StatelessWidget {
   final String title;
   final String category;
   final String level;
+  final String description;
+  final String tipMestre;
+  final String tipError;
+  final String imageUrl;
 
   const TutorialDetailScreen({
     super.key,
     this.title = 'Passape',
-    this.category = 'Movimientos',
+    this.category = 'Ataques',
     this.level = 'Iniciante',
+    this.description = 'El passape es un movimiento de ataque circular que utiliza la parte externa del pie. Es fundamental mantener la pierna de apoyo firme y la guardia alta en todo momento.',
+    this.tipMestre = 'No quites la vista del oponente durante el giro del pie.',
+    this.tipError = 'Inclinar el tronco demasiado hacia atrás te hace perder el equilibrio y la potencia.',
+    this.imageUrl = 'assets/images/placeholder_custom.jpg',
   });
 
   @override
@@ -36,10 +44,21 @@ class TutorialDetailScreen extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   // Placeholder de Video o Imagen del Mestre
-                 Image.asset(
-  'assets/images/passape.jpg', // 👈 Asegúrate que la ruta sea la correcta en tu proyecto
-  fit: BoxFit.cover,
-),
+                  Image.asset(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback elegante a un fondo verde de la marca con icono si no existe el asset
+                      return Container(
+                        color: GingaColors.brandGreen,
+                        child: const Icon(
+                          Icons.play_circle_outline,
+                          color: Colors.white,
+                          size: 64,
+                        ),
+                      );
+                    },
+                  ),
                   // Overlay gradiente para legibilidad
                   Container(
                     decoration: BoxDecoration(
@@ -114,7 +133,7 @@ class TutorialDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'El passape es un movimiento de ataque circular que utiliza la parte externa del pie. Es fundamental mantener la pierna de apoyo firme y la guardia alta en todo momento.',
+                    description,
                     style: GoogleFonts.nunito(
                       fontSize: 15,
                       height: 1.6,
@@ -126,7 +145,7 @@ class TutorialDetailScreen extends StatelessWidget {
                   
                   _buildTipBox(
                     'Consejo del Mestre',
-                    'No quites la vista del oponente durante el giro del pie.',
+                    tipMestre,
                     Icons.tips_and_updates_outlined,
                   ),
                   
@@ -134,7 +153,7 @@ class TutorialDetailScreen extends StatelessWidget {
                   
                   _buildTipBox(
                     'Error Común',
-                    'Inclinar el tronco demasiado hacia atrás pierde potencia.',
+                    tipError,
                     Icons.warning_amber_rounded,
                   ),
                 ],
