@@ -14,6 +14,7 @@ class TutorialDetailScreen extends StatefulWidget {
   final String tipError;
   final String imageUrl;
   final String videoUrl;
+  final String duracion;
 
   const TutorialDetailScreen({
     super.key,
@@ -25,6 +26,7 @@ class TutorialDetailScreen extends StatefulWidget {
     this.tipError = 'Inclinar el tronco demasiado hacia atrás te hace perder el equilibrio y la potencia.',
     this.imageUrl = 'assets/images/placeholder_custom.jpg',
     this.videoUrl = '',
+    this.duracion = '5 min',
   });
 
   @override

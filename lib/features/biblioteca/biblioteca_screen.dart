@@ -185,6 +185,7 @@ class BibliotecaScreen extends StatelessWidget {
                                 tipError: tipError,
                                 imageUrl: imagenUrl,
                                 videoUrl: data['video_url'] ?? '',
+                                duracion: duracion,
                               ),
                             ),
                           ),

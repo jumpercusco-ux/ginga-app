@@ -266,6 +266,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                                     tipError: tipError,
                                     imageUrl: imagenUrl,
                                     videoUrl: data['video_url'] ?? '',
+                                    duracion: duracion,
                                   ),
                                 ),
                               );
