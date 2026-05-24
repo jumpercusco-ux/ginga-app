@@ -283,7 +283,9 @@ Que me escuchan cantar.
         return Center(
           child: Container(
             width: MediaQuery.of(context).size.width * 0.88,
-            maxHeight: MediaQuery.of(context).size.height * 0.75,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.75,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(GingaRadius.xl),
