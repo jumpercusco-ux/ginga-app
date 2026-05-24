@@ -119,7 +119,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
     final progress = 1.0 - (_remainingSeconds / _totalSeconds);
 
     return Scaffold(
-      backgroundColor: GingaColors.backgroundDark,
+      backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -130,7 +130,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+                    icon: const Icon(Icons.close_rounded, color: GingaColors.textPrimary, size: 28),
                     onPressed: () {
                       _showExitConfirmationDialog();
                     },
@@ -138,14 +138,14 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
-                      color: GingaColors.brandGreen.withOpacity(0.2),
+                      color: GingaColors.brandGreen.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: GingaColors.brandGreen.withOpacity(0.4)),
+                      border: Border.all(color: GingaColors.brandGreen.withOpacity(0.3)),
                     ),
                     child: Text(
                       widget.categoria.toUpperCase(),
                       style: GoogleFonts.montserrat(
-                        color: GingaColors.accentGreenDark,
+                        color: GingaColors.brandGreen,
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
                       ),
@@ -163,7 +163,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                 style: GoogleFonts.montserrat(
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
-                  color: Colors.white,
+                  color: GingaColors.textPrimary,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -172,7 +172,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                 'Deja tu celular en el suelo y sigue el ritmo',
                 style: GoogleFonts.nunito(
                   fontSize: 14,
-                  color: GingaColors.textMuted,
+                  color: GingaColors.textSecondary,
                 ),
               ),
 
@@ -190,7 +190,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: GingaColors.brandGreen.withOpacity(_isRunning ? 0.2 : 0.05),
+                          color: GingaColors.brandGreen.withOpacity(_isRunning ? 0.08 : 0.02),
                           blurRadius: 30,
                           spreadRadius: 10,
                         )
@@ -201,10 +201,10 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                   SizedBox(
                     width: 210,
                     height: 210,
-                    child: CircularProgressIndicator(
+                    child: const CircularProgressIndicator(
                       value: 1.0,
                       strokeWidth: 10,
-                      valueColor: AlwaysStoppedAnimation(Colors.white.withOpacity(0.08)),
+                      valueColor: AlwaysStoppedAnimation(GingaColors.borderLight),
                     ),
                   ),
                   // Barra de progreso circular activa
@@ -227,14 +227,14 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                         style: GoogleFonts.montserrat(
                           fontSize: 48,
                           fontWeight: FontWeight.w900,
-                          color: Colors.white,
+                          color: GingaColors.textPrimary,
                         ),
                       ),
                       Text(
                         'restantes',
                         style: GoogleFonts.nunito(
                           fontSize: 12,
-                          color: GingaColors.textMuted,
+                          color: GingaColors.textSecondary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -252,9 +252,9 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                 padding: const EdgeInsets.all(18),
                 margin: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: GingaColors.surfaceDark,
+                  color: GingaColors.cardLight,
                   borderRadius: BorderRadius.circular(GingaRadius.lg),
-                  border: Border.all(color: GingaColors.brandGreen.withOpacity(0.15)),
+                  border: Border.all(color: GingaColors.brandGreen.withOpacity(0.2)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,7 +270,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                             style: GoogleFonts.montserrat(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: GingaColors.accentAmber,
+                              color: GingaColors.brandGreen,
                               letterSpacing: 1,
                             ),
                           ),
@@ -279,7 +279,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                             _motivationQuotes[_currentQuoteIndex],
                             style: GoogleFonts.nunito(
                               fontSize: 13,
-                              color: GingaColors.textWhite,
+                              color: GingaColors.textPrimary,
                               height: 1.4,
                             ),
                           ),
@@ -296,15 +296,16 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
+                  color: GingaColors.cardLight.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: GingaColors.borderLight),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       Icons.audiotrack_rounded,
-                      color: _metronomeActive ? GingaColors.accentGreenDark : GingaColors.textMuted,
+                      color: _metronomeActive ? GingaColors.brandGreen : GingaColors.textSecondary,
                       size: 18,
                     ),
                     const SizedBox(width: 8),
@@ -312,7 +313,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                       'Base Rítmica Berimbau',
                       style: GoogleFonts.nunito(
                         fontSize: 12,
-                        color: _metronomeActive ? Colors.white : GingaColors.textMuted,
+                        color: _metronomeActive ? GingaColors.textPrimary : GingaColors.textSecondary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -333,7 +334,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                           ),
                         );
                       },
-                      activeColor: GingaColors.accentGreenDark,
+                      activeColor: GingaColors.brandGreen,
                     ),
                   ],
                 ),
@@ -351,8 +352,8 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                     icon: Icon(_isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded),
                     label: Text(_isRunning ? 'PAUSAR' : 'REANUDAR'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isRunning ? Colors.white24 : GingaColors.brandGreen,
-                      foregroundColor: Colors.white,
+                      backgroundColor: _isRunning ? GingaColors.borderLight : GingaColors.brandGreen,
+                      foregroundColor: _isRunning ? GingaColors.textPrimary : Colors.white,
                       minimumSize: const Size(150, 52),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(GingaRadius.md),

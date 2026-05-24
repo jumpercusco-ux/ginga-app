@@ -114,12 +114,8 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
 
   @override
   Widget build(BuildContext context) {
-    // Definimos una paleta de color oscura y super premium tipo Spotify
-    const Color spotifyDark = Color(0xFF121212);
-    const Color spotifyCard = Color(0xFF1E1E1E);
-
     return Scaffold(
-      backgroundColor: spotifyDark,
+      backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
         child: Column(
           children: [
@@ -131,7 +127,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28, color: Colors.white),
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28, color: GingaColors.textPrimary),
                   ),
                   Expanded(
                     child: Column(
@@ -141,7 +137,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                           style: GoogleFonts.montserrat(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white.withOpacity(0.5),
+                            color: GingaColors.textSecondary.withOpacity(0.8),
                             letterSpacing: 1.5,
                           ),
                         ),
@@ -167,7 +163,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                         ),
                       );
                     },
-                    icon: const Icon(Icons.favorite_border_rounded, color: Colors.white, size: 22),
+                    icon: const Icon(Icons.favorite_border_rounded, color: GingaColors.textPrimary, size: 22),
                   ),
                 ],
               ),
@@ -181,7 +177,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                   children: [
                     const SizedBox(height: 20),
 
-                    // ── Tocadiscos / Disco Giratorio Animado ──────────────────────
+                    // ── Tocadiscos / Disco Vinilo Animado ──────────────────────
                     Center(
                       child: Stack(
                         alignment: Alignment.center,
@@ -192,10 +188,10 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                             height: 190,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: GingaColors.brandGreen.withOpacity(_isPlaying ? 0.05 : 0.01),
+                              color: GingaColors.brandGreen.withOpacity(_isPlaying ? 0.08 : 0.02),
                               boxShadow: _isPlaying ? [
                                 BoxShadow(
-                                  color: GingaColors.brandGreen.withOpacity(0.15),
+                                  color: GingaColors.brandGreen.withOpacity(0.1),
                                   blurRadius: 30,
                                   spreadRadius: 5,
                                 )
@@ -248,7 +244,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                       style: GoogleFonts.montserrat(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: GingaColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -257,7 +253,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                       style: GoogleFonts.nunito(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white.withOpacity(0.6),
+                        color: GingaColors.textSecondary,
                       ),
                     ),
 
@@ -285,8 +281,8 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                       data: SliderTheme.of(context).copyWith(
                         trackHeight: 3.5,
                         activeTrackColor: GingaColors.brandGreen,
-                        inactiveTrackColor: Colors.white.withOpacity(0.15),
-                        thumbColor: Colors.white,
+                        inactiveTrackColor: GingaColors.borderLight,
+                        thumbColor: GingaColors.brandGreen,
                         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                         overlayColor: GingaColors.brandGreen.withOpacity(0.2),
                         overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
@@ -309,7 +305,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                             _formatDuration(_currentProgress),
                             style: GoogleFonts.nunito(
                               fontSize: 11,
-                              color: Colors.white.withOpacity(0.5),
+                              color: GingaColors.textSecondary,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -317,7 +313,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                             widget.cantiga.duracion,
                             style: GoogleFonts.nunito(
                               fontSize: 11,
-                              color: Colors.white.withOpacity(0.5),
+                              color: GingaColors.textSecondary,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -336,7 +332,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                           onPressed: () => _skip(-10),
                           icon: Icon(
                             Icons.replay_10_rounded,
-                            color: Colors.white.withOpacity(0.8),
+                            color: GingaColors.textPrimary.withOpacity(0.8),
                             size: 28,
                           ),
                         ),
@@ -349,11 +345,11 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                             height: 68,
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.white,
+                              color: GingaColors.brandGreen,
                             ),
                             child: Icon(
                               _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                              color: Colors.black,
+                              color: Colors.white,
                               size: 38,
                             ),
                           ),
@@ -364,7 +360,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                           onPressed: () => _skip(10),
                           icon: Icon(
                             Icons.forward_10_rounded,
-                            color: Colors.white.withOpacity(0.8),
+                            color: GingaColors.textPrimary.withOpacity(0.8),
                             size: 28,
                           ),
                         ),
@@ -378,7 +374,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                       height: 40,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: spotifyCard,
+                        color: GingaColors.borderLight.withOpacity(0.5),
                         borderRadius: BorderRadius.circular(GingaRadius.md),
                       ),
                       padding: const EdgeInsets.all(3),
@@ -389,8 +385,15 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                               onTap: () => setState(() => _showPortuguese = true),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: _showPortuguese ? Colors.white.withOpacity(0.12) : Colors.transparent,
+                                  color: _showPortuguese ? Colors.white : Colors.transparent,
                                   borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                  boxShadow: _showPortuguese ? [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 3,
+                                      offset: const Offset(0, 1),
+                                    )
+                                  ] : [],
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
@@ -398,7 +401,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                                   style: GoogleFonts.montserrat(
                                     fontSize: 11,
                                     fontWeight: _showPortuguese ? FontWeight.w800 : FontWeight.w600,
-                                    color: _showPortuguese ? Colors.white : Colors.white.withOpacity(0.5),
+                                    color: _showPortuguese ? GingaColors.textPrimary : GingaColors.textSecondary,
                                   ),
                                 ),
                               ),
@@ -409,8 +412,15 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                               onTap: () => setState(() => _showPortuguese = false),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: !_showPortuguese ? Colors.white.withOpacity(0.12) : Colors.transparent,
+                                  color: !_showPortuguese ? Colors.white : Colors.transparent,
                                   borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                  boxShadow: !_showPortuguese ? [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 3,
+                                      offset: const Offset(0, 1),
+                                    )
+                                  ] : [],
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
@@ -418,7 +428,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                                   style: GoogleFonts.montserrat(
                                     fontSize: 11,
                                     fontWeight: !_showPortuguese ? FontWeight.w800 : FontWeight.w600,
-                                    color: !_showPortuguese ? Colors.white : Colors.white.withOpacity(0.5),
+                                    color: !_showPortuguese ? GingaColors.textPrimary : GingaColors.textSecondary,
                                   ),
                                 ),
                               ),
@@ -435,9 +445,9 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: spotifyCard,
+                        color: GingaColors.cardLight.withOpacity(0.3),
                         borderRadius: BorderRadius.circular(GingaRadius.lg),
-                        border: Border.all(color: Colors.white.withOpacity(0.04)),
+                        border: Border.all(color: GingaColors.borderLight),
                       ),
                       child: Text(
                         _showPortuguese ? widget.cantiga.letraPt : widget.cantiga.letraEs,
@@ -445,7 +455,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                         style: GoogleFonts.nunito(
                           fontSize: 15,
                           height: 1.8,
-                          color: Colors.white.withOpacity(0.9),
+                          color: GingaColors.textPrimary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -485,7 +495,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                             widget.cantiga.contexto,
                             style: GoogleFonts.nunito(
                               fontSize: 13,
-                              color: Colors.white.withOpacity(0.75),
+                              color: GingaColors.textSecondary,
                               height: 1.5,
                             ),
                           ),
@@ -538,8 +548,8 @@ class _SpectrogramPainter extends CustomPainter {
       );
 
       paint.color = isPlaying
-          ? Color.lerp(Colors.white.withOpacity(0.2), GingaColors.brandGreen, baseHeight * energy)!
-          : Colors.white.withOpacity(0.12);
+          ? Color.lerp(Colors.grey.shade400, GingaColors.brandGreen, baseHeight * energy)!
+          : Colors.grey.shade300;
 
       canvas.drawRRect(rect, paint);
     }
