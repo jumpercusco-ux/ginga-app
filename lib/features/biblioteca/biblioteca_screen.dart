@@ -37,14 +37,9 @@ class BibliotecaScreen extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontSize: 14,
                   color: GingaColors.textSecondary,
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // ── Sección principal ────────────────────
+                               // ── Sección principal ────────────────────
               _SeccionCard(
-                titulo: 'Practicar Toque',
+                titulo: 'Toques',
                 subtitulo: 'Identifica ritmos con IA en tiempo real',
                 icono: Icons.music_note,
                 tag: 'IA',
@@ -61,7 +56,7 @@ class BibliotecaScreen extends StatelessWidget {
               const SizedBox(height: 14),
 
               _SeccionCard(
-                titulo: 'Tutoriales On-Demand',
+                titulo: 'Tutoriales',
                 subtitulo: 'Micro-lecciones de técnica para practicar en casa',
                 icono: Icons.play_circle_outline,
                 tag: 'NUEVO',
@@ -78,7 +73,7 @@ class BibliotecaScreen extends StatelessWidget {
               const SizedBox(height: 14),
 
               _SeccionCard(
-                titulo: 'Cultura Capoeira',
+                titulo: 'Cultura',
                 subtitulo: 'Cantigas, historia y enciclopedia de mestres',
                 icono: Icons.menu_book_outlined,
                 tag: 'CULTURA',
