@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'practicar_toque_screen.dart';
 import 'tutor_detail_screen.dart';
+import 'cultura_screen.dart';
 
 
 class BibliotecaScreen extends StatelessWidget {
@@ -385,47 +386,6 @@ class TutorialesScreen extends StatelessWidget {
                 color: GingaColors.brandGreen, size: 64),
             const SizedBox(height: 16),
             Text('Tutoriales On-Demand',
-                style: GoogleFonts.montserrat(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary)),
-            const SizedBox(height: 8),
-            Text('Próximamente — Sprint 8',
-                style: GoogleFonts.nunito(
-                    fontSize: 14, color: GingaColors.textSecondary)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────
-//  CULTURA SCREEN (placeholder)
-// ─────────────────────────────────────────
-
-class CulturaScreen extends StatelessWidget {
-  const CulturaScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
-      appBar: AppBar(
-        title: Text('Cultura Capoeira',
-            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
-        backgroundColor: GingaColors.backgroundLight,
-        elevation: 0,
-        foregroundColor: GingaColors.textPrimary,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.menu_book_outlined,
-                color: GingaColors.brandGreen, size: 64),
-            const SizedBox(height: 16),
-            Text('Cultura & Historia',
                 style: GoogleFonts.montserrat(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
