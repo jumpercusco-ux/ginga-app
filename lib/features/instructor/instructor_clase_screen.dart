@@ -232,6 +232,64 @@ class _InstructorDashboard extends StatelessWidget {
 
             const SizedBox(height: 24),
 
+            Text('Gestión de Biblioteca 📽️',
+                style: GoogleFonts.montserrat(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textPrimary)),
+
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(GingaRadius.lg),
+                border: Border.all(color: GingaColors.borderLight),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Tutoriales & Clases',
+                            style: GoogleFonts.montserrat(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.textPrimary)),
+                        const SizedBox(height: 4),
+                        Text('Crea, edita o elimina los tutoriales on-demand que los alumnos practican desde la biblioteca.',
+                            style: GoogleFonts.nunito(
+                                fontSize: 12,
+                                color: GingaColors.textSecondary,
+                                height: 1.4)),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: () => context.push('/instructor-tutoriales'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: GingaColors.brandGreen,
+                            minimumSize: const Size(0, 36),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          ),
+                          child: Text('Gestionar Tutoriales',
+                              style: GoogleFonts.montserrat(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
             Text('Reservas recientes',
                 style: GoogleFonts.montserrat(
                     fontSize: 16,

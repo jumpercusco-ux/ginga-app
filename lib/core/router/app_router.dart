@@ -15,6 +15,8 @@ import 'package:ginga_app/features/tienda/producto_detalle_screen.dart';
 import 'package:ginga_app/features/tienda/carrito_screen.dart';
 import 'package:ginga_app/features/instructor/instructor_tienda_screen.dart';
 import 'package:ginga_app/features/instructor/crear_producto_screen.dart';
+import 'package:ginga_app/features/instructor/instructor_tutoriales_screen.dart';
+import 'package:ginga_app/features/instructor/crear_tutorial_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/splash',
@@ -98,6 +100,17 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final productoId = state.uri.queryParameters['productoId'] ?? '';
         return CrearProductoScreen(productoId: productoId);
+      },
+    ),
+    GoRoute(
+      path: '/instructor-tutoriales',
+      builder: (context, state) => const InstructorTutorialesScreen(),
+    ),
+    GoRoute(
+      path: '/crear-tutorial',
+      builder: (context, state) {
+        final tutorialId = state.uri.queryParameters['tutorialId'] ?? '';
+        return CrearTutorialScreen(tutorialId: tutorialId);
       },
     ),
   ],

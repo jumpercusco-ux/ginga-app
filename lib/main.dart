@@ -8,6 +8,7 @@ import 'core/router/app_router.dart';
 import 'core/theme/ginga_theme.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/tienda_service.dart';
+import 'core/services/tutoriales_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,9 @@ void main() async {
 
   // Inicializar productos de la tienda si la colección está vacía
   TiendaService.instance.inicializarProductosMockupSiVacia();
+
+  // Inicializar tutoriales de la biblioteca si la colección está vacía
+  TutorialesService.instance.inicializarTutorialesMockupSiVacia();
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const GingaApp());

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'practicar_toque_screen.dart';
 import 'tutor_detail_screen.dart';
@@ -119,68 +120,76 @@ class BibliotecaScreen extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              // Lista de lecciones
-              _LeccionCard(
-                titulo: 'Passape',
-                nivel: 'Iniciante',
-                duracion: '6 min',
-                icono: Icons.sports_martial_arts,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const TutorialDetailScreen(
-                      title: 'Passape',
-                      category: 'Ataques',
-                      level: 'Iniciante',
-                      description: 'El passape es un movimiento de ataque circular que utiliza la parte externa del pie. Es fundamental mantener la pierna de apoyo firme y la guardia alta en todo momento para evitar contraataques rápidos.',
-                      tipMestre: 'No quites la vista del oponente durante el giro del pie y mantén la guardia firme.',
-                      tipError: 'Inclinar el tronco demasiado hacia atrás te hace perder el equilibrio y la potencia del golpe.',
-                      imageUrl: 'assets/images/passape.jpg',
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              _LeccionCard(
-                titulo: 'Au Batido',
-                nivel: 'Graduado',
-                duracion: '8 min',
-                icono: Icons.accessibility_new,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const TutorialDetailScreen(
-                      title: 'Au Batido',
-                      category: 'Floreos',
-                      level: 'Graduado',
-                      description: 'El Au Batido (también conocido como Au de Bico) es una de las acrobacias más icónicas y funcionales de la capoeira. Combina un giro de Au (rueda) bloqueado a mitad de camino sobre una sola mano, lanzando una patada defensiva/ofensiva con la pierna libre mientras proteges el rostro.',
-                      tipMestre: 'Fortalece tus muñecas y empuja activamente el suelo con el hombro del brazo de apoyo para ganar altura.',
-                      tipError: 'Dejar caer la cadera antes de completar el bloqueo arruina la postura y puede sobrecargar tu hombro.',
-                      imageUrl: 'assets/images/au_batido.jpg',
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              _LeccionCard(
-                titulo: 'Meia Lua de Frente',
-                nivel: 'Iniciante',
-                duracion: '6 min',
-                icono: Icons.sports_martial_arts,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const TutorialDetailScreen(
-                      title: 'Meia Lua de Frente',
-                      category: 'Ataques',
-                      level: 'Iniciante',
-                      description: 'Un movimiento semicircular básico de ataque de afuera hacia adentro. La pierna describe un semicírculo amplio y extendido frente al cuerpo cruzando la línea de guardia del oponente.',
-                      tipMestre: 'Mantén el talón de la pierna de apoyo completamente plantado en el suelo para no perder estabilidad.',
-                      tipError: 'Bajar los brazos durante el recorrido de la patada expone tu cabeza a una contrapatada directa.',
-                      imageUrl: 'assets/images/meia_lua.jpg',
-                    ),
-                  ),
-                ),
+              // Lista de lecciones desde Firestore en tiempo real
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('tutoriales')
+                    .limit(3)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: GingaColors.brandGreen),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: GingaColors.cardLight,
+                        borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'No hay lecciones en la biblioteca aún',
+                          style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: snapshot.data!.docs.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final titulo = data['titulo'] ?? '';
+                      final nivel = data['nivel'] ?? 'Iniciante';
+                      final duracion = data['duracion'] ?? '6 min';
+                      final categoria = data['categoria'] ?? 'Ataques';
+                      final descripcion = data['descripcion'] ?? '';
+                      final tipMestre = data['tipMestre'] ?? '';
+                      final tipError = data['tipError'] ?? '';
+                      final imagenUrl = data['imagen_url'] ?? '';
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _LeccionCard(
+                          titulo: titulo,
+                          nivel: nivel,
+                          duracion: duracion,
+                          icono: categoria == 'Floreos'
+                              ? Icons.accessibility_new
+                              : Icons.sports_martial_arts,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TutorialDetailScreen(
+                                title: titulo,
+                                category: categoria,
+                                level: nivel,
+                                description: description,
+                                tipMestre: tipMestre,
+                                tipError: tipError,
+                                imageUrl: imagenUrl,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
               ),
 
               const SizedBox(height: 32),
