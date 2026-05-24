@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'practicar_toque_screen.dart'; 
+import 'practicar_movimiento_screen.dart'; 
 
 class TutorialDetailScreen extends StatefulWidget {
   final String title;
@@ -332,10 +333,15 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
         ),
         child: ElevatedButton(
           onPressed: () {
-            // Navegamos a la pantalla de IA que ya pulimos
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const PracticarToqueScreen()),
+              MaterialPageRoute(
+                builder: (context) => PracticarMovimientoScreen(
+                  titulo: widget.title,
+                  duracion: widget.duracion,
+                  categoria: widget.category,
+                ),
+              ),
             );
           },
           style: ElevatedButton.styleFrom(
