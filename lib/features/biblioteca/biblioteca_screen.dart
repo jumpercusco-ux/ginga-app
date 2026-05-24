@@ -37,7 +37,12 @@ class BibliotecaScreen extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontSize: 14,
                   color: GingaColors.textSecondary,
-                               // ── Sección principal ────────────────────
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // ── Sección principal ────────────────────
               _SeccionCard(
                 titulo: 'Toques',
                 subtitulo: 'Identifica ritmos con IA en tiempo real',
