@@ -168,9 +168,11 @@ class BibliotecaScreen extends StatelessWidget {
                           titulo: titulo,
                           nivel: nivel,
                           duracion: duracion,
-                          icono: categoria == 'Floreos'
-                              ? Icons.accessibility_new
-                              : Icons.sports_martial_arts,
+                          icono: categoria == 'Fundamentos'
+                              ? Icons.school_rounded
+                              : categoria == 'Floreos'
+                                  ? Icons.accessibility_new
+                                  : Icons.sports_martial_arts,
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -182,6 +184,7 @@ class BibliotecaScreen extends StatelessWidget {
                                 tipMestre: tipMestre,
                                 tipError: tipError,
                                 imageUrl: imagenUrl,
+                                videoUrl: data['video_url'] ?? '',
                               ),
                             ),
                           ),

@@ -93,6 +93,7 @@ class TutorialesService {
     required String tipMestre,
     required String tipError,
     required String imagenUrl,
+    String videoUrl = '',
   }) async {
     final data = {
       'titulo': titulo,
@@ -103,6 +104,7 @@ class TutorialesService {
       'tipMestre': tipMestre,
       'tipError': tipError,
       'imagen_url': imagenUrl,
+      'video_url': videoUrl,
     };
 
     if (id != null && id.isNotEmpty) {
@@ -122,6 +124,14 @@ class TutorialesService {
     final fileName = 'tutoriales_portadas/${DateTime.now().millisecondsSinceEpoch}.jpg';
     final ref = FirebaseStorage.instance.ref().child(fileName);
     final uploadTask = await ref.putFile(imageFile);
+    return await uploadTask.ref.getDownloadURL();
+  }
+
+  /// Sube el video seleccionado a Firebase Storage y retorna la URL pública
+  Future<String> subirVideoTutorial(File videoFile) async {
+    final fileName = 'tutoriales_videos/${DateTime.now().millisecondsSinceEpoch}.mp4';
+    final ref = FirebaseStorage.instance.ref().child(fileName);
+    final uploadTask = await ref.putFile(videoFile);
     return await uploadTask.ref.getDownloadURL();
   }
 }

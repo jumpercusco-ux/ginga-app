@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:video_player/video_player.dart';
 import '../../core/theme/ginga_theme.dart';
-// Importamos la que ya tenemos para navegar a ella
 import 'practicar_toque_screen.dart'; 
 
-class TutorialDetailScreen extends StatelessWidget {
+class TutorialDetailScreen extends StatefulWidget {
   final String title;
   final String category;
   final String level;
@@ -12,6 +12,7 @@ class TutorialDetailScreen extends StatelessWidget {
   final String tipMestre;
   final String tipError;
   final String imageUrl;
+  final String videoUrl;
 
   const TutorialDetailScreen({
     super.key,
@@ -22,7 +23,92 @@ class TutorialDetailScreen extends StatelessWidget {
     this.tipMestre = 'No quites la vista del oponente durante el giro del pie.',
     this.tipError = 'Inclinar el tronco demasiado hacia atrás te hace perder el equilibrio y la potencia.',
     this.imageUrl = 'assets/images/placeholder_custom.jpg',
+    this.videoUrl = '',
   });
+
+  @override
+  State<TutorialDetailScreen> createState() => _TutorialDetailScreenState();
+}
+
+class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
+  VideoPlayerController? _videoPlayerController;
+  bool _isPlayerInitialized = false;
+  bool _isPlaying = false;
+  bool _hasError = false;
+
+  @override
+  void dispose() {
+    _videoPlayerController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _inicializarVideo() async {
+    final rawUrl = widget.videoUrl;
+    // Si no tiene url de video, usamos un mock de capoeira espectacular por defecto para wowear al usuario
+    final videoUrlStr = rawUrl.isNotEmpty 
+        ? rawUrl 
+        : 'https://assets.mixkit.co/videos/preview/mixkit-martial-arts-fighter-performing-kicks-40893-large.mp4';
+
+    setState(() {
+      _hasError = false;
+    });
+
+    try {
+      if (videoUrlStr.startsWith('http')) {
+        _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(videoUrlStr));
+      } else if (videoUrlStr.startsWith('assets/')) {
+        _videoPlayerController = VideoPlayerController.asset(videoUrlStr);
+      } else {
+        // Fallback local file or general path
+        _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(videoUrlStr));
+      }
+
+      await _videoPlayerController!.initialize();
+      setState(() {
+        _isPlayerInitialized = true;
+        _videoPlayerController!.play();
+        _isPlaying = true;
+      });
+
+      // Escuchar cambios de play/pause
+      _videoPlayerController!.addListener(() {
+        if (mounted) {
+          setState(() {
+            _isPlaying = _videoPlayerController!.value.isPlaying;
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint('Error al inicializar video: $e');
+      setState(() {
+        _hasError = true;
+      });
+    }
+  }
+
+  void _togglePlay() {
+    if (_videoPlayerController == null) {
+      _inicializarVideo();
+      return;
+    }
+
+    if (_videoPlayerController!.value.isPlaying) {
+      _videoPlayerController!.pause();
+    } else {
+      _videoPlayerController!.play();
+    }
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      color: GingaColors.brandGreen,
+      child: const Icon(
+        Icons.play_circle_outline,
+        color: Colors.white,
+        size: 64,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,22 +129,31 @@ class TutorialDetailScreen extends StatelessWidget {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Placeholder de Video o Imagen del Mestre
-                  Image.asset(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      // Fallback elegante a un fondo verde de la marca con icono si no existe el asset
-                      return Container(
-                        color: GingaColors.brandGreen,
-                        child: const Icon(
-                          Icons.play_circle_outline,
-                          color: Colors.white,
-                          size: 64,
+                  // 1. Mostrar VideoPlayer si está inicializado y no hay error
+                  if (_isPlayerInitialized && _videoPlayerController != null && !_hasError)
+                    GestureDetector(
+                      onTap: _togglePlay,
+                      child: Center(
+                        child: AspectRatio(
+                          aspectRatio: _videoPlayerController!.value.aspectRatio,
+                          child: VideoPlayer(_videoPlayerController!),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    )
+                  else
+                    // 2. Mostrar la miniatura por defecto si no se ha reproducido el video
+                    (widget.imageUrl.startsWith('assets/')
+                        ? Image.asset(
+                            widget.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                          )
+                        : Image.network(
+                            widget.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                          )),
+
                   // Overlay gradiente para legibilidad
                   Container(
                     decoration: BoxDecoration(
@@ -73,17 +168,76 @@ class TutorialDetailScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Botón Play
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: GingaColors.brandGreen.withOpacity(0.9),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 50),
+
+                  // Cargador del video
+                  if (_videoPlayerController != null && !_isPlayerInitialized && !_hasError)
+                    const Center(
+                      child: CircularProgressIndicator(color: GingaColors.brandGreen),
                     ),
-                  ),
+
+                  // Botón Play
+                  if (!_isPlaying && !_hasError)
+                    Center(
+                      child: GestureDetector(
+                        onTap: _togglePlay,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: GingaColors.brandGreen.withOpacity(0.9),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 50),
+                        ),
+                      ),
+                    ),
+
+                  // Mensaje de Error
+                  if (_hasError)
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Error al reproducir el video',
+                            style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Controles flotantes inferiores si el video se está reproduciendo
+                  if (_isPlayerInitialized && _videoPlayerController != null)
+                    Positioned(
+                      bottom: 12,
+                      left: 12,
+                      right: 12,
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                            onPressed: _togglePlay,
+                          ),
+                          Expanded(
+                            child: VideoProgressIndicator(
+                              _videoPlayerController!,
+                              allowScrubbing: true,
+                              colors: const VideoProgressColors(
+                                playedColor: GingaColors.brandGreen,
+                                bufferedColor: Colors.white24,
+                                backgroundColor: Colors.white12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -98,14 +252,14 @@ class TutorialDetailScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      _buildBadge(category, GingaColors.brandGreen),
+                      _buildBadge(widget.category, GingaColors.brandGreen),
                       const SizedBox(width: 8),
-                      _buildBadge(level, GingaColors.accentAmber),
+                      _buildBadge(widget.level, GingaColors.accentAmber),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    title,
+                    widget.title,
                     style: GoogleFonts.montserrat(
                       fontSize: 28,
                       fontWeight: FontWeight.w800,
@@ -133,7 +287,7 @@ class TutorialDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    description,
+                    widget.description,
                     style: GoogleFonts.nunito(
                       fontSize: 15,
                       height: 1.6,
@@ -145,7 +299,7 @@ class TutorialDetailScreen extends StatelessWidget {
                   
                   _buildTipBox(
                     'Consejo del Mestre',
-                    tipMestre,
+                    widget.tipMestre,
                     Icons.tips_and_updates_outlined,
                   ),
                   
@@ -153,7 +307,7 @@ class TutorialDetailScreen extends StatelessWidget {
                   
                   _buildTipBox(
                     'Error Común',
-                    tipError,
+                    widget.tipError,
                     Icons.warning_amber_rounded,
                   ),
                 ],

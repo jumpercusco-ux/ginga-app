@@ -28,15 +28,17 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
   final _tipErrorController = TextEditingController();
 
   // Variables de selectores
-  String _selectedCategory = 'Ataques';
+  String _selectedCategory = 'Fundamentos';
   String _selectedLevel = 'Iniciante';
   String _existingImageUrl = '';
+  String _existingVideoUrl = '';
 
-  // Selector de imagen
+  // Selector de imagen y video
   File? _selectedImageFile;
+  File? _selectedVideoFile;
   final ImagePicker _picker = ImagePicker();
 
-  final List<String> _categorias = ['Ataques', 'Defensas', 'Esquivas', 'Floreos'];
+  final List<String> _categorias = ['Fundamentos', 'Ataques', 'Defensas', 'Esquivas', 'Floreos'];
   final List<String> _niveles = ['Iniciante', 'Graduado', 'Avanzado'];
 
   @override
@@ -74,9 +76,10 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
           _descripcionController.text = data['descripcion'] ?? '';
           _tipMestreController.text = data['tipMestre'] ?? '';
           _tipErrorController.text = data['tipError'] ?? '';
-          _selectedCategory = data['categoria'] ?? 'Ataques';
+          _selectedCategory = data['categoria'] ?? 'Fundamentos';
           _selectedLevel = data['nivel'] ?? 'Iniciante';
           _existingImageUrl = data['imagen_url'] ?? '';
+          _existingVideoUrl = data['video_url'] ?? '';
         });
       }
     } catch (e) {
@@ -85,6 +88,25 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
       );
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _seleccionarVideo() async {
+    try {
+      final pickedFile = await _picker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 10),
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedVideoFile = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al seleccionar video: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -112,19 +134,35 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
   Future<void> _guardarTutorial() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_selectedVideoFile == null && _existingVideoUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, selecciona o sube un video demostrativo para esta lección 📽️'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       String finalImageUrl = _existingImageUrl;
+      String finalVideoUrl = _existingVideoUrl;
 
       // 1. Subir imagen a Firebase Storage si se seleccionó una nueva
       if (_selectedImageFile != null) {
         finalImageUrl = await TutorialesService.instance.subirPortadaTutorial(_selectedImageFile!);
       } else if (finalImageUrl.isEmpty) {
-        // Fallback por defecto si se crea sin imagen
+        // Fallback por defecto si se crea sin imagen de portada
         finalImageUrl = 'assets/images/placeholder_custom.jpg';
       }
 
-      // 2. Guardar o actualizar en Firestore
+      // 2. Subir video a Firebase Storage si se seleccionó uno nuevo
+      if (_selectedVideoFile != null) {
+        finalVideoUrl = await TutorialesService.instance.subirVideoTutorial(_selectedVideoFile!);
+      }
+
+      // 3. Guardar o actualizar en Firestore
       await TutorialesService.instance.crearOActualizarTutorial(
         id: _isEditMode ? widget.tutorialId : null,
         titulo: _tituloController.text.trim(),
@@ -135,6 +173,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
         tipMestre: _tipMestreController.text.trim(),
         tipError: _tipErrorController.text.trim(),
         imagenUrl: finalImageUrl,
+        videoUrl: finalVideoUrl,
       );
 
       if (mounted) {
@@ -188,52 +227,109 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Selector Visual de Portada ────────────────────────────
-                    Center(
-                      child: GestureDetector(
-                        onTap: _seleccionarImagen,
-                        child: Container(
-                          width: double.infinity,
-                          height: 180,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(GingaRadius.lg),
-                            border: Border.all(color: GingaColors.borderLight),
+                    // ── Selector de Video Demostrativo (Requerido) ──────────
+                    _buildLabel('Video Demostrativo del Movimiento *'),
+                    GestureDetector(
+                      onTap: _seleccionarVideo,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: _selectedVideoFile != null || _existingVideoUrl.isNotEmpty
+                              ? GingaColors.brandGreen.withOpacity(0.05)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(GingaRadius.lg),
+                          border: Border.all(
+                            color: _selectedVideoFile != null || _existingVideoUrl.isNotEmpty
+                                ? GingaColors.brandGreen
+                                : GingaColors.borderLight,
+                            width: _selectedVideoFile != null || _existingVideoUrl.isNotEmpty ? 1.5 : 1.0,
                           ),
-                          clipBehavior: Clip.antiAlias,
-                          child: _selectedImageFile != null
-                              ? Image.file(_selectedImageFile!, fit: BoxFit.cover)
-                              : (_existingImageUrl.isNotEmpty
-                                  ? (_existingImageUrl.startsWith('assets/')
-                                      ? Image.asset(_existingImageUrl, fit: BoxFit.cover)
-                                      : Image.network(_existingImageUrl, fit: BoxFit.cover, errorBuilder: (c, o, s) {
-                                          return const Center(child: Icon(Icons.broken_image_outlined));
-                                        }))
-                                  : Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.add_photo_alternate_outlined,
-                                            size: 40, color: GingaColors.textSecondary.withOpacity(0.6)),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Añadir foto de portada',
-                                          style: GoogleFonts.montserrat(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                            color: GingaColors.textSecondary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'Recomendado: 16:9 horizontal',
-                                          style: GoogleFonts.nunito(
-                                            fontSize: 10,
-                                            color: GingaColors.textSecondary.withOpacity(0.8),
-                                          ),
-                                        ),
-                                      ],
-                                    )),
                         ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _selectedVideoFile != null || _existingVideoUrl.isNotEmpty
+                                  ? Icons.video_camera_back_rounded
+                                  : Icons.video_library_outlined,
+                              size: 40,
+                              color: _selectedVideoFile != null || _existingVideoUrl.isNotEmpty
+                                  ? GingaColors.brandGreen
+                                  : GingaColors.textSecondary.withOpacity(0.6),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _selectedVideoFile != null
+                                  ? '¡Video Seleccionado!'
+                                  : (_existingVideoUrl.isNotEmpty
+                                      ? 'Video Cargado en la Nube'
+                                      : 'Seleccionar Video Demostrativo'),
+                              style: GoogleFonts.montserrat(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: _selectedVideoFile != null || _existingVideoUrl.isNotEmpty
+                                    ? GingaColors.brandGreen
+                                    : GingaColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _selectedVideoFile != null
+                                  ? _selectedVideoFile!.path.split('/').last
+                                  : (_existingVideoUrl.isNotEmpty
+                                      ? 'Toca para cambiar el video actual'
+                                      : 'Sube un video en formato MP4 (máx. 10 min)'),
+                              style: GoogleFonts.nunito(
+                                fontSize: 11,
+                                color: GingaColors.textSecondary,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // ── Selector de Portada (Opcional) ─────────────────────
+                    _buildLabel('Imagen de Portada / Miniatura (Opcional)'),
+                    GestureDetector(
+                      onTap: _seleccionarImagen,
+                      child: Container(
+                        width: double.infinity,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(GingaRadius.lg),
+                          border: Border.all(color: GingaColors.borderLight),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: _selectedImageFile != null
+                            ? Image.file(_selectedImageFile!, fit: BoxFit.cover)
+                            : (_existingImageUrl.isNotEmpty
+                                ? (_existingImageUrl.startsWith('assets/')
+                                    ? Image.asset(_existingImageUrl, fit: BoxFit.cover)
+                                    : Image.network(_existingImageUrl, fit: BoxFit.cover, errorBuilder: (c, o, s) {
+                                        return const Center(child: Icon(Icons.broken_image_outlined));
+                                      }))
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.add_photo_alternate_outlined,
+                                          size: 24, color: GingaColors.textSecondary.withOpacity(0.6)),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Añadir foto de portada',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: GingaColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  )),
                       ),
                     ),
                     const SizedBox(height: 24),

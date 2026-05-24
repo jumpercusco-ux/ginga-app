@@ -109,7 +109,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: ['Todos', 'Ataques', 'Defensas', 'Esquivas', 'Floreos'].map((categoria) {
+                children: ['Todos', 'Fundamentos', 'Ataques', 'Defensas', 'Esquivas', 'Floreos'].map((categoria) {
                   final isSelected = _selectedCategory == categoria;
                   return GestureDetector(
                     onTap: () {
@@ -265,6 +265,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                                     tipMestre: tipMestre,
                                     tipError: tipError,
                                     imageUrl: imagenUrl,
+                                    videoUrl: data['video_url'] ?? '',
                                   ),
                                 ),
                               );
