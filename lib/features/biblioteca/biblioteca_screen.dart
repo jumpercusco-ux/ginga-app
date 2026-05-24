@@ -178,7 +178,7 @@ class BibliotecaScreen extends StatelessWidget {
                                 title: titulo,
                                 category: categoria,
                                 level: nivel,
-                                description: description,
+                                description: descripcion,
                                 tipMestre: tipMestre,
                                 tipError: tipError,
                                 imageUrl: imagenUrl,
