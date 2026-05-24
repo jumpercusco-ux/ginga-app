@@ -1,18 +1,24 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:video_player/video_player.dart';
 import '../../core/theme/ginga_theme.dart';
 
 class PracticarMovimientoScreen extends StatefulWidget {
   final String titulo;
   final String duracion;
   final String categoria;
+  final String videoUrl;
+  final String imageUrl;
 
   const PracticarMovimientoScreen({
     super.key,
     required this.titulo,
     required this.duracion,
     required this.categoria,
+    this.videoUrl = '',
+    this.imageUrl = 'assets/images/placeholder_custom.jpg',
   });
 
   @override
@@ -27,7 +33,12 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
   bool _isCompleted = false;
   bool _metronomeActive = false;
 
-  // Lista de mantras motivacionales que rotan cada 15 segundos
+  // Controlador del video looping en el círculo
+  VideoPlayerController? _videoPlayerController;
+  bool _isPlayerInitialized = false;
+  bool _hasError = false;
+
+  // Lista de mantras motivacionales que rotan cada 12 segundos
   final List<String> _motivationQuotes = [
     "Mantén tu centro de gravedad bajo. ¡Flexiona rodillas!",
     "No bajes la guardia. Protege tu rostro en cada paso.",
@@ -42,7 +53,8 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
   @override
   void initState() {
     super.initState();
-    // Parsear la duración. Ej: "10 min" -> 10 minutos
+    
+    // Parsear la duración
     int minutes = 5;
     try {
       final numberString = widget.duracion.replaceAll(RegExp(r'[^0-9]'), '');
@@ -55,6 +67,8 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
 
     _totalSeconds = minutes * 60;
     _remainingSeconds = _totalSeconds;
+
+    _inicializarVideoLoop();
     _startTimer();
     _startQuoteRotation();
   }
@@ -63,12 +77,52 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
   void dispose() {
     _timer?.cancel();
     _quoteTimer?.cancel();
+    _videoPlayerController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _inicializarVideoLoop() async {
+    final rawUrl = widget.videoUrl;
+    // Si no tiene url de video, usamos el loop de entrenamiento HD en red por defecto para wowear al usuario
+    final videoUrlStr = rawUrl.isNotEmpty 
+        ? rawUrl 
+        : 'https://assets.mixkit.co/videos/preview/mixkit-martial-arts-fighter-performing-kicks-40893-large.mp4';
+
+    try {
+      if (videoUrlStr.startsWith('http')) {
+        _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(videoUrlStr));
+      } else if (videoUrlStr.startsWith('assets/')) {
+        _videoPlayerController = VideoPlayerController.asset(videoUrlStr);
+      } else {
+        _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(videoUrlStr));
+      }
+
+      await _videoPlayerController!.initialize();
+      _videoPlayerController!.setVolume(0.0); // Mudo
+      _videoPlayerController!.setLooping(true); // Bucle infinito
+      
+      if (mounted) {
+        setState(() {
+          _isPlayerInitialized = true;
+        });
+        if (_isRunning) {
+          _videoPlayerController!.play();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error al inicializar bucle de video en cronómetro: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    }
   }
 
   void _startTimer() {
     _timer?.cancel();
     setState(() => _isRunning = true);
+    _videoPlayerController?.play();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
         setState(() {
@@ -83,6 +137,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
   void _pauseTimer() {
     _timer?.cancel();
     setState(() => _isRunning = false);
+    _videoPlayerController?.pause();
   }
 
   void _startQuoteRotation() {
@@ -98,6 +153,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
   void _completeWorkout() {
     _timer?.cancel();
     _quoteTimer?.cancel();
+    _videoPlayerController?.pause();
     setState(() {
       _isRunning = false;
       _isCompleted = true;
@@ -108,6 +164,22 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
     final minutes = totalSecs ~/ 60;
     final seconds = totalSecs % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildPlaceholderImage() {
+    if (widget.imageUrl.startsWith('assets/')) {
+      return Image.asset(widget.imageUrl, fit: BoxFit.cover);
+    }
+    return Image.network(
+      widget.imageUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          color: GingaColors.cardLight,
+          child: const Icon(Icons.sports_martial_arts, color: GingaColors.brandGreen, size: 48),
+        );
+      },
+    );
   }
 
   @override
@@ -169,7 +241,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Deja tu celular en el suelo y sigue el ritmo',
+                'Observa el bucle guía y mantén la técnica',
                 style: GoogleFonts.nunito(
                   fontSize: 14,
                   color: GingaColors.textSecondary,
@@ -178,11 +250,11 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
 
               const Spacer(),
 
-              // ── Cronómetro Circular Animado ──────────────────────────────────
+              // ── Cronómetro Circular Animado con Video Loop Interior ──────────
               Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Sombra ambiental / Resplandor
+                  // Sombra ambiental / Resplandor verde suave
                   Container(
                     width: 230,
                     height: 230,
@@ -190,52 +262,99 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: GingaColors.brandGreen.withOpacity(_isRunning ? 0.08 : 0.02),
-                          blurRadius: 30,
-                          spreadRadius: 10,
+                          color: GingaColors.brandGreen.withOpacity(_isRunning ? 0.15 : 0.05),
+                          blurRadius: 35,
+                          spreadRadius: 8,
                         )
                       ],
                     ),
                   ),
-                  // Barra de progreso circular de fondo
+
+                  // 1. Video o Imagen recortada en círculo (El Bucle Guía de fondo)
+                  ClipOval(
+                    child: SizedBox(
+                      width: 200,
+                      height: 200,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // Reproductor del bucle silencioso
+                          if (_isPlayerInitialized && _videoPlayerController != null && !_hasError)
+                            FittedBox(
+                              fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: _videoPlayerController!.value.size.width,
+                                height: _videoPlayerController!.value.size.height,
+                                child: VideoPlayer(_videoPlayerController!),
+                              ),
+                            )
+                          else
+                            _buildPlaceholderImage(),
+
+                          // Filtro oscuro translúcido para garantizar legibilidad del texto del cronómetro
+                          Container(
+                            color: Colors.black.withOpacity(0.42),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // 2. Barra de progreso circular de fondo
                   SizedBox(
                     width: 210,
                     height: 210,
-                    child: const CircularProgressIndicator(
+                    child: CircularProgressIndicator(
                       value: 1.0,
-                      strokeWidth: 10,
-                      valueColor: AlwaysStoppedAnimation(GingaColors.borderLight),
+                      strokeWidth: 9,
+                      valueColor: AlwaysStoppedAnimation(Colors.grey.shade300.withOpacity(0.3)),
                     ),
                   ),
-                  // Barra de progreso circular activa
+
+                  // 3. Barra de progreso circular activa en verde
                   SizedBox(
                     width: 210,
                     height: 210,
                     child: CircularProgressIndicator(
                       value: progress,
-                      strokeWidth: 10,
+                      strokeWidth: 9,
                       strokeCap: StrokeCap.round,
                       valueColor: const AlwaysStoppedAnimation(GingaColors.brandGreen),
                     ),
                   ),
-                  // Textos del tiempo interior
+
+                  // 4. Textos del tiempo interior (Flotando sobre el video)
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         _formatTime(_remainingSeconds),
                         style: GoogleFonts.montserrat(
-                          fontSize: 48,
+                          fontSize: 44,
                           fontWeight: FontWeight.w900,
-                          color: GingaColors.textPrimary,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.6),
+                              offset: const Offset(0, 2),
+                              blurRadius: 4,
+                            )
+                          ],
                         ),
                       ),
                       Text(
                         'restantes',
                         style: GoogleFonts.nunito(
-                          fontSize: 12,
-                          color: GingaColors.textSecondary,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                          color: Colors.white.withOpacity(0.8),
+                          fontWeight: FontWeight.w700,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.6),
+                              offset: const Offset(0, 1),
+                              blurRadius: 3,
+                            )
+                          ],
                         ),
                       ),
                     ],

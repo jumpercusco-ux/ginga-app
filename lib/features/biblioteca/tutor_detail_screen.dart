@@ -342,6 +342,8 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                   titulo: widget.title,
                   duracion: widget.duracion,
                   categoria: widget.category,
+                  videoUrl: widget.videoUrl,
+                  imageUrl: widget.imageUrl,
                 ),
               ),
             );
