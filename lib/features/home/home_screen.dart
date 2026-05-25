@@ -74,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _HomeDashboard(),
               // EventosScreen(), // Ocultado temporalmente
               BibliotecaScreen(),
-              ProgresoScreen(),
+              // ProgresoScreen(), // Ocultado de la barra inferior (se accede por el avatar)
             ],
           ),
           extendBody: true,
@@ -1072,14 +1072,24 @@ class _Header extends StatelessWidget {
           _NotificationsBell(uid: uid),
           const SizedBox(width: 8),
         ],
-        CircleAvatar(
-          radius: 20,
-          backgroundColor: GingaColors.cardLight,
-          child: Text(inicial,
-              style: GoogleFonts.montserrat(
-                  fontWeight: FontWeight.w700,
-                  color: GingaColors.brandGreen,
-                  fontSize: 16)),
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ProgresoScreen(),
+              ),
+            );
+          },
+          child: CircleAvatar(
+            radius: 20,
+            backgroundColor: GingaColors.cardLight,
+            child: Text(inicial,
+                style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.brandGreen,
+                    fontSize: 16)),
+          ),
         ),
       ],
     );
@@ -2165,18 +2175,9 @@ class _GingaBottomNav extends StatelessWidget {
           Expanded(
             child: _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
           ),
-          // Ocultado temporalmente
-          /*
-          Expanded(
-            child: _buildNavItem(1, Icons.groups_outlined, Icons.groups, 'A Roda'),
-          ),
-          */
           const SizedBox(width: 64), // Espacio central para el FAB con notch
           Expanded(
             child: _buildNavItem(1, Icons.menu_book_outlined, Icons.menu_book, 'Biblioteca'),
-          ),
-          Expanded(
-            child: _buildNavItem(2, Icons.person_outline, Icons.person, 'Perfil'),
           ),
         ],
       ),
