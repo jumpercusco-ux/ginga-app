@@ -725,10 +725,10 @@ class _ClaseCardNuevo extends StatelessWidget {
         child: Row(
           children: [
             SizedBox(
-              width: 44,
+              width: hora.contains('-') || hora.length > 5 ? 75 : 44,
               child: Text(hora,
                   style: GoogleFonts.montserrat(
-                      fontSize: 14,
+                      fontSize: hora.contains('-') || hora.length > 5 ? 12 : 14,
                       fontWeight: FontWeight.w700,
                       color: GingaColors.textPrimary)),
             ),
@@ -741,11 +741,15 @@ class _ClaseCardNuevo extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(nivel,
-                          style: GoogleFonts.montserrat(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: GingaColors.textPrimary)),
+                      Expanded(
+                        child: Text(nivel,
+                            style: GoogleFonts.montserrat(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.textPrimary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ),
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
