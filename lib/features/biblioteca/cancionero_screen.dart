@@ -168,6 +168,19 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance.collection('cantigas').snapshots(),
                 builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Text(
+                          'Error de Firestore: ${snapshot.error}',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.nunito(color: Colors.red, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    );
+                  }
+
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
                       child: CircularProgressIndicator(color: GingaColors.brandGreen),
