@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/services/tts_service.dart';
 import 'practicar_toque_screen.dart'; 
 import 'practicar_movimiento_screen.dart'; 
 
@@ -18,13 +19,13 @@ class TutorialDetailScreen extends StatefulWidget {
 
   const TutorialDetailScreen({
     super.key,
-    this.title = 'Passape',
-    this.category = 'Ataques',
-    this.level = 'Iniciante',
-    this.description = 'El passape es un movimiento de ataque circular que utiliza la parte externa del pie. Es fundamental mantener la pierna de apoyo firme y la guardia alta en todo momento.',
-    this.tipMestre = 'No quites la vista del oponente durante el giro del pie.',
-    this.tipError = 'Inclinar el tronco demasiado hacia atrás te hace perder el equilibrio y la potencia.',
-    this.imageUrl = 'assets/images/placeholder_custom.jpg',
+    required this.title,
+    required this.category,
+    required this.level,
+    required this.description,
+    required this.tipMestre,
+    required this.tipError,
+    required this.imageUrl,
     this.videoUrl = '',
     this.duracion = '5 min',
   });
@@ -42,6 +43,7 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
   @override
   void dispose() {
     _videoPlayerController?.dispose();
+    TtsService.instance.stop(); // Detener narración al salir
     super.dispose();
   }
 
@@ -389,36 +391,83 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
   }
 
   Widget _buildTipBox(String title, String desc, IconData icon) {
+    final isSpeakingText = TtsService.instance.isSpeaking(desc);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(
+          color: isSpeakingText 
+              ? GingaColors.brandGreen.withOpacity(0.4) 
+              : GingaColors.borderLight,
+          width: isSpeakingText ? 1.5 : 1,
+        ),
+        boxShadow: isSpeakingText ? [
+          BoxShadow(
+            color: GingaColors.brandGreen.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          )
+        ] : [],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: GingaColors.brandGreen, size: 22),
+          Icon(
+            icon, 
+            color: isSpeakingText ? GingaColors.brandGreen : GingaColors.textSecondary, 
+            size: 22
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textPrimary,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          TtsService.instance.speak(desc);
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: isSpeakingText 
+                              ? GingaColors.brandGreen.withOpacity(0.12) 
+                              : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isSpeakingText 
+                              ? Icons.volume_up_rounded 
+                              : Icons.volume_mute_rounded,
+                          color: GingaColors.brandGreen,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   desc,
                   style: GoogleFonts.nunito(
                     fontSize: 13,
                     color: GingaColors.textSecondary,
+                    height: 1.4,
                   ),
                 ),
               ],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/services/tts_service.dart';
 
 class PracticarMovimientoScreen extends StatefulWidget {
   final String titulo;
@@ -78,6 +79,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
     _timer?.cancel();
     _quoteTimer?.cancel();
     _videoPlayerController?.dispose();
+    TtsService.instance.stop(); // Detener narración de voz al salir
     super.dispose();
   }
 
@@ -373,7 +375,21 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                 decoration: BoxDecoration(
                   color: GingaColors.cardLight,
                   borderRadius: BorderRadius.circular(GingaRadius.lg),
-                  border: Border.all(color: GingaColors.brandGreen.withOpacity(0.2)),
+                  border: Border.all(
+                    color: TtsService.instance.isSpeaking(_motivationQuotes[_currentQuoteIndex])
+                        ? GingaColors.brandGreen
+                        : GingaColors.brandGreen.withOpacity(0.2),
+                    width: TtsService.instance.isSpeaking(_motivationQuotes[_currentQuoteIndex]) ? 1.5 : 1,
+                  ),
+                  boxShadow: TtsService.instance.isSpeaking(_motivationQuotes[_currentQuoteIndex])
+                      ? [
+                          BoxShadow(
+                            color: GingaColors.brandGreen.withOpacity(0.08),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          )
+                        ]
+                      : [],
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -384,14 +400,42 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'CONSEJO DEL MESTRE',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: GingaColors.brandGreen,
-                              letterSpacing: 1,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'CONSEJO DEL MESTRE',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: GingaColors.brandGreen,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    TtsService.instance.speak(_motivationQuotes[_currentQuoteIndex]);
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: TtsService.instance.isSpeaking(_motivationQuotes[_currentQuoteIndex])
+                                        ? GingaColors.brandGreen.withOpacity(0.12)
+                                        : Colors.transparent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    TtsService.instance.isSpeaking(_motivationQuotes[_currentQuoteIndex])
+                                        ? Icons.volume_up_rounded
+                                        : Icons.volume_mute_rounded,
+                                    color: GingaColors.brandGreen,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 6),
                           Text(
