@@ -184,7 +184,7 @@ class InstructorAlumnosScreen extends StatelessWidget {
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')
-                  .where('status', whereIn: ['prueba', 'inactivo'])
+                  .where('status', whereIn: ['nuevo', 'prueba', 'inactivo'])
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -222,12 +222,16 @@ class InstructorAlumnosScreen extends StatelessWidget {
                             radius: 20,
                             backgroundColor: status == 'prueba'
                                 ? GingaColors.accentAmber.withOpacity(0.2)
-                                : Colors.red.withOpacity(0.2),
+                                : status == 'nuevo'
+                                    ? GingaColors.brandGreen.withOpacity(0.2)
+                                    : Colors.red.withOpacity(0.2),
                             child: Icon(
                               Icons.person,
                               color: status == 'prueba'
                                   ? GingaColors.accentAmber
-                                  : Colors.red,
+                                  : status == 'nuevo'
+                                      ? GingaColors.brandGreen
+                                      : Colors.red,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -246,7 +250,9 @@ class InstructorAlumnosScreen extends StatelessWidget {
                                         fontWeight: FontWeight.w800,
                                         color: status == 'prueba'
                                             ? GingaColors.accentAmber
-                                            : Colors.red)),
+                                            : status == 'nuevo'
+                                                ? GingaColors.brandGreen
+                                                : Colors.red)),
                               ],
                             ),
                           ),
