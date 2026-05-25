@@ -35,6 +35,15 @@ class _CulturaScreenState extends State<CulturaScreen> {
       tag: 'ETIQUETA',
       contenido: 'La Roda es el círculo sagrado donde ocurre la capoeira. Está gobernada por los instrumentos colocados en la cabecera (gunga, médio, viola, atabaque y pandero). Ningún jugador entra a la roda sin pedir permiso o "comprar el juego" en el pie del berimbau gunga.\n\nEl respeto mutuo, la picardía y la sincronización con el canto del solista son fundamentales. Nunca des la espalda a tu oponente, mantén siempre el contacto visual y mantente en movimiento constante con la ginga tradicional.',
     ),
+    HistoriaArticulo(
+      titulo: 'Familia',
+      subtitulo: 'Historia del grupo y mestres de FIU',
+      icono: Icons.groups_outlined,
+      color: Colors.orange.shade800,
+      tag: 'GRUPO',
+      imagenPath: 'assets/images/fiu_banner.png',
+      contenido: 'La Escuela Familia Irmãos Unidos (FIU) es una destacada agrupación de capoeira unida por la hermandad, el respeto y la preservación de esta rica manifestación cultural.\n\nFundado y guiado bajo el liderazgo del Mestre Sydney de Souza, el grupo se enfoca en transmitir no solo el arte del combate y la acrobacia, sino también los valores fundamentales de comunidad y disciplina.\n\nFiguras destacadas y Mestres de la Familia FIU:\n\n• Mestre Arthur & Mestre Sydney: Pilares de la escuela, encargados de guiar el desarrollo técnico e impartir la sabiduría de generaciones anteriores.\n\n• Contramestre Saci: Con una agilidad espectacular y carisma, representa el dinamismo y la picardía tradicional en la roda.\n\n• Professor Navalha: Enfocado en la técnica marcial precisa, la musicalidad y la formación metodológica de nuevos alumnos.\n\n• Natalia FIU: Representante fundamental del crecimiento de la escuela, enfocada en la organización, entrenamiento y difusión de la capoeira.\n\nLa escuela FIU sigue creciendo internacionalmente, formando no solo capoeiristas de alto rendimiento, sino excelentes seres humanos.',
+    ),
   ];
 
   void _mostrarDetalleHistoria(BuildContext context, HistoriaArticulo articulo) {
@@ -68,6 +77,13 @@ class _CulturaScreenState extends State<CulturaScreen> {
               body: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (articulo.imagenPath != null)
+                    Image.asset(
+                      articulo.imagenPath!,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
                   Container(
                     padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                     color: articulo.color.withOpacity(0.08),
@@ -362,6 +378,7 @@ class HistoriaArticulo {
   final Color color;
   final String tag;
   final String contenido;
+  final String? imagenPath;
 
   HistoriaArticulo({
     required this.titulo,
@@ -370,5 +387,6 @@ class HistoriaArticulo {
     required this.color,
     required this.tag,
     required this.contenido,
+    this.imagenPath,
   });
 }
