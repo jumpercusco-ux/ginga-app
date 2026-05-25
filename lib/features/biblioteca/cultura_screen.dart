@@ -12,7 +12,7 @@ class CulturaScreen extends StatefulWidget {
 class _CulturaScreenState extends State<CulturaScreen> {
   final List<HistoriaArticulo> _articulos = [
     HistoriaArticulo(
-      titulo: 'Orígenes y Resistencia',
+      titulo: 'Orígenes',
       subtitulo: 'El nacimiento de un arte prohibido',
       icono: Icons.shield_outlined,
       color: GingaColors.brandGreen,
@@ -20,7 +20,7 @@ class _CulturaScreenState extends State<CulturaScreen> {
       contenido: 'La capoeira nació en el siglo XVI como un mecanismo de supervivencia y liberación de los esclavos africanos traídos al Brasil. Para camuflar su letal entrenamiento de combate de los capataces de las plantaciones, los capoeiristas le añadieron danza, música e instrumentos como el berimbau.\n\nDurante casi cuatro siglos fue prohibida y perseguida en Brasil, castigada con trabajos forzados en las calles, hasta que en 1937 fue legalizada y declarada patrimonio cultural nacional gracias al incansable trabajo del Mestre Bimba, quien la introdujo en los círculos deportivos e intelectuales.',
     ),
     HistoriaArticulo(
-      titulo: 'Angola vs. Regional',
+      titulo: 'Estilos',
       subtitulo: 'Dos filosofías de juego, una misma raíz',
       icono: Icons.compare_arrows_rounded,
       color: GingaColors.accentAmber,
@@ -28,7 +28,7 @@ class _CulturaScreenState extends State<CulturaScreen> {
       contenido: 'Existen dos estilos tradicionales principales en la Capoeira:\n\n• Capoeira Angola: Preservada por Mestre Pastinha, es el estilo tradicional, táctico, más cercano al suelo y cargado de astucia (mandinga). El juego es teatral, ritualizado y lento, pero altamente impredecible.\n\n• Capoeira Regional: Creada por Mestre Bimba, es un estilo moderno, rápido y acrobático. Bimba incorporó técnicas de lucha y sistematizó la enseñanza con una metodología rigurosa para dotar a la capoeira de un carácter más deportivo y defensivo.',
     ),
     HistoriaArticulo(
-      titulo: 'Fundamentos de la Roda',
+      titulo: 'Fundamentos',
       subtitulo: 'Reglas, respeto y el ritual del juego',
       icono: Icons.hub_outlined,
       color: Colors.purple,
@@ -291,12 +291,16 @@ class _CulturaScreenState extends State<CulturaScreen> {
                                   children: [
                                     Row(
                                       children: [
-                                        Text(
-                                          articulo.titulo,
-                                          style: GoogleFonts.montserrat(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w800,
-                                            color: GingaColors.textPrimary,
+                                        Expanded(
+                                          child: Text(
+                                            articulo.titulo,
+                                            style: GoogleFonts.montserrat(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w800,
+                                              color: GingaColors.textPrimary,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                         const SizedBox(width: 8),
