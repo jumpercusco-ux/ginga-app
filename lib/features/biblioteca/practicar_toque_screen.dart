@@ -14,15 +14,13 @@ class PracticarToqueScreen extends StatefulWidget {
 class _PracticarToqueScreenState extends State<PracticarToqueScreen>
     with TickerProviderStateMixin {
   int _selectedToqueIndex = 0;
-  bool _isListening = false;
+  bool _isPlaying = false;
   late AnimationController _waveController;
   late AnimationController _pulseController;
   
-  // Lógica de simulación IA avanzada para el demo
-  int _currentBpm = 112;
-  double _syncAccuracy = 0.0;
-  Timer? _analysisTimer;
-  Timer? _detectionTimer;
+  // Secuenciador rítmico fonético
+  Timer? _stepTimer;
+  int _currentStep = -1;
 
   final List<_ToqueData> _toques = [
     _ToqueData(
@@ -30,24 +28,32 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
       descripcion: 'Juego bajo, estratégico, lento y tradicional. Exige paciencia y astucia.',
       tag: 'LENTO',
       tagColor: GingaColors.brandGreen,
+      bpm: 85,
+      silabas: ['Tchi', 'Tchi', 'Dong', '•', 'Tchi', 'Tchi', 'Tin', '•'],
     ),
     _ToqueData(
       nombre: 'São Bento Pequeno',
       descripcion: 'Juego intermedio, fluido y de transición. Ideal para entrenar combinaciones suaves.',
       tag: 'MEDIO',
       tagColor: GingaColors.accentAmber,
+      bpm: 110,
+      silabas: ['Tchi', 'Tchi', 'Tin', '•', 'Tchi', 'Tchi', 'Dong', '•'],
     ),
     _ToqueData(
       nombre: 'São Bento Grande',
       descripcion: 'Juego rápido, enérgico y altamente acrobático. Enfocado en patadas veloces y reflejos.',
       tag: 'RÁPIDO',
       tagColor: GingaColors.brandGreen,
+      bpm: 130,
+      silabas: ['Tchi', 'Tchi', 'Dong', '•', 'Tin', '•', 'Tin', '•'],
     ),
     _ToqueData(
       nombre: 'Samba de Roda',
       descripcion: 'Ritmo festivo, alegre y sincopado de clausura. Celebración con canto, palmas y baile.',
       tag: 'ESPECIAL',
       tagColor: GingaColors.accentAmber,
+      bpm: 145,
+      silabas: ['Tchi', 'Tchi', 'Dong', 'Tin', 'Dong', 'Tin', 'Dong', '•'],
     ),
   ];
 
@@ -61,7 +67,7 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
     
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
   }
 
@@ -69,61 +75,43 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
   void dispose() {
     _waveController.dispose();
     _pulseController.dispose();
-    _analysisTimer?.cancel();
-    _detectionTimer?.cancel();
+    _stepTimer?.cancel();
     super.dispose();
   }
 
-  void _toggleListening() {
+  void _togglePlay() {
     setState(() {
-      _isListening = !_isListening;
-      if (!_isListening) {
-        _syncAccuracy = 0.0;
-        _currentBpm = 112;
+      _isPlaying = !_isPlaying;
+      if (!_isPlaying) {
+        _currentStep = -1;
+        _stepTimer?.cancel();
+      } else {
+        _currentStep = 0;
+        _startSequencer();
       }
     });
+  }
 
-    if (_isListening) {
-      // 1. Simular análisis de micro-ritmos en tiempo real
-      _analysisTimer = Timer.periodic(const Duration(milliseconds: 400), (timer) {
-        if (mounted) {
-          setState(() {
-            _currentBpm = 110 + math.Random().nextInt(8);
-            // Simulación de mejora de precisión orgánica
-            if (_syncAccuracy < 0.92) {
-              _syncAccuracy += 0.05 + (math.Random().nextDouble() * 0.1);
-            } else {
-              _syncAccuracy = 0.92 + (math.Random().nextDouble() * 0.05);
-            }
-          });
-        }
-      });
+  void _startSequencer() {
+    _stepTimer?.cancel();
+    final bpm = _toques[_selectedToqueIndex].bpm;
+    // Subdivisiones de corchea para las sílabas: 60000ms / BPM / 2
+    final intervalMs = (60000 / bpm / 2).toInt();
 
-      // 2. Simular detección exitosa tras unos segundos
-      _detectionTimer = Timer(const Duration(milliseconds: 4000), () {
-        if (mounted && _isListening) {
-          final selectedToque = _toques[_selectedToqueIndex];
-          setState(() {
-            _syncAccuracy = 0.98; // Bloqueo de ritmo exitoso
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('🎯 ¡Ritmo Sincronizado: ${selectedToque.nombre}!'),
-              backgroundColor: GingaColors.brandGreen,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      });
-    } else {
-      _analysisTimer?.cancel();
-      _detectionTimer?.cancel();
-    }
+    _stepTimer = Timer.periodic(Duration(milliseconds: intervalMs), (timer) {
+      if (mounted && _isPlaying) {
+        setState(() {
+          final totalSteps = _toques[_selectedToqueIndex].silabas.length;
+          _currentStep = (_currentStep + 1) % totalSteps;
+        });
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final selectedToque = _toques[_selectedToqueIndex];
+
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
@@ -142,7 +130,7 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                   ),
                   Expanded(
                     child: Text(
-                      'Practicar Toque',
+                      'Biblioteca de Toques',
                       style: GoogleFonts.montserrat(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -150,229 +138,275 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                       ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.settings_outlined,
-                        color: GingaColors.textSecondary, size: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: selectedToque.tagColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${selectedToque.bpm} BPM',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: selectedToque.tagColor,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // ── Visualizador de ritmo por IA ────────────────
+            // ── Reproductor y Análisis de Ritmo ──────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Text(
+                    'GUÍA RÍTMICA DIGITAL',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: GingaColors.textSecondary,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Simulador de Berimbau',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: GingaColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Visualizador de ondas con Botón Play/Pause central
+                  Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Text(
-                        'ANÁLISIS ESPECTRAL',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: GingaColors.textSecondary,
-                          letterSpacing: 1,
+                      Container(
+                        height: 130,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: GingaColors.cardLight,
+                          borderRadius: BorderRadius.circular(GingaRadius.lg),
+                          border: Border.all(
+                            color: _isPlaying 
+                                ? selectedToque.tagColor.withOpacity(0.2) 
+                                : Colors.transparent,
+                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        child: _BarVisualizer(
+                          controller: _waveController,
+                          isActive: _isPlaying,
+                          bpm: selectedToque.bpm,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      if (_isListening)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'LIVE',
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.red,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      const Spacer(),
-                      if (_isListening)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: GingaColors.brandGreen.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'SYNC: ${(_syncAccuracy * 100).toInt()}%',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: GingaColors.brandGreen,
+
+                      // Botón circular Play/Pause Flotante
+                      AnimatedBuilder(
+                        animation: _pulseController,
+                        builder: (context, child) {
+                          double pulse = _isPlaying ? _pulseController.value : 0.0;
+                          return Container(
+                            width: 68 + (pulse * 8),
+                            height: 68 + (pulse * 8),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _isPlaying ? Colors.red.shade600 : GingaColors.brandGreen,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (_isPlaying ? Colors.red : GingaColors.brandGreen).withOpacity(0.3),
+                                  blurRadius: 15 + (pulse * 8),
+                                  spreadRadius: 2 + (pulse * 3),
+                                )
+                              ],
                             ),
-                          ),
-                        ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _togglePlay,
+                                customBorder: const CircleBorder(),
+                                child: Icon(
+                                  _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 34,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Secuenciador Fonético Activo (Real-time timeline) ─────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'IA Visualizer',
+                        'SECUENCIA FONÉTICA DEL TOQUE',
                         style: GoogleFonts.montserrat(
-                          fontSize: 20,
+                          fontSize: 10,
                           fontWeight: FontWeight.w800,
-                          color: GingaColors.textPrimary,
+                          color: GingaColors.textSecondary,
+                          letterSpacing: 1,
                         ),
                       ),
-                      if (_isListening)
+                      if (_isPlaying)
                         Text(
-                          '$_currentBpm BPM',
+                          'REPRODUCIENDO...',
                           style: GoogleFonts.montserrat(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary.withOpacity(0.7),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: GingaColors.brandGreen,
+                            letterSpacing: 0.5,
                           ),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // Visualizador de barras de frecuencia
+                  const SizedBox(height: 10),
+
+                  // Caja contenedora de las sílabas
                   Container(
-                    height: 110,
                     width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
                     decoration: BoxDecoration(
-                      color: GingaColors.cardLight,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(GingaRadius.lg),
-                      border: Border.all(
-                        color: _isListening 
-                          ? GingaColors.brandGreen.withOpacity(0.2) 
-                          : Colors.transparent,
-                      )
+                      border: Border.all(color: GingaColors.borderLight),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    child: _BarVisualizer(
-                      controller: _waveController,
-                      isActive: _isListening,
-                      accuracy: _syncAccuracy,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: List.generate(selectedToque.silabas.length, (index) {
+                          final silaba = selectedToque.silabas[index];
+                          final isCurrent = _currentStep == index;
+                          final isPause = silaba == '•';
+
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isCurrent
+                                  ? GingaColors.brandGreen
+                                  : (isPause ? Colors.grey.shade50 : GingaColors.cardLight),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isCurrent
+                                    ? GingaColors.brandGreen
+                                    : (isPause ? Colors.grey.shade200 : GingaColors.borderLight),
+                                width: isCurrent ? 1.5 : 1,
+                              ),
+                              boxShadow: isCurrent
+                                  ? [
+                                      BoxShadow(
+                                        color: GingaColors.brandGreen.withOpacity(0.3),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 3),
+                                      )
+                                    ]
+                                  : [],
+                            ),
+                            child: Text(
+                              silaba,
+                              style: GoogleFonts.montserrat(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: isCurrent
+                                    ? Colors.white
+                                    : (isPause ? Colors.grey.shade400 : GingaColors.textPrimary),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
                     ),
                   ),
                 ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // ── Sección de Ritmos ────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Identificación de Toque',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: GingaColors.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    'Historial',
-                    style: GoogleFonts.nunito(
-                      fontSize: 12,
-                      color: GingaColors.brandGreen,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // 🟢 JUMPER FIX: Altura aumentada de 110 a 125 para evitar overflow
-            SizedBox(
-              height: 125,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _toques.length,
-                itemBuilder: (context, index) {
-                  return _ToqueCard(
-                    toque: _toques[index],
-                    isSelected: _selectedToqueIndex == index,
-                    onTap: () =>
-                        setState(() => _selectedToqueIndex = index),
-                  );
-                },
               ),
             ),
 
             const SizedBox(height: 16),
 
-            // Tarjeta de Descripción del Toque Seleccionado
+            // ── Métodos de Sonido / Glosario Didáctico ───────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: GingaColors.cardLight,
-                  borderRadius: BorderRadius.circular(GingaRadius.lg),
+                  color: GingaColors.cardLight.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(GingaRadius.md),
                   border: Border.all(color: GingaColors.borderLight),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CLAVE DE SONIDOS DEL BERIMBAU:',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w900,
+                        color: GingaColors.textSecondary,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildGlosarioItem('Tchi', 'Zumbido sordo', 'Piedra apoyada levemente'),
+                        _buildGlosarioItem('Dong', 'Grave / Abierto', 'Alambre libre / Calabaza separada'),
+                        _buildGlosarioItem('Tin', 'Agudo / Seco', 'Piedra presionada fuerte'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Info de toque seleccionado ──────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                  border: Border.all(color: selectedToque.tagColor.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: _toques[_selectedToqueIndex].tagColor.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.music_note_rounded,
-                        color: _toques[_selectedToqueIndex].tagColor,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
+                    Icon(Icons.info_outline_rounded, color: selectedToque.tagColor, size: 20),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'SOBRE EL RITMO: ${_toques[_selectedToqueIndex].nombre.toUpperCase()}',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: _toques[_selectedToqueIndex].tagColor,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _toques[_selectedToqueIndex].descripcion,
-                            style: GoogleFonts.nunito(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: GingaColors.textSecondary,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        selectedToque.descripcion,
+                        style: GoogleFonts.nunito(
+                          fontSize: 12,
+                          color: GingaColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
                       ),
                     ),
                   ],
@@ -382,94 +416,117 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
 
             const Spacer(),
 
-            // ── Botón de Control (Escuchar) ────────────────────────
-            Center(
-              child: Column(
-                children: [
-                  AnimatedBuilder(
-                    animation: _pulseController,
-                    builder: (context, child) {
-                      double pulseValue = _isListening ? _pulseController.value : 0;
-                      return Container(
-                        width: 85 + (pulseValue * 12),
-                        height: 85 + (pulseValue * 12),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _isListening ? Colors.red.shade600 : GingaColors.brandGreen,
-                          boxShadow: [
-                            BoxShadow(
-                              color: (_isListening ? Colors.red : GingaColors.brandGreen).withOpacity(0.3),
-                              blurRadius: 20 + (pulseValue * 10),
-                              spreadRadius: 2 + (pulseValue * 5),
-                            )
-                          ],
-                        ),
-                        child: GestureDetector(
-                          onTap: _toggleListening,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                _isListening ? Icons.stop_rounded : Icons.mic_rounded,
-                                color: Colors.white,
-                                size: 36,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _isListening ? 'Parar' : 'Tocar',
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                  letterSpacing: 1.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 50),
-                    child: Text(
-                      _isListening
-                          ? 'Mantén la cadencia. La IA está analizando tu golpe de arame...'
-                          : 'Toca el berimbau para que la IA califique tu técnica y ritmo.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.nunito(
-                        fontSize: 13,
-                        color: GingaColors.textSecondary.withOpacity(0.8),
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-                ],
+            // ── Listado de Ritmos ────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'Selecciona un Toque para Escuchar',
+                style: GoogleFonts.montserrat(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: GingaColors.textPrimary,
+                ),
               ),
             ),
 
-            const SizedBox(height: 40),
+            const SizedBox(height: 10),
+
+            SizedBox(
+              height: 110,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _toques.length,
+                itemBuilder: (context, index) {
+                  return _ToqueCard(
+                    toque: _toques[index],
+                    isSelected: _selectedToqueIndex == index,
+                    onTap: () {
+                      setState(() {
+                        _selectedToqueIndex = index;
+                        if (_isPlaying) {
+                          _startSequencer(); // Adapta la velocidad en vivo
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 20),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildGlosarioItem(String silaba, String sonido, String tecnica) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: GingaColors.brandGreen.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  silaba,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: GingaColors.brandGreen,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  sonido,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            tecnica,
+            style: GoogleFonts.nunito(
+              fontSize: 8,
+              color: GingaColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────
-//  VISUALIZADOR DE BARRAS (ECUALIZADOR CON SYNC)
+//  VISUALIZADOR DE ONDAS RÍTMICAS (ECUALIZADOR)
 // ─────────────────────────────────────────
 
 class _BarVisualizer extends StatelessWidget {
   final AnimationController controller;
   final bool isActive;
-  final double accuracy;
+  final int bpm;
 
   const _BarVisualizer({
     required this.controller,
     required this.isActive,
-    required this.accuracy,
+    required this.bpm,
   });
 
   @override
@@ -482,7 +539,7 @@ class _BarVisualizer extends StatelessWidget {
           painter: _BarPainter(
             progress: controller.value,
             isActive: isActive,
-            accuracy: accuracy,
+            bpm: bpm,
           ),
         );
       },
@@ -493,12 +550,12 @@ class _BarVisualizer extends StatelessWidget {
 class _BarPainter extends CustomPainter {
   final double progress;
   final bool isActive;
-  final double accuracy;
+  final int bpm;
 
   _BarPainter({
     required this.progress,
     required this.isActive,
-    required this.accuracy,
+    required this.bpm,
   });
 
   @override
@@ -509,20 +566,22 @@ class _BarPainter extends CustomPainter {
     
     final Paint paint = Paint()..style = PaintingStyle.fill;
 
+    // Aceleración de la onda según el BPM del toque seleccionado
+    double bpmSpeedFactor = bpm / 85.0; // Normalizado respecto a Angola
+    double calculatedProgress = (progress * bpmSpeedFactor) % 1.0;
+
     for (int i = 0; i < barCount; i++) {
-      // Cálculo de la altura base mediante función seno
-      double baseHeight = math.sin((i / barCount * 2.5 * math.pi) + (progress * 2 * math.pi)).abs();
+      // Cálculo de la altura base mediante función seno reactiva
+      double baseHeight = math.sin((i / barCount * 2.5 * math.pi) + (calculatedProgress * 2 * math.pi)).abs();
       
-      // Multiplicador de energía reactiva
       double energy = isActive 
           ? (0.4 + math.Random().nextDouble() * 0.6) 
           : 0.15;
       
       double barHeight = (size.height * 0.85) * baseHeight * energy;
       
-      // Ajustes visuales de suavizado
-      if (!isActive && barHeight < 12) barHeight = 12;
-      if (isActive && barHeight < 18) barHeight = 18 + math.Random().nextDouble() * 10;
+      if (!isActive && barHeight < 8) barHeight = 8;
+      if (isActive && barHeight < 16) barHeight = 16 + math.Random().nextDouble() * 10;
 
       final RRect rect = RRect.fromRectAndRadius(
         Rect.fromLTWH(
@@ -534,9 +593,8 @@ class _BarPainter extends CustomPainter {
         const Radius.circular(12),
       );
 
-      // Color dinámico interpolado según precisión (SYNC)
       Color topColor = isActive 
-          ? Color.lerp(GingaColors.textSecondary.withOpacity(0.5), GingaColors.brandGreen, accuracy)!
+          ? Color.lerp(GingaColors.brandGreen, GingaColors.accentAmber, (i / barCount))!
           : GingaColors.borderLight;
       
       Color bottomColor = topColor.withOpacity(0.4);
@@ -575,10 +633,9 @@ class _ToqueCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 400),
+        duration: const Duration(milliseconds: 300),
         width: 140,
         margin: const EdgeInsets.symmetric(horizontal: 8),
-        // 🟢 JUMPER FIX: Padding reducido de 16 a 12 para ganar espacio vertical
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected ? GingaColors.brandGreen.withOpacity(0.06) : Colors.white,
@@ -603,8 +660,8 @@ class _ToqueCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  width: 34,
-                  height: 34,
+                  width: 32,
+                  height: 32,
                   decoration: BoxDecoration(
                     color: isSelected ? GingaColors.brandGreen : GingaColors.cardLight,
                     borderRadius: BorderRadius.circular(GingaRadius.sm),
@@ -612,27 +669,26 @@ class _ToqueCard extends StatelessWidget {
                   child: Icon(
                     Icons.music_note_rounded,
                     color: isSelected ? Colors.white : GingaColors.textSecondary,
-                    size: 20,
+                    size: 18,
                   ),
                 ),
                 if (isSelected)
-                  const Icon(Icons.verified, color: GingaColors.brandGreen, size: 18),
+                  const Icon(Icons.check_circle, color: GingaColors.brandGreen, size: 16),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               toque.nombre,
               style: GoogleFonts.montserrat(
-                fontSize: 12, // Reducido un punto para seguridad
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: GingaColors.textPrimary,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: toque.tagColor.withOpacity(0.18),
                 borderRadius: BorderRadius.circular(6),
@@ -640,7 +696,7 @@ class _ToqueCard extends StatelessWidget {
               child: Text(
                 toque.tag,
                 style: GoogleFonts.montserrat(
-                  fontSize: 8,
+                  fontSize: 7.5,
                   fontWeight: FontWeight.w900,
                   color: toque.tagColor,
                   letterSpacing: 0.8,
@@ -659,11 +715,15 @@ class _ToqueData {
   final String descripcion;
   final String tag;
   final Color tagColor;
+  final int bpm;
+  final List<String> silabas;
 
   _ToqueData({
     required this.nombre,
     required this.descripcion,
     required this.tag,
     required this.tagColor,
+    required this.bpm,
+    required this.silabas,
   });
 }
