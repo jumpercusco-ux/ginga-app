@@ -72,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
             index: _selectedTab,
             children: const [
               _HomeDashboard(),
-              EventosScreen(),
+              // EventosScreen(), // Ocultado temporalmente
               BibliotecaScreen(),
               ProgresoScreen(),
             ],
@@ -145,9 +145,18 @@ class _HomeScreenState extends State<HomeScreen> {
         iconColor: GingaColors.brandGreen,
         onAction: () {
           Navigator.pop(ctx);
-          setState(() {
-            _selectedTab = 1; // "A Roda" (Classes / Events)
-          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'El módulo de reservas de clases estará disponible próximamente. ¡Mantente atento!',
+                style: GoogleFonts.nunito(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              backgroundColor: GingaColors.brandGreen,
+            ),
+          );
         },
       ),
     );
@@ -2156,15 +2165,18 @@ class _GingaBottomNav extends StatelessWidget {
           Expanded(
             child: _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
           ),
+          // Ocultado temporalmente
+          /*
           Expanded(
             child: _buildNavItem(1, Icons.groups_outlined, Icons.groups, 'A Roda'),
           ),
+          */
           const SizedBox(width: 64), // Espacio central para el FAB con notch
           Expanded(
-            child: _buildNavItem(2, Icons.menu_book_outlined, Icons.menu_book, 'Biblioteca'),
+            child: _buildNavItem(1, Icons.menu_book_outlined, Icons.menu_book, 'Biblioteca'),
           ),
           Expanded(
-            child: _buildNavItem(3, Icons.person_outline, Icons.person, 'Perfil'),
+            child: _buildNavItem(2, Icons.person_outline, Icons.person, 'Perfil'),
           ),
         ],
       ),

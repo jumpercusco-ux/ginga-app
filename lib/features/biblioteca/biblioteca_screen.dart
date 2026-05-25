@@ -95,7 +95,8 @@ class BibliotecaScreen extends StatelessWidget {
 
               const SizedBox(height: 28),
 
-              // ── Últimas lecciones ────────────────────
+              // ── Últimas lecciones (Ocultado temporalmente) ────────────────────
+              /*
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -195,6 +196,7 @@ class BibliotecaScreen extends StatelessWidget {
                   );
                 },
               ),
+              */
 
               const SizedBox(height: 32),
             ],
