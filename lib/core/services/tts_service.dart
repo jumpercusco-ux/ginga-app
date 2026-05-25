@@ -12,8 +12,17 @@ class TtsService {
   Future<void> init() async {
     if (_initialized) return;
     try {
-      // Configuraciones del narrador en español de forma predeterminada
-      await _flutterTts.setLanguage("es-ES");
+      // Configuraciones del narrador en Español Latinoamericano (es-MX) con fallback robusto
+      try {
+        final bool isMxAvailable = await _flutterTts.isLanguageAvailable("es-MX") as bool;
+        if (isMxAvailable) {
+          await _flutterTts.setLanguage("es-MX");
+        } else {
+          await _flutterTts.setLanguage("es");
+        }
+      } catch (_) {
+        await _flutterTts.setLanguage("es");
+      }
       await _flutterTts.setSpeechRate(0.48); // Velocidad moderada para clara enseñanza
       await _flutterTts.setVolume(1.0);
       await _flutterTts.setPitch(1.0);
