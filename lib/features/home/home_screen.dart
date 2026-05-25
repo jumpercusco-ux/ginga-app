@@ -369,11 +369,6 @@ class _HomeDashboard extends StatelessWidget {
                 const _StorePromoBanner(),
                 const SizedBox(height: 20),
 
-                // Noticias — siempre visible
-                _SectionTitle(
-                    title: 'Últimas noticias', actionLabel: 'Ver todas'),
-                const SizedBox(height: 12),
-                _NoticiasRow(),
                 const SizedBox(height: 28),
               ],
             ),
