@@ -187,9 +187,11 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // ── Barra Superior (AppBar) ──────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
@@ -504,7 +506,7 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
               ),
             ),
 
-            const Spacer(),
+            const SizedBox(height: 24),
 
             // ── Listado de Ritmos ────────────────────
             Padding(
@@ -548,6 +550,7 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
           ],
         ),
       ),
+    ),
     );
   }
 
