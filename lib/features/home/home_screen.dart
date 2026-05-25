@@ -67,6 +67,9 @@ class _HomeDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Inicializar eventos mockup si la colección de Firestore está vacía
+    EventosService.instance.inicializarEventosMockupSiVacia();
+
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return StreamBuilder<DocumentSnapshot>(

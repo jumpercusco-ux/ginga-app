@@ -9,6 +9,12 @@ class EventosService {
   /// Inicializa un evento de prueba en Firestore si la colección /eventos está vacía
   Future<void> inicializarEventosMockupSiVacia() async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        debugPrint('Se pospone la inicialización de eventos mockup (sin sesión activa).');
+        return;
+      }
+      
       final query = await FirebaseFirestore.instance.collection('eventos').limit(1).get();
       if (query.docs.isEmpty) {
         debugPrint('Inicializando colección /eventos con evento de prueba...');
