@@ -7,10 +7,6 @@ import 'firebase_options.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/ginga_theme.dart';
 import 'core/services/notification_service.dart';
-import 'core/services/tienda_service.dart';
-import 'core/services/tutoriales_service.dart';
-import 'core/services/eventos_service.dart';
-import 'core/services/cantigas_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,17 +17,7 @@ void main() async {
   // Registrar el controlador de segundo plano de FCM
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // Inicializar productos de la tienda si la colección está vacía
-  TiendaService.instance.inicializarProductosMockupSiVacia();
 
-  // Inicializar tutoriales de la biblioteca si la colección está vacía
-  TutorialesService.instance.inicializarTutorialesMockupSiVacia();
-
-  // Inicializar eventos de prueba si la colección está vacía
-  EventosService.instance.inicializarEventosMockupSiVacia();
-
-  // Inicializar cantigas si la colección está vacía
-  CantigasService.instance.inicializarCantigasSiVacia();
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const GingaApp());
