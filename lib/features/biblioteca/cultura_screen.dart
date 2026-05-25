@@ -42,7 +42,8 @@ class _CulturaScreenState extends State<CulturaScreen> {
       color: Colors.orange.shade800,
       tag: 'GRUPO',
       imagenPath: 'assets/images/fiu_banner.png',
-      contenido: 'La Escuela Familia Irmãos Unidos (FIU) es una destacada agrupación de capoeira unida por la hermandad, el respeto y la preservación de esta rica manifestación cultural.\n\nFundado y guiado bajo el liderazgo del Mestre Sydney de Souza, el grupo se enfoca en transmitir no solo el arte del combate y la acrobacia, sino también los valores fundamentales de comunidad y disciplina.\n\nFiguras destacadas y Mestres de la Familia FIU:\n\n• Mestre Arthur & Mestre Sydney: Pilares de la escuela, encargados de guiar el desarrollo técnico e impartir la sabiduría de generaciones anteriores.\n\n• Contramestre Saci: Con una agilidad espectacular y carisma, representa el dinamismo y la picardía tradicional en la roda.\n\n• Professor Navalha: Enfocado en la técnica marcial precisa, la musicalidad y la formación metodológica de nuevos alumnos.\n\n• Natalia FIU: Representante fundamental del crecimiento de la escuela, enfocada en la organización, entrenamiento y difusión de la capoeira.\n\nLa escuela FIU sigue creciendo internacionalmente, formando no solo capoeiristas de alto rendimiento, sino excelentes seres humanos.',
+      logoPath: 'assets/images/fiu_logo.jpg',
+      contenido: 'Família Irmãos Unidos, conocido como FIU, es un grupo internacional de capoeira fundado en São Paulo, Brasil, por Mestre Natal (Natalino Dias da Cruz) alrededor de 1980. Nacido dentro del contexto de crecimiento y expansión de la capoeira contemporánea en Brasil, FIU surgió con la propuesta de fortalecer no solo el aspect físico de la capoeira, sino también sus valores culturales, musicales y humanos.\n\nMestre Natal dedicó su vida a enseñar la capoeira como una herramienta de disciplina, unión y transformación social, formando generaciones de alumnos dentro y fuera de Brasil. Con el tiempo, el grupo comenzó a expandirse internacionalmente, llevando la tradición de la capoeira brasileña a distintos países de América y Europa.\n\nTras la muerte de Mestre Natal en 2002, el legado del grupo continuó bajo la dirección de sus hijos: Mestre Sidney, Contra-Mestra Natália y Contra-Mestre Arthur FIU, quienes asumieron la misión de preservar la esencia enseñada por su padre mientras impulsaban el crecimiento internacional de la organización.\n\nActualmente, FIU mantiene academias, eventos y encuentros culturales en diversos países, promoviendo la capoeira como una expresión de resistencia cultural afrobrasileña que integra lucha, música, danza, tradición y comunidad. El grupo destaca por su énfasis en la formación humana, el respeto dentro de la roda y la preservación de las raíces culturales de la capoeira.',
     ),
   ];
 
@@ -90,14 +91,27 @@ class _CulturaScreenState extends State<CulturaScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: articulo.color.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(GingaRadius.md),
-                          ),
-                          child: Icon(articulo.icono, color: articulo.color, size: 28),
-                        ),
+                        articulo.logoPath != null
+                            ? Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  border: Border.all(color: GingaColors.borderLight),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  child: Image.asset(articulo.logoPath!, fit: BoxFit.cover),
+                                ),
+                              )
+                            : Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: articulo.color.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                ),
+                                child: Icon(articulo.icono, color: articulo.color, size: 28),
+                              ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
@@ -291,15 +305,28 @@ class _CulturaScreenState extends State<CulturaScreen> {
                           padding: const EdgeInsets.all(16),
                           child: Row(
                             children: [
-                              Container(
-                                width: 52,
-                                height: 52,
-                                decoration: BoxDecoration(
-                                  color: articulo.color.withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(GingaRadius.md),
-                                ),
-                                child: Icon(articulo.icono, color: articulo.color, size: 26),
-                              ),
+                              articulo.logoPath != null
+                                  ? Container(
+                                      width: 52,
+                                      height: 52,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                                        border: Border.all(color: GingaColors.borderLight),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                                        child: Image.asset(articulo.logoPath!, fit: BoxFit.cover),
+                                      ),
+                                    )
+                                  : Container(
+                                      width: 52,
+                                      height: 52,
+                                      decoration: BoxDecoration(
+                                        color: articulo.color.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                                      ),
+                                      child: Icon(articulo.icono, color: articulo.color, size: 26),
+                                    ),
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
@@ -379,6 +406,7 @@ class HistoriaArticulo {
   final String tag;
   final String contenido;
   final String? imagenPath;
+  final String? logoPath;
 
   HistoriaArticulo({
     required this.titulo,
@@ -388,5 +416,6 @@ class HistoriaArticulo {
     required this.tag,
     required this.contenido,
     this.imagenPath,
+    this.logoPath,
   });
 }
