@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/ginga_theme.dart';
-import 'practicar_toque_screen.dart';
+import 'musica_screen.dart';
 import 'tutor_detail_screen.dart';
 import 'cultura_screen.dart';
 import 'tutoriales_screen.dart';
@@ -45,16 +45,16 @@ class BibliotecaScreen extends StatelessWidget {
 
               // ── Sección principal ────────────────────
               _SeccionCard(
-                titulo: 'Toques',
-                subtitulo: 'Identifica ritmos con IA en tiempo real',
+                titulo: 'Música',
+                subtitulo: 'Toques de berimbau y cantigas tradicionales',
                 icono: Icons.music_note,
-                tag: 'IA',
+                tag: 'RITMO',
                 tagColor: GingaColors.brandGreen,
                 color: GingaColors.brandGreen,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const PracticarToqueScreen(),
+                    builder: (_) => const MusicaScreen(),
                   ),
                 ),
               ),
@@ -80,7 +80,7 @@ class BibliotecaScreen extends StatelessWidget {
 
               _SeccionCard(
                 titulo: 'Cultura',
-                subtitulo: 'Cantigas, historia y enciclopedia de mestres',
+                subtitulo: 'Historia de la capoeira y enciclopedia de mestres',
                 icono: Icons.menu_book_outlined,
                 tag: 'CULTURA',
                 tagColor: GingaColors.textSecondary,

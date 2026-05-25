@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/services/tts_service.dart';
-import 'practicar_toque_screen.dart'; 
 import 'practicar_movimiento_screen.dart'; 
 
 class TutorialDetailScreen extends StatefulWidget {

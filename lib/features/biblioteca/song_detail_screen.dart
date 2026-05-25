@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import '../../core/theme/ginga_theme.dart';
-import 'cultura_screen.dart'; // Para importar el modelo Cantiga
+import 'cancionero_screen.dart'; // Para importar el modelo Cantiga
 
 class SongDetailScreen extends StatefulWidget {
   final Cantiga cantiga;
