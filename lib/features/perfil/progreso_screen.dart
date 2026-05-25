@@ -7,6 +7,22 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'mi_progreso_screen.dart';
 
+int _obtenerAsistenciasObjetivo(String corda) {
+  switch (corda.toLowerCase()) {
+    case 'iniciación':
+    case 'iniciacion':
+      return 24;
+    case 'corda amarela':
+      return 48;
+    case 'corda laranja':
+      return 60;
+    case 'corda azul':
+      return 80;
+    default:
+      return 100;
+  }
+}
+
 class ProgresoScreen extends StatelessWidget {
   const ProgresoScreen({super.key});
 
@@ -34,198 +50,225 @@ class ProgresoScreen extends StatelessWidget {
           inicial = nombre.isNotEmpty ? nombre[0].toUpperCase() : 'A';
         }
 
-        return Scaffold(
-          backgroundColor: GingaColors.backgroundLight,
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('asistencias')
+              .where('user_id', isEqualTo: uid)
+              .snapshots(),
+          builder: (context, asistenciasSnapshot) {
+            int totalAsistencias = 0;
+            if (asistenciasSnapshot.hasData) {
+              totalAsistencias = asistenciasSnapshot.data!.docs.length;
+            }
 
-                  // ── Header ──────────────────────────
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            final int objetivo = _obtenerAsistenciasObjetivo(corda);
+            final double porcentaje = (totalAsistencias / objetivo).clamp(0.0, 1.0);
+            final int porcentajeInt = (porcentaje * 100).toInt();
+
+            return Scaffold(
+              backgroundColor: GingaColors.backgroundLight,
+              body: SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Progreso y Logros',
-                          style: GoogleFonts.montserrat(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: GingaColors.textPrimary)),
-                      IconButton(
-                        onPressed: () async {
-                          await FirebaseAuth.instance.signOut();
-                          if (context.mounted) context.go('/splash');
-                        },
-                        icon: const Icon(Icons.logout,
-                            color: GingaColors.textSecondary, size: 22),
-                      ),
-                    ],
-                  ),
+                      const SizedBox(height: 20),
 
-                  const SizedBox(height: 24),
-
-                  // ── Card de perfil real ──────────────
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: GingaColors.cardLight,
-                      borderRadius: BorderRadius.circular(GingaRadius.lg),
-                      border: Border.all(
-                          color: GingaColors.brandGreen.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        // Avatar con inicial
-                        CircleAvatar(
-                          radius: 32,
-                          backgroundColor: GingaColors.brandGreen,
-                          child: Text(
-                            inicial,
-                            style: GoogleFonts.montserrat(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                nombre,
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 18,
+                      // ── Header ──────────────────────────
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Progreso y Logros',
+                              style: GoogleFonts.montserrat(
+                                  fontSize: 22,
                                   fontWeight: FontWeight.w800,
-                                  color: GingaColors.textPrimary,
+                                  color: GingaColors.textPrimary)),
+                          IconButton(
+                            onPressed: () async {
+                              await FirebaseAuth.instance.signOut();
+                              if (context.mounted) context.go('/splash');
+                            },
+                            icon: const Icon(Icons.logout,
+                                color: GingaColors.textSecondary, size: 22),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // ── Card de perfil real ──────────────
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: GingaColors.cardLight,
+                          borderRadius: BorderRadius.circular(GingaRadius.lg),
+                          border: Border.all(
+                              color: GingaColors.brandGreen.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            // Avatar con inicial
+                            CircleAvatar(
+                              radius: 32,
+                              backgroundColor: GingaColors.brandGreen,
+                              child: Text(
+                                inicial,
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Row(
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      color: GingaColors.brandGreen,
-                                      shape: BoxShape.circle,
+                                  Text(
+                                    nombre,
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: GingaColors.textPrimary,
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    corda,
-                                    style: GoogleFonts.nunito(
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: const BoxDecoration(
+                                          color: GingaColors.brandGreen,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        corda,
+                                        style: GoogleFonts.nunito(
+                                          fontSize: 13,
+                                          color: GingaColors.brandGreen,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.location_on_outlined,
+                                          size: 13,
+                                          color: GingaColors.textSecondary),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        sede,
+                                        style: GoogleFonts.nunito(
+                                          fontSize: 12,
+                                          color: GingaColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // ── Círculo de progreso ──────────────
+                      Center(
+                        child: _ProgressCircle(
+                          inicial: inicial,
+                          porcentaje: porcentaje,
+                          porcentajeInt: porcentajeInt,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Center(
+                        child: Column(
+                          children: [
+                            Text('Nivel de Musicalidad',
+                                style: GoogleFonts.montserrat(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: GingaColors.textPrimary)),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: GingaColors.cardLight,
+                                borderRadius:
+                                    BorderRadius.circular(GingaRadius.full),
+                              ),
+                              child: Text('Grado: $corda',
+                                  style: GoogleFonts.nunito(
                                       fontSize: 13,
                                       color: GingaColors.brandGreen,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  const Icon(Icons.location_on_outlined,
-                                      size: 13,
-                                      color: GingaColors.textSecondary),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    sede,
-                                    style: GoogleFonts.nunito(
-                                      fontSize: 12,
-                                      color: GingaColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                                      fontWeight: FontWeight.w600)),
+                            ),
+                            const SizedBox(height: 12),
+                            _XpBar(
+                              total: totalAsistencias,
+                              objetivo: objetivo,
+                              porcentaje: porcentaje,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
 
-                  const SizedBox(height: 24),
+                      const SizedBox(height: 28),
+                      _SectionHeader(title: 'Tus Logros', actionLabel: 'Ver todas'),
+                      const SizedBox(height: 12),
+                      _LogrosRow(),
 
-                  // ── Círculo de progreso ──────────────
-                  Center(child: _ProgressCircle(inicial: inicial)),
-                  const SizedBox(height: 20),
-                  Center(
-                    child: Column(
-                      children: [
-                        Text('Nivel de Musicalidad',
-                            style: GoogleFonts.montserrat(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: GingaColors.textPrimary)),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: GingaColors.cardLight,
-                            borderRadius:
-                                BorderRadius.circular(GingaRadius.full),
-                          ),
-                          child: Text('Grado: $corda',
-                              style: GoogleFonts.nunito(
-                                  fontSize: 13,
-                                  color: GingaColors.brandGreen,
-                                  fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 28),
+                      _SectionHeader(title: 'Actividad Semanal', actionLabel: ''),
+                      const SizedBox(height: 12),
+                      _ActividadSemanal(),
+
+                      const SizedBox(height: 28),
+                      _SectionHeader(title: 'Próximos Desafíos', actionLabel: ''),
+                      const SizedBox(height: 12),
+
+                      GestureDetector(
+                        onTap: () => Navigator.push(context,
+                            MaterialPageRoute(
+                                builder: (_) => const MiProgresoScreen())),
+                        child: _DesafioCard(
+                          icon: Icons.music_note_outlined,
+                          titulo: 'Domina el toque Iuna',
+                          subtitulo: 'Practica en 2 rodas más',
+                          color: GingaColors.brandGreen,
                         ),
-                        const SizedBox(height: 12),
-                        _XpBar(),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: () => Navigator.push(context,
+                            MaterialPageRoute(
+                                builder: (_) => const MiProgresoScreen())),
+                        child: _DesafioCard(
+                          icon: Icons.groups_outlined,
+                          titulo: 'Asistencia Roda de Sábado',
+                          subtitulo: 'Participa en 2 rodas más',
+                          color: GingaColors.accentAmber,
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+                    ],
                   ),
-
-                  const SizedBox(height: 28),
-                  _SectionHeader(title: 'Tus Logros', actionLabel: 'Ver todas'),
-                  const SizedBox(height: 12),
-                  _LogrosRow(),
-
-                  const SizedBox(height: 28),
-                  _SectionHeader(title: 'Actividad Semanal', actionLabel: ''),
-                  const SizedBox(height: 12),
-                  _ActividadSemanal(),
-
-                  const SizedBox(height: 28),
-                  _SectionHeader(title: 'Próximos Desafíos', actionLabel: ''),
-                  const SizedBox(height: 12),
-
-                  GestureDetector(
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(
-                            builder: (_) => const MiProgresoScreen())),
-                    child: _DesafioCard(
-                      icon: Icons.music_note_outlined,
-                      titulo: 'Domina el toque Iuna',
-                      subtitulo: 'Practica en 2 rodas más',
-                      color: GingaColors.brandGreen,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  GestureDetector(
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(
-                            builder: (_) => const MiProgresoScreen())),
-                    child: _DesafioCard(
-                      icon: Icons.groups_outlined,
-                      titulo: 'Asistencia Roda de Sábado',
-                      subtitulo: 'Participa en 2 rodas más',
-                      color: GingaColors.accentAmber,
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -238,7 +281,13 @@ class ProgresoScreen extends StatelessWidget {
 
 class _ProgressCircle extends StatelessWidget {
   final String inicial;
-  const _ProgressCircle({required this.inicial});
+  final double porcentaje;
+  final int porcentajeInt;
+  const _ProgressCircle({
+    required this.inicial,
+    required this.porcentaje,
+    required this.porcentajeInt,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -250,7 +299,7 @@ class _ProgressCircle extends StatelessWidget {
         children: [
           CustomPaint(
             size: const Size(140, 140),
-            painter: _CirclePainter(progress: 0.75),
+            painter: _CirclePainter(progress: porcentaje),
           ),
           Column(
             mainAxisSize: MainAxisSize.min,
@@ -265,7 +314,7 @@ class _ProgressCircle extends StatelessWidget {
                         color: GingaColors.brandGreen)),
               ),
               const SizedBox(height: 4),
-              Text('75%',
+              Text('$porcentajeInt%',
                   style: GoogleFonts.montserrat(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -305,10 +354,20 @@ class _CirclePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_) => false;
+  bool shouldRepaint(covariant _CirclePainter oldDelegate) => oldDelegate.progress != progress;
 }
 
 class _XpBar extends StatelessWidget {
+  final int total;
+  final int objetivo;
+  final double porcentaje;
+
+  const _XpBar({
+    required this.total,
+    required this.objetivo,
+    required this.porcentaje,
+  });
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -318,7 +377,7 @@ class _XpBar extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('1,200 / 1,600 XP',
+              Text('$total / $objetivo clases',
                   style: GoogleFonts.nunito(
                       fontSize: 12, color: GingaColors.textSecondary)),
               Text('para el siguiente corda',
@@ -330,7 +389,7 @@ class _XpBar extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(GingaRadius.full),
             child: LinearProgressIndicator(
-              value: 1200 / 1600,
+              value: porcentaje,
               minHeight: 8,
               backgroundColor: GingaColors.borderLight,
               valueColor:
