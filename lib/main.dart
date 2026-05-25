@@ -10,6 +10,7 @@ import 'core/services/notification_service.dart';
 import 'core/services/tienda_service.dart';
 import 'core/services/tutoriales_service.dart';
 import 'core/services/eventos_service.dart';
+import 'core/services/cantigas_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +29,9 @@ void main() async {
 
   // Inicializar eventos de prueba si la colección está vacía
   EventosService.instance.inicializarEventosMockupSiVacia();
+
+  // Inicializar cantigas si la colección está vacía
+  CantigasService.instance.inicializarCantigasSiVacia();
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const GingaApp());

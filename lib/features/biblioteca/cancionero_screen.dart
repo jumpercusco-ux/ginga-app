@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'song_detail_screen.dart';
 
@@ -12,6 +13,7 @@ class Cantiga {
   final String contexto;
   final String letraPt;
   final String letraEs;
+  final String audioUrl;
 
   Cantiga({
     required this.id,
@@ -22,6 +24,7 @@ class Cantiga {
     required this.contexto,
     required this.letraPt,
     required this.letraEs,
+    required this.audioUrl,
   });
 }
 
@@ -37,226 +40,10 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
   String _selectedCategory = 'Todos';
   final TextEditingController _searchController = TextEditingController();
 
-  // Lista estática de cantigas tradicionales de Capoeira
-  final List<Cantiga> _cantigas = [
-    Cantiga(
-      id: '1',
-      titulo: 'Dona Maria Como Vai Você',
-      ritmo: 'Corrido',
-      autor: 'Tradicional',
-      duracion: '2:15',
-      contexto: 'Este corrido es uno de los cantos de juego más alegres y dinámicos de la roda. Se canta con un ritmo rápido para inyectar vitalidad y llamar a los jugadores a acelerar sus movimientos e interacciones en el centro.',
-      letraPt: '''Dona Maria como vai você?
-Dona Maria como vai você?
-
-Eu vou na roda pra ver a jogada,
-Eu vou na roda pra ver você.
-
-Dona Maria como vai você?
-Dona Maria como vai você?
-
-O berimbau tá tocando na praça,
-A capoeira é pra quem quer ver.
-
-Dona Maria como vai você?
-Dona Maria como vai você?''',
-      letraEs: '''Doña María ¿cómo le va?
-Doña María ¿cómo le va?
-
-Voy a la roda para ver el juego,
-Voy a la roda para verte a ti.
-
-Doña María ¿cómo le va?
-Doña María ¿cómo le va?
-
-El berimbau está sonando en la plaza,
-La capoeira es para quien quiera ver.
-
-Doña María ¿cómo le va?
-Doña María ¿cómo le va?''',
-    ),
-    Cantiga(
-      id: '2',
-      titulo: 'Paraná Ê',
-      ritmo: 'Corrido',
-      autor: 'Tradicional',
-      duracion: '3:05',
-      contexto: 'Uno de los cantos más emblemáticos y solemnes de la capoeira. Su origen se remonta a la Guerra de la Triple Alianza (Guerra del Paraguay), donde muchos esclavizados lucharon y recordaban su añoranza y nostalgia por la libertad de Bahía.',
-      letraPt: '''Paraná ê, Paraná ê, Paraná.
-Paraná ê, Paraná ê, Paraná.
-
-Vou me embora pra Bahia,
-Terra de São Salvador.
-
-Paraná ê, Paraná ê, Paraná.
-Paraná ê, Paraná ê, Paraná.
-
-Berimbau bateu com força,
-Meu peito até chorou.
-
-Paraná ê, Paraná ê, Paraná.
-Paraná ê, Paraná ê, Paraná.
-
-Quem não sabe andar de gunga,
-Não se mete a capoeira.
-
-Paraná ê, Paraná ê, Paraná.
-Paraná ê, Paraná ê, Paraná.''',
-      letraEs: '''Paraná eh, Paraná eh, Paraná.
-Paraná eh, Paraná eh, Paraná.
-
-Me voy a ir para Bahía,
-Tierra de San Salvador (capital).
-
-Paraná eh, Paraná eh, Paraná.
-Paraná eh, Paraná eh, Paraná.
-
-El berimbau sonó con fuerza,
-Mi pecho hasta lloró.
-
-Paraná eh, Paraná eh, Paraná.
-Paraná eh, Paraná eh, Paraná.
-
-Quien no sabe tocar el gunga,
-No se mete a la capoeira.
-
-Paraná eh, Paraná eh, Paraná.
-Paraná eh, Paraná eh, Paraná.''',
-    ),
-    Cantiga(
-      id: '3',
-      titulo: 'Muriacá',
-      ritmo: 'Samba de Roda',
-      autor: 'Tradicional',
-      duracion: '1:58',
-      contexto: 'Un canto festivo con raíces en el Samba de Roda del Recôncavo Bahiano. Suele cantarse hacia el final de la roda para liberar la tensión, permitiendo un juego rítmico, más danzado, relajado y lleno de floreos.',
-      letraPt: '''Muriacá, Muriacá, Muriacá.
-Muriacá, Muriacá, Muriacá.
-
-A capoeira é jogo de mandinga,
-Muriacá, Muriacá, Muriacá.
-
-Muriacá, Muriacá, Muriacá.
-Muriacá, Muriacá, Muriacá.
-
-Berimbau tocou, a roda começou,
-Muriacá, Muriacá, Muriacá.
-
-Muriacá, Muriacá, Muriacá.
-Muriacá, Muriacá, Muriacá.''',
-      letraEs: '''Muriacá, Muriacá, Muriacá.
-Muriacá, Muriacá, Muriacá.
-
-La capoeira es juego de hechicería,
-Muriacá, Muriacá, Muriacá.
-
-Muriacá, Muriacá, Muriacá.
-Muriacá, Muriacá, Muriacá.
-
-El berimbau sonó, la roda comenzó,
-Muriacá, Muriacá, Muriacá.
-
-Muriacá, Muriacá, Muriacá.
-Muriacá, Muriacá, Muriacá.''',
-    ),
-    Cantiga(
-      id: '4',
-      titulo: 'Sim Sim Sim, Não Não Não',
-      ritmo: 'Corrido',
-      autor: 'Mestre Bimba',
-      duracion: '2:40',
-      contexto: 'Atribuido históricamente a Mestre Bimba, creador de la Capoeira Regional. Es un corrido muy lúdico que genera alta interactividad con la Roda, jugando con preguntas del solista y respuestas del coro alternando afirmaciones y negaciones.',
-      letraPt: '''Sim, sim, sim, não, não, não.
-Sim, sim, sim, não, não, não.
-
-Hoje tem jogo de capoeira,
-sim senhor.
-
-Amanhã tem roda na ribeira,
-não senhor.
-
-Sim, sim, sim, não, não, não.
-Sim, sim, sim, não, não, não.
-
-Mestre Bimba é o criador,
-sim senhor.
-
-Que ensinou com muito amor,
-não senhor.
-
-Sim, sim, sim, não, não, não.
-Sim, sim, sim, não, não, não.''',
-      letraEs: '''Sí, sí, sí, no, no, no.
-Sí, sí, sí, no, no, no.
-
-Hoy hay juego de capoeira,
-sí señor.
-
-Mañana hay roda en la ribera,
-no señor.
-
-Sí, sí, sí, no, no, no.
-Sí, sí, sí, no, no, no.
-
-El Mestre Bimba es el creador,
-sí señor.
-
-Que enseñó con mucho amor,
-no señor.
-
-Sí, sí, sí, no, no, no.
-Sí, sí, sí, no, no, no.''',
-    ),
-    Cantiga(
-      id: '5',
-      titulo: 'Lamento de Mandingueiro',
-      ritmo: 'Ladainha',
-      autor: 'Mestre Pastinha',
-      duracion: '3:30',
-      contexto: 'Una de las Ladainhas más hermosas de la Capoeira Angola. Es un canto introspectivo e introductorio que el solista canta solo al pie del berimbau antes del juego propiamente dicho. Invoca protección y recuerda la herencia de los ancestros.',
-      letraPt: '''Iê! Valha-me Deus, Senhor São Bento,
-Que o mundo está em movimento.
-Capoeira é minha vida.
-Peço licença ao terreiro,
-Ao criador do cativeiro,
-E a todos os presentes,
-Que me escutam cantar.
-
-Iê, vamos jogar!
-(Coro: Iê, vamos jogar, camará!)
-
-Iê, viva meu mestre!
-(Coro: Iê, viva meu mestre, camará!)''',
-      letraEs: '''¡Iê! Válgame Dios, Señor San Bento,
-Que el mundo está en movimiento.
-La capoeira es mi vida.
-Pido licencia a este patio,
-Al creador del cautiverio,
-Y a todos los presentes,
-Que me escuchan cantar.
-
-¡Iê, vamos a jugar!
-(Coro: ¡Iê, vamos a jugar, camarada!)
-
-¡Iê, viva mi maestro!
-(Coro: ¡Iê, viva mi maestro, camarada!)''',
-    ),
-  ];
-
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
-  }
-
-  List<Cantiga> get _filteredCantigas {
-    return _cantigas.where((cantiga) {
-      final matchesSearch = cantiga.titulo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          cantiga.letraPt.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          cantiga.letraEs.toLowerCase().contains(_searchQuery.toLowerCase());
-      final matchesCategory = _selectedCategory == 'Todos' || cantiga.ritmo == _selectedCategory;
-      return matchesSearch && matchesCategory;
-    }).toList();
   }
 
   @override
@@ -376,10 +163,53 @@ Que me escuchan cantar.
             ),
             const SizedBox(height: 12),
 
-            // Listado de canciones
+            // Listado de canciones desde Firestore
             Expanded(
-              child: _filteredCantigas.isEmpty
-                  ? Center(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('cantigas').snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: GingaColors.brandGreen),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No hay canciones en la base de datos',
+                        style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                      ),
+                    );
+                  }
+
+                  // Mapear los documentos de Firestore a la clase Cantiga
+                  final allCantigas = snapshot.data!.docs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return Cantiga(
+                      id: doc.id,
+                      titulo: data['titulo'] ?? '',
+                      ritmo: data['ritmo'] ?? 'Corrido',
+                      autor: data['autor'] ?? 'Tradicional',
+                      duracion: data['duracion'] ?? '2:00',
+                      contexto: data['contexto'] ?? '',
+                      letraPt: data['letraPt'] ?? '',
+                      letraEs: data['letraEs'] ?? '',
+                      audioUrl: data['audio_url'] ?? '',
+                    );
+                  }).toList();
+
+                  // Aplicar búsqueda y filtros
+                  final filtered = allCantigas.where((cantiga) {
+                    final matchesSearch = cantiga.titulo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                        cantiga.letraPt.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                        cantiga.letraEs.toLowerCase().contains(_searchQuery.toLowerCase());
+                    final matchesCategory = _selectedCategory == 'Todos' || cantiga.ritmo == _selectedCategory;
+                    return matchesSearch && matchesCategory;
+                  }).toList();
+
+                  if (filtered.isEmpty) {
+                    return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -403,126 +233,130 @@ Que me escuchan cantar.
                           ),
                         ],
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                      itemCount: _filteredCantigas.length,
-                      itemBuilder: (context, index) {
-                        final cantiga = _filteredCantigas[index];
-                        return Container(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(GingaRadius.lg),
-                            border: Border.all(color: GingaColors.borderLight),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.02),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              )
-                            ],
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => SongDetailScreen(cantiga: cantiga),
-                                  ),
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        color: GingaColors.brandGreen.withOpacity(0.08),
-                                        borderRadius: BorderRadius.circular(GingaRadius.md),
-                                      ),
-                                      child: const Icon(
-                                        Icons.music_video_rounded,
-                                        color: GingaColors.brandGreen,
-                                        size: 24,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            cantiga.titulo,
-                                            style: GoogleFonts.montserrat(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w700,
-                                              color: GingaColors.textPrimary,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: GingaColors.cardLight,
-                                                  borderRadius: BorderRadius.circular(4),
-                                                ),
-                                                child: Text(
-                                                  cantiga.ritmo,
-                                                  style: GoogleFonts.montserrat(
-                                                    fontSize: 8,
-                                                    fontWeight: FontWeight.w800,
-                                                    color: cantiga.ritmo == 'Ladainha'
-                                                        ? Colors.purple
-                                                        : (cantiga.ritmo == 'Samba de Roda'
-                                                            ? GingaColors.accentAmber
-                                                            : GingaColors.brandGreen),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                cantiga.autor,
-                                                style: GoogleFonts.nunito(
-                                                  fontSize: 11,
-                                                  color: GingaColors.textSecondary,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: const BoxDecoration(
-                                        color: GingaColors.brandGreen,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.play_arrow_rounded,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ],
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final cantiga = filtered[index];
+                      return Container(
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(GingaRadius.lg),
+                          border: Border.all(color: GingaColors.borderLight),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.02),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            )
+                          ],
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => SongDetailScreen(cantiga: cantiga),
                                 ),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: GingaColors.brandGreen.withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                                    ),
+                                    child: const Icon(
+                                      Icons.music_video_rounded,
+                                      color: GingaColors.brandGreen,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          cantiga.titulo,
+                                          style: GoogleFonts.montserrat(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: GingaColors.textPrimary,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: GingaColors.cardLight,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                cantiga.ritmo,
+                                                style: GoogleFonts.montserrat(
+                                                  fontSize: 8,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: cantiga.ritmo == 'Ladainha'
+                                                      ? Colors.purple
+                                                      : (cantiga.ritmo == 'Samba de Roda'
+                                                          ? GingaColors.accentAmber
+                                                          : GingaColors.brandGreen),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              cantiga.autor,
+                                              style: GoogleFonts.nunito(
+                                                fontSize: 11,
+                                                color: GingaColors.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: const BoxDecoration(
+                                      color: GingaColors.brandGreen,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.play_arrow_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),

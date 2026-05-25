@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:just_audio/just_audio.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'cancionero_screen.dart'; // Para importar el modelo Cantiga
 
@@ -15,10 +16,11 @@ class SongDetailScreen extends StatefulWidget {
 }
 
 class _SongDetailScreenState extends State<SongDetailScreen> with TickerProviderStateMixin {
+  late AudioPlayer _audioPlayer;
   bool _isPlaying = false;
   double _currentProgress = 0.0; // En segundos
   int _totalSeconds = 120;
-  Timer? _playbackTimer;
+  
   late AnimationController _waveController;
   late AnimationController _discController;
   bool _showPortuguese = true;
@@ -40,15 +42,65 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
       duration: const Duration(seconds: 12),
     );
 
-    if (_isPlaying) {
-      _waveController.repeat();
-      _discController.repeat();
+    // Inicializar reproductor de audio real
+    _audioPlayer = AudioPlayer();
+    _initPlayer();
+  }
+
+  Future<void> _initPlayer() async {
+    try {
+      if (widget.cantiga.audioUrl.isNotEmpty) {
+        await _audioPlayer.setUrl(widget.cantiga.audioUrl);
+      }
+
+      // Escuchar cambios de estado de reproducción
+      _audioPlayer.playerStateStream.listen((state) {
+        if (mounted) {
+          setState(() {
+            _isPlaying = state.playing;
+            if (_isPlaying) {
+              _waveController.repeat();
+              _discController.repeat();
+            } else {
+              _waveController.stop();
+              _discController.stop();
+            }
+
+            if (state.processingState == ProcessingState.completed) {
+              _discController.reset();
+              _audioPlayer.seek(Duration.zero);
+              _audioPlayer.pause();
+            }
+          });
+        }
+      });
+
+      // Escuchar cambios de posición transcurrida
+      _audioPlayer.positionStream.listen((position) {
+        if (mounted) {
+          setState(() {
+            _currentProgress = position.inMilliseconds / 1000.0;
+          });
+        }
+      });
+
+      // Escuchar cambios de duración total
+      _audioPlayer.durationStream.listen((duration) {
+        if (mounted && duration != null) {
+          setState(() {
+            _totalSeconds = duration.inSeconds;
+          });
+        }
+      });
+
+    } catch (e) {
+      debugPrint("Error al inicializar just_audio: $e");
     }
   }
 
   @override
   void dispose() {
-    _playbackTimer?.cancel();
+    _audioPlayer.dispose(); // Liberar recursos de sonido del sistema
     _waveController.dispose();
     _discController.dispose();
     super.dispose();
@@ -72,44 +124,20 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
   }
 
   void _togglePlayback() {
-    setState(() {
-      _isPlaying = !_isPlaying;
-      if (_isPlaying) {
-        _waveController.repeat();
-        _discController.repeat();
-        
-        // Timer de reproducción suave (actualiza cada 100ms para suavidad extrema)
-        _playbackTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-          setState(() {
-            if (_currentProgress < _totalSeconds) {
-              _currentProgress += 0.1;
-            } else {
-              _isPlaying = false;
-              _currentProgress = 0.0;
-              _waveController.stop();
-              _discController.reset();
-              timer.cancel();
-            }
-          });
-        });
-      } else {
-        _waveController.stop();
-        _discController.stop();
-        _playbackTimer?.cancel();
-      }
-    });
+    if (_isPlaying) {
+      _audioPlayer.pause();
+    } else {
+      _audioPlayer.play();
+    }
   }
 
   void _seek(double value) {
-    setState(() {
-      _currentProgress = value;
-    });
+    _audioPlayer.seek(Duration(milliseconds: (value * 1000).toInt()));
   }
 
   void _skip(int seconds) {
-    setState(() {
-      _currentProgress = (_currentProgress + seconds).clamp(0.0, _totalSeconds.toDouble());
-    });
+    final newPos = _currentProgress + seconds;
+    _audioPlayer.seek(Duration(seconds: newPos.clamp(0.0, _totalSeconds.toDouble()).toInt()));
   }
 
   @override
@@ -288,7 +316,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                         overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
                       ),
                       child: Slider(
-                        value: _currentProgress,
+                        value: _currentProgress.clamp(0.0, _totalSeconds.toDouble()),
                         min: 0.0,
                         max: _totalSeconds.toDouble(),
                         onChanged: _seek,
@@ -310,7 +338,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                             ),
                           ),
                           Text(
-                            widget.cantiga.duracion,
+                            _formatDuration(_totalSeconds.toDouble()),
                             style: GoogleFonts.nunito(
                               fontSize: 11,
                               color: GingaColors.textSecondary,
@@ -525,8 +553,8 @@ class _SpectrogramPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final int barCount = 42;
-    final double spacing = 3.0;
+    const int barCount = 42;
+    const double spacing = 3.0;
     final double barWidth = (size.width - (barCount - 1) * spacing) / barCount;
     final Paint paint = Paint()..style = PaintingStyle.fill;
 
