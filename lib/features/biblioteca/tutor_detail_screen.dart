@@ -323,51 +323,55 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
       ),
       
       // ── Botón Flotante para Practicar ──────────────
-      bottomSheet: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -5),
-              )
-            ],
-          ),
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PracticarMovimientoScreen(
-                    titulo: widget.title,
-                    duracion: widget.duracion,
-                    categoria: widget.category,
-                    videoUrl: widget.videoUrl,
-                    imageUrl: widget.imageUrl,
-                  ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            )
+          ],
+        ),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          16,
+          24,
+          16 + (MediaQuery.of(context).padding.bottom > 12.0 
+              ? MediaQuery.of(context).padding.bottom 
+              : 12.0),
+        ),
+        child: ElevatedButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PracticarMovimientoScreen(
+                  titulo: widget.title,
+                  duracion: widget.duracion,
+                  categoria: widget.category,
+                  videoUrl: widget.videoUrl,
+                  imageUrl: widget.imageUrl,
                 ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: GingaColors.brandGreen,
-              minimumSize: const Size(double.infinity, 56),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(GingaRadius.md),
               ),
-              elevation: 0,
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: GingaColors.brandGreen,
+            minimumSize: const Size(double.infinity, 56),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(GingaRadius.md),
             ),
-            child: Text(
-              '¡ESTOY LISTO, PRACTICAR!',
-              style: GoogleFonts.montserrat(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: 1,
-              ),
+            elevation: 0,
+          ),
+          child: Text(
+            '¡ESTOY LISTO, PRACTICAR!',
+            style: GoogleFonts.montserrat(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: 1,
             ),
           ),
         ),
