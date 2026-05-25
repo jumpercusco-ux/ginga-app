@@ -27,25 +27,25 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
   final List<_ToqueData> _toques = [
     _ToqueData(
       nombre: 'Angola',
-      descripcion: 'Tradición y paciencia',
+      descripcion: 'Juego bajo, estratégico, lento y tradicional. Exige paciencia y astucia.',
       tag: 'LENTO',
       tagColor: GingaColors.brandGreen,
     ),
     _ToqueData(
       nombre: 'São Bento Pequeno',
-      descripcion: 'Rápido y fuerte',
+      descripcion: 'Juego intermedio, fluido y de transición. Ideal para entrenar combinaciones suaves.',
       tag: 'MEDIO',
       tagColor: GingaColors.accentAmber,
     ),
     _ToqueData(
       nombre: 'São Bento Grande',
-      descripcion: 'Suave y fluido',
+      descripcion: 'Juego rápido, enérgico y altamente acrobático. Enfocado en patadas veloces y reflejos.',
       tag: 'RÁPIDO',
       tagColor: GingaColors.brandGreen,
     ),
     _ToqueData(
       nombre: 'Samba de Roda',
-      descripcion: 'Para Mestres',
+      descripcion: 'Ritmo festivo, alegre y sincopado de clausura. Celebración con canto, palmas y baile.',
       tag: 'ESPECIAL',
       tagColor: GingaColors.accentAmber,
     ),
@@ -102,16 +102,16 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
       // 2. Simular detección exitosa tras unos segundos
       _detectionTimer = Timer(const Duration(milliseconds: 4000), () {
         if (mounted && _isListening) {
+          final selectedToque = _toques[_selectedToqueIndex];
           setState(() {
-            _selectedToqueIndex = 0; 
             _syncAccuracy = 0.98; // Bloqueo de ritmo exitoso
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('🎯 ¡Ritmo Sincronizado: Angola!'),
+            SnackBar(
+              content: Text('🎯 ¡Ritmo Sincronizado: ${selectedToque.nombre}!'),
               backgroundColor: GingaColors.brandGreen,
               behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 2),
+              duration: const Duration(seconds: 2),
             ),
           );
         }
@@ -319,6 +319,64 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                         setState(() => _selectedToqueIndex = index),
                   );
                 },
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Tarjeta de Descripción del Toque Seleccionado
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: GingaColors.cardLight,
+                  borderRadius: BorderRadius.circular(GingaRadius.lg),
+                  border: Border.all(color: GingaColors.borderLight),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: _toques[_selectedToqueIndex].tagColor.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.music_note_rounded,
+                        color: _toques[_selectedToqueIndex].tagColor,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'SOBRE EL RITMO: ${_toques[_selectedToqueIndex].nombre.toUpperCase()}',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: _toques[_selectedToqueIndex].tagColor,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _toques[_selectedToqueIndex].descripcion,
+                            style: GoogleFonts.nunito(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: GingaColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
 
