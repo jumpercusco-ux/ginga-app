@@ -303,6 +303,8 @@ class _HomeDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Inicializar eventos mockup si la colección de Firestore está vacía
     EventosService.instance.inicializarEventosMockupSiVacia();
+    // Sembrar entreno del Sábado 30 de Mayo si no existe
+    EventosService.instance.inicializarEntreno30Mayo();
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
@@ -1772,17 +1774,9 @@ class _WorkshopBanner extends StatelessWidget {
                 const SizedBox(height: 16),
 
                 // Fila de Info (Fecha & Lugar)
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildInfoCard(Icons.calendar_today_rounded, 'FECHA', fechaTexto),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildInfoCard(Icons.location_on_rounded, 'LUGAR', lugar),
-                    ),
-                  ],
-                ),
+                _buildInfoCard(Icons.calendar_today_rounded, 'FECHA', fechaTexto),
+                const SizedBox(height: 10),
+                _buildInfoCard(Icons.location_on_rounded, 'LUGAR', lugar),
                 const SizedBox(height: 20),
 
                 // Descripción
@@ -2001,11 +1995,11 @@ class _WorkshopBanner extends StatelessWidget {
                 Text(
                   value,
                   style: GoogleFonts.montserrat(
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: GingaColors.textPrimary,
                   ),
-                  maxLines: 1,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],

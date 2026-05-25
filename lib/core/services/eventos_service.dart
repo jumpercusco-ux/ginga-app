@@ -59,6 +59,70 @@ class EventosService {
     }
   }
 
+  /// Inicializa el entreno y roda del Sábado 30 de Mayo si no existe
+  Future<void> inicializarEntreno30Mayo() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // 1. Sembrar en la colección /clases
+      final queryClase = await FirebaseFirestore.instance
+          .collection('clases')
+          .where('dias', isEqualTo: 'Sábado 30 de Mayo')
+          .where('hora', isEqualTo: '2:30 PM - 4:00 PM')
+          .get();
+
+      if (queryClase.docs.isEmpty) {
+        await FirebaseFirestore.instance.collection('clases').add({
+          'hora': '2:30 PM - 4:00 PM',
+          'nivel': 'Geral / Todos los niveles',
+          'badge': 'Entreno y Roda ☀️',
+          'dias': 'Sábado 30 de Mayo',
+          'instructor': 'Mestre Sidney',
+          'cupos_disponibles': 25,
+          'tipo': 'especial',
+          'lugar': 'Parque AMAUTA, Urb. Magisterio (El Mapa)',
+        });
+      }
+
+      // 2. Sembrar en la colección /eventos
+      final queryEvento = await FirebaseFirestore.instance
+          .collection('eventos')
+          .where('fecha_texto', isEqualTo: 'Sábado 30 de Mayo, 2:30 PM - 4:00 PM')
+          .get();
+
+      if (queryEvento.docs.isEmpty) {
+        final start = DateTime(2026, 5, 30, 14, 30);
+        final end = DateTime(2026, 5, 30, 16, 0);
+
+        await FirebaseFirestore.instance.collection('eventos').add({
+          'titulo': 'Entreno y Roda al Aire Libre',
+          'organizador': 'Mestre Sidney',
+          'fecha_inicio': Timestamp.fromDate(start),
+          'fecha_fin': Timestamp.fromDate(end),
+          'fecha_texto': 'Sábado 30 de Mayo, 2:30 PM - 4:00 PM',
+          'lugar': 'Parque AMAUTA, Urb. Magisterio (El Mapa)',
+          'descripcion': 'Entrenamiento al aire libre y Roda de integración para toda la Familia FIU. Ven a entrenar, tocar berimbau y jugar en la roda en el tradicional Parque Amauta (Magisterio), también conocido como "El Mapa". ¡Todos los niveles son bienvenidos!',
+          'imagen_url': 'assets/images/fiu_banner.png',
+          'cronograma': [
+            {
+              'dia': 'Sábado 30',
+              'hora': '2:30 PM',
+              'actividad': 'Calentamiento y entrenamiento de técnica física básica/avanzada.'
+            },
+            {
+              'dia': 'Sábado 30',
+              'hora': '3:15 PM',
+              'actividad': 'Roda de integración, cantos y toques de berimbau.'
+            }
+          ]
+        });
+      }
+    } catch (e) {
+      debugPrint('Error al inicializar entreno 30 de Mayo: $e');
+    }
+  }
+
   /// Registra la asistencia de un alumno al evento especificado
   Future<void> registrarAsistencia(String eventId, String userNombre) async {
     final user = FirebaseAuth.instance.currentUser;
