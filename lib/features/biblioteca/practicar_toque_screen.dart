@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:math' as math;
 import 'dart:async';
+import 'package:just_audio/just_audio.dart';
 import '../../core/theme/ginga_theme.dart';
 
 class PracticarToqueScreen extends StatefulWidget {
@@ -21,6 +22,12 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
   // Secuenciador rítmico fonético
   Timer? _stepTimer;
   int _currentStep = -1;
+
+  // Reproductores de audio de cero latencia pre-cargados
+  late AudioPlayer _tchiPlayer;
+  late AudioPlayer _dongPlayer;
+  late AudioPlayer _tinPlayer;
+  bool _isLoadingSounds = true;
 
   final List<_ToqueData> _toques = [
     _ToqueData(
@@ -69,6 +76,40 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
+
+    _initAudio();
+  }
+
+  Future<void> _initAudio() async {
+    try {
+      _tchiPlayer = AudioPlayer();
+      _dongPlayer = AudioPlayer();
+      _tinPlayer = AudioPlayer();
+
+      // Pre-cargar los sonidos desde assets locales
+      await _tchiPlayer.setAsset('assets/sounds/tchi.wav');
+      await _dongPlayer.setAsset('assets/sounds/dong.wav');
+      await _tinPlayer.setAsset('assets/sounds/tin.wav');
+
+      // Asegurar volumen al máximo
+      await _tchiPlayer.setVolume(1.0);
+      await _dongPlayer.setVolume(1.0);
+      await _tinPlayer.setVolume(1.0);
+
+      if (mounted) {
+        setState(() {
+          _isLoadingSounds = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error al pre-cargar audios del simulador: $e");
+      // Si falla, permitimos continuar sin sonido para no bloquear la app
+      if (mounted) {
+        setState(() {
+          _isLoadingSounds = false;
+        });
+      }
+    }
   }
 
   @override
@@ -76,10 +117,14 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
     _waveController.dispose();
     _pulseController.dispose();
     _stepTimer?.cancel();
+    _tchiPlayer.dispose();
+    _dongPlayer.dispose();
+    _tinPlayer.dispose();
     super.dispose();
   }
 
   void _togglePlay() {
+    if (_isLoadingSounds) return; // Bloquear interacción si está cargando
     setState(() {
       _isPlaying = !_isPlaying;
       if (!_isPlaying) {
@@ -100,12 +145,39 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
 
     _stepTimer = Timer.periodic(Duration(milliseconds: intervalMs), (timer) {
       if (mounted && _isPlaying) {
+        final totalSteps = _toques[_selectedToqueIndex].silabas.length;
+        final nextStep = (_currentStep + 1) % totalSteps;
+        final silaba = _toques[_selectedToqueIndex].silabas[nextStep];
+
+        // Disparar sonido con cero latencia
+        if (!_isLoadingSounds) {
+          _playSyllableSound(silaba);
+        }
+
         setState(() {
-          final totalSteps = _toques[_selectedToqueIndex].silabas.length;
-          _currentStep = (_currentStep + 1) % totalSteps;
+          _currentStep = nextStep;
         });
       }
     });
+  }
+
+  void _playSyllableSound(String silaba) {
+    switch (silaba) {
+      case 'Tchi':
+        _tchiPlayer.seek(Duration.zero);
+        _tchiPlayer.play();
+        break;
+      case 'Dong':
+        _dongPlayer.seek(Duration.zero);
+        _dongPlayer.play();
+        break;
+      case 'Tin':
+        _tinPlayer.seek(Duration.zero);
+        _tinPlayer.play();
+        break;
+      default:
+        break;
+    }
   }
 
   @override
@@ -212,30 +284,47 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                         animation: _pulseController,
                         builder: (context, child) {
                           double pulse = _isPlaying ? _pulseController.value : 0.0;
+                          Color buttonColor = _isLoadingSounds
+                              ? Colors.grey.shade400
+                              : (_isPlaying ? Colors.red.shade600 : GingaColors.brandGreen);
+                          
                           return Container(
                             width: 68 + (pulse * 8),
                             height: 68 + (pulse * 8),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: _isPlaying ? Colors.red.shade600 : GingaColors.brandGreen,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: (_isPlaying ? Colors.red : GingaColors.brandGreen).withOpacity(0.3),
-                                  blurRadius: 15 + (pulse * 8),
-                                  spreadRadius: 2 + (pulse * 3),
-                                )
-                              ],
+                              color: buttonColor,
+                              boxShadow: _isLoadingSounds 
+                                  ? [] 
+                                  : [
+                                      BoxShadow(
+                                        color: (_isPlaying ? Colors.red : GingaColors.brandGreen).withOpacity(0.3),
+                                        blurRadius: 15 + (pulse * 8),
+                                        spreadRadius: 2 + (pulse * 3),
+                                      )
+                                    ],
                             ),
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                onTap: _togglePlay,
+                                onTap: _isLoadingSounds ? null : _togglePlay,
                                 customBorder: const CircleBorder(),
-                                child: Icon(
-                                  _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                  color: Colors.white,
-                                  size: 34,
-                                ),
+                                child: _isLoadingSounds
+                                    ? const Center(
+                                        child: SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 3,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      )
+                                    : Icon(
+                                        _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                        color: Colors.white,
+                                        size: 34,
+                                      ),
                               ),
                             ),
                           );
@@ -369,12 +458,13 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Column(
                       children: [
-                        _buildGlosarioItem('Tchi', 'Zumbido sordo', 'Piedra apoyada levemente'),
-                        _buildGlosarioItem('Dong', 'Grave / Abierto', 'Alambre libre / Calabaza separada'),
-                        _buildGlosarioItem('Tin', 'Agudo / Seco', 'Piedra presionada fuerte'),
+                        _buildGlosarioItem('Tchi', 'Zumbido sordo', 'Piedra apoyada levemente contra el alambre'),
+                        const SizedBox(height: 10),
+                        _buildGlosarioItem('Dong', 'Grave / Abierto', 'Alambre libre / calabaza separada del pecho'),
+                        const SizedBox(height: 10),
+                        _buildGlosarioItem('Tin', 'Agudo / Seco', 'Piedra presionada fuertemente contra el alambre'),
                       ],
                     ),
                   ],
@@ -462,54 +552,53 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
   }
 
   Widget _buildGlosarioItem(String silaba, String sonido, String tecnica) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 54,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          decoration: BoxDecoration(
+            color: GingaColors.brandGreen.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: GingaColors.brandGreen.withOpacity(0.3)),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            silaba,
+            style: GoogleFonts.montserrat(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              color: GingaColors.brandGreen,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                decoration: BoxDecoration(
-                  color: GingaColors.brandGreen.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  silaba,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    color: GingaColors.brandGreen,
-                  ),
+              Text(
+                sonido,
+                style: GoogleFonts.montserrat(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: GingaColors.textPrimary,
                 ),
               ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  sonido,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 1),
+              Text(
+                tecnica,
+                style: GoogleFonts.nunito(
+                  fontSize: 10,
+                  color: GingaColors.textSecondary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            tecnica,
-            style: GoogleFonts.nunito(
-              fontSize: 8,
-              color: GingaColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
