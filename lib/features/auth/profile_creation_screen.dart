@@ -82,10 +82,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       );
 
       // 2 — Guardar perfil en Firestore
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(credential.user!.uid)
-          .set({
+      final Map<String, dynamic> userData = {
         'uid': credential.user!.uid,
         'nombre': _nombreController.text.trim(),
         'email': _emailController.text.trim(),
@@ -96,8 +93,17 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
             : null,
         'rol': 'alumno',
         'created_at': FieldValue.serverTimestamp(),
-        'status': _selectedSede == 'U. Continental' ? 'activo' : 'nuevo',//los estados son con minuscula nuevo, prueba, activo, inactivo
-      });
+        'status': 'nuevo',//los estados son con minuscula nuevo, prueba, activo, inactivo
+      };
+
+      if (_selectedSede == 'U. Continental') {
+        userData['clase_id'] = 'iY6t5VpENijlWdzrHWWS';
+      }
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(credential.user!.uid)
+          .set(userData);
 
       if (mounted) context.go('/home');
     } on FirebaseAuthException catch (e) {

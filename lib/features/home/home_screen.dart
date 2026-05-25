@@ -325,6 +325,7 @@ class _HomeDashboard extends StatelessWidget {
         final nombre = data['nombre'] ?? 'Alumno';
         final corda = data['corda'] ?? 'Iniciación';
         final claseId = data['clase_id'] ?? '';
+        final sede = data['sede'] ?? '';
         final Timestamp? membresiaFin = data['membresia_fin'];
         
         // Chequeo de expiración de membresía
@@ -354,7 +355,12 @@ class _HomeDashboard extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // Banner según estado
-                _StatusBanner(status: status, membresiaFin: membresiaFin, nombre: nombre),
+                _StatusBanner(
+                  status: status,
+                  sede: sede,
+                  membresiaFin: membresiaFin,
+                  nombre: nombre,
+                ),
                 const SizedBox(height: 20),
 
                 // Contenido según estado
@@ -362,6 +368,7 @@ class _HomeDashboard extends StatelessWidget {
                   status: status,
                   claseId: claseId,
                   uid: uid ?? '',
+                  sede: sede,
                 ),
                 const SizedBox(height: 20),
 
@@ -385,12 +392,29 @@ class _HomeDashboard extends StatelessWidget {
 
 class _StatusBanner extends StatelessWidget {
   final String status;
+  final String sede;
   final Timestamp? membresiaFin;
   final String nombre;
-  const _StatusBanner({required this.status, this.membresiaFin, required this.nombre});
+  const _StatusBanner({
+    required this.status,
+    required this.sede,
+    this.membresiaFin,
+    required this.nombre,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (status == UserStatus.nuevo && sede == 'U. Continental') {
+      return _Banner(
+        color: GingaColors.accentAmber,
+        icono: Icons.school_outlined,
+        titulo: 'Registro en revisión 🎓',
+        subtitulo: 'Hola $nombre, tu cuenta de la U. Continental está pendiente de aprobación por el instructor Luis Enrique.',
+        accion: 'Pendiente',
+        onTap: () {},
+      );
+    }
+
     if (status == UserStatus.activo && membresiaFin != null) {
       final ahora = DateTime.now();
       final fin = DateTime(membresiaFin!.toDate().year, membresiaFin!.toDate().month, membresiaFin!.toDate().day);
@@ -536,11 +560,13 @@ class _ContentByStatus extends StatelessWidget {
   final String status;
   final String claseId;
   final String uid;
+  final String sede;
 
   const _ContentByStatus({
     required this.status,
     required this.claseId,
     required this.uid,
+    required this.sede,
   });
 
   @override
@@ -549,6 +575,16 @@ class _ContentByStatus extends StatelessWidget {
 
       // NUEVO — ve todas las clases para elegir la de prueba
       case UserStatus.nuevo:
+        if (sede == 'U. Continental') {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(title: 'Tu clase asignada', actionLabel: ''),
+              const SizedBox(height: 12),
+              _ClasePendiente(claseId: claseId),
+            ],
+          );
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1008,6 +1044,123 @@ class _ClaseInactivo extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+//  CLASE PENDIENTE (U. Continental en revisión)
+// ─────────────────────────────────────────
+
+class _ClasePendiente extends StatelessWidget {
+  final String claseId;
+  const _ClasePendiente({required this.claseId});
+
+  @override
+  Widget build(BuildContext context) {
+    if (claseId.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: GingaColors.cardLight,
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+        ),
+        child: Text('Cargando información de tu clase...',
+            style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('clases')
+          .doc(claseId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            alignment: Alignment.center,
+            child: const CircularProgressIndicator(color: GingaColors.brandGreen, strokeWidth: 2),
+          );
+        }
+
+        final data = snapshot.data!.data() as Map<String, dynamic>;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(GingaRadius.lg),
+            border: Border.all(color: GingaColors.borderLight),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(GingaRadius.sm),
+                ),
+                child: Text(
+                  data['hora'] ?? '',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textSecondary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data['nivel'] ?? '',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      data['dias'] ?? '',
+                      style: GoogleFonts.nunito(
+                        fontSize: 11,
+                        color: GingaColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      'Instructor: ${data['instructor'] ?? ""}',
+                      style: GoogleFonts.nunito(
+                        fontSize: 11,
+                        color: GingaColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(GingaRadius.full),
+                  border: Border.all(color: Colors.amber.shade200),
+                ),
+                child: Text(
+                  'PENDIENTE',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.amber.shade700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
