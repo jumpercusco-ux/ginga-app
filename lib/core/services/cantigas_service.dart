@@ -280,7 +280,93 @@ Su corona de oro es el mariô''',
         }
 
         await batch.commit();
-        debugPrint('Se crearon las 5 cantigas en Firestore con éxito.');
+        debugPrint('Se crearon las cantigas en Firestore con éxito.');
+      } else {
+        // La colección ya existe, pero verifiquemos si falta la nueva cantiga "Sua Coroa de Ouro é o Mariô"
+        final songCheck = await FirebaseFirestore.instance
+            .collection('cantigas')
+            .where('titulo', isEqualTo: 'Sua Coroa de Ouro é o Mariô')
+            .limit(1)
+            .get();
+
+        if (songCheck.docs.isEmpty) {
+          debugPrint('La cantiga "Sua Coroa de Ouro é o Mariô" no existe en la colección. Agregándola...');
+          await FirebaseFirestore.instance.collection('cantigas').add({
+            'titulo': 'Sua Coroa de Ouro é o Mariô',
+            'ritmo': 'Corrido',
+            'autor': 'Tradicional',
+            'duracion': '3:15',
+            'contexto': 'Una hermosa cantiga que celebra la protección de las deidades de la capoeira (como Ogum y Oxalá), vinculando el mariô (las hojas de palma sagradas) a la realeza espiritual de los capoeiristas en la roda.',
+            'letraPt': '''Sua coroa de ouro é o mariô
+Sua coroa de ouro é o mariô
+Mariô mariô
+
+Sua coroa de ouro é o mariô
+Sua coroa de ouro é o mariô
+
+Ê, toda vez que eu me levanto
+Eu nao esqueci de louvar
+Eu ajoelho aos pés de Ogum, ô iá iá
+Pra pudê me abençoar
+Mariô mariô
+
+Sua coroa de ouro é o mariô
+Sua coroa de ouro é o mariô
+
+Ê, toda vez que eu vou pra estrada
+eu num esqueço de levar
+eu levo minhas moeda, ô iá iá
+e também meus acaçá
+Mariô mariô
+
+Sua coroa de ouro é o mariô
+Sua coroa de ouro é o mariô
+
+Quando eu fui lá na Bahia
+O meu santo eu fui louvar
+Quando chegou no Bonfim
+Eu fui rezar para Oxalá
+Mariô mariô
+
+Sua coroa de ouro é o mariô
+Sua coroa de ouro é o mariô''',
+            'letraEs': '''Su corona de oro es el mariô (hojas de palma)
+Su corona de oro es el mariô
+Mariô mariô
+
+Su corona de oro es el mariô
+Su corona de oro es el mariô
+
+Eh, cada vez que me levanto
+No olvido alabar
+Me arrodillo a los pies de Ogum, oh señora
+Para poderme bendecir
+Mariô mariô
+
+Su corona de oro es el mariô
+Su corona de oro es el mariô
+
+Eh, cada vez que voy al camino
+No olvido llevar
+Llevo mis monedas, oh señora
+Y también mis acaçás (ofrenda de maíz blanco)
+Mariô mariô
+
+Su corona de oro es el mariô
+Su corona de oro es el mariô
+
+Cuando fui allá a Bahía
+A mi santo fui a alabar
+Cuando llegué a Bonfim
+Fui a rezar a Oxalá
+Mariô mariô
+
+Su corona de oro es el mariô
+Su corona de oro es el mariô''',
+            'audio_url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
+          });
+          debugPrint('Cantiga "Sua Coroa de Ouro é o Mariô" agregada con éxito.');
+        }
       }
     } catch (e) {
       debugPrint('Error al inicializar cantigas mockup: $e');
