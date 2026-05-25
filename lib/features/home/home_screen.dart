@@ -10,7 +10,6 @@ import 'package:go_router/go_router.dart';
 import 'qr_scanner_screen.dart';
 import '../../core/services/eventos_service.dart';
 import '../biblioteca/tutoriales_screen.dart';
-import '../tienda/tienda_screen.dart';
 
 // Constantes de estado
 class UserStatus {
@@ -39,20 +38,246 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
-      body: IndexedStack(
-        index: _selectedTab,
-        children: const [
-          _HomeDashboard(),
-          EventosScreen(),
-          BibliotecaScreen(),
-          ProgresoScreen(),
-        ],
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: uid == null
+          ? const Stream.empty()
+          : FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      builder: (context, snapshot) {
+        String status = UserStatus.nuevo;
+
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+          status = data['status'] ?? UserStatus.nuevo;
+
+          // Chequeo de expiración de membresía a nivel de shell
+          if (status == UserStatus.activo && data['membresia_fin'] != null) {
+            final Timestamp finTimestamp = data['membresia_fin'];
+            if (DateTime.now().isAfter(finTimestamp.toDate())) {
+              status = UserStatus.inactivo;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid)
+                    .update({'status': UserStatus.inactivo});
+              });
+            }
+          }
+        }
+
+        return Scaffold(
+          backgroundColor: GingaColors.backgroundLight,
+          body: IndexedStack(
+            index: _selectedTab,
+            children: const [
+              _HomeDashboard(),
+              EventosScreen(),
+              BibliotecaScreen(),
+              ProgresoScreen(),
+            ],
+          ),
+          extendBody: true,
+          floatingActionButton: Container(
+            height: 64,
+            width: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [
+                  GingaColors.brandGreen,
+                  Color(0xFF2E7D32),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: GingaColors.brandGreen.withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: FloatingActionButton(
+              onPressed: () => _handleQrScannerTap(context, status),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              shape: const CircleBorder(),
+              child: const Icon(
+                Icons.qr_code_scanner_rounded,
+                size: 30,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+          bottomNavigationBar: _GingaBottomNav(
+            currentIndex: _selectedTab,
+            onTap: (i) => setState(() => _selectedTab = i),
+          ),
+        );
+      },
+    );
+  }
+
+  void _handleQrScannerTap(BuildContext context, String status) {
+    if (status == UserStatus.activo || status == UserStatus.prueba) {
+      _navigateToQrScanner(context);
+    } else if (status == UserStatus.nuevo) {
+      _showNuevoBottomSheet(context);
+    } else if (status == UserStatus.inactivo) {
+      _showInactivoBottomSheet(context);
+    }
+  }
+
+  void _showNuevoBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _buildModernBottomSheet(
+        context: ctx,
+        title: '¡Reserva tu Clase de Prueba! 🥋',
+        message: 'Bienvenido a Ginga. Para poder registrar tus asistencias mediante QR, primero debes agendar tu clase de prueba gratuita y experimentar la energía de la capoeira.',
+        buttonLabel: 'Ver Clases Disponibles',
+        icon: Icons.celebration_rounded,
+        iconColor: GingaColors.brandGreen,
+        onAction: () {
+          Navigator.pop(ctx);
+          setState(() {
+            _selectedTab = 1; // "A Roda" (Classes / Events)
+          });
+        },
       ),
-      bottomNavigationBar: _GingaBottomNav(
-        currentIndex: _selectedTab,
-        onTap: (i) => setState(() => _selectedTab = i),
+    );
+  }
+
+  void _showInactivoBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _buildModernBottomSheet(
+        context: ctx,
+        title: 'Membresía Expirada ⚠️',
+        message: 'Tu acceso a las clases ha expirado. Por favor, renueva tu membresía o adquiere un pase de clases en nuestra tienda oficial para continuar escaneando y asistiendo.',
+        buttonLabel: 'Ir a la Tienda Ginga',
+        icon: Icons.lock_clock_rounded,
+        iconColor: GingaColors.accentAmber,
+        onAction: () {
+          Navigator.pop(ctx);
+          context.push('/tienda');
+        },
+      ),
+    );
+  }
+
+  Widget _buildModernBottomSheet({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required String buttonLabel,
+    required IconData icon,
+    required Color iconColor,
+    required VoidCallback onAction,
+  }) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(32),
+          topRight: Radius.circular(32),
+        ),
+      ),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 12,
+        bottom: MediaQuery.of(context).padding.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 5,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 40,
+              color: iconColor,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.montserrat(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: GingaColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.nunito(
+              fontSize: 14,
+              color: GingaColors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 28),
+          ElevatedButton(
+            onPressed: onAction,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: GingaColors.brandGreen,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              minimumSize: const Size(double.infinity, 54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100),
+              ),
+              elevation: 0,
+            ),
+            child: Text(
+              buttonLabel,
+              style: GoogleFonts.montserrat(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(double.infinity, 44),
+            ),
+            child: Text(
+              'Quizás más tarde',
+              style: GoogleFonts.montserrat(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: GingaColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -328,7 +553,7 @@ class _ContentByStatus extends StatelessWidget {
           ],
         );
 
-      // PRUEBA — ve su reserva pendiente + check-in QR
+      // PRUEBA — ve su reserva pendiente
       case UserStatus.prueba:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,12 +561,10 @@ class _ContentByStatus extends StatelessWidget {
             _SectionTitle(title: 'Tu reserva', actionLabel: ''),
             const SizedBox(height: 12),
             _ReservaPendiente(uid: uid),
-            const SizedBox(height: 16),
-            _CheckInCard(),
           ],
         );
 
-      // ACTIVO — ve su clase + check-in QR
+      // ACTIVO — ve su clase
       case UserStatus.activo:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,8 +572,6 @@ class _ContentByStatus extends StatelessWidget {
             _SectionTitle(title: 'Tu clase', actionLabel: ''),
             const SizedBox(height: 12),
             _ClaseActivo(claseId: claseId),
-            const SizedBox(height: 16),
-            _CheckInCard(),
           ],
         );
 
@@ -1777,60 +1998,7 @@ class _WorkshopBanner extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────
-//  CHECK-IN RÁPIDO
-// ─────────────────────────────────────────
 
-class _CheckInCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Check-in rápido',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary)),
-                const SizedBox(height: 4),
-                Text('Escanea el código al llegar a la academia',
-                    style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        color: GingaColors.textSecondary,
-                        height: 1.4)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          GestureDetector(
-            onTap: () => _navigateToQrScanner(context),
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: GingaColors.cardLight,
-                borderRadius: BorderRadius.circular(GingaRadius.md),
-              ),
-              child: const Icon(Icons.qr_code_scanner,
-                  size: 30, color: GingaColors.brandGreen),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────
 //  SECTION TITLE
@@ -1974,35 +2142,59 @@ class _GingaBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: currentIndex,
-      onTap: onTap,
-      type: BottomNavigationBarType.fixed,
-      backgroundColor: Colors.white,
-      selectedItemColor: GingaColors.brandGreen,
-      unselectedItemColor: GingaColors.textSecondary,
-      selectedLabelStyle:
-          GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600),
-      unselectedLabelStyle: GoogleFonts.montserrat(fontSize: 11),
+    return BottomAppBar(
+      shape: const CircularNotchedRectangle(),
+      notchMargin: 8.0,
+      color: Colors.white,
       elevation: 12,
-      items: const [
-        BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.groups_outlined),
-            activeIcon: Icon(Icons.groups),
-            label: 'A Roda'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book_outlined),
-            activeIcon: Icon(Icons.menu_book),
-            label: 'Biblioteca'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Perfil'),
-      ],
+      shadowColor: Colors.black.withOpacity(0.3),
+      padding: EdgeInsets.zero,
+      height: 64,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          Expanded(
+            child: _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
+          ),
+          Expanded(
+            child: _buildNavItem(1, Icons.groups_outlined, Icons.groups, 'A Roda'),
+          ),
+          const SizedBox(width: 64), // Espacio central para el FAB con notch
+          Expanded(
+            child: _buildNavItem(2, Icons.menu_book_outlined, Icons.menu_book, 'Biblioteca'),
+          ),
+          Expanded(
+            child: _buildNavItem(3, Icons.person_outline, Icons.person, 'Perfil'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label) {
+    final isSelected = currentIndex == index;
+    return InkWell(
+      onTap: () => onTap(index),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isSelected ? activeIcon : icon,
+            color: isSelected ? GingaColors.brandGreen : GingaColors.textSecondary,
+            size: 24,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.montserrat(
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected ? GingaColors.brandGreen : GingaColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

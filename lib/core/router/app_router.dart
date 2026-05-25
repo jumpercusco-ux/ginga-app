@@ -24,7 +24,12 @@ final appRouter = GoRouter(
     final user = FirebaseAuth.instance.currentUser;
     final loc = state.matchedLocation;
 
-    final publicRoutes = ['/login', '/onboarding', '/profile-creation', '/splash'];
+    final publicRoutes = [
+      '/login',
+      '/onboarding',
+      '/profile-creation',
+      '/splash'
+    ];
     final isPublic = publicRoutes.contains(loc);
 
     if (user != null && loc == '/login') return '/home';
@@ -67,7 +72,6 @@ final appRouter = GoRouter(
       path: '/crear-clase',
       builder: (context, state) => const CrearClaseScreen(),
     ),
-    
     GoRoute(
       path: '/tutorial-detail',
       builder: (context, state) => const TutorialDetailScreen(),
