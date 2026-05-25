@@ -8,6 +8,9 @@ import '../perfil/progreso_screen.dart';
 import '../biblioteca/biblioteca_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'qr_scanner_screen.dart';
+import '../../core/services/eventos_service.dart';
+import '../biblioteca/tutoriales_screen.dart';
+import '../tienda/tienda_screen.dart';
 
 // Constantes de estado
 class UserStatus {
@@ -112,7 +115,7 @@ class _HomeDashboard extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // Banner según estado
-                _StatusBanner(status: status, membresiaFin: membresiaFin),
+                _StatusBanner(status: status, membresiaFin: membresiaFin, nombre: nombre),
                 const SizedBox(height: 20),
 
                 // Contenido según estado
@@ -149,7 +152,8 @@ class _HomeDashboard extends StatelessWidget {
 class _StatusBanner extends StatelessWidget {
   final String status;
   final Timestamp? membresiaFin;
-  const _StatusBanner({required this.status, this.membresiaFin});
+  final String nombre;
+  const _StatusBanner({required this.status, this.membresiaFin, required this.nombre});
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +212,7 @@ class _StatusBanner extends StatelessWidget {
         );
       default:
         // Activo — banner del workshop
-        return _WorkshopBanner();
+        return _WorkshopBanner(userNombre: nombre);
     }
   }
 }
@@ -1111,14 +1115,94 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
 // ─────────────────────────────────────────
 
 class _WorkshopBanner extends StatelessWidget {
+  final String userNombre;
+
+  const _WorkshopBanner({required this.userNombre});
+
   @override
   Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('eventos')
+          .orderBy('fecha_inicio', descending: false)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: double.infinity,
+            height: 120,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: GingaColors.cardLight,
+              borderRadius: BorderRadius.circular(GingaRadius.lg),
+            ),
+            child: const CircularProgressIndicator(color: GingaColors.brandGreen),
+          );
+        }
+
+        Map<String, dynamic>? eventData;
+        String? eventId;
+        final now = DateTime.now();
+
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          for (var doc in snapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            final Timestamp? dateEnd = data['fecha_fin'] as Timestamp?;
+            
+            // Si el evento no ha culminado aún, es el evento a mostrar
+            if (dateEnd != null && dateEnd.toDate().isAfter(now)) {
+              eventData = data;
+              eventId = doc.id;
+              break;
+            }
+          }
+        }
+
+        // ── Estado C: Modo Comunidad (No hay eventos programados) ──────────
+        if (eventData == null || eventId == null) {
+          return _buildCommunityBanner(context);
+        }
+
+        final Timestamp dateStartTs = eventData['fecha_inicio'] as Timestamp;
+        final Timestamp dateEndTs = eventData['fecha_fin'] as Timestamp;
+        final DateTime dateStart = dateStartTs.toDate();
+        final DateTime dateEnd = dateEndTs.toDate();
+
+        // Determinar si hoy está dentro del rango del evento
+        final bool isTodayEvent = now.isAfter(dateStart.subtract(const Duration(hours: 12))) && 
+            now.isBefore(dateEnd.add(const Duration(hours: 12)));
+
+        if (isTodayEvent) {
+          // ── Estado B: Evento en Curso ────────────────────────────────────
+          return _buildActiveTodayBanner(context, eventId, eventData);
+        } else {
+          // ── Estado A: Próximo Evento ─────────────────────────────────────
+          return _buildUpcomingEventBanner(context, eventId, eventData);
+        }
+      },
+    );
+  }
+
+  // ── ESTADO A: Banner de Próximo Taller ─────────────────────────────────────
+  Widget _buildUpcomingEventBanner(BuildContext context, String eventId, Map<String, dynamic> data) {
+    final titulo = data['titulo'] ?? 'Taller Especial';
+    final organizador = data['organizador'] ?? 'Mestre Invitado';
+    final fechaTexto = data['fecha_texto'] ?? 'Próximamente';
+    final imagenUrl = data['imagen_url'] ?? 'assets/images/roda.jpg';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: GingaColors.accentAmber,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
       ),
       child: Row(
         children: [
@@ -1126,29 +1210,54 @@ class _WorkshopBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Taller Intensivo con Prof.',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF412402))),
-                Text('Daniel Vereau\n13 al 28 Abril',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF412402))),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF412402),
-                    borderRadius: BorderRadius.circular(GingaRadius.full),
+                Text(
+                  'PRÓXIMO TALLER GINGA',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF5D3D03),
+                    letterSpacing: 1,
                   ),
-                  child: Text('Reservar',
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$titulo\ncon $organizador',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF4A2F02),
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  fechaTexto,
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF5D3D03),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () => _mostrarDetallesEvento(context, eventId, data),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4A2F02),
+                      borderRadius: BorderRadius.circular(GingaRadius.full),
+                    ),
+                    child: Text(
+                      'Ver Detalles y Reservar',
                       style: GoogleFonts.montserrat(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white)),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1156,8 +1265,508 @@ class _WorkshopBanner extends StatelessWidget {
           const SizedBox(width: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(GingaRadius.md),
-            child: Image.asset('assets/images/dani.jpg',
-                width: 120, height: 120, fit: BoxFit.cover),
+            child: SizedBox(
+              width: 110,
+              height: 110,
+              child: imagenUrl.startsWith('assets/')
+                  ? Image.asset(imagenUrl, fit: BoxFit.cover)
+                  : Image.network(imagenUrl, fit: BoxFit.cover, errorBuilder: (c, o, s) {
+                      return Image.asset('assets/images/roda.jpg', fit: BoxFit.cover);
+                    }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── ESTADO B: Banner de ¡Hoy es el Evento! (Glow verde intenso) ──────────────
+  Widget _buildActiveTodayBanner(BuildContext context, String eventId, Map<String, dynamic> data) {
+    final titulo = data['titulo'] ?? 'Taller Especial';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            GingaColors.brandGreen,
+            Colors.green.shade800,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        boxShadow: [
+          BoxShadow(
+            color: GingaColors.brandGreen.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.flash_on, color: GingaColors.accentAmber, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      '¡EVENTO EN CURSO HOY!',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white.withOpacity(0.9),
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '¡$titulo ya empezó!',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Revisa los horarios de los talleres y las rodas del día.',
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.85),
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () => _mostrarDetallesEvento(context, eventId, data),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: GingaColors.accentAmber,
+                      borderRadius: BorderRadius.circular(GingaRadius.full),
+                    ),
+                    child: Text(
+                      'Ver Actividades Hoy ➡️',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF4A2F02),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Icon(
+            Icons.celebration_rounded,
+            color: GingaColors.accentAmber,
+            size: 80,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── ESTADO C: Modo Comunidad (Acceso Rápido a Entrenamiento) ─────────────────
+  Widget _buildCommunityBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: GingaColors.cardLight,
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        border: Border.all(color: GingaColors.brandGreen.withOpacity(0.15)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ENTRENAMIENTO DIARIO',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: GingaColors.brandGreen,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '¡Suda la camiseta en casa!',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: GingaColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Repasa tu Ginga y tus patadas en nuestra Biblioteca Digital.',
+                  style: GoogleFonts.nunito(
+                    fontSize: 11,
+                    color: GingaColors.textSecondary,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () {
+                    // Pasa directamente a los tutoriales de la biblioteca
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const TutorialesScreen()),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: GingaColors.brandGreen,
+                      borderRadius: BorderRadius.circular(GingaRadius.full),
+                    ),
+                    child: Text(
+                      'Ver Tutoriales On-Demand',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(GingaRadius.md),
+            child: Image.asset(
+              'assets/images/moves.jpg',
+              width: 105,
+              height: 105,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Bottom Sheet de Detalles e Inscripción Interactiva ────────────────────
+  void _mostrarDetallesEvento(BuildContext context, String eventId, Map<String, dynamic> data) {
+    final titulo = data['titulo'] ?? 'Taller Especial';
+    final organizador = data['organizador'] ?? 'Mestre Invitado';
+    final fechaTexto = data['fecha_texto'] ?? 'Próximamente';
+    final lugar = data['lugar'] ?? 'Academia Ginga';
+    final descripcion = data['descripcion'] ?? '';
+    final List<dynamic> cronograma = data['cronograma'] ?? [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Barra de arrastre
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: GingaColors.borderLight,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Título
+                Text(
+                  titulo,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: GingaColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Organizado por: $organizador',
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.brandGreen,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Fila de Info (Fecha & Lugar)
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildInfoCard(Icons.calendar_today_rounded, 'FECHA', fechaTexto),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildInfoCard(Icons.location_on_rounded, 'LUGAR', lugar),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Descripción
+                Text(
+                  'Acerca del Evento',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: GingaColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  descripcion,
+                  style: GoogleFonts.nunito(
+                    fontSize: 13,
+                    color: GingaColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Cronograma de actividades
+                if (cronograma.isNotEmpty) ...[
+                  Text(
+                    'Cronograma de Actividades',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: GingaColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...cronograma.map((item) {
+                    final dia = item['dia'] ?? '';
+                    final hora = item['hora'] ?? '';
+                    final act = item['actividad'] ?? '';
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: GingaColors.cardLight,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              dia,
+                              style: GoogleFonts.montserrat(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: GingaColors.brandGreen,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  act,
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: GingaColors.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  hora,
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 11,
+                                    color: GingaColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  const SizedBox(height: 24),
+                ],
+
+                // ── Registro e Inscripción Dinámica ────────────────────────
+                StreamBuilder<bool>(
+                  stream: EventosService.instance.estaRegistrado(eventId),
+                  builder: (context, snapshot) {
+                    final registrado = snapshot.data ?? false;
+
+                    if (registrado) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: GingaColors.cardLight,
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                          border: Border.all(color: GingaColors.brandGreen.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check_circle_rounded, color: GingaColors.brandGreen, size: 28),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '¡Tu cupo está reservado! ✅',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: GingaColors.brandGreen,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Te esperamos con toda la energía. ¡No olvides traer tu uniforme oficial!',
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 11,
+                                      color: GingaColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ElevatedButton(
+                      onPressed: () async {
+                        try {
+                          await EventosService.instance.registrarAsistencia(eventId, userNombre);
+                          if (ctx.mounted) {
+                            Navigator.pop(ctx);
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('¡Reserva confirmada con éxito, $userNombre! 🎉 Nos vemos en la Roda.'),
+                                backgroundColor: GingaColors.brandGreen,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error al reservar: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: GingaColors.brandGreen,
+                        minimumSize: const Size(double.infinity, 54),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'CONFIRMAR MI ASISTENCIA 🙋‍♂️',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoCard(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: GingaColors.borderLight),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: GingaColors.brandGreen, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                    color: GingaColors.textSecondary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),
