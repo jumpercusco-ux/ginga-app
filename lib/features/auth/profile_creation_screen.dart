@@ -25,7 +25,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   bool _obscurePassword = true;
   String? _errorMessage;
 
-  final List<String> _sedes = ['Lima', 'Cusco', 'Chimbote'];
+  final List<String> _sedes = ['Lima', 'Cusco', 'U. Continental', 'Chimbote'];
   final List<String> _cordas = [
     'Iniciación',
     'Corda Amarela',
@@ -96,7 +96,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
             : null,
         'rol': 'alumno',
         'created_at': FieldValue.serverTimestamp(),
-        'status': 'nuevo',//los estados son con minuscula nuevo, prueba, activo, inactivo
+        'status': _selectedSede == 'U. Continental' ? 'activo' : 'nuevo',//los estados son con minuscula nuevo, prueba, activo, inactivo
       });
 
       if (mounted) context.go('/home');
