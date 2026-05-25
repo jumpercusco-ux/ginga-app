@@ -19,13 +19,13 @@ class TutorialDetailScreen extends StatefulWidget {
 
   const TutorialDetailScreen({
     super.key,
-    required this.title,
-    required this.category,
-    required this.level,
-    required this.description,
-    required this.tipMestre,
-    required this.tipError,
-    required this.imageUrl,
+    this.title = 'Passape',
+    this.category = 'Ataques',
+    this.level = 'Iniciante',
+    this.description = 'El passape es un movimiento de ataque circular que utiliza la parte externa del pie. Es fundamental mantener la pierna de apoyo firme y la guardia alta en todo momento.',
+    this.tipMestre = 'No quites la vista del oponente durante el giro del pie.',
+    this.tipError = 'Inclinar el tronco demasiado hacia atrás te hace perder el equilibrio y la potencia.',
+    this.imageUrl = 'assets/images/placeholder_custom.jpg',
     this.videoUrl = '',
     this.duracion = '5 min',
   });
