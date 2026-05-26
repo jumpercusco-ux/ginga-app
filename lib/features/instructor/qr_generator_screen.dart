@@ -116,49 +116,93 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    // Info de la clase
+                    // Info de la clase integrada con el contador
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         color: GingaColors.cardLight,
                         borderRadius: BorderRadius.circular(GingaRadius.lg),
+                        border: Border.all(color: GingaColors.borderLight),
                       ),
-                      child: Column(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(widget.nivel,
-                              style: GoogleFonts.montserrat(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w800,
-                                  color: GingaColors.textPrimary)),
-                          Text(widget.hora,
-                              style: GoogleFonts.nunito(
-                                  fontSize: 15,
-                                  color: GingaColors.textSecondary)),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.nivel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.montserrat(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: GingaColors.textPrimary),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  widget.hora,
+                                  style: GoogleFonts.nunito(
+                                      fontSize: 13,
+                                      color: GingaColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: GingaColors.brandGreen,
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '$_asistencias',
+                                  style: GoogleFonts.montserrat(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                      height: 1.1),
+                                ),
+                                Text(
+                                  _asistencias == 1 ? 'alumno' : 'alumnos',
+                                  style: GoogleFonts.nunito(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white70),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 16),
 
-                    // QR Code
+                    // QR Code más compacto
                     Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(GingaRadius.lg),
                         border: Border.all(color: GingaColors.borderLight),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 8,
                           )
                         ],
                       ),
                       child: QrImageView(
                         data: _sesionId!,
                         version: QrVersions.auto,
-                        size: 220,
+                        size: 180,
                         eyeStyle: const QrEyeStyle(
                           eyeShape: QrEyeShape.square,
                           color: GingaColors.brandGreen,
@@ -170,43 +214,105 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 10),
 
                     Text(
                       'Muestra este QR a tus alumnos',
                       style: GoogleFonts.nunito(
-                          fontSize: 14, color: GingaColors.textSecondary),
+                          fontSize: 13, color: GingaColors.textSecondary),
                     ),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
 
-                    // Contador de asistencias en tiempo real
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: GingaColors.brandGreen,
-                        borderRadius: BorderRadius.circular(GingaRadius.lg),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            '$_asistencias',
-                            style: GoogleFonts.montserrat(
-                                fontSize: 48,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Alumnos registrados en vivo',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textPrimary,
                           ),
-                          Text(
-                            'alumnos registrados',
-                            style: GoogleFonts.nunito(
-                                fontSize: 14, color: Colors.white70),
-                          ),
-                        ],
+                        ),
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'En vivo',
+                              style: GoogleFonts.nunito(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    Expanded(
+                      child: StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('asistencias')
+                            .where('sesion_id', isEqualTo: _sesionId)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                  color: GingaColors.brandGreen),
+                            );
+                          }
+
+                          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                            return Center(
+                              child: Text(
+                                'Esperando escaneos de alumnos...',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 13,
+                                  color: GingaColors.textSecondary,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            );
+                          }
+
+                          // Ordenar en memoria por created_at descendiente para evitar la necesidad de crear un índice compuesto
+                          final docs = snapshot.data!.docs.toList();
+                          docs.sort((a, b) {
+                            final aData = a.data() as Map<String, dynamic>;
+                            final bData = b.data() as Map<String, dynamic>;
+                            final aTime = aData['created_at'] as Timestamp?;
+                            final bTime = bData['created_at'] as Timestamp?;
+                            if (aTime == null && bTime == null) return 0;
+                            if (aTime == null) return 1;
+                            if (bTime == null) return -1;
+                            return bTime.compareTo(aTime); // Más reciente primero
+                          });
+
+                          return ListView.builder(
+                            itemCount: docs.length,
+                            padding: EdgeInsets.zero,
+                            itemBuilder: (context, index) {
+                              final data = docs[index].data() as Map<String, dynamic>;
+                              return AttendeeTile(attendance: data);
+                            },
+                          );
+                        },
                       ),
                     ),
 
-                    const Spacer(),
+                    const SizedBox(height: 16),
 
                     // Botón cerrar sesión
                     SizedBox(
@@ -238,6 +344,108 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                 ),
               ),
             ),
+    );
+  }
+}
+
+// Widget auxiliar para mostrar los alumnos registrados en vivo o en historial
+class AttendeeTile extends StatelessWidget {
+  final Map<String, dynamic> attendance;
+
+  const AttendeeTile({super.key, required this.attendance});
+
+  @override
+  Widget build(BuildContext context) {
+    final String userId = attendance['user_id'] ?? '';
+    final String? cachedName = attendance['user_name'];
+    final String? cachedEmail = attendance['user_email'];
+    final Timestamp? createdAt = attendance['created_at'] as Timestamp?;
+
+    final String timeStr = createdAt != null 
+        ? _formatTime(createdAt.toDate()) 
+        : (attendance['hora'] ?? '');
+
+    if (cachedName != null && cachedName.isNotEmpty) {
+      return _buildTile(cachedName, cachedEmail ?? 'Sin correo', timeStr);
+    }
+
+    // Fallback para asistencias antiguas sin denormalización
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return _buildTile('Cargando...', '...', timeStr);
+        }
+        final userData = snapshot.data!.data() as Map<String, dynamic>;
+        final name = userData['nombre'] ?? 'Sin nombre';
+        final email = userData['email'] ?? 'Sin correo';
+        return _buildTile(name, email, timeStr);
+      },
+    );
+  }
+
+  String _formatTime(DateTime dt) {
+    // Formatear hora de forma local ej: 5:42 PM
+    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final period = dt.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
+  }
+
+  Widget _buildTile(String name, String email, String time) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(GingaRadius.md),
+        border: Border.all(color: GingaColors.borderLight),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: GingaColors.brandGreen.withOpacity(0.1),
+            child: const Icon(Icons.person, color: GingaColors.brandGreen, size: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.nunito(
+                    fontSize: 11,
+                    color: GingaColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            time,
+            style: GoogleFonts.montserrat(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: GingaColors.brandGreen,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

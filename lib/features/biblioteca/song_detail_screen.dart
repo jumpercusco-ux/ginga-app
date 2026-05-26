@@ -50,7 +50,9 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
   Future<void> _initPlayer() async {
     try {
       if (widget.cantiga.audioUrl.isNotEmpty) {
-        await _audioPlayer.setUrl(widget.cantiga.audioUrl);
+        await _audioPlayer.setAudioSource(
+          LockCachingAudioSource(Uri.parse(widget.cantiga.audioUrl)),
+        );
       }
 
       // Escuchar cambios de estado de reproducción
@@ -549,6 +551,15 @@ class _SpectrogramPainter extends CustomPainter {
   final double progress;
   final bool isPlaying;
 
+  // Silueta de una forma de onda masterizada estéticamente agradable (silencio en pausa)
+  static const List<double> _waveEnvelope = [
+    0.15, 0.20, 0.35, 0.40, 0.50, 0.60, 0.45, 0.35, 0.40, 0.65,
+    0.80, 0.90, 0.75, 0.55, 0.40, 0.50, 0.70, 0.85, 0.95, 0.90,
+    0.75, 0.65, 0.50, 0.60, 0.85, 0.90, 0.80, 0.60, 0.45, 0.35,
+    0.40, 0.55, 0.70, 0.85, 0.65, 0.45, 0.30, 0.25, 0.30, 0.20,
+    0.15, 0.10
+  ];
+
   _SpectrogramPainter({required this.progress, required this.isPlaying});
 
   @override
@@ -559,11 +570,26 @@ class _SpectrogramPainter extends CustomPainter {
     final Paint paint = Paint()..style = PaintingStyle.fill;
 
     for (int i = 0; i < barCount; i++) {
-      double baseHeight = math.sin((i / barCount * 3 * math.pi) + (progress * 2 * math.pi)).abs();
-      double energy = isPlaying ? (0.3 + math.Random().nextDouble() * 0.7) : 0.15;
-      double barHeight = size.height * baseHeight * energy;
+      // Obtener el valor base del mapa estático de la forma de onda
+      final double baseHeightFactor = _waveEnvelope[i % _waveEnvelope.length];
       
-      if (barHeight < 4) barHeight = 4;
+      double heightMultiplier = 0.25; // Altura fija y uniforme en silencio
+      
+      if (isPlaying) {
+        // En reproducción, generamos una oscilación orgánica fluida dependiente del tiempo
+        final double wave1 = math.sin((i * 0.45) + (progress * 2 * math.pi));
+        final double wave2 = math.cos((i * 0.75) - (progress * 3 * math.pi));
+        
+        // Normalizar la fluctuación a rango activo
+        heightMultiplier = 0.45 + (wave1 + wave2).abs() * 0.27;
+      }
+      
+      double barHeight = size.height * baseHeightFactor * heightMultiplier * 2.2;
+      
+      // Limitar altura mínima para mantener estética limpia
+      if (barHeight < 3.0) barHeight = 3.0;
+      // Limitar altura máxima para que no sobresalga del contenedor de CustomPaint
+      if (barHeight > size.height) barHeight = size.height;
 
       final RRect rect = RRect.fromRectAndRadius(
         Rect.fromLTWH(
@@ -572,12 +598,20 @@ class _SpectrogramPainter extends CustomPainter {
           barWidth,
           barHeight,
         ),
-        const Radius.circular(8),
+        Radius.circular(barWidth / 2), // Cápsula perfectamente redondeada estilo premium
       );
 
-      paint.color = isPlaying
-          ? Color.lerp(Colors.grey.shade400, GingaColors.brandGreen, baseHeight * energy)!
-          : Colors.grey.shade300;
+      if (isPlaying) {
+        // Color verde Ginga que fluctúa sutilmente creando un efecto de brillo
+        paint.color = Color.lerp(
+          GingaColors.brandGreen, 
+          const Color(0xFF5CD895), 
+          (i / barCount) + (math.sin(progress * math.pi) * 0.08)
+        )!;
+      } else {
+        // En pausa, un gris ceniza premium muy limpio que dibuja la onda estática
+        paint.color = GingaColors.borderLight;
+      }
 
       canvas.drawRRect(rect, paint);
     }

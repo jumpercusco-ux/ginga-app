@@ -907,6 +907,33 @@ class _ClaseActivo extends StatelessWidget {
   final String claseId;
   const _ClaseActivo({required this.claseId});
 
+  Widget _buildInfoBadge(IconData icon, String text) {
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: GingaColors.backgroundLight,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: GingaColors.borderLight),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: GingaColors.brandGreen),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: GoogleFonts.nunito(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: GingaColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (claseId.isEmpty) {
@@ -929,70 +956,99 @@ class _ClaseActivo extends StatelessWidget {
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const CircularProgressIndicator(
-              color: GingaColors.brandGreen);
+          return const Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                color: GingaColors.brandGreen,
+                strokeWidth: 2,
+              ),
+            ),
+          );
+        }
+
+        if (!snapshot.data!.exists) {
+          return const SizedBox();
         }
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(GingaRadius.lg),
-            border: Border.all(
-                color: GingaColors.brandGreen.withOpacity(0.3)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 14),
-                decoration: BoxDecoration(
-                  color: GingaColors.brandGreen,
-                  borderRadius: BorderRadius.circular(GingaRadius.sm),
+        return GestureDetector(
+          onTap: () => context.push('/clase-detalle?claseId=$claseId'),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(GingaRadius.lg),
+              border: Border.all(
+                  color: GingaColors.brandGreen.withOpacity(0.2)),
+              boxShadow: [
+                BoxShadow(
+                  color: GingaColors.brandGreen.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
-                child: Text(data['hora'] ?? '',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white)),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Fila superior: Nivel + Badge de Activo
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(data['nivel'] ?? '',
+                    Expanded(
+                      child: Text(
+                        data['nivel'] ?? '',
                         style: GoogleFonts.montserrat(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary)),
-                    Text(data['dias'] ?? '',
-                        style: GoogleFonts.nunito(
-                            fontSize: 12,
-                            color: GingaColors.textSecondary)),
-                    Text(data['instructor'] ?? '',
-                        style: GoogleFonts.nunito(
-                            fontSize: 12,
-                            color: GingaColors.textSecondary)),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: GingaColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: GingaColors.brandGreen.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(GingaRadius.full),
+                      ),
+                      child: Text(
+                        'ACTIVO',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w800,
+                          color: GingaColors.brandGreen,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: GingaColors.brandGreen.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(GingaRadius.full),
+                const SizedBox(height: 12),
+                
+                // Divisor sutil
+                Container(
+                  height: 1,
+                  color: GingaColors.borderLight,
                 ),
-                child: Text('ACTIVO',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: GingaColors.brandGreen)),
-              ),
-            ],
+                const SizedBox(height: 12),
+  
+                // Detalles inferiores adaptables
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildInfoBadge(Icons.access_time_rounded, data['hora'] ?? ''),
+                    _buildInfoBadge(Icons.calendar_today_outlined, data['dias'] ?? ''),
+                    _buildInfoBadge(Icons.person_outline_rounded, data['instructor'] ?? ''),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -1185,7 +1241,7 @@ class _Header extends StatelessWidget {
 
     return Row(
       children: [
-        Flexible(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1194,11 +1250,15 @@ class _Header extends StatelessWidget {
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: GingaColors.textSecondary)),
-              Text(nombre,
-                  style: GoogleFonts.montserrat(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: GingaColors.textPrimary)),
+              Text(
+                nombre,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.montserrat(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: GingaColors.textPrimary),
+              ),
               const SizedBox(height: 4),
               Row(
                 children: [
@@ -1221,7 +1281,7 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        const Spacer(),
+        const SizedBox(width: 16),
         if (uid.isNotEmpty) ...[
           _NotificationsBell(uid: uid),
           const SizedBox(width: 8),

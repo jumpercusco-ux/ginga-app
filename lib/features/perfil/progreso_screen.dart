@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'mi_progreso_screen.dart';
+import '../biblioteca/practicar_toque_screen.dart';
 
 int _obtenerAsistenciasObjetivo(String corda) {
   switch (corda.toLowerCase()) {
@@ -14,12 +15,30 @@ int _obtenerAsistenciasObjetivo(String corda) {
       return 24;
     case 'corda amarela':
       return 48;
+    case 'corda naranja':
     case 'corda laranja':
       return 60;
     case 'corda azul':
       return 80;
     default:
       return 100;
+  }
+}
+
+String _obtenerSiguienteCorda(String corda) {
+  switch (corda.toLowerCase()) {
+    case 'iniciación':
+    case 'iniciacion':
+      return 'Corda Amarela';
+    case 'corda amarela':
+      return 'Corda Laranja';
+    case 'corda naranja':
+    case 'corda laranja':
+      return 'Corda Azul';
+    case 'corda azul':
+      return 'Corda Verde';
+    default:
+      return 'Graduado';
   }
 }
 
@@ -61,9 +80,61 @@ class ProgresoScreen extends StatelessWidget {
               totalAsistencias = asistenciasSnapshot.data!.docs.length;
             }
 
+            // --- CÁLCULO DE ACTIVIDAD SEMANAL EN TIEMPO REAL ---
+            final ahora = DateTime.now();
+            final lunes = ahora.subtract(Duration(days: ahora.weekday - 1));
+            
+            final List<String> fechasDeLaSemana = List.generate(7, (i) {
+              final dia = DateTime(lunes.year, lunes.month, lunes.day).add(Duration(days: i));
+              return '${dia.year}-${dia.month.toString().padLeft(2, '0')}-${dia.day.toString().padLeft(2, '0')}';
+            });
+
+            final List<bool> diasActivos = List.generate(7, (i) {
+              final fechaStr = fechasDeLaSemana[i];
+              if (!asistenciasSnapshot.hasData) return false;
+              return asistenciasSnapshot.data!.docs.any((doc) => (doc.data() as Map<String, dynamic>)['fecha'] == fechaStr);
+            });
+            // ----------------------------------------------------
+
             final int objetivo = _obtenerAsistenciasObjetivo(corda);
             final double porcentaje = (totalAsistencias / objetivo).clamp(0.0, 1.0);
             final int porcentajeInt = (porcentaje * 100).toInt();
+
+            final String siguienteCorda = _obtenerSiguienteCorda(corda);
+            
+            // Ritmo dinámico para practicar
+            String tituloToque = 'Domina el ritmo Angola';
+            String descToque = 'Practica con el simulador de berimbau';
+            switch (corda.toLowerCase()) {
+              case 'iniciación':
+              case 'iniciacion':
+                tituloToque = 'Domina el ritmo Angola';
+                descToque = 'Practica toques básicos en el simulador';
+                break;
+              case 'corda amarela':
+                tituloToque = 'Domina São Bento Pequeno';
+                descToque = 'Practica toques medios en el simulador';
+                break;
+              case 'corda naranja':
+              case 'corda laranja':
+                tituloToque = 'Domina São Bento Grande';
+                descToque = 'Practica toques rápidos en el simulador';
+                break;
+              default:
+                tituloToque = 'Domina Samba de Roda';
+                descToque = 'Practica toques avanzados y festivos';
+                break;
+            }
+            
+            // Objetivo de cuerda dinámico
+            String tituloCorda = 'Objetivo: $siguienteCorda';
+            String descCorda = totalAsistencias >= objetivo
+                ? '¡Clases completadas! ($totalAsistencias/$objetivo)'
+                : 'Faltan ${objetivo - totalAsistencias} clases para graduarte ($totalAsistencias de $objetivo)';
+            if (siguienteCorda == 'Graduado') {
+              tituloCorda = 'Camino Completado';
+              descCorda = '¡Has alcanzado el rango máximo en Ginga!';
+            }
 
             return Scaffold(
               backgroundColor: GingaColors.backgroundLight,
@@ -129,6 +200,8 @@ class ProgresoScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     nombre,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.montserrat(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w800,
@@ -194,7 +267,7 @@ class ProgresoScreen extends StatelessWidget {
                       Center(
                         child: Column(
                           children: [
-                            Text('Nivel de Musicalidad',
+                            Text('Progreso de Graduación',
                                 style: GoogleFonts.montserrat(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
@@ -225,39 +298,45 @@ class ProgresoScreen extends StatelessWidget {
                       ),
 
                       const SizedBox(height: 28),
-                      _SectionHeader(title: 'Tus Logros', actionLabel: 'Ver todas'),
+                      _SectionHeader(title: 'Tus Logros', actionLabel: ''),
                       const SizedBox(height: 12),
-                      _LogrosRow(),
+                      _LogrosRow(totalAsistencias: totalAsistencias),
 
                       const SizedBox(height: 28),
                       _SectionHeader(title: 'Actividad Semanal', actionLabel: ''),
                       const SizedBox(height: 12),
-                      _ActividadSemanal(),
+                      _ActividadSemanal(diasActivos: diasActivos, totalAsistencias: totalAsistencias),
 
                       const SizedBox(height: 28),
                       _SectionHeader(title: 'Próximos Desafíos', actionLabel: ''),
                       const SizedBox(height: 12),
 
                       GestureDetector(
-                        onTap: () => Navigator.push(context,
-                            MaterialPageRoute(
-                                builder: (_) => const MiProgresoScreen())),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PracticarToqueScreen(),
+                          ),
+                        ),
                         child: _DesafioCard(
                           icon: Icons.music_note_outlined,
-                          titulo: 'Domina el toque Iuna',
-                          subtitulo: 'Practica en 2 rodas más',
+                          titulo: tituloToque,
+                          subtitulo: descToque,
                           color: GingaColors.brandGreen,
                         ),
                       ),
                       const SizedBox(height: 10),
                       GestureDetector(
-                        onTap: () => Navigator.push(context,
-                            MaterialPageRoute(
-                                builder: (_) => const MiProgresoScreen())),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MiProgresoScreen(),
+                          ),
+                        ),
                         child: _DesafioCard(
-                          icon: Icons.groups_outlined,
-                          titulo: 'Asistencia Roda de Sábado',
-                          subtitulo: 'Participa en 2 rodas más',
+                          icon: Icons.emoji_events_outlined,
+                          titulo: tituloCorda,
+                          subtitulo: descCorda,
                           color: GingaColors.accentAmber,
                         ),
                       ),
@@ -403,21 +482,34 @@ class _XpBar extends StatelessWidget {
 }
 
 class _LogrosRow extends StatelessWidget {
+  final int totalAsistencias;
+
+  const _LogrosRow({required this.totalAsistencias});
+
   @override
   Widget build(BuildContext context) {
     final logros = [
       _LogroData(
-          icon: Icons.music_note,
-          label: 'Primer Toque',
-          color: GingaColors.brandGreen),
+        icon: Icons.check_circle_outline,
+        label: 'Primer Paso',
+        desc: totalAsistencias >= 1 ? '¡1ª clase tomada!' : 'Toma 1 clase',
+        color: GingaColors.brandGreen,
+        unlocked: totalAsistencias >= 1,
+      ),
       _LogroData(
-          icon: Icons.local_fire_department,
-          label: '2 días seguidos',
-          color: GingaColors.accentAmber),
+        icon: Icons.local_fire_department,
+        label: 'Constancia',
+        desc: totalAsistencias >= 5 ? '5 clases tomadas' : '$totalAsistencias de 5 clases',
+        color: GingaColors.accentAmber,
+        unlocked: totalAsistencias >= 5,
+      ),
       _LogroData(
-          icon: Icons.person,
-          label: 'Maestro\nAngola',
-          color: GingaColors.textSecondary),
+        icon: Icons.emoji_events_outlined,
+        label: 'Camino Medio',
+        desc: totalAsistencias >= 12 ? '12 clases tomadas' : '$totalAsistencias de 12 clases',
+        color: Colors.blueAccent,
+        unlocked: totalAsistencias >= 12,
+      ),
     ];
     return Row(
       children:
@@ -432,37 +524,63 @@ class _LogroBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color badgeColor = logro.unlocked ? logro.color : Colors.grey.shade400;
+
     return Column(
       children: [
         Container(
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: logro.color.withOpacity(0.12),
+            color: badgeColor.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(GingaRadius.md),
+            border: Border.all(
+              color: logro.unlocked ? badgeColor.withValues(alpha: 0.3) : Colors.grey.shade300,
+              width: 1,
+            ),
           ),
-          child: Icon(logro.icon, color: logro.color, size: 26),
+          child: Icon(
+            logro.unlocked ? logro.icon : Icons.lock_outline, 
+            color: badgeColor, 
+            size: 24,
+          ),
         ),
         const SizedBox(height: 6),
         Text(logro.label,
             textAlign: TextAlign.center,
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
                 fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: logro.unlocked ? GingaColors.textPrimary : GingaColors.textSecondary,
+                height: 1.2)),
+        const SizedBox(height: 2),
+        Text(logro.desc,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.nunito(
+                fontSize: 9,
                 color: GingaColors.textSecondary,
-                height: 1.3)),
+                height: 1.2)),
       ],
     );
   }
 }
 
 class _ActividadSemanal extends StatelessWidget {
-  final List<double> _valores = [0.3, 0.5, 0.8, 0.4, 1.0, 0.6, 0.2];
-  final List<String> _dias = [
-    'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'
-  ];
+  final List<bool> diasActivos;
+  final int totalAsistencias;
+
+  const _ActividadSemanal({
+    required this.diasActivos,
+    required this.totalAsistencias,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final int asistenciasSemana = diasActivos.where((a) => a).length;
+    final List<String> dias = [
+      'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'
+    ];
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -477,13 +595,14 @@ class _ActividadSemanal extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(_valores.length, (i) {
+              children: List.generate(diasActivos.length, (i) {
+                final bool activo = diasActivos[i];
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 600),
                   width: 28,
-                  height: _valores[i] * 70,
+                  height: activo ? 70.0 : 12.0,
                   decoration: BoxDecoration(
-                    color: _valores[i] == 1.0
+                    color: activo
                         ? GingaColors.brandGreen
                         : GingaColors.cardLight,
                     borderRadius: BorderRadius.circular(4),
@@ -495,7 +614,7 @@ class _ActividadSemanal extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: _dias
+            children: dias
                 .map((d) => Text(d,
                     style: GoogleFonts.montserrat(
                         fontSize: 9,
@@ -514,17 +633,17 @@ class _ActividadSemanal extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('TOTAL DE PRÁCTICA',
+                Text('CLASES ESTA SEMANA',
                     style: GoogleFonts.montserrat(
                         fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: GingaColors.textSecondary,
                         letterSpacing: 0.5)),
                 Flexible(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('245 min',
+                      Text('$asistenciasSemana ${asistenciasSemana == 1 ? 'clase' : 'clases'}',
                           style: GoogleFonts.montserrat(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -534,14 +653,14 @@ class _ActividadSemanal extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: GingaColors.brandGreen,
+                          color: asistenciasSemana > 0 ? GingaColors.brandGreen : Colors.grey,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Text('+12%',
+                        child: Text(asistenciasSemana > 0 ? '¡Activo! 🔥' : 'Inactivo',
                             style: GoogleFonts.nunito(
                                 fontSize: 9,
                                 color: Colors.white,
-                                fontWeight: FontWeight.w600)),
+                                fontWeight: FontWeight.w700)),
                       ),
                     ],
                   ),
@@ -641,6 +760,14 @@ class _SectionHeader extends StatelessWidget {
 class _LogroData {
   final IconData icon;
   final String label;
+  final String desc;
   final Color color;
-  _LogroData({required this.icon, required this.label, required this.color});
+  final bool unlocked;
+  _LogroData({
+    required this.icon,
+    required this.label,
+    required this.desc,
+    required this.color,
+    required this.unlocked,
+  });
 }

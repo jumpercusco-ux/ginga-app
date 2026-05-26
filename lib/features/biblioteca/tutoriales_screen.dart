@@ -22,6 +22,22 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
     super.dispose();
   }
 
+  Future<QuerySnapshot> _obtenerTutoriales() async {
+    try {
+      final cacheSnap = await FirebaseFirestore.instance
+          .collection('tutoriales')
+          .orderBy('titulo')
+          .get(const GetOptions(source: Source.cache));
+      if (cacheSnap.docs.isNotEmpty) {
+        return cacheSnap;
+      }
+    } catch (_) {}
+    return await FirebaseFirestore.instance
+        .collection('tutoriales')
+        .orderBy('titulo')
+        .get();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -146,11 +162,8 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
 
             // Listado de tutoriales en tiempo real desde Firestore
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('tutoriales')
-                    .orderBy('titulo')
-                    .snapshots(),
+              child: FutureBuilder<QuerySnapshot>(
+                future: _obtenerTutoriales(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(

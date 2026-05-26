@@ -300,7 +300,42 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                             ),
                           ),
                         )
-                      : null,
+                      : userStatus == 'activo'
+                          ? SafeArea(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                                child: Container(
+                                  height: 54,
+                                  decoration: BoxDecoration(
+                                    color: GingaColors.brandGreen.withOpacity(0.12),
+                                    borderRadius:
+                                        BorderRadius.circular(GingaRadius.md),
+                                    border: Border.all(
+                                        color: GingaColors.brandGreen
+                                            .withOpacity(0.4)),
+                                  ),
+                                  child: Center(
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.check_circle_rounded,
+                                            color: GingaColors.brandGreen, size: 20),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Eres miembro activo en esta clase',
+                                          style: GoogleFonts.montserrat(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: GingaColors.brandGreen,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : null,
               body: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(

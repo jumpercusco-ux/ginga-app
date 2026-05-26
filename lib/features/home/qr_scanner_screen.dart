@@ -96,9 +96,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         return;
       }
 
+      final String userName = userDoc.exists ? (userDoc.data()?['nombre'] ?? 'Sin nombre') : 'Sin nombre';
+      final String userEmail = userDoc.exists ? (userDoc.data()?['email'] ?? '') : '';
+
       await FirebaseFirestore.instance.collection('asistencias').add({
         'sesion_id': sesionId,
         'user_id': uid,
+        'user_name': userName,
+        'user_email': userEmail,
         'clase_id': sesionDoc['clase_id'],
         'nivel': sesionDoc['nivel'],
         'hora': sesionDoc['hora'],
@@ -115,17 +120,21 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       }
 
       // Generar notificación en el buzón del usuario para activar el push real vía Cloud Function
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('notificaciones')
-          .add({
-        'titulo': '¡Check-in exitoso! 🎉',
-        'mensaje': 'Registraste tu asistencia a la clase de ${sesionDoc['nivel']} hoy a las ${sesionDoc['hora']}.',
-        'fecha': FieldValue.serverTimestamp(),
-        'leido': false,
-        'tipo': 'asistencia',
-      });
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('notificaciones')
+            .add({
+          'titulo': '¡Check-in exitoso! 🎉',
+          'mensaje': 'Registraste tu asistencia a la clase de ${sesionDoc['nivel']} hoy a las ${sesionDoc['hora']}.',
+          'fecha': FieldValue.serverTimestamp(),
+          'leido': false,
+          'tipo': 'asistencia',
+        });
+      } catch (notiError) {
+        debugPrint('Error al guardar notificación en subcolección: $notiError');
+      }
 
       setState(() {
         _mensaje = '¡Asistencia registrada con éxito! 🎉';
@@ -133,6 +142,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      debugPrint('Error al registrar asistencia: $e');
       setState(() {
         _mensaje = 'Error al registrar asistencia. Intenta de nuevo.';
         _exito = false;

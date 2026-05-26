@@ -1,74 +1,214 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/ginga_theme.dart';
+
+String _obtenerSiguienteCorda(String corda) {
+  switch (corda.toLowerCase()) {
+    case 'iniciación':
+    case 'iniciacion':
+      return 'Corda Amarela';
+    case 'corda amarela':
+      return 'Corda Laranja';
+    case 'corda naranja':
+    case 'corda laranja':
+      return 'Corda Azul';
+    case 'corda azul':
+      return 'Corda Verde';
+    default:
+      return 'Graduado';
+  }
+}
+
+int _obtenerAsistenciasObjetivo(String corda) {
+  switch (corda.toLowerCase()) {
+    case 'iniciación':
+    case 'iniciacion':
+      return 24;
+    case 'corda amarela':
+      return 48;
+    case 'corda naranja':
+    case 'corda laranja':
+      return 60;
+    case 'corda azul':
+      return 80;
+    default:
+      return 100;
+  }
+}
+
+Map<String, dynamic> _obtenerToquesInfo(String cordaActual, int totalAsistencias) {
+  int requerido = 4;
+  String nombreToques = 'Toques Básicos (Angola / São Bento)';
+  
+  switch (cordaActual.toLowerCase()) {
+    case 'iniciación':
+    case 'iniciacion':
+      requerido = 4;
+      nombreToques = 'Toques Básicos (Angola / São Bento)';
+      break;
+    case 'corda amarela':
+      requerido = 10;
+      nombreToques = 'Toques Medios (Benguela / S. Bento Pequeno)';
+      break;
+    case 'corda naranja':
+    case 'corda laranja':
+      requerido = 20;
+      nombreToques = 'Toque de Roda (Iúna)';
+      break;
+    default:
+      requerido = 30;
+      nombreToques = 'Toques Avanzados (Cavalaria / Santa Maria)';
+      break;
+  }
+  
+  final bool completado = totalAsistencias >= requerido;
+  final String label = completado 
+      ? 'Dominio de $nombreToques' 
+      : 'Progreso de $nombreToques: $totalAsistencias / $requerido clases';
+      
+  return {
+    'label': label,
+    'completado': completado,
+  };
+}
+
+String _obtenerAntiguedad(Timestamp? fechaInicio) {
+  if (fechaInicio == null) return 'Nuevo miembro';
+  final inicio = fechaInicio.toDate();
+  final ahora = DateTime.now();
+  final dias = ahora.difference(inicio).inDays;
+  
+  if (dias < 30) {
+    return '$dias ${dias == 1 ? 'día' : 'días'} en Ginga';
+  } else {
+    final meses = (dias / 30).floor();
+    if (meses < 12) {
+      return '$meses ${meses == 1 ? 'mes' : 'meses'} en Ginga';
+    } else {
+      final anos = (meses / 12).floor();
+      final mesesRestantes = meses % 12;
+      if (mesesRestantes == 0) {
+        return '$anos ${anos == 1 ? 'año' : 'años'} en Ginga';
+      }
+      return '$anos ${anos == 1 ? 'año' : 'años'} y $mesesRestantes ${mesesRestantes == 1 ? 'mes' : 'meses'}';
+    }
+  }
+}
 
 class MiProgresoScreen extends StatelessWidget {
   const MiProgresoScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
+    final uid = FirebaseAuth.instance.currentUser?.uid;
 
-              // ── AppBar ──────────────────────────────
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: const Icon(Icons.arrow_back_ios_new,
-                        size: 18, color: GingaColors.textPrimary),
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      builder: (context, userSnapshot) {
+        String cordaActual = 'Iniciación';
+        Timestamp? fechaInicio;
+
+        if (userSnapshot.hasData && userSnapshot.data!.exists) {
+          final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+          cordaActual = userData['corda'] ?? 'Iniciación';
+          fechaInicio = userData['fecha_inicio'] as Timestamp?;
+        }
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('asistencias')
+              .where('user_id', isEqualTo: uid)
+              .snapshots(),
+          builder: (context, asistenciasSnapshot) {
+            int totalAsistencias = 0;
+            if (asistenciasSnapshot.hasData) {
+              totalAsistencias = asistenciasSnapshot.data!.docs.length;
+            }
+
+            final String siguienteCorda = _obtenerSiguienteCorda(cordaActual);
+            final int objetivoAsistencias = _obtenerAsistenciasObjetivo(cordaActual);
+            final double porcentaje = (totalAsistencias / objetivoAsistencias).clamp(0.0, 1.0);
+            final int porcentajeInt = (porcentaje * 100).toInt();
+
+            return Scaffold(
+              backgroundColor: GingaColors.backgroundLight,
+              body: SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 20),
+
+                      // ── AppBar ──────────────────────────────
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => Navigator.of(context).pop(),
+                            child: const Icon(Icons.arrow_back_ios_new,
+                                size: 18, color: GingaColors.textPrimary),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Mi Progreso',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // ── Estado actual ───────────────────────
+                      _EstadoActualCard(
+                        corda: cordaActual,
+                        antiguedad: _obtenerAntiguedad(fechaInicio),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // ── Camino de graduación ─────────────────
+                      Text(
+                        'Camino de Graduación',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: GingaColors.textPrimary,
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Timeline de cordas dinámico
+                      _CordaTimeline(cordaActual: cordaActual),
+
+                      const SizedBox(height: 24),
+
+                      // ── Próximo objetivo ─────────────────────
+                      if (siguienteCorda != 'Graduado')
+                        _ProximoObjetivoCard(
+                          cordaActual: cordaActual,
+                          siguienteCorda: siguienteCorda,
+                          totalAsistencias: totalAsistencias,
+                          objetivo: objetivoAsistencias,
+                          porcentaje: porcentaje,
+                          porcentajeInt: porcentajeInt,
+                        ),
+
+                      const SizedBox(height: 32),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Mi Progreso',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: GingaColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              // ── Estado actual ───────────────────────
-              _EstadoActualCard(),
-
-              const SizedBox(height: 24),
-
-              // ── Camino de graduación ─────────────────
-              Text(
-                'Camino de Graduación',
-                style: GoogleFonts.montserrat(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: GingaColors.textPrimary,
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              // Timeline de cordas
-              _CordaTimeline(),
-
-              const SizedBox(height: 24),
-
-              // ── Próximo objetivo ─────────────────────
-              _ProximoObjetivoCard(),
-
-              const SizedBox(height: 32),
-            ],
-          ),
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -78,6 +218,14 @@ class MiProgresoScreen extends StatelessWidget {
 // ─────────────────────────────────────────
 
 class _EstadoActualCard extends StatelessWidget {
+  final String corda;
+  final String antiguedad;
+
+  const _EstadoActualCard({
+    required this.corda,
+    required this.antiguedad,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -86,11 +234,10 @@ class _EstadoActualCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: GingaColors.cardLight,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.brandGreen.withOpacity(0.3)),
+        border: Border.all(color: GingaColors.brandGreen.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          // Ícono corda
           Container(
             width: 56,
             height: 56,
@@ -117,7 +264,7 @@ class _EstadoActualCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Corda Verde',
+                  corda,
                   style: GoogleFonts.montserrat(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -125,7 +272,7 @@ class _EstadoActualCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '1 año, 4 meses',
+                  antiguedad,
                   style: GoogleFonts.nunito(
                     fontSize: 13,
                     color: GingaColors.textSecondary,
@@ -141,42 +288,60 @@ class _EstadoActualCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────
-//  CORDA TIMELINE
+//  CORDA TIMELINE (DINÁMICA)
 // ─────────────────────────────────────────
 
 class _CordaTimeline extends StatelessWidget {
-  final List<_CordaItem> _cordas = [
-    _CordaItem(
-      nombre: 'Corda Verde (Presente)',
-      ano: null,
-      status: _CordaStatus.activa,
-    ),
-    _CordaItem(
-      nombre: 'Corda Amarela',
-      ano: '2023',
-      status: _CordaStatus.completada,
-    ),
-    _CordaItem(
-      nombre: 'Iniciación',
-      ano: '2022',
-      status: _CordaStatus.completada,
-    ),
-  ];
+  final String cordaActual;
+
+  const _CordaTimeline({required this.cordaActual});
 
   @override
   Widget build(BuildContext context) {
+    final List<String> todasLasCordas = [
+      'Iniciación',
+      'Corda Amarela',
+      'Corda Laranja',
+      'Corda Azul',
+      'Corda Verde'
+    ];
+
+    int indiceActual = todasLasCordas.indexWhere(
+        (c) => c.toLowerCase() == cordaActual.toLowerCase());
+    if (indiceActual == -1) indiceActual = 0;
+
+    final List<_CordaItem> timelineItems = [];
+    final int maxIndexToShow = (indiceActual + 1).clamp(0, todasLasCordas.length - 1);
+
+    for (int i = maxIndexToShow; i >= 0; i--) {
+      final String nombre = todasLasCordas[i];
+      _CordaStatus status;
+      
+      if (i == indiceActual) {
+        status = _CordaStatus.activa;
+      } else if (i < indiceActual) {
+        status = _CordaStatus.completada;
+      } else {
+        status = _CordaStatus.bloqueada;
+      }
+
+      timelineItems.add(_CordaItem(
+        nombre: nombre + (status == _CordaStatus.activa ? ' (Presente)' : ''),
+        status: status,
+      ));
+    }
+
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: _cordas.length,
+      itemCount: timelineItems.length,
       itemBuilder: (context, index) {
-        final corda = _cordas[index];
-        final isLast = index == _cordas.length - 1;
+        final corda = timelineItems[index];
+        final isLast = index == timelineItems.length - 1;
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Timeline indicator
             Column(
               children: [
                 _TimelineDot(status: corda.status),
@@ -191,7 +356,6 @@ class _CordaTimeline extends StatelessWidget {
               ],
             ),
             const SizedBox(width: 16),
-            // Contenido
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -204,7 +368,7 @@ class _CordaTimeline extends StatelessWidget {
                     borderRadius: BorderRadius.circular(GingaRadius.lg),
                     border: Border.all(
                       color: corda.status == _CordaStatus.activa
-                          ? GingaColors.brandGreen.withOpacity(0.3)
+                          ? GingaColors.brandGreen.withValues(alpha: 0.3)
                           : GingaColors.borderLight,
                     ),
                   ),
@@ -219,13 +383,17 @@ class _CordaTimeline extends StatelessWidget {
                             style: GoogleFonts.montserrat(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: GingaColors.textPrimary,
+                              color: corda.status == _CordaStatus.bloqueada
+                                  ? GingaColors.textSecondary
+                                  : GingaColors.textPrimary,
                             ),
                           ),
                           Text(
                             corda.status == _CordaStatus.activa
-                                ? 'Active'
-                                : 'Completado',
+                                ? 'Cinturón Activo'
+                                : corda.status == _CordaStatus.completada
+                                    ? 'Completado'
+                                    : 'Próximo Objetivo',
                             style: GoogleFonts.nunito(
                               fontSize: 12,
                               color: corda.status == _CordaStatus.activa
@@ -235,18 +403,12 @@ class _CordaTimeline extends StatelessWidget {
                           ),
                         ],
                       ),
-                      if (corda.ano != null)
-                        Text(
-                          corda.ano!,
-                          style: GoogleFonts.montserrat(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: GingaColors.textSecondary,
-                          ),
-                        ),
                       if (corda.status == _CordaStatus.completada)
                         const Icon(Icons.check_circle,
-                            color: GingaColors.brandGreen, size: 20),
+                            color: GingaColors.brandGreen, size: 20)
+                      else if (corda.status == _CordaStatus.bloqueada)
+                        const Icon(Icons.lock_outline,
+                            color: GingaColors.textSecondary, size: 18),
                     ],
                   ),
                 ),
@@ -284,18 +446,38 @@ class _TimelineDot extends StatelessWidget {
       ),
       child: status == _CordaStatus.activa
           ? const Icon(Icons.circle, color: Colors.white, size: 10)
-          : const Icon(Icons.check, color: Colors.white, size: 12),
+          : status == _CordaStatus.completada
+              ? const Icon(Icons.check, color: Colors.white, size: 12)
+              : const Icon(Icons.lock_outline, color: GingaColors.textSecondary, size: 10),
     );
   }
 }
 
 // ─────────────────────────────────────────
-//  PRÓXIMO OBJETIVO
+//  PRÓXIMO OBJETIVO CARD
 // ─────────────────────────────────────────
 
 class _ProximoObjetivoCard extends StatelessWidget {
+  final String cordaActual;
+  final String siguienteCorda;
+  final int totalAsistencias;
+  final int objetivo;
+  final double porcentaje;
+  final int porcentajeInt;
+
+  const _ProximoObjetivoCard({
+    required this.cordaActual,
+    required this.siguienteCorda,
+    required this.totalAsistencias,
+    required this.objetivo,
+    required this.porcentaje,
+    required this.porcentajeInt,
+  });
+
   @override
   Widget build(BuildContext context) {
+    final toquesInfo = _obtenerToquesInfo(cordaActual, totalAsistencias);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -321,11 +503,11 @@ class _ProximoObjetivoCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: GingaColors.accentAmber.withOpacity(0.15),
+                  color: GingaColors.accentAmber.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(GingaRadius.full),
                 ),
                 child: Text(
-                  'META 2024',
+                  'META GRADUACIÓN',
                   style: GoogleFonts.montserrat(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -339,7 +521,7 @@ class _ProximoObjetivoCard extends StatelessWidget {
           const SizedBox(height: 8),
 
           Text(
-            'Corda Azul',
+            siguienteCorda,
             style: GoogleFonts.montserrat(
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -349,7 +531,6 @@ class _ProximoObjetivoCard extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // Progress bar
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -364,7 +545,7 @@ class _ProximoObjetivoCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '60%',
+                    '$porcentajeInt%',
                     style: GoogleFonts.montserrat(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -377,7 +558,7 @@ class _ProximoObjetivoCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(GingaRadius.full),
                 child: LinearProgressIndicator(
-                  value: 0.6,
+                  value: porcentaje,
                   minHeight: 8,
                   backgroundColor: GingaColors.borderLight,
                   valueColor: const AlwaysStoppedAnimation(
@@ -389,17 +570,16 @@ class _ProximoObjetivoCard extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // Requisitos
           _RequisitoItem(
             icon: Icons.groups_outlined,
-            label: 'Asistencias: 45/80',
-            completado: false,
+            label: 'Asistencias: $totalAsistencias / $objetivo clases',
+            completado: totalAsistencias >= objetivo,
           ),
           const SizedBox(height: 8),
           _RequisitoItem(
             icon: Icons.event_available_outlined,
-            label: 'Workshop Oficial',
-            completado: true,
+            label: toquesInfo['label'],
+            completado: toquesInfo['completado'],
           ),
         ],
       ),
@@ -421,31 +601,40 @@ class _RequisitoItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: completado
-              ? GingaColors.brandGreen
-              : GingaColors.textSecondary,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: GoogleFonts.nunito(
-            fontSize: 13,
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(
+            icon,
+            size: 16,
             color: completado
-                ? GingaColors.textPrimary
+                ? GingaColors.brandGreen
                 : GingaColors.textSecondary,
           ),
         ),
-        const Spacer(),
-        Icon(
-          completado ? Icons.check_circle : Icons.radio_button_unchecked,
-          size: 16,
-          color: completado
-              ? GingaColors.brandGreen
-              : GingaColors.borderLight,
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.nunito(
+              fontSize: 13,
+              color: completado
+                ? GingaColors.textPrimary
+                : GingaColors.textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(
+            completado ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 16,
+            color: completado
+                ? GingaColors.brandGreen
+                : GingaColors.borderLight,
+          ),
         ),
       ],
     );
@@ -456,16 +645,14 @@ class _RequisitoItem extends StatelessWidget {
 //  MODELOS
 // ─────────────────────────────────────────
 
-enum _CordaStatus { activa, completada }
+enum _CordaStatus { activa, completada, bloqueada }
 
 class _CordaItem {
   final String nombre;
-  final String? ano;
   final _CordaStatus status;
 
   _CordaItem({
     required this.nombre,
-    required this.ano,
     required this.status,
   });
 }
