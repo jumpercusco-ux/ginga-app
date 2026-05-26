@@ -1377,7 +1377,14 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
     builder: (BuildContext sheetContext) {
       return Container(
         height: MediaQuery.of(context).size.height * 0.75,
-        padding: const EdgeInsets.only(top: 24, left: 20, right: 20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          24,
+          20,
+          MediaQuery.of(sheetContext).padding.bottom > 0
+              ? MediaQuery.of(sheetContext).padding.bottom + 12
+              : 24,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1943,7 +1950,14 @@ class _WorkshopBanner extends StatelessWidget {
               topRight: Radius.circular(24),
             ),
           ),
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            16,
+            24,
+            MediaQuery.of(ctx).padding.bottom > 0
+                ? MediaQuery.of(ctx).padding.bottom + 16
+                : 24,
+          ),
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),

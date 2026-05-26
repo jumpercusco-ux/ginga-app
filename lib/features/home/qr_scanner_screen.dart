@@ -200,7 +200,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             }
 
             return Padding(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                MediaQuery.of(builderContext).padding.bottom > 0
+                    ? MediaQuery.of(builderContext).padding.bottom + 12
+                    : 20,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,

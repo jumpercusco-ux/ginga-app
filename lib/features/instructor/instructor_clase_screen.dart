@@ -1000,7 +1000,11 @@ class _SessionDateItem extends StatelessWidget {
                               child: ListView.builder(
                                 controller: scrollController,
                                 itemCount: docs.length,
-                                padding: EdgeInsets.zero,
+                                padding: EdgeInsets.only(
+                                  bottom: MediaQuery.of(context).padding.bottom > 0
+                                      ? MediaQuery.of(context).padding.bottom + 16
+                                      : 16,
+                                ),
                                 itemBuilder: (context, index) {
                                   final data = docs[index].data() as Map<String, dynamic>;
                                   return _AttendeeHistorialTile(attendance: data);

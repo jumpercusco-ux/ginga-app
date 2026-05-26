@@ -186,8 +186,15 @@ onPressed: () {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => Padding(
-      padding: const EdgeInsets.all(24),
+    builder: (BuildContext sheetContext) => Padding(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        24,
+        24,
+        MediaQuery.of(sheetContext).padding.bottom > 0
+            ? MediaQuery.of(sheetContext).padding.bottom + 16
+            : 24,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
