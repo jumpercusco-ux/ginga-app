@@ -11,6 +11,7 @@ class InstructorAlumnosScreen extends StatelessWidget {
     String? claseSeleccionadaId;
     bool isClassesLoaded = false;
     List<QueryDocumentSnapshot> clasesList = [];
+    DateTime fechaInicioMembresia = DateTime.now();
 
     showModalBottomSheet(
       context: context,
@@ -100,7 +101,56 @@ class InstructorAlumnosScreen extends StatelessWidget {
                           ),
                         ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
+                      Text('Fecha de Inicio de Membresía:',
+                          style: GoogleFonts.montserrat(
+                              fontSize: 14, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () async {
+                          final selected = await showDatePicker(
+                            context: context,
+                            initialDate: fechaInicioMembresia,
+                            firstDate: DateTime.now().subtract(const Duration(days: 365)), // hasta 1 año en el pasado
+                            lastDate: DateTime.now().add(const Duration(days: 365)), // hasta 1 año en el futuro
+                            builder: (context, child) => Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: const ColorScheme.light(primary: GingaColors.brandGreen),
+                              ),
+                              child: child!,
+                            ),
+                          );
+                          if (selected != null) {
+                            setStateModal(() {
+                              fechaInicioMembresia = selected;
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8F8F8),
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            border: Border.all(color: GingaColors.borderLight),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${fechaInicioMembresia.day}/${fechaInicioMembresia.month}/${fechaInicioMembresia.year}',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: GingaColors.textPrimary,
+                                ),
+                              ),
+                              const Icon(Icons.calendar_today_rounded, size: 18, color: GingaColors.brandGreen),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
                       Text('Meses a pagar:',
                           style: GoogleFonts.montserrat(
                               fontSize: 14, fontWeight: FontWeight.w600)),
@@ -140,11 +190,10 @@ class InstructorAlumnosScreen extends StatelessWidget {
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: () async {
-                            final ahora = DateTime.now();
                             final fechaFin = DateTime(
-                              ahora.year,
-                              ahora.month + mesesSeleccionados,
-                              ahora.day,
+                              fechaInicioMembresia.year,
+                              fechaInicioMembresia.month + mesesSeleccionados,
+                              fechaInicioMembresia.day,
                             );
 
                             try {
@@ -162,6 +211,7 @@ class InstructorAlumnosScreen extends StatelessWidget {
 
                               final Map<String, dynamic> updateData = {
                                 'status': 'activo',
+                                'membresia_inicio': Timestamp.fromDate(fechaInicioMembresia),
                                 'membresia_fin': Timestamp.fromDate(fechaFin),
                                 'membresia_meses_pagados': mesesSeleccionados,
                               };
