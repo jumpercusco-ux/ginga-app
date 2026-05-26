@@ -48,16 +48,8 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
     super.dispose();
   }
 
-  Future<QuerySnapshot> _obtenerCantigas() async {
-    try {
-      final cacheSnap = await FirebaseFirestore.instance
-          .collection('cantigas')
-          .get(const GetOptions(source: Source.cache));
-      if (cacheSnap.docs.isNotEmpty) {
-        return cacheSnap;
-      }
-    } catch (_) {}
-    return await FirebaseFirestore.instance.collection('cantigas').get();
+  Stream<QuerySnapshot> _obtenerCantigasStream() {
+    return FirebaseFirestore.instance.collection('cantigas').snapshots();
   }
 
   @override
@@ -179,8 +171,8 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
 
             // Listado de canciones desde Firestore
             Expanded(
-              child: FutureBuilder<QuerySnapshot>(
-                future: _obtenerCantigas(),
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _obtenerCantigasStream(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return Center(
