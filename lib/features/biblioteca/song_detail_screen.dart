@@ -50,9 +50,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
   Future<void> _initPlayer() async {
     try {
       if (widget.cantiga.audioUrl.isNotEmpty) {
-        await _audioPlayer.setAudioSource(
-          LockCachingAudioSource(Uri.parse(widget.cantiga.audioUrl)),
-        );
+        await _audioPlayer.setUrl(widget.cantiga.audioUrl);
       }
 
       // Escuchar cambios de estado de reproducción
