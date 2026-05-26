@@ -6,6 +6,7 @@ import '../../core/theme/ginga_theme.dart';
 import '../perfil/progreso_screen.dart';
 import 'qr_generator_screen.dart';
 import 'instructor_alumnos_screen.dart';
+import '../biblioteca/cancionero_screen.dart';
 
 // Función global de navegación al QR Generator
 void _navigateToQrGenerator(
@@ -276,6 +277,62 @@ class _InstructorDashboard extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           ),
                           child: Text('Gestionar Tutoriales',
+                              style: GoogleFonts.montserrat(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(GingaRadius.lg),
+                border: Border.all(color: GingaColors.borderLight),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Cancionero & Karaoke 🎤',
+                            style: GoogleFonts.montserrat(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.textPrimary)),
+                        const SizedBox(height: 4),
+                        Text('Sincroniza las letras de cantigas de capoeira en tiempo real para activar el modo Karaoke de tus alumnos.',
+                            style: GoogleFonts.nunito(
+                                fontSize: 12,
+                                color: GingaColors.textSecondary,
+                                height: 1.4)),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const CancioneroScreen(),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: GingaColors.brandGreen,
+                            minimumSize: const Size(0, 36),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          ),
+                          child: Text('Ver Cancionero',
                               style: GoogleFonts.montserrat(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
