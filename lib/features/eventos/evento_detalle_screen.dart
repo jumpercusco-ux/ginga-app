@@ -158,7 +158,14 @@ class EventoDetalleScreen extends StatelessWidget {
             left: 0,
             right: 0,
             child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                12,
+                20,
+                MediaQuery.of(context).padding.bottom > 0
+                    ? MediaQuery.of(context).padding.bottom + 8
+                    : 24,
+              ),
               decoration: BoxDecoration(
                 color: GingaColors.backgroundLight,
                 boxShadow: [
