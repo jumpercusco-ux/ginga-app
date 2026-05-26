@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:just_audio/just_audio.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'cancionero_screen.dart'; // Para importar el modelo Cantiga
 
@@ -38,6 +39,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
   late ScrollController _karaokeScrollController;
   bool _karaokeEnabled = true;
   int _lastActiveIndex = -1;
+  bool _isInstructor = false;
 
   @override
   void initState() {
@@ -72,6 +74,9 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
     // Inicializar reproductor de audio real
     _audioPlayer = AudioPlayer();
     _initPlayer();
+    
+    // Verificar el rol del usuario para habilitar/deshabilitar controles de Administrador
+    _checkUserRole();
   }
 
   Future<void> _initPlayer() async {
@@ -238,6 +243,26 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
         );
         setState(() => _isSavingSync = false);
       }
+    }
+  }
+
+  Future<void> _checkUserRole() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists && mounted) {
+          final rol = doc.data()?['rol'] ?? 'alumno';
+          setState(() {
+            _isInstructor = rol == 'profesor';
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error al validar rol de usuario: $e");
     }
   }
 
@@ -1072,29 +1097,31 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: Colors.amber.shade50,
-                                    border: Border.all(color: Colors.amber.shade200),
+                                    color: _isInstructor ? Colors.amber.shade50 : GingaColors.brandGreen.withOpacity(0.06),
+                                    border: Border.all(color: _isInstructor ? Colors.amber.shade200 : GingaColors.brandGreen.withOpacity(0.15)),
                                     borderRadius: BorderRadius.circular(GingaRadius.sm),
                                   ),
                                   child: Column(
                                     children: [
                                       Text(
-                                        '🎤 ¿Quieres cantar en modo Karaoke?',
+                                        _isInstructor ? '🎤 ¿Quieres cantar en modo Karaoke?' : '🎤 El Karaoke no está sincronizado aún',
                                         textAlign: TextAlign.center,
                                         style: GoogleFonts.montserrat(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w800,
-                                          color: Colors.amber.shade900,
+                                          color: _isInstructor ? Colors.amber.shade900 : GingaColors.brandGreen,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Usa el Sincronizador de abajo para registrar los tiempos en tiempo real.',
+                                        _isInstructor 
+                                            ? 'Usa el Sincronizador de abajo para registrar los tiempos en tiempo real.'
+                                            : 'Tu instructor sincronizará esta letra muy pronto en la roda. ¡Sigue entrenando!',
                                         textAlign: TextAlign.center,
                                         style: GoogleFonts.nunito(
                                           fontSize: 10,
                                           fontWeight: FontWeight.w600,
-                                          color: Colors.amber.shade900.withOpacity(0.8),
+                                          color: _isInstructor ? Colors.amber.shade900.withOpacity(0.8) : GingaColors.textSecondary,
                                         ),
                                       ),
                                     ],
@@ -1122,7 +1149,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                     const SizedBox(height: 16),
 
                     // Botón para Activar Herramienta de Sincronización en la Roda (Admin)
-                    if (!_isSyncMode)
+                    if (!_isSyncMode && _isInstructor)
                       Center(
                         child: TextButton.icon(
                           onPressed: () {
