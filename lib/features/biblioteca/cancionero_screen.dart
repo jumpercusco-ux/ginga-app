@@ -14,6 +14,7 @@ class Cantiga {
   final String letraPt;
   final String letraEs;
   final String audioUrl;
+  final List<dynamic>? letraPtSincronizada;
 
   Cantiga({
     required this.id,
@@ -25,6 +26,7 @@ class Cantiga {
     required this.letraPt,
     required this.letraEs,
     required this.audioUrl,
+    this.letraPtSincronizada,
   });
 }
 
@@ -221,6 +223,7 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                       letraPt: data['letraPt'] ?? '',
                       letraEs: data['letraEs'] ?? '',
                       audioUrl: data['audio_url'] ?? '',
+                      letraPtSincronizada: data['letraPtSincronizada'] as List<dynamic>?,
                     );
                   }).toList();
 
