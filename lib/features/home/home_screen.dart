@@ -14,6 +14,7 @@ import '../biblioteca/musica_screen.dart';
 import '../biblioteca/cultura_screen.dart';
 import '../biblioteca/practicar_toque_screen.dart';
 import '../biblioteca/tutor_detail_screen.dart';
+import '../biblioteca/cancionero_screen.dart';
 
 // Constantes de estado
 class UserStatus {
@@ -663,6 +664,155 @@ class _ContentByStatus extends StatelessWidget {
 //  VIRTUAL LEARNER DASHBOARD (DOCK & RODA)
 // ─────────────────────────────────────────
 
+void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.xl)),
+    ),
+    builder: (BuildContext ctx) {
+      final List<Map<String, String>> sedesFisicas = [
+        {'id': 'Cusco', 'label': 'Sede Imperial Cusco ☀️', 'desc': 'Clases regulares cerca de la plaza de Cusco.'},
+        {'id': 'U. Continental', 'label': 'Universidad Continental 🎓', 'desc': 'Exclusivo para la comunidad universitaria de la UC.'},
+        {'id': 'Lima', 'label': 'Sede Lima 🌊', 'desc': 'Clases grupales en la capital.'},
+        {'id': 'Chimbote', 'label': 'Sede Chimbote ⚓', 'desc': 'Entrenamientos en la sede del norte.'},
+      ];
+
+      return Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.8,
+        ),
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 24,
+          bottom: MediaQuery.of(ctx).padding.bottom + 20,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: GingaColors.borderLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Elige tu Sede Física 🏢',
+                style: GoogleFonts.montserrat(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: GingaColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Selecciona la academia donde te gustaría asistir a entrenar de forma presencial:',
+                style: GoogleFonts.nunito(
+                  fontSize: 13,
+                  color: GingaColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Column(
+                children: sedesFisicas.map((sedeMap) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: InkWell(
+                      onTap: () async {
+                        try {
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(uid)
+                              .update({'sede': sedeMap['id']});
+                          
+                          if (ctx.mounted) {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('¡Sede cambiada a ${sedeMap['id']}! Ahora puedes reservar tu clase regular 🥋'),
+                                backgroundColor: GingaColors.brandGreen,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text('Error al cambiar sede: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9F9F9),
+                          borderRadius: BorderRadius.circular(GingaRadius.lg),
+                          border: Border.all(color: GingaColors.borderLight),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.storefront_outlined, color: GingaColors.brandGreen, size: 20),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    sedeMap['label']!,
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: GingaColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    sedeMap['desc']!,
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 11,
+                                      color: GingaColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right, color: GingaColors.textSecondary, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class _VirtualDashboard extends StatelessWidget {
   final String uid;
   const _VirtualDashboard({required this.uid});
@@ -672,64 +822,227 @@ class _VirtualDashboard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionTitle(title: 'Portal de Capoeira 🥋', actionLabel: ''),
+        // ── BANNER DE CONVERSIÓN FÍSICA A SEDE LOCAL ───────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFFE8F5E9), // verde menta muy claro
+                Color(0xFFC8E6C9), // verde claro
+              ],
+            ),
+            borderRadius: BorderRadius.circular(GingaRadius.lg),
+            border: Border.all(color: GingaColors.brandGreen.withOpacity(0.18)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: GingaColors.brandGreen.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.location_on_outlined, color: GingaColors.brandGreen, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '¿Entrenas en nuestras sedes? 🏢',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: GingaColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Visita nuestras academias presenciales en Cusco, Lima o Chimbote y reserva tu primera clase GRATIS.',
+                      style: GoogleFonts.nunito(
+                        fontSize: 11,
+                        color: GingaColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () => _mostrarSelectorSedeFisica(context, uid),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: GingaColors.brandGreen,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  minimumSize: const Size(0, 36),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+                child: Text(
+                  'Reservar',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // ── PRÁCTICA DEL DÍA (RODA & INSTRUMENTO) ───────────────────────
+        _SectionTitle(title: 'Práctica del Día 🪘🎵', actionLabel: ''),
         const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.6,
+        Row(
           children: [
-            _QuickActionCard(
-              title: 'Tutoriales',
-              subtitle: 'Aprende técnicas',
-              icono: Icons.play_circle_outline,
-              color: GingaColors.accentAmber,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const TutorialesScreen()),
+            // Toque del Día
+            Expanded(
+              child: GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PracticarToqueScreen()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(GingaRadius.lg),
+                    border: Border.all(color: GingaColors.borderLight),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.music_note_outlined, color: Colors.blue, size: 20),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Toque de Angola',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: GingaColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'El toque tradicional para el juego bajo y táctico.',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.nunito(
+                          fontSize: 10,
+                          color: GingaColors.textSecondary,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Practicar',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.blue,
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_rounded, color: Colors.blue, size: 12),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            _QuickActionCard(
-              title: 'Música / Roda',
-              subtitle: 'Cantigas y toques',
-              icono: Icons.music_note_outlined,
-              color: GingaColors.brandGreen,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MusicaScreen()),
-              ),
-            ),
-            _QuickActionCard(
-              title: 'Berimbau Sim',
-              subtitle: 'Practica ritmos',
-              icono: Icons.sports_kabaddi_outlined,
-              color: Colors.blue,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PracticarToqueScreen()),
-              ),
-            ),
-            _QuickActionCard(
-              title: 'A Cultura',
-              subtitle: 'Historia y mestres',
-              icono: Icons.menu_book_outlined,
-              color: GingaColors.textSecondary,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CulturaScreen()),
+            const SizedBox(width: 12),
+            // Canción del Día
+            Expanded(
+              child: GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CancioneroScreen()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(GingaRadius.lg),
+                    border: Border.all(color: GingaColors.borderLight),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: GingaColors.brandGreen.withOpacity(0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.menu_book_outlined, color: GingaColors.brandGreen, size: 20),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Dona Maria...',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: GingaColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Aprende una de las cantigas de responder más cantadas.',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.nunito(
+                          fontSize: 10,
+                          color: GingaColors.textSecondary,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Ver Letra',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.brandGreen,
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_rounded, color: GingaColors.brandGreen, size: 12),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 28),
 
+        // ── RECOMENDADO PARA TI (TUTORIALES EN VIDEO) ───────────────────────
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _SectionTitle(title: 'Recomendado para ti', actionLabel: ''),
+            _SectionTitle(title: 'Técnicas recomendadas 🥋', actionLabel: ''),
             GestureDetector(
               onTap: () => Navigator.push(
                 context,
@@ -822,192 +1135,6 @@ class _VirtualDashboard extends StatelessWidget {
           },
         ),
       ],
-    );
-  }
-}
-
-class _QuickActionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icono;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _QuickActionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icono,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(GingaRadius.lg),
-          border: Border.all(color: GingaColors.borderLight),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.01),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icono, color: color, size: 20),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.montserrat(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: GingaColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.nunito(
-                      fontSize: 9,
-                      color: GingaColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FeaturedLessonCard extends StatelessWidget {
-  final String titulo;
-  final String nivel;
-  final String duracion;
-  final String categoria;
-  final VoidCallback onTap;
-
-  const _FeaturedLessonCard({
-    required this.titulo,
-    required this.nivel,
-    required this.duracion,
-    required this.categoria,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final IconData icono = categoria == 'Fundamentos'
-        ? Icons.school_rounded
-        : categoria == 'Floreos'
-            ? Icons.accessibility_new
-            : Icons.sports_martial_arts;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(GingaRadius.lg),
-          border: Border.all(color: GingaColors.borderLight),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: GingaColors.brandGreen.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(GingaRadius.md),
-              ),
-              child: Icon(icono, color: GingaColors.brandGreen, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    titulo,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.montserrat(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: GingaColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: GingaColors.cardLight,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          nivel,
-                          style: GoogleFonts.montserrat(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w700,
-                            color: GingaColors.brandGreen,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.access_time_outlined, size: 10, color: GingaColors.textSecondary),
-                      const SizedBox(width: 2),
-                      Text(
-                        duracion,
-                        style: GoogleFonts.nunito(
-                          fontSize: 10,
-                          color: GingaColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                color: GingaColors.brandGreen,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
