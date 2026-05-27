@@ -37,6 +37,9 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final String userNombre = userDoc.exists ? (userDoc.data()?['nombre'] ?? 'Alumno') : 'Alumno';
+
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final claseRef =
             FirebaseFirestore.instance.collection('clases').doc(widget.claseId);
@@ -74,6 +77,23 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
           'leido': false,
           'tipo': 'bienvenida',
         });
+
+        // Generar notificación en el buzón del instructor
+        final String instructorId = claseData['instructor_id'] ?? 'JGqDCSsPDBae4VLmtke9hKIYufh1';
+        if (instructorId.isNotEmpty) {
+          final instNotifRef = FirebaseFirestore.instance
+              .collection('users')
+              .doc(instructorId)
+              .collection('notificaciones')
+              .doc();
+          transaction.set(instNotifRef, {
+            'titulo': 'Nueva reserva de prueba 🥋',
+            'mensaje': '$userNombre reservó su clase de prueba gratis de ${claseData['nivel']} para ${claseData['dias']} a las ${claseData['hora']}.',
+            'fecha': FieldValue.serverTimestamp(),
+            'leido': false,
+            'tipo': 'bienvenida',
+          });
+        }
       });
 
       if (!mounted) return;

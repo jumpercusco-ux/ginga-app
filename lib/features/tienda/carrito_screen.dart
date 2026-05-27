@@ -69,6 +69,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
       // 1. Leer nombre del usuario desde Firestore
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       final String userNombre = userDoc.exists ? (userDoc.data()?['nombre'] ?? 'Alumno') : 'Alumno';
+      final String claseId = userDoc.exists ? (userDoc.data()?['clase_id'] ?? '') : '';
 
       final cartItems = TiendaService.instance.carrito.values.toList();
       final double total = TiendaService.instance.totalPrice;
@@ -101,6 +102,34 @@ class _CarritoScreenState extends State<CarritoScreen> {
         });
       } catch (notiError) {
         debugPrint('Error al guardar notificación de pedido: $notiError');
+      }
+
+      // Generar notificación en el buzón del instructor
+      try {
+        String? instructorId;
+        if (claseId.isNotEmpty) {
+          final claseDoc = await FirebaseFirestore.instance.collection('clases').doc(claseId).get();
+          if (claseDoc.exists) {
+            instructorId = claseDoc.data()?['instructor_id'];
+          }
+        }
+        instructorId ??= 'JGqDCSsPDBae4VLmtke9hKIYufh1'; // Fallback al instructor principal Luis Enrique
+
+        if (instructorId.isNotEmpty) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(instructorId)
+              .collection('notificaciones')
+              .add({
+            'titulo': 'Nuevo pedido registrado 🛒',
+            'mensaje': '$userNombre ha reservado productos por un total de S/ ${total.toStringAsFixed(2)} en la tienda.',
+            'fecha': FieldValue.serverTimestamp(),
+            'leido': false,
+            'tipo': 'tienda',
+          });
+        }
+      } catch (notiError) {
+        debugPrint('Error al guardar notificación para el instructor: $notiError');
       }
 
       // 3. Guardar datos para WhatsApp
