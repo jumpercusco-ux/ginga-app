@@ -729,6 +729,7 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: InkWell(
                       onTap: () async {
+                        final messenger = ScaffoldMessenger.of(context);
                         try {
                           await FirebaseFirestore.instance
                               .collection('users')
@@ -737,7 +738,7 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
                           
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text('¡Sede cambiada a ${sedeMap['id']}! Ahora puedes reservar tu clase regular 🥋'),
                                 backgroundColor: GingaColors.brandGreen,
