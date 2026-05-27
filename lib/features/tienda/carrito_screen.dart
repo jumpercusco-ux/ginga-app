@@ -86,6 +86,23 @@ class _CarritoScreenState extends State<CarritoScreen> {
         'created_at': FieldValue.serverTimestamp(),
       });
 
+      // Generar notificación en el buzón del alumno
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('notificaciones')
+            .add({
+          'titulo': 'Pedido registrado 🛍️',
+          'mensaje': 'Tu pedido por un total de S/ ${total.toStringAsFixed(2)} ha sido reservado. Puedes recogerlo en tu academia oficial.',
+          'fecha': FieldValue.serverTimestamp(),
+          'leido': false,
+          'tipo': 'tienda',
+        });
+      } catch (notiError) {
+        debugPrint('Error al guardar notificación de pedido: $notiError');
+      }
+
       // 3. Guardar datos para WhatsApp
       _pedidoCreadoId = pedidoRef.id;
       _pedidoTotal = total;

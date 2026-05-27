@@ -227,6 +227,24 @@ class InstructorAlumnosScreen extends StatelessWidget {
                                   .collection('users')
                                   .doc(uid)
                                   .update(updateData);
+
+                              // Generar notificación en el buzón del alumno
+                              try {
+                                final fechaFinTexto = "${fechaFin.day}/${fechaFin.month}/${fechaFin.year}";
+                                await FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(uid)
+                                    .collection('notificaciones')
+                                    .add({
+                                  'titulo': '¡Membresía Activa! 🥋',
+                                  'mensaje': '¡Tu acceso regular a la sede ha sido activado! Vence el $fechaFinTexto. ¡Nos vemos en la Roda!',
+                                  'fecha': FieldValue.serverTimestamp(),
+                                  'leido': false,
+                                  'tipo': 'membresia',
+                                });
+                              } catch (notiError) {
+                                debugPrint('Error al guardar notificación de membresía: $notiError');
+                              }
                               
                               if (ctx.mounted) {
                                 Navigator.pop(ctx);
