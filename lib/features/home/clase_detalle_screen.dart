@@ -17,6 +17,23 @@ class ClaseDetalleScreen extends StatefulWidget {
 class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
   bool _isLoading = false;
 
+  String _interpretarDiasDeSemana(String diasRaw) {
+    if (diasRaw.isEmpty) return '';
+    final Map<String, String> mapaDias = {
+      'L': 'Lunes',
+      'M': 'Martes',
+      'X': 'Miércoles',
+      'J': 'Jueves',
+      'V': 'Viernes',
+      'S': 'Sábado',
+      'D': 'Domingo',
+    };
+    return diasRaw.split(',').map((p) {
+      final trimmed = p.trim();
+      return mapaDias[trimmed] ?? trimmed;
+    }).join(', ');
+  }
+
   Future<String> _getInstructorName(String instructorId) async {
     if (instructorId.isEmpty) return 'Instructor Ginga';
     try {
@@ -590,7 +607,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                         _buildInfoCard(
                           icon: Icons.calendar_today_outlined,
                           title: 'Días',
-                          value: dias,
+                          value: _interpretarDiasDeSemana(dias),
                         ),
                         _buildInfoCard(
                           icon: Icons.meeting_room_outlined,

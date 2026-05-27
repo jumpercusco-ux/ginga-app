@@ -1376,6 +1376,24 @@ class _ClasesNuevo extends StatelessWidget {
   }
 }
 
+String _interpretarDiasDeSemana(String diasRaw) {
+  if (diasRaw.isEmpty) return '';
+  final Map<String, String> mapaDias = {
+    'L': 'Lunes',
+    'M': 'Martes',
+    'X': 'Miércoles',
+    'J': 'Jueves',
+    'V': 'Viernes',
+    'S': 'Sábado',
+    'D': 'Domingo',
+  };
+  return diasRaw.split(',').map((p) {
+    final trimmed = p.trim();
+    return mapaDias[trimmed] ?? trimmed;
+  }).join(', ');
+}
+
+
 class _ClaseCardNuevo extends StatelessWidget {
   final String claseId;
   final String hora;
@@ -1545,7 +1563,7 @@ class _ClaseCardNuevo extends StatelessWidget {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                '$hora${dias.isNotEmpty ? " • $dias" : ""}',
+                                '$hora${dias.isNotEmpty ? " • ${_interpretarDiasDeSemana(dias)}" : ""}',
                                 style: GoogleFonts.nunito(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -1717,7 +1735,8 @@ class _ReservaPendiente extends StatelessWidget {
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               color: GingaColors.textPrimary)),
-                      Text('${reserva['hora']} — ${reserva['dias']}',
+                      Text(
+                          '${reserva['hora']} — ${_interpretarDiasDeSemana(reserva['dias'] ?? "")}',
                           style: GoogleFonts.nunito(
                               fontSize: 13, color: GingaColors.textSecondary)),
                       const SizedBox(height: 4),
@@ -1890,8 +1909,8 @@ class _ClaseActivo extends StatelessWidget {
                   children: [
                     _buildInfoBadge(
                         Icons.access_time_rounded, data['hora'] ?? ''),
-                    _buildInfoBadge(
-                        Icons.calendar_today_outlined, data['dias'] ?? ''),
+                    _buildInfoBadge(Icons.calendar_today_outlined,
+                        _interpretarDiasDeSemana(data['dias'] ?? '')),
                     _buildInfoBadge(
                         Icons.person_outline_rounded, data['instructor'] ?? ''),
                   ],
@@ -2034,7 +2053,7 @@ class _ClasePendiente extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      data['dias'] ?? '',
+                      _interpretarDiasDeSemana(data['dias'] ?? ''),
                       style: GoogleFonts.nunito(
                         fontSize: 11,
                         color: GingaColors.textSecondary,
