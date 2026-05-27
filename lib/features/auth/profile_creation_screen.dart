@@ -27,7 +27,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
 
   final List<String> _sedes = ['Virtual / A Distancia', 'Lima', 'Cusco', 'U. Continental', 'Chimbote'];
   final List<String> _cordas = [
-    'Iniciación',
+    'Iniciante',
     'Corda Amarela',
     'Corda Laranja',
     'Corda Azul',
@@ -87,10 +87,8 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         'nombre': _nombreController.text.trim(),
         'email': _emailController.text.trim(),
         'sede': _selectedSede,
-        'corda': _selectedCorda.isEmpty ? 'Iniciación' : _selectedCorda,
-        'fecha_inicio': _fechaInicio != null
-            ? Timestamp.fromDate(_fechaInicio!)
-            : null,
+        'corda': 'Iniciante',
+        'fecha_inicio': null,
         'rol': 'alumno',
         'created_at': FieldValue.serverTimestamp(),
         'status': 'nuevo',//los estados son con minuscula nuevo, prueba, activo, inactivo
@@ -277,48 +275,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
 
                 const SizedBox(height: 14),
 
-                // Corda
-                _buildDropdown(
-                  value: _selectedCorda.isEmpty ? null : _selectedCorda,
-                  hint: 'Selecciona tu corda',
-                  items: _cordas,
-                  onChanged: (val) => setState(() => _selectedCorda = val!),
-                ),
 
-                const SizedBox(height: 14),
-
-                // Fecha de inicio
-                GestureDetector(
-                  onTap: _pickDate,
-                  child: Container(
-                    width: double.infinity,
-                    height: 52,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(GingaRadius.md),
-                      border: Border.all(color: GingaColors.borderLight),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.calendar_today_outlined,
-                            size: 18, color: GingaColors.textSecondary),
-                        const SizedBox(width: 12),
-                        Text(
-                          _fechaInicio == null
-                              ? 'Fecha de inicio en capoeira'
-                              : '${_fechaInicio!.day.toString().padLeft(2, '0')}/${_fechaInicio!.month.toString().padLeft(2, '0')}/${_fechaInicio!.year}',
-                          style: GoogleFonts.nunito(
-                            color: _fechaInicio == null
-                                ? GingaColors.textSecondary
-                                : GingaColors.textPrimary,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
 
                 // Error
                 if (_errorMessage != null) ...[

@@ -46,7 +46,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
   void _mostrarFichaAlumno(BuildContext context, Map<String, dynamic> data) {
     final status = data['status'] ?? 'nuevo';
     final userSede = data['sede'] ?? 'Sin sede';
-    final corda = data['corda'] ?? 'Iniciación';
+    final corda = data['corda'] ?? 'Iniciante';
     final email = data['email'] ?? 'Sin correo';
     final created = data['created_at'] != null 
         ? (data['created_at'] as Timestamp).toDate()

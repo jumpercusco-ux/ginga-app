@@ -12,6 +12,7 @@ int _obtenerAsistenciasObjetivo(String corda) {
   switch (corda.toLowerCase()) {
     case 'iniciación':
     case 'iniciacion':
+    case 'iniciante':
       return 24;
     case 'corda amarela':
       return 48;
@@ -29,6 +30,7 @@ String _obtenerSiguienteCorda(String corda) {
   switch (corda.toLowerCase()) {
     case 'iniciación':
     case 'iniciacion':
+    case 'iniciante':
       return 'Corda Amarela';
     case 'corda amarela':
       return 'Corda Laranja';
@@ -55,14 +57,14 @@ class ProgresoScreen extends StatelessWidget {
       builder: (context, snapshot) {
         // Datos por defecto mientras carga
         String nombre = 'Alumno';
-        String corda = 'Iniciación';
+        String corda = 'Iniciante';
         String sede = 'Lima';
         String inicial = 'A';
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
           nombre = data['nombre'] ?? 'Alumno';
-          corda = data['corda'] ?? 'Iniciación';
+          corda = data['corda'] ?? 'Iniciante';
           sede = data['sede'] ?? 'Lima';
           inicial = nombre.isNotEmpty ? nombre[0].toUpperCase() : 'A';
         }
@@ -109,6 +111,7 @@ class ProgresoScreen extends StatelessWidget {
             switch (corda.toLowerCase()) {
               case 'iniciación':
               case 'iniciacion':
+              case 'iniciante':
                 tituloToque = 'Domina el ritmo Angola';
                 descToque = 'Practica toques básicos en el simulador';
                 break;

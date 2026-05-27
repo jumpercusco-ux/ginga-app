@@ -8,6 +8,7 @@ String _obtenerSiguienteCorda(String corda) {
   switch (corda.toLowerCase()) {
     case 'iniciación':
     case 'iniciacion':
+    case 'iniciante':
       return 'Corda Amarela';
     case 'corda amarela':
       return 'Corda Laranja';
@@ -25,6 +26,7 @@ int _obtenerAsistenciasObjetivo(String corda) {
   switch (corda.toLowerCase()) {
     case 'iniciación':
     case 'iniciacion':
+    case 'iniciante':
       return 24;
     case 'corda amarela':
       return 48;
@@ -45,6 +47,7 @@ Map<String, dynamic> _obtenerToquesInfo(String cordaActual, int totalAsistencias
   switch (cordaActual.toLowerCase()) {
     case 'iniciación':
     case 'iniciacion':
+    case 'iniciante':
       requerido = 4;
       nombreToques = 'Toques Básicos (Angola / São Bento)';
       break;
@@ -107,12 +110,12 @@ class MiProgresoScreen extends StatelessWidget {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
       builder: (context, userSnapshot) {
-        String cordaActual = 'Iniciación';
+        String cordaActual = 'Iniciante';
         Timestamp? fechaInicio;
 
         if (userSnapshot.hasData && userSnapshot.data!.exists) {
           final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-          cordaActual = userData['corda'] ?? 'Iniciación';
+          cordaActual = userData['corda'] ?? 'Iniciante';
           fechaInicio = userData['fecha_inicio'] as Timestamp?;
         }
 
@@ -299,7 +302,7 @@ class _CordaTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<String> todasLasCordas = [
-      'Iniciación',
+      'Iniciante',
       'Corda Amarela',
       'Corda Laranja',
       'Corda Azul',

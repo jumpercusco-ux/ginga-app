@@ -323,7 +323,7 @@ class _HomeDashboard extends StatelessWidget {
         final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
         String status = data['status'] ?? UserStatus.nuevo;
         final nombre = data['nombre'] ?? 'Alumno';
-        final corda = data['corda'] ?? 'Iniciación';
+        final corda = data['corda'] ?? 'Iniciante';
         final claseId = data['clase_id'] ?? '';
         final sede = data['sede'] ?? '';
         final Timestamp? membresiaFin = data['membresia_fin'];
