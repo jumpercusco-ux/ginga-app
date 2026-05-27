@@ -18,14 +18,14 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  String _selectedSede = 'Lima';
+  String _selectedSede = 'Virtual / A Distancia';
   String _selectedCorda = '';
   DateTime? _fechaInicio;
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
 
-  final List<String> _sedes = ['Lima', 'Cusco', 'U. Continental', 'Chimbote'];
+  final List<String> _sedes = ['Virtual / A Distancia', 'Lima', 'Cusco', 'U. Continental', 'Chimbote'];
   final List<String> _cordas = [
     'Iniciación',
     'Corda Amarela',
