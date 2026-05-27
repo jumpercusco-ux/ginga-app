@@ -617,7 +617,7 @@ class _ContentByStatus extends StatelessWidget {
             _SectionTitle(
                 title: 'Clases disponibles', actionLabel: ''),
             const SizedBox(height: 12),
-            _ClasesNuevo(uid: uid),
+            _ClasesNuevo(uid: uid, sede: sede),
           ],
         );
 
@@ -1253,13 +1253,15 @@ class _FeaturedLessonCard extends StatelessWidget {
 
 class _ClasesNuevo extends StatelessWidget {
   final String uid;
-  const _ClasesNuevo({required this.uid});
+  final String sede;
+  const _ClasesNuevo({required this.uid, required this.sede});
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('clases')
+          .where('sede', isEqualTo: sede)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -1270,6 +1272,55 @@ class _ClasesNuevo extends StatelessWidget {
         }
 
         final clases = snapshot.data!.docs;
+
+        if (clases.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(GingaRadius.lg),
+              border: Border.all(color: GingaColors.borderLight),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: GingaColors.brandGreen.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.calendar_today_outlined,
+                    color: GingaColors.brandGreen,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Pronto programaremos clases presenciales',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Actualmente no hay horarios disponibles para la sede de $sede. ¡Mantente atento o coordina con el instructor!',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.nunito(
+                    fontSize: 11,
+                    color: GingaColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
 
         return Column(
           children: clases.map((doc) {

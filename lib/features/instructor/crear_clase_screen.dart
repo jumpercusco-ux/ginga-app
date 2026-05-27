@@ -15,6 +15,7 @@ class CrearClaseScreen extends StatefulWidget {
 class _CrearClaseScreenState extends State<CrearClaseScreen> {
   String _nombreClase = 'Kids';
   String _nivelSeleccionado = 'Iniciantes';
+  String _selectedSede = 'Cusco';
   final _descripcionController = TextEditingController();
 
   final Set<String> _diasSeleccionados = {'J'};
@@ -30,6 +31,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
   bool _isLoading = false;
 
   final List<String> _nombresClase = ['Kids', 'Adultos', 'Todos los niveles'];
+  final List<String> _sedes = ['Cusco', 'U. Continental', 'Lima', 'Chimbote'];
   final List<String> _niveles = ['Iniciantes', 'Intermedio', 'Avanzado', 'Todos'];
   final List<String> _dias = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   final List<String> _modalidades = ['Presencial', 'Online', 'Híbrido'];
@@ -77,6 +79,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
       await FirebaseFirestore.instance.collection('clases').add({
         'nombre': _nombreClase,
         'nivel': _nivelSeleccionado,
+        'sede': _selectedSede,
         'badge': _nombreClase,
         'descripcion': _descripcionController.text.trim(),
         'dias': _diasSeleccionados.join(', '),
@@ -175,6 +178,10 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   _label('Nombre de la clase'),
                   const SizedBox(height: 8),
                   _dropdown(),
+                  const SizedBox(height: 16),
+                  _label('Sede de la clase'),
+                  const SizedBox(height: 8),
+                  _sedeDropdown(),
                   const SizedBox(height: 16),
                   _label('Nivel'),
                   const SizedBox(height: 8),
@@ -471,6 +478,30 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                 .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                 .toList(),
             onChanged: (val) => setState(() => _nombreClase = val!),
+          ),
+        ),
+      );
+
+  Widget _sedeDropdown() => Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8F8F8),
+          borderRadius: BorderRadius.circular(GingaRadius.md),
+          border: Border.all(color: GingaColors.borderLight),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: _selectedSede,
+            isExpanded: true,
+            icon: const Icon(Icons.keyboard_arrow_down,
+                color: GingaColors.textSecondary),
+            style: GoogleFonts.nunito(
+                fontSize: 14, color: GingaColors.textPrimary),
+            items: _sedes
+                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+                .toList(),
+            onChanged: (val) => setState(() => _selectedSede = val!),
           ),
         ),
       );
