@@ -29,7 +29,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   bool _obscurePassword = true;
   String? _errorMessage;
 
-  final List<String> _sedes = ['Virtual / A Distancia', 'Lima', 'Cusco', 'U. Continental', 'Chimbote'];
+  final List<String> _sedes = ['Virtual / A Distancia', 'Lima', 'Cusco', 'Chimbote'];
   final List<String> _cordas = [
     'Iniciante',
     'Corda Amarela',

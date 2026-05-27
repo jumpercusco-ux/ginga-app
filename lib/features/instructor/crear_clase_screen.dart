@@ -31,7 +31,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
   bool _isLoading = false;
 
   final List<String> _nombresClase = ['Kids', 'Adultos', 'Todos los niveles'];
-  final List<String> _sedes = ['Cusco', 'U. Continental', 'Lima', 'Chimbote'];
+  final List<String> _sedes = ['Cusco', 'Lima', 'Chimbote'];
   final List<String> _niveles = ['Iniciantes', 'Intermedio', 'Avanzado', 'Todos'];
   final List<String> _dias = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   final List<String> _modalidades = ['Presencial', 'Online', 'Híbrido'];

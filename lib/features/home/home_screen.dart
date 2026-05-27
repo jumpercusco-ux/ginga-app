@@ -674,10 +674,9 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
     ),
     builder: (BuildContext ctx) {
       final List<Map<String, String>> sedesFisicas = [
-        {'id': 'Cusco', 'label': 'Sede Imperial Cusco ☀️', 'desc': 'Clases regulares cerca de la plaza de Cusco.'},
-        {'id': 'U. Continental', 'label': 'Universidad Continental 🎓', 'desc': 'Exclusivo para la comunidad universitaria de la UC.'},
-        {'id': 'Lima', 'label': 'Sede Lima 🌊', 'desc': 'Clases grupales en la capital.'},
-        {'id': 'Chimbote', 'label': 'Sede Chimbote ⚓', 'desc': 'Entrenamientos en la sede del norte.'},
+        {'id': 'Cusco', 'label': 'Sede Imperial Cusco ☀️', 'desc': 'Clases presenciales en Cusco (incluye Universidad Continental y Magisterio).'},
+        {'id': 'Lima', 'label': 'Sede Lima 🌊', 'desc': 'Clases presenciales grupales en la capital.'},
+        {'id': 'Chimbote', 'label': 'Sede Chimbote ⚓', 'desc': 'Entrenamientos presenciales en la sede del norte.'},
       ];
 
       return Container(
