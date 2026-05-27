@@ -48,6 +48,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
     final userSede = data['sede'] ?? 'Sin sede';
     final corda = data['corda'] ?? 'Iniciante';
     final email = data['email'] ?? 'Sin correo';
+    final String? fotoUrl = data['foto_url'];
     final created = data['created_at'] != null 
         ? (data['created_at'] as Timestamp).toDate()
         : null;
@@ -94,17 +95,22 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                               : status == 'nuevo'
                                   ? Colors.blue.withOpacity(0.15)
                                   : Colors.red.withOpacity(0.15),
-                      child: Icon(
-                        Icons.person,
-                        size: 32,
-                        color: status == 'activo'
-                            ? GingaColors.brandGreen
-                            : status == 'prueba'
-                                ? GingaColors.accentAmber
-                                : status == 'nuevo'
-                                    ? Colors.blue
-                                    : Colors.red,
-                      ),
+                      backgroundImage: fotoUrl != null && fotoUrl!.isNotEmpty
+                          ? NetworkImage(fotoUrl!)
+                          : null,
+                      child: fotoUrl != null && fotoUrl!.isNotEmpty
+                          ? null
+                          : Icon(
+                              Icons.person,
+                              size: 32,
+                              color: status == 'activo'
+                                  ? GingaColors.brandGreen
+                                  : status == 'prueba'
+                                      ? GingaColors.accentAmber
+                                      : status == 'nuevo'
+                                          ? Colors.blue
+                                          : Colors.red,
+                            ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -707,6 +713,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     final data = doc.data() as Map<String, dynamic>;
                     final status = data['status'] ?? 'desconocido';
                     final userSede = data['sede'] ?? 'Sin sede';
+                    final String? fotoUrl = data['foto_url'];
 
                     return GestureDetector(
                       onTap: () => _mostrarFichaAlumno(context, data),
@@ -729,16 +736,21 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                       : status == 'nuevo'
                                           ? Colors.blue.withOpacity(0.2)
                                           : Colors.red.withOpacity(0.2),
-                              child: Icon(
-                                Icons.person,
-                                color: status == 'activo'
-                                    ? GingaColors.brandGreen
-                                    : status == 'prueba'
-                                        ? GingaColors.accentAmber
-                                        : status == 'nuevo'
-                                            ? Colors.blue
-                                            : Colors.red,
-                              ),
+                              backgroundImage: fotoUrl != null && fotoUrl!.isNotEmpty
+                                  ? NetworkImage(fotoUrl!)
+                                  : null,
+                              child: fotoUrl != null && fotoUrl!.isNotEmpty
+                                  ? null
+                                  : Icon(
+                                      Icons.person,
+                                      color: status == 'activo'
+                                          ? GingaColors.brandGreen
+                                          : status == 'prueba'
+                                              ? GingaColors.accentAmber
+                                              : status == 'nuevo'
+                                                  ? Colors.blue
+                                                  : Colors.red,
+                                    ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(

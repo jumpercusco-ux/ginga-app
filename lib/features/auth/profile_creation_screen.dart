@@ -3,6 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../../core/theme/ginga_theme.dart';
 
 class ProfileCreationScreen extends StatefulWidget {
@@ -18,6 +21,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  File? _imageFile;
   String _selectedSede = 'Virtual / A Distancia';
   String _selectedCorda = '';
   DateTime? _fechaInicio;
@@ -65,6 +69,25 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     if (picked != null) setState(() => _fechaInicio = picked);
   }
 
+  Future<void> _seleccionarImagen() async {
+    final ImagePicker picker = ImagePicker();
+    try {
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 400,
+        maxHeight: 400,
+        imageQuality: 80,
+      );
+      if (image != null) {
+        setState(() {
+          _imageFile = File(image.path);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error al seleccionar imagen: $e');
+    }
+  }
+
   Future<void> _crearPerfil() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -81,6 +104,17 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         password: _passwordController.text.trim(),
       );
 
+      // Subir foto a Firebase Storage si seleccionó una
+      String? fotoUrl;
+      if (_imageFile != null) {
+        final String fileName = 'avatar_${credential.user!.uid}.jpg';
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('user_avatars/$fileName');
+        await storageRef.putFile(_imageFile!);
+        fotoUrl = await storageRef.getDownloadURL();
+      }
+
       // 2 — Guardar perfil en Firestore
       final Map<String, dynamic> userData = {
         'uid': credential.user!.uid,
@@ -90,6 +124,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         'corda': 'Iniciante',
         'fecha_inicio': null,
         'rol': 'alumno',
+        'foto_url': fotoUrl,
         'created_at': FieldValue.serverTimestamp(),
         'status': 'nuevo',//los estados son con minuscula nuevo, prueba, activo, inactivo
       };
@@ -169,29 +204,38 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                 const SizedBox(height: 28),
 
                 // Avatar
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 44,
-                      backgroundColor: GingaColors.cardLight,
-                      child: const Icon(Icons.person_outline,
-                          size: 40, color: GingaColors.textSecondary),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: const BoxDecoration(
-                          color: GingaColors.brandGreen,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.add,
-                            color: Colors.white, size: 16),
+                GestureDetector(
+                  onTap: _seleccionarImagen,
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 44,
+                        backgroundColor: GingaColors.cardLight,
+                        backgroundImage: _imageFile != null ? FileImage(_imageFile!) : null,
+                        child: _imageFile == null
+                            ? const Icon(Icons.person_outline,
+                                size: 40, color: GingaColors.textSecondary)
+                            : null,
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: const BoxDecoration(
+                            color: GingaColors.brandGreen,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _imageFile != null ? Icons.edit : Icons.add,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
 
                 const SizedBox(height: 28),

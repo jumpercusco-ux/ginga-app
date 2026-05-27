@@ -60,6 +60,7 @@ class ProgresoScreen extends StatelessWidget {
         String corda = 'Iniciante';
         String sede = 'Lima';
         String inicial = 'A';
+        String? fotoUrl;
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
@@ -67,6 +68,7 @@ class ProgresoScreen extends StatelessWidget {
           corda = data['corda'] ?? 'Iniciante';
           sede = data['sede'] ?? 'Lima';
           inicial = nombre.isNotEmpty ? nombre[0].toUpperCase() : 'A';
+          fotoUrl = data['foto_url'];
         }
 
         return StreamBuilder<QuerySnapshot>(
@@ -188,14 +190,19 @@ class ProgresoScreen extends StatelessWidget {
                             CircleAvatar(
                               radius: 32,
                               backgroundColor: GingaColors.brandGreen,
-                              child: Text(
-                                inicial,
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                ),
-                              ),
+                              backgroundImage: fotoUrl != null && fotoUrl!.isNotEmpty
+                                  ? NetworkImage(fotoUrl!)
+                                  : null,
+                              child: fotoUrl != null && fotoUrl!.isNotEmpty
+                                  ? null
+                                  : Text(
+                                      inicial,
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                             ),
                             const SizedBox(width: 16),
                             Expanded(
@@ -265,6 +272,7 @@ class ProgresoScreen extends StatelessWidget {
                           inicial: inicial,
                           porcentaje: porcentaje,
                           porcentajeInt: porcentajeInt,
+                          fotoUrl: fotoUrl,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -370,10 +378,13 @@ class _ProgressCircle extends StatelessWidget {
   final String inicial;
   final double porcentaje;
   final int porcentajeInt;
+  final String? fotoUrl;
+
   const _ProgressCircle({
     required this.inicial,
     required this.porcentaje,
     required this.porcentajeInt,
+    required this.fotoUrl,
   });
 
   @override
@@ -394,11 +405,16 @@ class _ProgressCircle extends StatelessWidget {
               CircleAvatar(
                 radius: 32,
                 backgroundColor: GingaColors.cardLight,
-                child: Text(inicial,
-                    style: GoogleFonts.montserrat(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: GingaColors.brandGreen)),
+                backgroundImage: fotoUrl != null && fotoUrl!.isNotEmpty
+                    ? NetworkImage(fotoUrl!)
+                    : null,
+                child: fotoUrl != null && fotoUrl!.isNotEmpty
+                    ? null
+                    : Text(inicial,
+                        style: GoogleFonts.montserrat(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: GingaColors.brandGreen)),
               ),
               const SizedBox(height: 4),
               Text('$porcentajeInt%',
