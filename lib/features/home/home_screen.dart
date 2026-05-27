@@ -18,9 +18,9 @@ import '../biblioteca/cancionero_screen.dart';
 
 // Constantes de estado
 class UserStatus {
-  static const nuevo    = 'nuevo';
-  static const prueba   = 'prueba';
-  static const activo   = 'activo';
+  static const nuevo = 'nuevo';
+  static const prueba = 'prueba';
+  static const activo = 'activo';
   static const inactivo = 'inactivo';
 }
 
@@ -116,7 +116,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerDocked,
           bottomNavigationBar: _GingaBottomNav(
             currentIndex: _selectedTab,
             onTap: (i) => setState(() => _selectedTab = i),
@@ -144,7 +145,8 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => _buildModernBottomSheet(
         context: ctx,
         title: '¡Reserva tu Clase de Prueba! 🥋',
-        message: 'Bienvenido a Ginga. Para poder registrar tus asistencias mediante QR, primero debes agendar tu clase de prueba gratuita y experimentar la energía de la capoeira.',
+        message:
+            'Bienvenido a Ginga. Para poder registrar tus asistencias mediante QR, primero debes agendar tu clase de prueba gratuita y experimentar la energía de la capoeira.',
         buttonLabel: 'Ver Clases Disponibles',
         icon: Icons.celebration_rounded,
         iconColor: GingaColors.brandGreen,
@@ -175,7 +177,8 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => _buildModernBottomSheet(
         context: ctx,
         title: 'Membresía Expirada ⚠️',
-        message: 'Tu acceso a las clases ha expirado. Por favor, renueva tu membresía o adquiere un pase de clases en nuestra tienda oficial para continuar escaneando y asistiendo.',
+        message:
+            'Tu acceso a las clases ha expirado. Por favor, renueva tu membresía o adquiere un pase de clases en nuestra tienda oficial para continuar escaneando y asistiendo.',
         buttonLabel: 'Ir a la Tienda Ginga',
         icon: Icons.lock_clock_rounded,
         iconColor: GingaColors.accentAmber,
@@ -314,10 +317,8 @@ class _HomeDashboard extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .snapshots(),
+      stream:
+          FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(
@@ -332,7 +333,7 @@ class _HomeDashboard extends StatelessWidget {
         final claseId = data['clase_id'] ?? '';
         final sede = data['sede'] ?? '';
         final Timestamp? membresiaFin = data['membresia_fin'];
-        
+
         // Chequeo de expiración de membresía
         if (status == UserStatus.activo && data['membresia_fin'] != null) {
           final Timestamp finTimestamp = data['membresia_fin'];
@@ -414,7 +415,8 @@ class _StatusBanner extends StatelessWidget {
         color: GingaColors.accentAmber,
         icono: Icons.school_outlined,
         titulo: 'Registro en revisión 🎓',
-        subtitulo: 'Hola $nombre, tu cuenta de la U. Continental está pendiente de aprobación por el instructor Luis Enrique.',
+        subtitulo:
+            'Hola $nombre, tu cuenta de la U. Continental está pendiente de aprobación por el instructor Luis Enrique.',
         accion: 'Pendiente',
         onTap: () {},
       );
@@ -422,23 +424,26 @@ class _StatusBanner extends StatelessWidget {
 
     if (status == UserStatus.activo && membresiaFin != null) {
       final ahora = DateTime.now();
-      final fin = DateTime(membresiaFin!.toDate().year, membresiaFin!.toDate().month, membresiaFin!.toDate().day);
+      final fin = DateTime(membresiaFin!.toDate().year,
+          membresiaFin!.toDate().month, membresiaFin!.toDate().day);
       final hoy = DateTime(ahora.year, ahora.month, ahora.day);
       final diasRestantes = fin.difference(hoy).inDays;
 
       if (diasRestantes >= 0 && diasRestantes <= 5) {
-        final String fechaFormateada = '${fin.day.toString().padLeft(2, '0')}/${fin.month.toString().padLeft(2, '0')}';
-        final String mensajeDias = diasRestantes == 0 
-            ? 'vence HOY ⚠️' 
-            : diasRestantes == 1 
-                ? 'vence MAÑANA ⚠️' 
+        final String fechaFormateada =
+            '${fin.day.toString().padLeft(2, '0')}/${fin.month.toString().padLeft(2, '0')}';
+        final String mensajeDias = diasRestantes == 0
+            ? 'vence HOY ⚠️'
+            : diasRestantes == 1
+                ? 'vence MAÑANA ⚠️'
                 : 'vence en $diasRestantes días ⚠️';
-        
+
         return _Banner(
           color: const Color(0xFFFF9800), // Ámbar / Naranja de advertencia
           icono: Icons.lock_clock,
           titulo: 'Alerta de membresía',
-          subtitulo: 'Tu membresía $mensajeDias ($fechaFormateada). Evita la suspensión de tu acceso coordinando tu pago con el profesor.',
+          subtitulo:
+              'Tu membresía $mensajeDias ($fechaFormateada). Evita la suspensión de tu acceso coordinando tu pago con el profesor.',
           accion: 'Ver pago',
           onTap: () {},
         );
@@ -452,7 +457,8 @@ class _StatusBanner extends StatelessWidget {
             color: GingaColors.brandGreen,
             icono: Icons.sports_kabaddi_outlined,
             titulo: '¡Aprende Capoeira en Casa! 🏠🥋',
-            subtitulo: '¡Bienvenido a tu entrenamiento! Explora tutoriales paso a paso de técnicas, movimientos, toques e historia.',
+            subtitulo:
+                '¡Bienvenido a tu entrenamiento! Explora tutoriales paso a paso de técnicas, movimientos, toques e historia.',
             accion: 'Ver tutoriales',
             onTap: () {
               Navigator.push(
@@ -545,15 +551,13 @@ class _Banner extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(subtitulo,
                     style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        color: Colors.white70,
-                        height: 1.4)),
+                        fontSize: 12, color: Colors.white70, height: 1.4)),
                 const SizedBox(height: 12),
                 GestureDetector(
                   onTap: onTap,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(GingaRadius.full),
@@ -598,7 +602,6 @@ class _ContentByStatus extends StatelessWidget {
     }
 
     switch (status) {
-
       // NUEVO — ve todas las clases para elegir la de prueba
       case UserStatus.nuevo:
         if (sede == 'U. Continental') {
@@ -614,8 +617,7 @@ class _ContentByStatus extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SectionTitle(
-                title: 'Clases disponibles', actionLabel: ''),
+            _SectionTitle(title: 'Clases disponibles', actionLabel: ''),
             const SizedBox(height: 12),
             _ClasesNuevo(uid: uid, sede: sede),
           ],
@@ -674,9 +676,22 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
     ),
     builder: (BuildContext ctx) {
       final List<Map<String, String>> sedesFisicas = [
-        {'id': 'Cusco', 'label': 'Sede Imperial Cusco ☀️', 'desc': 'Clases presenciales en Cusco (incluye Universidad Continental y Magisterio).'},
-        {'id': 'Lima', 'label': 'Sede Lima 🌊', 'desc': 'Clases presenciales grupales en la capital.'},
-        {'id': 'Chimbote', 'label': 'Sede Chimbote ⚓', 'desc': 'Entrenamientos presenciales en la sede del norte.'},
+        {
+          'id': 'Cusco',
+          'label': 'Sede Cusco ☀️',
+          'desc':
+              'Clases presenciales en Cusco (incluye Universidad Continental y Magisterio).'
+        },
+        {
+          'id': 'Lima',
+          'label': 'Sede Lima 🌊',
+          'desc': 'Clases presenciales grupales en la capital.'
+        },
+        {
+          'id': 'Chimbote',
+          'label': 'Sede Chimbote ⚓',
+          'desc': 'Entrenamientos presenciales en la sede del norte.'
+        },
       ];
 
       return Container(
@@ -734,12 +749,13 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
                               .collection('users')
                               .doc(uid)
                               .update({'sede': sedeMap['id']});
-                          
+
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
                             messenger.showSnackBar(
                               SnackBar(
-                                content: Text('¡Sede cambiada a ${sedeMap['id']}! Ahora puedes reservar tu clase regular 🥋'),
+                                content: Text(
+                                    '¡Sede cambiada a ${sedeMap['id']}! Ahora puedes reservar tu clase regular 🥋'),
                                 backgroundColor: GingaColors.brandGreen,
                               ),
                             );
@@ -771,7 +787,8 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
                                 color: Colors.white,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.storefront_outlined, color: GingaColors.brandGreen, size: 20),
+                              child: const Icon(Icons.storefront_outlined,
+                                  color: GingaColors.brandGreen, size: 20),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
@@ -797,7 +814,8 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
                                 ],
                               ),
                             ),
-                            const Icon(Icons.chevron_right, color: GingaColors.textSecondary, size: 20),
+                            const Icon(Icons.chevron_right,
+                                color: GingaColors.textSecondary, size: 20),
                           ],
                         ),
                       ),
@@ -844,7 +862,8 @@ class _VirtualDashboard extends StatelessWidget {
                   color: GingaColors.brandGreen.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.location_on_outlined, color: GingaColors.brandGreen, size: 24),
+                child: const Icon(Icons.location_on_outlined,
+                    color: GingaColors.brandGreen, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -883,7 +902,8 @@ class _VirtualDashboard extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 ),
                 child: Text(
                   'Reservar',
@@ -908,7 +928,8 @@ class _VirtualDashboard extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const PracticarToqueScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const PracticarToqueScreen()),
                 ),
                 child: Container(
                   padding: const EdgeInsets.all(14),
@@ -926,7 +947,8 @@ class _VirtualDashboard extends StatelessWidget {
                           color: Colors.blue.withOpacity(0.08),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.music_note_outlined, color: Colors.blue, size: 20),
+                        child: const Icon(Icons.music_note_outlined,
+                            color: Colors.blue, size: 20),
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -960,7 +982,8 @@ class _VirtualDashboard extends StatelessWidget {
                               color: Colors.blue,
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_rounded, color: Colors.blue, size: 12),
+                          const Icon(Icons.arrow_forward_rounded,
+                              color: Colors.blue, size: 12),
                         ],
                       ),
                     ],
@@ -992,7 +1015,8 @@ class _VirtualDashboard extends StatelessWidget {
                           color: GingaColors.brandGreen.withOpacity(0.08),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.menu_book_outlined, color: GingaColors.brandGreen, size: 20),
+                        child: const Icon(Icons.menu_book_outlined,
+                            color: GingaColors.brandGreen, size: 20),
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -1026,7 +1050,8 @@ class _VirtualDashboard extends StatelessWidget {
                               color: GingaColors.brandGreen,
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_rounded, color: GingaColors.brandGreen, size: 12),
+                          const Icon(Icons.arrow_forward_rounded,
+                              color: GingaColors.brandGreen, size: 12),
                         ],
                       ),
                     ],
@@ -1070,7 +1095,8 @@ class _VirtualDashboard extends StatelessWidget {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
-                  child: CircularProgressIndicator(color: GingaColors.brandGreen),
+                  child:
+                      CircularProgressIndicator(color: GingaColors.brandGreen),
                 ),
               );
             }
@@ -1201,7 +1227,8 @@ class _FeaturedLessonCard extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
                           color: GingaColors.cardLight,
                           borderRadius: BorderRadius.circular(4),
@@ -1216,7 +1243,8 @@ class _FeaturedLessonCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.access_time_outlined, size: 10, color: GingaColors.textSecondary),
+                      const Icon(Icons.access_time_outlined,
+                          size: 10, color: GingaColors.textSecondary),
                       const SizedBox(width: 2),
                       Text(
                         duracion,
@@ -1237,7 +1265,8 @@ class _FeaturedLessonCard extends StatelessWidget {
                 color: GingaColors.brandGreen,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
+              child: const Icon(Icons.play_arrow_rounded,
+                  color: Colors.white, size: 18),
             ),
           ],
         ),
@@ -1325,7 +1354,7 @@ class _ClasesNuevo extends StatelessWidget {
           children: clases.map((doc) {
             final data = doc.data() as Map<String, dynamic>;
             return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: 12),
               child: _ClaseCardNuevo(
                 claseId: doc.id,
                 hora: data['hora'] ?? '',
@@ -1336,6 +1365,8 @@ class _ClasesNuevo extends StatelessWidget {
                 cuposDisponibles: data['cupos_disponibles'] ?? 0,
                 tipo: data['tipo'] ?? 'regular',
                 uid: uid,
+                lugar: data['lugar'] ?? '',
+                ubicacion: data['ubicacion'] ?? '',
               ),
             );
           }).toList(),
@@ -1355,6 +1386,8 @@ class _ClaseCardNuevo extends StatelessWidget {
   final int cuposDisponibles;
   final String tipo;
   final String uid;
+  final String lugar;
+  final String ubicacion;
 
   const _ClaseCardNuevo({
     required this.claseId,
@@ -1366,97 +1399,251 @@ class _ClaseCardNuevo extends StatelessWidget {
     required this.cuposDisponibles,
     required this.tipo,
     required this.uid,
+    required this.lugar,
+    required this.ubicacion,
   });
 
   @override
   Widget build(BuildContext context) {
-    final badgeColor = tipo == 'roda'
-        ? GingaColors.accentAmber
-        : GingaColors.brandGreen;
+    // Determinar esquema de colores basado en el tipo de clase
+    final bool isEvent = tipo == 'especial' || tipo == 'roda';
+    final Color accentColor = isEvent ? GingaColors.accentAmber : GingaColors.brandGreen;
+    
+    // Colores suaves para las insignias
+    final Color badgeBgColor = isEvent 
+        ? const Color(0xFFFFF8E1) // Ámbar muy suave
+        : const Color(0xFFE8F5E9); // Verde muy suave
+        
+    final Color badgeTextColor = isEvent
+        ? const Color(0xFFE65100) // Ámbar/Naranja profundo
+        : const Color(0xFF2E7D32); // Verde profundo
+        
+    final IconData badgeIcon = tipo == 'roda'
+        ? Icons.local_fire_department_rounded
+        : tipo == 'especial'
+            ? Icons.star_rounded
+            : Icons.sports_martial_arts_rounded;
+
+    final String typeLabel = tipo == 'roda'
+        ? 'RODA 🔥'
+        : tipo == 'especial'
+            ? 'EVENTO 🌟'
+            : 'CLASE 🥋';
+
+    // Determinar texto de ubicación
+    final String locationText = lugar.isNotEmpty 
+        ? lugar 
+        : (ubicacion.isNotEmpty ? ubicacion : 'Sede Física');
 
     return GestureDetector(
       onTap: () => context.push('/clase-detalle?claseId=$claseId'),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        margin: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(GingaRadius.lg),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
           border: Border.all(
-            color: GingaColors.borderLight,
+            color: isEvent 
+                ? GingaColors.accentAmber.withOpacity(0.3) 
+                : GingaColors.borderLight.withOpacity(0.7),
+            width: isEvent ? 1.5 : 1.0,
           ),
         ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: hora.contains('-') || hora.length > 5 ? 75 : 44,
-              child: Text(hora,
-                  style: GoogleFonts.montserrat(
-                      fontSize: hora.contains('-') || hora.length > 5 ? 12 : 14,
-                      fontWeight: FontWeight.w700,
-                      color: GingaColors.textPrimary)),
-            ),
-            const SizedBox(width: 10),
-            Container(width: 1, height: 40, color: GingaColors.borderLight),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(nivel,
-                            style: GoogleFonts.montserrat(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: GingaColors.textPrimary),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: badgeColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(4),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1. Banda de acento vertical izquierda
+                Container(
+                  width: 5,
+                  color: accentColor,
+                ),
+                
+                // 2. Información Central
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Fila de Insignia de Categoría e Insignia Específica
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: badgeBgColor,
+                                borderRadius: BorderRadius.circular(GingaRadius.sm),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(badgeIcon, size: 12, color: badgeTextColor),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    typeLabel,
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      color: badgeTextColor,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            
+                            // Insignia específica de la clase (ej. U. Continental 🎓)
+                            if (badge.isNotEmpty && badge != nivel)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: GingaColors.backgroundLight,
+                                  border: Border.all(color: GingaColors.borderLight),
+                                  borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                ),
+                                child: Text(
+                                  badge,
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    color: GingaColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                        child: Text(badge,
-                            style: GoogleFonts.montserrat(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: badgeColor)),
+                        const SizedBox(height: 12),
+                        
+                        // Título de la clase/nivel
+                        Text(
+                          nivel,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: GingaColors.textPrimary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        // Fila de Horario y Días
+                        Row(
+                          children: [
+                            Icon(Icons.access_time_rounded, size: 14, color: accentColor),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '$hora${dias.isNotEmpty ? " • $dias" : ""}',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: GingaColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        
+                        // Fila de Instructor
+                        if (instructor.isNotEmpty) ...[
+                          Row(
+                            children: [
+                              const Icon(Icons.person_outline_rounded, size: 14, color: GingaColors.textSecondary),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Instructor: $instructor',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 12,
+                                    color: GingaColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                        
+                        // Fila de Lugar/Ubicación (📍 Crucial para saber a dónde ir)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.location_on_outlined, size: 14, color: Colors.redAccent),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                locationText,
+                                style: GoogleFonts.nunito(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: GingaColors.textSecondary,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // 3. Panel de Acción Derecho
+                Container(
+                  width: 56,
+                  decoration: BoxDecoration(
+                    color: isEvent 
+                        ? GingaColors.accentAmber.withOpacity(0.06) 
+                        : GingaColors.brandGreen.withOpacity(0.04),
+                    border: Border(
+                      left: BorderSide(color: GingaColors.borderLight.withOpacity(0.5)),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: accentColor.withOpacity(0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 16,
+                          color: accentColor,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Gratis',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: accentColor,
+                          letterSpacing: 0.2,
+                        ),
                       ),
                     ],
                   ),
-                  if (dias.isNotEmpty)
-                    Text(dias,
-                        style: GoogleFonts.montserrat(
-                            fontSize: 10,
-                            color: GingaColors.textSecondary)),
-                  Text(instructor,
-                      style: GoogleFonts.nunito(
-                          fontSize: 11, color: GingaColors.textSecondary)),
-                ],
-              ),
+                ),
+              ],
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: GingaColors.brandGreen,
-                borderRadius:
-                    BorderRadius.circular(GingaRadius.full),
-              ),
-              child: Text(
-                'Gratis',
-                style: GoogleFonts.montserrat(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1488,8 +1675,7 @@ class _ReservaPendiente extends StatelessWidget {
               borderRadius: BorderRadius.circular(GingaRadius.lg),
             ),
             child: Text('No se encontró tu reserva.',
-                style: GoogleFonts.nunito(
-                    color: GingaColors.textSecondary)),
+                style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
           );
         }
 
@@ -1507,8 +1693,8 @@ class _ReservaPendiente extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(GingaRadius.lg),
-              border: Border.all(
-                  color: GingaColors.accentAmber.withOpacity(0.4)),
+              border:
+                  Border.all(color: GingaColors.accentAmber.withOpacity(0.4)),
             ),
             child: Row(
               children: [
@@ -1533,16 +1719,14 @@ class _ReservaPendiente extends StatelessWidget {
                               color: GingaColors.textPrimary)),
                       Text('${reserva['hora']} — ${reserva['dias']}',
                           style: GoogleFonts.nunito(
-                              fontSize: 13,
-                              color: GingaColors.textSecondary)),
+                              fontSize: 13, color: GingaColors.textSecondary)),
                       const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: GingaColors.accentAmber.withOpacity(0.1),
-                          borderRadius:
-                              BorderRadius.circular(GingaRadius.full),
+                          borderRadius: BorderRadius.circular(GingaRadius.full),
                         ),
                         child: Text('CLASE DE PRUEBA',
                             style: GoogleFonts.montserrat(
@@ -1607,8 +1791,7 @@ class _ClaseActivo extends StatelessWidget {
           borderRadius: BorderRadius.circular(GingaRadius.lg),
         ),
         child: Text('Contacta al instructor para asignarte una clase.',
-            style: GoogleFonts.nunito(
-                color: GingaColors.textSecondary)),
+            style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
       );
     }
 
@@ -1644,8 +1827,8 @@ class _ClaseActivo extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(GingaRadius.lg),
-              border: Border.all(
-                  color: GingaColors.brandGreen.withOpacity(0.2)),
+              border:
+                  Border.all(color: GingaColors.brandGreen.withOpacity(0.2)),
               boxShadow: [
                 BoxShadow(
                   color: GingaColors.brandGreen.withOpacity(0.04),
@@ -1692,22 +1875,25 @@ class _ClaseActivo extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                
+
                 // Divisor sutil
                 Container(
                   height: 1,
                   color: GingaColors.borderLight,
                 ),
                 const SizedBox(height: 12),
-  
+
                 // Detalles inferiores adaptables
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _buildInfoBadge(Icons.access_time_rounded, data['hora'] ?? ''),
-                    _buildInfoBadge(Icons.calendar_today_outlined, data['dias'] ?? ''),
-                    _buildInfoBadge(Icons.person_outline_rounded, data['instructor'] ?? ''),
+                    _buildInfoBadge(
+                        Icons.access_time_rounded, data['hora'] ?? ''),
+                    _buildInfoBadge(
+                        Icons.calendar_today_outlined, data['dias'] ?? ''),
+                    _buildInfoBadge(
+                        Icons.person_outline_rounded, data['instructor'] ?? ''),
                   ],
                 ),
               ],
@@ -1760,8 +1946,7 @@ class _ClaseInactivo extends StatelessWidget {
                         color: GingaColors.textSecondary)),
                 Text('Renueva tu mensualidad para continuar',
                     style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        color: GingaColors.textSecondary)),
+                        fontSize: 12, color: GingaColors.textSecondary)),
               ],
             ),
           ),
@@ -1803,7 +1988,8 @@ class _ClasePendiente extends StatelessWidget {
           return Container(
             padding: const EdgeInsets.all(16),
             alignment: Alignment.center,
-            child: const CircularProgressIndicator(color: GingaColors.brandGreen, strokeWidth: 2),
+            child: const CircularProgressIndicator(
+                color: GingaColors.brandGreen, strokeWidth: 2),
           );
         }
 
@@ -1819,7 +2005,8 @@ class _ClasePendiente extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(GingaRadius.sm),
@@ -1864,7 +2051,8 @@ class _ClasePendiente extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(GingaRadius.full),
@@ -1993,7 +2181,8 @@ class _NotificationsBell extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             IconButton(
-              icon: const Icon(Icons.notifications_outlined, size: 26, color: GingaColors.textPrimary),
+              icon: const Icon(Icons.notifications_outlined,
+                  size: 26, color: GingaColors.textPrimary),
               onPressed: () => _mostrarBuzonNotificaciones(context, uid),
             ),
             if (unreadCount > 0)
@@ -2056,7 +2245,8 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.notifications, color: GingaColors.brandGreen, size: 24),
+                    const Icon(Icons.notifications,
+                        color: GingaColors.brandGreen, size: 24),
                     const SizedBox(width: 8),
                     Text(
                       'Notificaciones',
@@ -2076,7 +2266,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                         .collection('notificaciones')
                         .where('leido', isEqualTo: false)
                         .get();
-                    
+
                     final batch = FirebaseFirestore.instance.batch();
                     for (var doc in unreadDocs.docs) {
                       batch.update(doc.reference, {'leido': true});
@@ -2105,7 +2295,9 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen));
+                    return const Center(
+                        child: CircularProgressIndicator(
+                            color: GingaColors.brandGreen));
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -2113,11 +2305,15 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.notifications_none, size: 60, color: GingaColors.textSecondary.withOpacity(0.3)),
+                          Icon(Icons.notifications_none,
+                              size: 60,
+                              color:
+                                  GingaColors.textSecondary.withOpacity(0.3)),
                           const SizedBox(height: 12),
                           Text(
                             'No tienes notificaciones aún',
-                            style: GoogleFonts.nunito(color: GingaColors.textSecondary, fontSize: 14),
+                            style: GoogleFonts.nunito(
+                                color: GingaColors.textSecondary, fontSize: 14),
                           ),
                         ],
                       ),
@@ -2164,10 +2360,14 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: leido ? Colors.transparent : itemColor.withOpacity(0.06),
+                          color: leido
+                              ? Colors.transparent
+                              : itemColor.withOpacity(0.06),
                           borderRadius: BorderRadius.circular(GingaRadius.md),
                           border: Border.all(
-                            color: leido ? GingaColors.borderLight : itemColor.withOpacity(0.3),
+                            color: leido
+                                ? GingaColors.borderLight
+                                : itemColor.withOpacity(0.3),
                             width: leido ? 1 : 1.5,
                           ),
                         ),
@@ -2188,7 +2388,8 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         titulo,
@@ -2263,7 +2464,8 @@ class _WorkshopBanner extends StatelessWidget {
               color: GingaColors.cardLight,
               borderRadius: BorderRadius.circular(GingaRadius.lg),
             ),
-            child: const CircularProgressIndicator(color: GingaColors.brandGreen),
+            child:
+                const CircularProgressIndicator(color: GingaColors.brandGreen),
           );
         }
 
@@ -2275,7 +2477,7 @@ class _WorkshopBanner extends StatelessWidget {
           for (var doc in snapshot.data!.docs) {
             final data = doc.data() as Map<String, dynamic>;
             final Timestamp? dateEnd = data['fecha_fin'] as Timestamp?;
-            
+
             // Si el evento no ha culminado aún, es el evento a mostrar
             if (dateEnd != null && dateEnd.toDate().isAfter(now)) {
               eventData = data;
@@ -2296,8 +2498,9 @@ class _WorkshopBanner extends StatelessWidget {
         final DateTime dateEnd = dateEndTs.toDate();
 
         // Determinar si hoy está dentro del rango del evento
-        final bool isTodayEvent = now.isAfter(dateStart.subtract(const Duration(hours: 12))) && 
-            now.isBefore(dateEnd.add(const Duration(hours: 12)));
+        final bool isTodayEvent =
+            now.isAfter(dateStart.subtract(const Duration(hours: 12))) &&
+                now.isBefore(dateEnd.add(const Duration(hours: 12)));
 
         if (isTodayEvent) {
           // ── Estado B: Evento en Curso ────────────────────────────────────
@@ -2311,7 +2514,8 @@ class _WorkshopBanner extends StatelessWidget {
   }
 
   // ── ESTADO A: Banner de Próximo Taller ─────────────────────────────────────
-  Widget _buildUpcomingEventBanner(BuildContext context, String eventId, Map<String, dynamic> data) {
+  Widget _buildUpcomingEventBanner(
+      BuildContext context, String eventId, Map<String, dynamic> data) {
     final titulo = data['titulo'] ?? 'Taller Especial';
     final organizador = data['organizador'] ?? 'Mestre Invitado';
     final fechaTexto = data['fecha_texto'] ?? 'Próximamente';
@@ -2371,7 +2575,8 @@ class _WorkshopBanner extends StatelessWidget {
                 GestureDetector(
                   onTap: () => _mostrarDetallesEvento(context, eventId, data),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: const Color(0xFF4A2F02),
                       borderRadius: BorderRadius.circular(GingaRadius.full),
@@ -2397,8 +2602,10 @@ class _WorkshopBanner extends StatelessWidget {
               height: 110,
               child: imagenUrl.startsWith('assets/')
                   ? Image.asset(imagenUrl, fit: BoxFit.cover)
-                  : Image.network(imagenUrl, fit: BoxFit.cover, errorBuilder: (c, o, s) {
-                      return Image.asset('assets/images/roda.jpg', fit: BoxFit.cover);
+                  : Image.network(imagenUrl, fit: BoxFit.cover,
+                      errorBuilder: (c, o, s) {
+                      return Image.asset('assets/images/roda.jpg',
+                          fit: BoxFit.cover);
                     }),
             ),
           ),
@@ -2408,7 +2615,8 @@ class _WorkshopBanner extends StatelessWidget {
   }
 
   // ── ESTADO B: Banner de ¡Hoy es el Evento! (Glow verde intenso) ──────────────
-  Widget _buildActiveTodayBanner(BuildContext context, String eventId, Map<String, dynamic> data) {
+  Widget _buildActiveTodayBanner(
+      BuildContext context, String eventId, Map<String, dynamic> data) {
     final titulo = data['titulo'] ?? 'Taller Especial';
 
     return Container(
@@ -2440,7 +2648,8 @@ class _WorkshopBanner extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.flash_on, color: GingaColors.accentAmber, size: 16),
+                    const Icon(Icons.flash_on,
+                        color: GingaColors.accentAmber, size: 16),
                     const SizedBox(width: 4),
                     Text(
                       '¡EVENTO EN CURSO HOY!',
@@ -2476,7 +2685,8 @@ class _WorkshopBanner extends StatelessWidget {
                 GestureDetector(
                   onTap: () => _mostrarDetallesEvento(context, eventId, data),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: GingaColors.accentAmber,
                       borderRadius: BorderRadius.circular(GingaRadius.full),
@@ -2554,11 +2764,13 @@ class _WorkshopBanner extends StatelessWidget {
                     // Pasa directamente a los tutoriales de la biblioteca
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const TutorialesScreen()),
+                      MaterialPageRoute(
+                          builder: (_) => const TutorialesScreen()),
                     );
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: GingaColors.brandGreen,
                       borderRadius: BorderRadius.circular(GingaRadius.full),
@@ -2592,7 +2804,8 @@ class _WorkshopBanner extends StatelessWidget {
   }
 
   // ── Bottom Sheet de Detalles e Inscripción Interactiva ────────────────────
-  void _mostrarDetallesEvento(BuildContext context, String eventId, Map<String, dynamic> data) {
+  void _mostrarDetallesEvento(
+      BuildContext context, String eventId, Map<String, dynamic> data) {
     final titulo = data['titulo'] ?? 'Taller Especial';
     final organizador = data['organizador'] ?? 'Mestre Invitado';
     final fechaTexto = data['fecha_texto'] ?? 'Próximamente';
@@ -2663,7 +2876,8 @@ class _WorkshopBanner extends StatelessWidget {
                 const SizedBox(height: 16),
 
                 // Fila de Info (Fecha & Lugar)
-                _buildInfoCard(Icons.calendar_today_rounded, 'FECHA', fechaTexto),
+                _buildInfoCard(
+                    Icons.calendar_today_rounded, 'FECHA', fechaTexto),
                 const SizedBox(height: 10),
                 _buildInfoCard(Icons.location_on_rounded, 'LUGAR', lugar),
                 const SizedBox(height: 20),
@@ -2710,7 +2924,8 @@ class _WorkshopBanner extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: GingaColors.cardLight,
                               borderRadius: BorderRadius.circular(6),
@@ -2767,11 +2982,13 @@ class _WorkshopBanner extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: GingaColors.cardLight,
                           borderRadius: BorderRadius.circular(GingaRadius.md),
-                          border: Border.all(color: GingaColors.brandGreen.withOpacity(0.3)),
+                          border: Border.all(
+                              color: GingaColors.brandGreen.withOpacity(0.3)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.check_circle_rounded, color: GingaColors.brandGreen, size: 28),
+                            const Icon(Icons.check_circle_rounded,
+                                color: GingaColors.brandGreen, size: 28),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
@@ -2804,14 +3021,16 @@ class _WorkshopBanner extends StatelessWidget {
                     return ElevatedButton(
                       onPressed: () async {
                         try {
-                          await EventosService.instance.registrarAsistencia(eventId, userNombre);
+                          await EventosService.instance
+                              .registrarAsistencia(eventId, userNombre);
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
                           }
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('¡Reserva confirmada con éxito, $userNombre! 🎉 Nos vemos en la Roda.'),
+                                content: Text(
+                                    '¡Reserva confirmada con éxito, $userNombre! 🎉 Nos vemos en la Roda.'),
                                 backgroundColor: GingaColors.brandGreen,
                                 behavior: SnackBarBehavior.floating,
                               ),
@@ -2899,8 +3118,6 @@ class _WorkshopBanner extends StatelessWidget {
     );
   }
 }
-
-
 
 // ─────────────────────────────────────────
 //  SECTION TITLE
@@ -2990,9 +3207,7 @@ class _NoticiaCard extends StatelessWidget {
             ),
             child: imagePath != null
                 ? Image.asset(imagePath!,
-                    height: 90,
-                    width: double.infinity,
-                    fit: BoxFit.cover)
+                    height: 90, width: double.infinity, fit: BoxFit.cover)
                 : Container(
                     height: 90,
                     color: GingaColors.backgroundDark,
@@ -3060,14 +3275,16 @@ class _GingaBottomNav extends StatelessWidget {
           ),
           const SizedBox(width: 64), // Espacio central para el FAB con notch
           Expanded(
-            child: _buildNavItem(1, Icons.menu_book_outlined, Icons.menu_book, 'Biblioteca'),
+            child: _buildNavItem(
+                1, Icons.menu_book_outlined, Icons.menu_book, 'Biblioteca'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label) {
+  Widget _buildNavItem(
+      int index, IconData icon, IconData activeIcon, String label) {
     final isSelected = currentIndex == index;
     return InkWell(
       onTap: () => onTap(index),
@@ -3077,7 +3294,8 @@ class _GingaBottomNav extends StatelessWidget {
         children: [
           Icon(
             isSelected ? activeIcon : icon,
-            color: isSelected ? GingaColors.brandGreen : GingaColors.textSecondary,
+            color:
+                isSelected ? GingaColors.brandGreen : GingaColors.textSecondary,
             size: 24,
           ),
           const SizedBox(height: 2),
@@ -3086,7 +3304,9 @@ class _GingaBottomNav extends StatelessWidget {
             style: GoogleFonts.montserrat(
               fontSize: 11,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: isSelected ? GingaColors.brandGreen : GingaColors.textSecondary,
+              color: isSelected
+                  ? GingaColors.brandGreen
+                  : GingaColors.textSecondary,
             ),
           ),
         ],
@@ -3116,7 +3336,8 @@ class _StorePromoBanner extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.storefront, color: GingaColors.brandGreen, size: 20),
+                    const Icon(Icons.storefront,
+                        color: GingaColors.brandGreen, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       'Ginga Store 🥋',
@@ -3141,7 +3362,8 @@ class _StorePromoBanner extends StatelessWidget {
                 GestureDetector(
                   onTap: () => context.push('/tienda'),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: GingaColors.brandGreen,
                       borderRadius: BorderRadius.circular(GingaRadius.full),
