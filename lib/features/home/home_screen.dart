@@ -1139,6 +1139,113 @@ class _VirtualDashboard extends StatelessWidget {
   }
 }
 
+class _FeaturedLessonCard extends StatelessWidget {
+  final String titulo;
+  final String nivel;
+  final String duracion;
+  final String categoria;
+  final VoidCallback onTap;
+
+  const _FeaturedLessonCard({
+    required this.titulo,
+    required this.nivel,
+    required this.duracion,
+    required this.categoria,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final IconData icono = categoria == 'Fundamentos'
+        ? Icons.school_rounded
+        : categoria == 'Floreos'
+            ? Icons.accessibility_new
+            : Icons.sports_martial_arts;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          border: Border.all(color: GingaColors.borderLight),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: GingaColors.brandGreen.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+              ),
+              child: Icon(icono, color: GingaColors.brandGreen, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    titulo,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: GingaColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: GingaColors.cardLight,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          nivel,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.brandGreen,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.access_time_outlined, size: 10, color: GingaColors.textSecondary),
+                      const SizedBox(width: 2),
+                      Text(
+                        duracion,
+                        style: GoogleFonts.nunito(
+                          fontSize: 10,
+                          color: GingaColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: GingaColors.brandGreen,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────
 //  CLASES PARA NUEVO (todas disponibles)
 // ─────────────────────────────────────────
