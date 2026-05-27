@@ -275,14 +275,6 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
 
                 const SizedBox(height: 14),
 
-                // Sede
-                _buildDropdown(
-                  value: _selectedSede,
-                  hint: 'Sede',
-                  items: _sedes,
-                  onChanged: (val) => setState(() => _selectedSede = val!),
-                ),
-
                 const SizedBox(height: 14),
 
                 // Corda
