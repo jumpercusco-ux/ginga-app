@@ -10,6 +10,10 @@ import 'package:go_router/go_router.dart';
 import 'qr_scanner_screen.dart';
 import '../../core/services/eventos_service.dart';
 import '../biblioteca/tutoriales_screen.dart';
+import '../biblioteca/musica_screen.dart';
+import '../biblioteca/cultura_screen.dart';
+import '../biblioteca/practicar_toque_screen.dart';
+import '../biblioteca/tutor_detail_screen.dart';
 
 // Constantes de estado
 class UserStatus {
@@ -442,6 +446,23 @@ class _StatusBanner extends StatelessWidget {
 
     switch (status) {
       case UserStatus.nuevo:
+        if (sede == 'Virtual / A Distancia') {
+          return _Banner(
+            color: GingaColors.brandGreen,
+            icono: Icons.sports_kabaddi_outlined,
+            titulo: '¡Aprende Capoeira en Casa! 🏠🥋',
+            subtitulo: '¡Bienvenido a tu entrenamiento! Explora tutoriales paso a paso de técnicas, movimientos, toques e historia.',
+            accion: 'Ver tutoriales',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const TutorialesScreen(),
+                ),
+              );
+            },
+          );
+        }
         return _Banner(
           color: GingaColors.brandGreen,
           icono: Icons.celebration_outlined,
@@ -571,6 +592,10 @@ class _ContentByStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (sede == 'Virtual / A Distancia') {
+      return _VirtualDashboard(uid: uid);
+    }
+
     switch (status) {
 
       // NUEVO — ve todas las clases para elegir la de prueba
@@ -631,6 +656,359 @@ class _ContentByStatus extends StatelessWidget {
       default:
         return const SizedBox();
     }
+  }
+}
+
+// ─────────────────────────────────────────
+//  VIRTUAL LEARNER DASHBOARD (DOCK & RODA)
+// ─────────────────────────────────────────
+
+class _VirtualDashboard extends StatelessWidget {
+  final String uid;
+  const _VirtualDashboard({required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionTitle(title: 'Portal de Capoeira 🥋', actionLabel: ''),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.6,
+          children: [
+            _QuickActionCard(
+              title: 'Tutoriales',
+              subtitle: 'Aprende técnicas',
+              icono: Icons.play_circle_outline,
+              color: GingaColors.accentAmber,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TutorialesScreen()),
+              ),
+            ),
+            _QuickActionCard(
+              title: 'Música / Roda',
+              subtitle: 'Cantigas y toques',
+              icono: Icons.music_note_outlined,
+              color: GingaColors.brandGreen,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MusicaScreen()),
+              ),
+            ),
+            _QuickActionCard(
+              title: 'Berimbau Sim',
+              subtitle: 'Practica ritmos',
+              icono: Icons.sports_kabaddi_outlined,
+              color: Colors.blue,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PracticarToqueScreen()),
+              ),
+            ),
+            _QuickActionCard(
+              title: 'A Cultura',
+              subtitle: 'Historia y mestres',
+              icono: Icons.menu_book_outlined,
+              color: GingaColors.textSecondary,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CulturaScreen()),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 28),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _SectionTitle(title: 'Recomendado para ti', actionLabel: ''),
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TutorialesScreen()),
+              ),
+              child: Text(
+                'Ver todos',
+                style: GoogleFonts.nunito(
+                  fontSize: 12,
+                  color: GingaColors.brandGreen,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('tutoriales')
+              .limit(3)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: CircularProgressIndicator(color: GingaColors.brandGreen),
+                ),
+              );
+            }
+
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: GingaColors.cardLight,
+                  borderRadius: BorderRadius.circular(GingaRadius.lg),
+                  border: Border.all(color: GingaColors.borderLight),
+                ),
+                child: Center(
+                  child: Text(
+                    'Pronto subiremos nuevas lecciones virtuales 🥋',
+                    style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: snapshot.data!.docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final titulo = data['titulo'] ?? '';
+                final nivel = data['nivel'] ?? 'Iniciante';
+                final duracion = data['duracion'] ?? '6 min';
+                final categoria = data['categoria'] ?? 'Fundamentos';
+                final descripcion = data['descripcion'] ?? '';
+                final tipMestre = data['tipMestre'] ?? '';
+                final tipError = data['tipError'] ?? '';
+                final imagenUrl = data['imagen_url'] ?? '';
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _FeaturedLessonCard(
+                    titulo: titulo,
+                    nivel: nivel,
+                    duracion: duracion,
+                    categoria: categoria,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TutorialDetailScreen(
+                          title: titulo,
+                          category: categoria,
+                          level: nivel,
+                          description: descripcion,
+                          tipMestre: tipMestre,
+                          tipError: tipError,
+                          imageUrl: imagenUrl,
+                          videoUrl: data['video_url'] ?? '',
+                          duracion: duracion,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icono;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icono,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          border: Border.all(color: GingaColors.borderLight),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.01),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icono, color: color, size: 20),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: GingaColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.nunito(
+                      fontSize: 9,
+                      color: GingaColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeaturedLessonCard extends StatelessWidget {
+  final String titulo;
+  final String nivel;
+  final String duracion;
+  final String categoria;
+  final VoidCallback onTap;
+
+  const _FeaturedLessonCard({
+    required this.titulo,
+    required this.nivel,
+    required this.duracion,
+    required this.categoria,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final IconData icono = categoria == 'Fundamentos'
+        ? Icons.school_rounded
+        : categoria == 'Floreos'
+            ? Icons.accessibility_new
+            : Icons.sports_martial_arts;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          border: Border.all(color: GingaColors.borderLight),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: GingaColors.brandGreen.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+              ),
+              child: Icon(icono, color: GingaColors.brandGreen, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    titulo,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: GingaColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: GingaColors.cardLight,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          nivel,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.brandGreen,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.access_time_outlined, size: 10, color: GingaColors.textSecondary),
+                      const SizedBox(width: 2),
+                      Text(
+                        duracion,
+                        style: GoogleFonts.nunito(
+                          fontSize: 10,
+                          color: GingaColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: GingaColors.brandGreen,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
