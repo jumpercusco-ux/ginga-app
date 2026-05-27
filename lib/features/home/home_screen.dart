@@ -601,11 +601,13 @@ class _ContentByStatus extends StatelessWidget {
       return _VirtualDashboard(uid: uid);
     }
 
+    Widget content;
+
     switch (status) {
       // NUEVO — ve todas las clases para elegir la de prueba
       case UserStatus.nuevo:
         if (sede == 'U. Continental') {
-          return Column(
+          content = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _SectionTitle(title: 'Tu clase asignada', actionLabel: ''),
@@ -613,19 +615,21 @@ class _ContentByStatus extends StatelessWidget {
               _ClasePendiente(claseId: claseId),
             ],
           );
+        } else {
+          content = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(title: 'Clases disponibles', actionLabel: ''),
+              const SizedBox(height: 12),
+              _ClasesNuevo(uid: uid, sede: sede, soloRegulares: true),
+            ],
+          );
         }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionTitle(title: 'Clases disponibles', actionLabel: ''),
-            const SizedBox(height: 12),
-            _ClasesNuevo(uid: uid, sede: sede),
-          ],
-        );
+        break;
 
       // PRUEBA — ve su reserva pendiente
       case UserStatus.prueba:
-        return Column(
+        content = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionTitle(title: 'Tu reserva', actionLabel: ''),
@@ -633,10 +637,11 @@ class _ContentByStatus extends StatelessWidget {
             _ReservaPendiente(uid: uid),
           ],
         );
+        break;
 
       // ACTIVO — ve su clase
       case UserStatus.activo:
-        return Column(
+        content = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionTitle(title: 'Tu clase', actionLabel: ''),
@@ -644,10 +649,11 @@ class _ContentByStatus extends StatelessWidget {
             _ClaseActivo(claseId: claseId),
           ],
         );
+        break;
 
       // INACTIVO — ve su clase bloqueada
       case UserStatus.inactivo:
-        return Column(
+        content = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionTitle(title: 'Tu clase', actionLabel: ''),
@@ -655,10 +661,19 @@ class _ContentByStatus extends StatelessWidget {
             _ClaseInactivo(claseId: claseId),
           ],
         );
+        break;
 
       default:
-        return const SizedBox();
+        content = const SizedBox();
     }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        content,
+        _EventosSede(uid: uid, sede: sede),
+      ],
+    );
   }
 }
 
@@ -1276,13 +1291,79 @@ class _FeaturedLessonCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────
+//  EVENTOS Y RODAS DE LA SEDE (siempre visibles)
+// ─────────────────────────────────────────
+
+class _EventosSede extends StatelessWidget {
+  final String uid;
+  final String sede;
+
+  const _EventosSede({required this.uid, required this.sede});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('clases')
+          .where('sede', isEqualTo: sede)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox.shrink();
+
+        final docs = snapshot.data!.docs;
+        
+        // Filtrar client-side para obtener solo tipo == 'especial' o 'roda'
+        final eventos = docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final String tipo = data['tipo'] ?? 'regular';
+          return tipo == 'especial' || tipo == 'roda';
+        }).toList();
+
+        if (eventos.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            _SectionTitle(title: 'Eventos y Rodas Especiales', actionLabel: ''),
+            const SizedBox(height: 12),
+            Column(
+              children: eventos.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ClaseCardNuevo(
+                    claseId: doc.id,
+                    hora: data['hora'] ?? '',
+                    nivel: data['nivel'] ?? '',
+                    badge: data['badge'] ?? '',
+                    dias: data['dias'] ?? '',
+                    instructor: data['instructor'] ?? '',
+                    cuposDisponibles: data['cupos_disponibles'] ?? 0,
+                    tipo: data['tipo'] ?? 'regular',
+                    uid: uid,
+                    lugar: data['lugar'] ?? '',
+                    ubicacion: data['ubicacion'] ?? '',
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────
 //  CLASES PARA NUEVO (todas disponibles)
 // ─────────────────────────────────────────
 
 class _ClasesNuevo extends StatelessWidget {
   final String uid;
   final String sede;
-  const _ClasesNuevo({required this.uid, required this.sede});
+  final bool soloRegulares;
+  const _ClasesNuevo({required this.uid, required this.sede, this.soloRegulares = false});
 
   @override
   Widget build(BuildContext context) {
@@ -1299,7 +1380,13 @@ class _ClasesNuevo extends StatelessWidget {
           );
         }
 
-        final clases = snapshot.data!.docs;
+        final docs = snapshot.data!.docs;
+        final clases = soloRegulares
+            ? docs.where((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return (data['tipo'] ?? 'regular') == 'regular';
+              }).toList()
+            : docs;
 
         if (clases.isEmpty) {
           return Container(
