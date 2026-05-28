@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/services/notification_service.dart';
 import '../eventos/eventos_screen.dart';
 import '../perfil/progreso_screen.dart';
 import '../biblioteca/biblioteca_screen.dart';
@@ -40,6 +41,15 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Resguardo: inicializar/refrescar notificaciones y token FCM al cargar el Home
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.init();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

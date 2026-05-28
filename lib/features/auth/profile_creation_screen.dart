@@ -136,7 +136,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       await FirebaseFirestore.instance
           .collection('users')
           .doc(credential.user!.uid)
-          .set(userData);
+          .set(userData, SetOptions(merge: true));
 
       if (mounted) context.go('/home');
     } on FirebaseAuthException catch (e) {

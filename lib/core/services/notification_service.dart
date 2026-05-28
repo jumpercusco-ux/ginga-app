@@ -99,10 +99,9 @@ class NotificationService {
       await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
-          .update({'fcm_token': token});
+          .set({'fcm_token': token}, SetOptions(merge: true));
       debugPrint('FCM Token actualizado correctamente en Firestore para el usuario: $uid');
     } catch (e) {
-      // Si el documento por alguna razón no existía o falló el update
       debugPrint('Error al actualizar FCM Token en Firestore: $e');
     }
   }
