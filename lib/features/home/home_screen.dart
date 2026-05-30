@@ -1,4 +1,14 @@
+
+
+
+
+
+
+
+
+
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -3773,6 +3783,7 @@ class WalkthroughOverlay extends StatefulWidget {
 class _WalkthroughOverlayState extends State<WalkthroughOverlay>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
+  Timer? _retryTimer;
 
   @override
   void initState() {
@@ -3781,11 +3792,36 @@ class _WalkthroughOverlayState extends State<WalkthroughOverlay>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
+    _startRetryTimer();
+  }
+
+  @override
+  void didUpdateWidget(WalkthroughOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.targetKey != widget.targetKey) {
+      _retryTimer?.cancel();
+      _startRetryTimer();
+    }
+  }
+
+  void _startRetryTimer() {
+    int retryCount = 0;
+    _retryTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      retryCount++;
+      final renderBox = widget.targetKey.currentContext?.findRenderObject() as RenderBox?;
+      if (renderBox != null || retryCount > 40) {
+        timer.cancel();
+        if (mounted) {
+          setState(() {});
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _retryTimer?.cancel();
     super.dispose();
   }
 
@@ -3796,8 +3832,15 @@ class _WalkthroughOverlayState extends State<WalkthroughOverlay>
         // Encontrar posición del widget objetivo en la pantalla
         final renderBox = widget.targetKey.currentContext?.findRenderObject() as RenderBox?;
         if (renderBox == null) {
-          // Fallback defensivo si el widget no está visible
-          return const SizedBox.shrink();
+          // Render a simple full screen dark overlay while waiting for target to mount
+          return GestureDetector(
+            onTap: widget.onDismiss,
+            child: Container(
+              color: Colors.black.withOpacity(0.78),
+              width: double.infinity,
+              height: double.infinity,
+            ),
+          );
         }
 
         final position = renderBox.localToGlobal(Offset.zero);
