@@ -72,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Resguardo: inicializar/refrescar notificaciones y token FCM al cargar el Home
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService.instance.init();
+      NotificationService.instance.updateTokenInFirestore();
     });
   }
 
