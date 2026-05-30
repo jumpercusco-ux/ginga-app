@@ -1390,6 +1390,54 @@ class _MembresiaYPagosSection extends StatelessWidget {
             );
           },
         ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: GingaColors.brandGreen,
+              side: const BorderSide(color: GingaColors.brandGreen, width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100),
+              ),
+            ),
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              try {
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid)
+                    .update({
+                      'hasSeenWalkthrough': false,
+                      'status': 'nuevo',
+                    });
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('¡Tour reiniciado! Regresa al Home para iniciar el recorrido de 3 pasos 📺🥋👤'),
+                    backgroundColor: GingaColors.brandGreen,
+                  ),
+                );
+                Navigator.pop(context);
+              } catch (e) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Error al reiniciar el tour: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.play_circle_outline, size: 18),
+            label: Text(
+              'Reiniciar Tour de Bienvenida 📺',
+              style: GoogleFonts.montserrat(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

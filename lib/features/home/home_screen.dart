@@ -3834,7 +3834,7 @@ class _WalkthroughOverlayState extends State<WalkthroughOverlay>
         if (renderBox == null) {
           // Render a simple full screen dark overlay while waiting for target to mount
           return GestureDetector(
-            onTap: widget.onDismiss,
+            onTap: widget.onNext,
             child: Container(
               color: Colors.black.withOpacity(0.78),
               width: double.infinity,
@@ -3850,7 +3850,7 @@ class _WalkthroughOverlayState extends State<WalkthroughOverlay>
           children: [
             // Fondo oscuro atenuado
             GestureDetector(
-              onTap: widget.onDismiss,
+              onTap: widget.onNext,
               child: CustomPaint(
                 size: Size.infinite,
                 painter: _HighlightPainter(
@@ -3917,39 +3917,27 @@ class _WalkthroughOverlayState extends State<WalkthroughOverlay>
       bottom = constraints.maxHeight - position.dy + 16;
     }
 
-    final bool isFarRight = position.dx > (constraints.maxWidth * 0.6);
-    final bool isFarLeft = position.dx < (constraints.maxWidth * 0.3);
-
-    double? left;
-    double? right;
-
-    if (isFarRight) {
-      right = 16;
-    } else if (isFarLeft) {
-      left = 16;
-    } else {
-      left = 20;
-      right = 20;
-    }
+    final double screenWidth = constraints.maxWidth;
+    const double bubbleLeft = 16.0;
+    const double bubbleRight = 16.0;
+    final double bubbleWidth = screenWidth - bubbleLeft - bubbleRight;
+    
+    final double targetCenterX = position.dx + size.width / 2;
+    double arrowLeft = targetCenterX - bubbleLeft - 9.0; // 9.0 is half of the triangle width (18)
+    arrowLeft = arrowLeft.clamp(16.0, bubbleWidth - 18.0 - 16.0);
 
     return Positioned(
       top: top,
       bottom: bottom,
-      left: left,
-      right: right,
-      width: (left == null || right == null) ? constraints.maxWidth * 0.85 : null,
+      left: bubbleLeft,
+      right: bubbleRight,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: isFarRight
-            ? CrossAxisAlignment.end
-            : (isFarLeft ? CrossAxisAlignment.start : CrossAxisAlignment.center),
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isTopHalf)
             Padding(
-              padding: EdgeInsets.only(
-                right: isFarRight ? 24 : 0,
-                left: isFarLeft ? 24 : 0,
-              ),
+              padding: EdgeInsets.only(left: arrowLeft),
               child: CustomPaint(
                 size: const Size(18, 10),
                 painter: _TrianglePainter(isUp: true, color: Colors.white),
@@ -3958,116 +3946,114 @@ class _WalkthroughOverlayState extends State<WalkthroughOverlay>
           
           Material(
             color: Colors.transparent,
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.24),
-                    blurRadius: 24,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-                border: Border.all(
-                  color: GingaColors.brandGreen.withOpacity(0.22),
-                  width: 1.5,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: GingaColors.brandGreen.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.tips_and_updates,
-                          color: GingaColors.brandGreen,
-                          size: 16,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          widget.title,
-                          style: GoogleFonts.montserrat(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: GingaColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    widget.description,
-                    style: GoogleFonts.nunito(
-                      fontSize: 13,
-                      color: GingaColors.textSecondary,
-                      fontWeight: FontWeight.w600,
-                      height: 1.5,
+            child: SizedBox(
+              width: double.infinity,
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.24),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
                     ),
+                  ],
+                  border: Border.all(
+                    color: GingaColors.brandGreen.withOpacity(0.22),
+                    width: 1.5,
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: widget.onDismiss,
-                        style: TextButton.styleFrom(
-                          foregroundColor: GingaColors.textSecondary,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                        ),
-                        child: Text(
-                          'Omitir',
-                          style: GoogleFonts.montserrat(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: GingaColors.brandGreen.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.tips_and_updates,
+                            color: GingaColors.brandGreen,
+                            size: 16,
                           ),
                         ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            widget.title,
+                            style: GoogleFonts.montserrat(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.description,
+                      style: GoogleFonts.nunito(
+                        fontSize: 13,
+                        color: GingaColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        height: 1.5,
                       ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: widget.onNext,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: GingaColors.brandGreen,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(100),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: widget.onDismiss,
+                          style: TextButton.styleFrom(
+                            foregroundColor: GingaColors.textSecondary,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          child: Text(
+                            'Omitir',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                        child: Text(
-                          widget.isLastStep ? '¡Empezar!' : 'Siguiente',
-                          style: GoogleFonts.montserrat(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                        ElevatedButton(
+                          onPressed: widget.onNext,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: GingaColors.brandGreen,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                          ),
+                          child: Text(
+                            widget.isLastStep ? '¡Empezar!' : 'Siguiente',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
           
           if (!isTopHalf)
             Padding(
-              padding: EdgeInsets.only(
-                right: isFarRight ? 24 : 0,
-                left: isFarLeft ? 24 : 0,
-                top: 4,
-              ),
+              padding: EdgeInsets.only(left: arrowLeft, top: 4),
               child: CustomPaint(
                 size: const Size(18, 10),
                 painter: _TrianglePainter(isUp: false, color: Colors.white),
