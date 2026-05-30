@@ -42,6 +42,15 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
 
+  // Llaves de referencia para el Walkthrough
+  final GlobalKey _profileAvatarKey = GlobalKey();
+  final GlobalKey _classReserveKey = GlobalKey();
+  final GlobalKey _bibliotecaTabKey = GlobalKey();
+
+  // Estado del Walkthrough
+  int _onboardingStep = 0; // 0 = inactivo/completado, 1 = Biblioteca, 2 = Reserva, 3 = Perfil
+  bool _localDismissed = false;
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +58,35 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService.instance.init();
     });
+  }
+
+  void _nextStep() {
+    setState(() {
+      if (_onboardingStep < 3) {
+        _onboardingStep++;
+      } else {
+        _dismissWalkthrough();
+      }
+    });
+  }
+
+  void _dismissWalkthrough() async {
+    setState(() {
+      _onboardingStep = 0;
+      _localDismissed = true;
+    });
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .update({'hasSeenWalkthrough': true});
+        debugPrint('GINGA_DEBUG: Bandera hasSeenWalkthrough guardada en Firestore para usuario $uid');
+      } catch (e) {
+        debugPrint('Error guardando walkthrough en Firestore: $e');
+      }
+    }
   }
 
   @override
@@ -61,10 +99,23 @@ class _HomeScreenState extends State<HomeScreen> {
           : FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
       builder: (context, snapshot) {
         String status = UserStatus.nuevo;
+        bool hasSeenWalkthrough = false;
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
           status = data['status'] ?? UserStatus.nuevo;
+          hasSeenWalkthrough = data['hasSeenWalkthrough'] ?? false;
+
+          // Gatillar walkthrough si califica (nuevo, no lo ha visto, no descartado y está en pestaña Home)
+          if (status == UserStatus.nuevo && !hasSeenWalkthrough && _onboardingStep == 0 && !_localDismissed && _selectedTab == 0) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _onboardingStep = 1;
+                });
+              }
+            });
+          }
 
           // Chequeo de expiración de membresía a nivel de shell
           if (status == UserStatus.activo && data['membresia_fin'] != null) {
@@ -81,57 +132,96 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
 
-        return Scaffold(
-          backgroundColor: GingaColors.backgroundLight,
-          body: IndexedStack(
-            index: _selectedTab,
-            children: const [
-              _HomeDashboard(),
-              // EventosScreen(), // Ocultado temporalmente
-              BibliotecaScreen(),
-              // ProgresoScreen(), // Ocultado de la barra inferior (se accede por el avatar)
-            ],
-          ),
-          extendBody: true,
-          floatingActionButton: Container(
-            height: 64,
-            width: 64,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [
-                  GingaColors.brandGreen,
-                  Color(0xFF2E7D32),
+        // Obtener la llave activa para el walkthrough
+        GlobalKey? activeKey;
+        String title = '';
+        String description = '';
+        bool showHeartbeat = false;
+
+        if (_onboardingStep == 1) {
+          activeKey = _bibliotecaTabKey;
+          title = 'Mira los Tutoriales 📺';
+          description = 'Presiona aquí para acceder a la Biblioteca, donde podrás aprender tutoriales interactivos de capoeira, repasar letras de canciones en el karaoke y practicar toques.';
+        } else if (_onboardingStep == 2) {
+          activeKey = _classReserveKey;
+          title = 'Reserva tus Entrenamientos 🥋';
+          description = '¡Tu primera clase es totalmente GRATIS! Presiona sobre el banner de reserva o la clase de tu sede para agendar tu entrenamiento.';
+          showHeartbeat = true;
+        } else if (_onboardingStep == 3) {
+          activeKey = _profileAvatarKey;
+          title = 'Tu Control Personal y Pagos 👤';
+          description = 'Presiona sobre tu avatar de perfil para consultar tu registro de asistencias por QR, tu rango de graduación tradicional (corda) y controlar el vencimiento de tus cuotas.';
+        }
+
+        return Stack(
+          children: [
+            Scaffold(
+              backgroundColor: GingaColors.backgroundLight,
+              body: IndexedStack(
+                index: _selectedTab,
+                children: [
+                  _HomeDashboard(
+                    profileAvatarKey: _profileAvatarKey,
+                    classReserveKey: _classReserveKey,
+                  ),
+                  // EventosScreen(), // Ocultado temporalmente
+                  const BibliotecaScreen(),
+                  // ProgresoScreen(), // Ocultado de la barra inferior (se accede por el avatar)
                 ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: GingaColors.brandGreen.withOpacity(0.4),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
+              extendBody: true,
+              floatingActionButton: Container(
+                height: 64,
+                width: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [
+                      GingaColors.brandGreen,
+                      Color(0xFF2E7D32),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: GingaColors.brandGreen.withOpacity(0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: FloatingActionButton(
-              onPressed: () => _handleQrScannerTap(context, status),
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-              shape: const CircleBorder(),
-              child: const Icon(
-                Icons.qr_code_scanner_rounded,
-                size: 30,
-                color: Colors.white,
+                child: FloatingActionButton(
+                  onPressed: () => _handleQrScannerTap(context, status),
+                  elevation: 0,
+                  backgroundColor: Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: const Icon(
+                    Icons.qr_code_scanner_rounded,
+                    size: 30,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              floatingActionButtonLocation:
+                  FloatingActionButtonLocation.centerDocked,
+              bottomNavigationBar: _GingaBottomNav(
+                currentIndex: _selectedTab,
+                onTap: (i) => setState(() => _selectedTab = i),
+                bibliotecaTabKey: _bibliotecaTabKey,
               ),
             ),
-          ),
-          floatingActionButtonLocation:
-              FloatingActionButtonLocation.centerDocked,
-          bottomNavigationBar: _GingaBottomNav(
-            currentIndex: _selectedTab,
-            onTap: (i) => setState(() => _selectedTab = i),
-          ),
+            if (_onboardingStep > 0 && activeKey != null)
+              WalkthroughOverlay(
+                targetKey: activeKey,
+                title: title,
+                description: description,
+                onNext: _nextStep,
+                isLastStep: _onboardingStep == 3,
+                showHeartbeat: showHeartbeat,
+                onDismiss: _dismissWalkthrough,
+              ),
+          ],
         );
       },
     );
@@ -309,13 +399,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
 // ─────────────────────────────────────────
 //  DASHBOARD PRINCIPAL
 // ─────────────────────────────────────────
 
 class _HomeDashboard extends StatelessWidget {
-  const _HomeDashboard();
+  final GlobalKey profileAvatarKey;
+  final GlobalKey classReserveKey;
+
+  const _HomeDashboard({
+    required this.profileAvatarKey,
+    required this.classReserveKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -400,7 +495,12 @@ class _HomeDashboard extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // Header siempre visible
-                _Header(nombre: nombre, corda: corda, uid: uid ?? ''),
+                _Header(
+                  nombre: nombre,
+                  corda: corda,
+                  uid: uid ?? '',
+                  avatarKey: profileAvatarKey,
+                ),
                 const SizedBox(height: 20),
 
                 // Banner según estado
@@ -409,6 +509,7 @@ class _HomeDashboard extends StatelessWidget {
                   sede: sede,
                   membresiaFin: membresiaFin,
                   nombre: nombre,
+                  reserveKey: classReserveKey,
                 ),
                 const SizedBox(height: 20),
 
@@ -444,17 +545,22 @@ class _StatusBanner extends StatelessWidget {
   final String sede;
   final Timestamp? membresiaFin;
   final String nombre;
+  final GlobalKey reserveKey;
+
   const _StatusBanner({
     required this.status,
     required this.sede,
     this.membresiaFin,
     required this.nombre,
+    required this.reserveKey,
   });
 
   @override
   Widget build(BuildContext context) {
+    Widget bannerWidget;
+
     if (status == UserStatus.nuevo && sede == 'U. Continental') {
-      return _Banner(
+      bannerWidget = _Banner(
         color: GingaColors.accentAmber,
         icono: Icons.school_outlined,
         titulo: 'Registro en revisión 🎓',
@@ -463,9 +569,7 @@ class _StatusBanner extends StatelessWidget {
         accion: 'Pendiente',
         onTap: () {},
       );
-    }
-
-    if (status == UserStatus.activo && membresiaFin != null) {
+    } else if (status == UserStatus.activo && membresiaFin != null) {
       final ahora = DateTime.now();
       final fin = DateTime(membresiaFin!.toDate().year,
           membresiaFin!.toDate().month, membresiaFin!.toDate().day);
@@ -481,7 +585,7 @@ class _StatusBanner extends StatelessWidget {
                 ? 'vence MAÑANA ⚠️'
                 : 'vence en $diasRestantes días ⚠️';
 
-        return _Banner(
+        bannerWidget = _Banner(
           color: const Color(0xFFFF9800), // Ámbar / Naranja de advertencia
           icono: Icons.lock_clock,
           titulo: 'Alerta de membresía',
@@ -490,9 +594,20 @@ class _StatusBanner extends StatelessWidget {
           accion: 'Ver pago',
           onTap: () {},
         );
+      } else {
+        bannerWidget = _buildBannerFromStatus(context);
       }
+    } else {
+      bannerWidget = _buildBannerFromStatus(context);
     }
 
+    return Container(
+      key: reserveKey,
+      child: bannerWidget,
+    );
+  }
+
+  Widget _buildBannerFromStatus(BuildContext context) {
     switch (status) {
       case UserStatus.nuevo:
         if (sede == 'Virtual / A Distancia') {
@@ -2247,7 +2362,14 @@ class _Header extends StatelessWidget {
   final String nombre;
   final String corda;
   final String uid;
-  const _Header({required this.nombre, required this.corda, required this.uid});
+  final GlobalKey avatarKey;
+  
+  const _Header({
+    required this.nombre,
+    required this.corda,
+    required this.uid,
+    required this.avatarKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2301,6 +2423,7 @@ class _Header extends StatelessWidget {
           const SizedBox(width: 8),
         ],
         GestureDetector(
+          key: avatarKey,
           onTap: () {
             Navigator.push(
               context,
@@ -3479,10 +3602,12 @@ class _NoticiaCard extends StatelessWidget {
 class _GingaBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final GlobalKey bibliotecaTabKey;
 
   const _GingaBottomNav({
     required this.currentIndex,
     required this.onTap,
+    required this.bibliotecaTabKey,
   });
 
   @override
@@ -3504,7 +3629,12 @@ class _GingaBottomNav extends StatelessWidget {
           const SizedBox(width: 64), // Espacio central para el FAB con notch
           Expanded(
             child: _buildNavItem(
-                1, Icons.menu_book_outlined, Icons.menu_book, 'Biblioteca'),
+              1,
+              Icons.menu_book_outlined,
+              Icons.menu_book,
+              'Biblioteca',
+              navKey: bibliotecaTabKey,
+            ),
           ),
         ],
       ),
@@ -3512,9 +3642,10 @@ class _GingaBottomNav extends StatelessWidget {
   }
 
   Widget _buildNavItem(
-      int index, IconData icon, IconData activeIcon, String label) {
+      int index, IconData icon, IconData activeIcon, String label, {Key? navKey}) {
     final isSelected = currentIndex == index;
     return InkWell(
+      key: navKey,
       onTap: () => onTap(index),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -3612,5 +3743,357 @@ class _StorePromoBanner extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class WalkthroughOverlay extends StatefulWidget {
+  final GlobalKey targetKey;
+  final String title;
+  final String description;
+  final VoidCallback onNext;
+  final bool isLastStep;
+  final bool showHeartbeat;
+  final VoidCallback onDismiss;
+
+  const WalkthroughOverlay({
+    super.key,
+    required this.targetKey,
+    required this.title,
+    required this.description,
+    required this.onNext,
+    required this.isLastStep,
+    required this.onDismiss,
+    this.showHeartbeat = false,
+  });
+
+  @override
+  State<WalkthroughOverlay> createState() => _WalkthroughOverlayState();
+}
+
+class _WalkthroughOverlayState extends State<WalkthroughOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Encontrar posición del widget objetivo en la pantalla
+        final renderBox = widget.targetKey.currentContext?.findRenderObject() as RenderBox?;
+        if (renderBox == null) {
+          // Fallback defensivo si el widget no está visible
+          return const SizedBox.shrink();
+        }
+
+        final position = renderBox.localToGlobal(Offset.zero);
+        final size = renderBox.size;
+
+        return Stack(
+          children: [
+            // Fondo oscuro atenuado
+            GestureDetector(
+              onTap: widget.onDismiss,
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: _HighlightPainter(
+                  rect: Rect.fromLTWH(position.dx, position.dy, size.width, size.height),
+                ),
+              ),
+            ),
+
+            // Borde brillante pulsante (heartbeat effect)
+            Positioned(
+              left: position.dx - 6,
+              top: position.dy - 6,
+              width: size.width + 12,
+              height: size.height + 12,
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, child) {
+                    final double scale = widget.showHeartbeat
+                        ? 1.0 + (_pulseController.value * 0.04)
+                        : 1.0;
+                    final double opacity = 0.5 + (1.0 - _pulseController.value) * 0.5;
+                    return Transform.scale(
+                      scale: scale,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: GingaColors.brandGreen.withOpacity(opacity),
+                            width: 3.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: GingaColors.brandGreen.withOpacity(0.35 * opacity),
+                              blurRadius: 12,
+                              spreadRadius: 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+            // Burbuja de información
+            _buildTooltipBubble(position, size, constraints),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTooltipBubble(Offset position, Size size, BoxConstraints constraints) {
+    final bool isTopHalf = position.dy < (constraints.maxHeight / 2);
+    
+    double? top;
+    double? bottom;
+    
+    if (isTopHalf) {
+      top = position.dy + size.height + 16;
+    } else {
+      bottom = constraints.maxHeight - position.dy + 16;
+    }
+
+    final bool isFarRight = position.dx > (constraints.maxWidth * 0.6);
+    final bool isFarLeft = position.dx < (constraints.maxWidth * 0.3);
+
+    double? left;
+    double? right;
+
+    if (isFarRight) {
+      right = 16;
+    } else if (isFarLeft) {
+      left = 16;
+    } else {
+      left = 20;
+      right = 20;
+    }
+
+    return Positioned(
+      top: top,
+      bottom: bottom,
+      left: left,
+      right: right,
+      width: (left == null || right == null) ? constraints.maxWidth * 0.85 : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: isFarRight
+            ? CrossAxisAlignment.end
+            : (isFarLeft ? CrossAxisAlignment.start : CrossAxisAlignment.center),
+        children: [
+          if (isTopHalf)
+            Padding(
+              padding: EdgeInsets.only(
+                right: isFarRight ? 24 : 0,
+                left: isFarLeft ? 24 : 0,
+              ),
+              child: CustomPaint(
+                size: const Size(18, 10),
+                painter: _TrianglePainter(isUp: true, color: Colors.white),
+              ),
+            ),
+          
+          Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.24),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+                border: Border.all(
+                  color: GingaColors.brandGreen.withOpacity(0.22),
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: GingaColors.brandGreen.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.tips_and_updates,
+                          color: GingaColors.brandGreen,
+                          size: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          widget.title,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.description,
+                    style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      color: GingaColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: widget.onDismiss,
+                        style: TextButton.styleFrom(
+                          foregroundColor: GingaColors.textSecondary,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        child: Text(
+                          'Omitir',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: widget.onNext,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: GingaColors.brandGreen,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                        ),
+                        child: Text(
+                          widget.isLastStep ? '¡Empezar!' : 'Siguiente',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          if (!isTopHalf)
+            Padding(
+              padding: EdgeInsets.only(
+                right: isFarRight ? 24 : 0,
+                left: isFarLeft ? 24 : 0,
+                top: 4,
+              ),
+              child: CustomPaint(
+                size: const Size(18, 10),
+                painter: _TrianglePainter(isUp: false, color: Colors.white),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HighlightPainter extends CustomPainter {
+  final Rect rect;
+
+  _HighlightPainter({required this.rect});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), Paint());
+
+    final backgroundPaint = Paint()..color = Colors.black.withOpacity(0.78);
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), backgroundPaint);
+
+    final holePaint = Paint()
+      ..blendMode = BlendMode.clear
+      ..isAntiAlias = true;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect.inflate(4), const Radius.circular(16)),
+      holePaint,
+    );
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_HighlightPainter oldDelegate) {
+    return oldDelegate.rect != rect;
+  }
+}
+
+class _TrianglePainter extends CustomPainter {
+  final bool isUp;
+  final Color color;
+
+  _TrianglePainter({required this.isUp, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    if (isUp) {
+      path.moveTo(size.width / 2, 0);
+      path.lineTo(size.width, size.height);
+      path.lineTo(0, size.height);
+    } else {
+      path.moveTo(size.width / 2, size.height);
+      path.lineTo(size.width, 0);
+      path.lineTo(0, 0);
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_TrianglePainter oldDelegate) {
+    return oldDelegate.isUp != isUp || oldDelegate.color != color;
   }
 }
