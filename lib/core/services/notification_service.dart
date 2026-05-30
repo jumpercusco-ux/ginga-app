@@ -2,6 +2,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:ginga_app/core/router/app_router.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -44,6 +45,30 @@ class NotificationService {
       if (message.notification != null) {
         debugPrint("Notificación recibida en primer plano: ${message.notification!.title}");
         // Aquí se puede lanzar un Snack Bar, banner o alerta visual dentro de la app
+      }
+    });
+
+    // 5. Configurar el listener de mensajes pulsados con la App en segundo plano (minimizada)
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      debugPrint("Notificación pulsada (App en segundo plano): ${message.messageId}");
+      try {
+        appRouter.go('/home');
+      } catch (e) {
+        debugPrint("Error de navegación al pulsar push: $e");
+      }
+    });
+
+    // 6. Configurar la validación de mensaje inicial si la App estaba totalmente cerrada
+    _messaging.getInitialMessage().then((RemoteMessage? message) {
+      if (message != null) {
+        debugPrint("Notificación pulsada (App cerrada): ${message.messageId}");
+        try {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            appRouter.go('/home');
+          });
+        } catch (e) {
+          debugPrint("Error de navegación en initial message: $e");
+        }
       }
     });
 
