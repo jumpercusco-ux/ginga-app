@@ -116,6 +116,11 @@ class _HomeScreenState extends State<HomeScreen> {
           status = data['status'] ?? UserStatus.nuevo;
           hasSeenWalkthrough = data['hasSeenWalkthrough'] ?? false;
 
+          // Si en Firestore se reinicia el tour, reactivamos localmente la bandera de descarte
+          if (!hasSeenWalkthrough && _localDismissed) {
+            _localDismissed = false;
+          }
+
           // Gatillar walkthrough si califica (nuevo, no lo ha visto, no descartado y está en pestaña Home)
           if (status == UserStatus.nuevo && !hasSeenWalkthrough && _onboardingStep == 0 && !_localDismissed && _selectedTab == 0) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
