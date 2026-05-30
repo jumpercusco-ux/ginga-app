@@ -1128,145 +1128,152 @@ class _VirtualDashboard extends StatelessWidget {
         // ── PRÁCTICA DEL DÍA (RODA & INSTRUMENTO) ───────────────────────
         _SectionTitle(title: 'Práctica del Día 🪘🎵', actionLabel: ''),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            // Toque del Día
-            Expanded(
-              child: GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const PracticarToqueScreen()),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(GingaRadius.lg),
-                    border: Border.all(color: GingaColors.borderLight),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Toque del Día
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const PracticarToqueScreen()),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.08),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.music_note_outlined,
-                            color: Colors.blue, size: 20),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Toque de Angola',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: GingaColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'El toque tradicional para el juego bajo y táctico.',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.nunito(
-                          fontSize: 10,
-                          color: GingaColors.textSecondary,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Practicar',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.blue,
-                            ),
+                  child: Container(
+                    height: 148,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      border: Border.all(color: GingaColors.borderLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.08),
+                            shape: BoxShape.circle,
                           ),
-                          const Icon(Icons.arrow_forward_rounded,
-                              color: Colors.blue, size: 12),
-                        ],
-                      ),
-                    ],
+                          child: const Icon(Icons.music_note_outlined,
+                              color: Colors.blue, size: 20),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Toque de Angola',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'El toque tradicional para el juego bajo y táctico.',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.nunito(
+                            fontSize: 10,
+                            color: GingaColors.textSecondary,
+                            height: 1.3,
+                          ),
+                        ),
+                        const Spacer(),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Practicar',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.blue,
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_rounded,
+                                color: Colors.blue, size: 12),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            // Canción del Día
-            Expanded(
-              child: GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CancioneroScreen()),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(GingaRadius.lg),
-                    border: Border.all(color: GingaColors.borderLight),
+              const SizedBox(width: 12),
+              // Canción del Día
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CancioneroScreen()),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: GingaColors.brandGreen.withOpacity(0.08),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.menu_book_outlined,
-                            color: GingaColors.brandGreen, size: 20),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Dona Maria...',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: GingaColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Aprende una de las cantigas de responder más cantadas.',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.nunito(
-                          fontSize: 10,
-                          color: GingaColors.textSecondary,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Ver Letra',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: GingaColors.brandGreen,
-                            ),
+                  child: Container(
+                    height: 148,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      border: Border.all(color: GingaColors.borderLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: GingaColors.brandGreen.withOpacity(0.08),
+                            shape: BoxShape.circle,
                           ),
-                          const Icon(Icons.arrow_forward_rounded,
-                              color: GingaColors.brandGreen, size: 12),
-                        ],
-                      ),
-                    ],
+                          child: const Icon(Icons.menu_book_outlined,
+                              color: GingaColors.brandGreen, size: 20),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Canta con el Karaoke',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Aprende las cantigas de capoeira más populares y practica con sus letras.',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.nunito(
+                            fontSize: 10,
+                            color: GingaColors.textSecondary,
+                            height: 1.3,
+                          ),
+                        ),
+                        const Spacer(),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Ver Letras',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.brandGreen,
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_rounded,
+                                color: GingaColors.brandGreen, size: 12),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 28),
 
