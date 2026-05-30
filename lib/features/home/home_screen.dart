@@ -60,6 +60,11 @@ class _HomeScreenState extends State<HomeScreen> {
   // Estado del Walkthrough
   int _onboardingStep = 0; // 0 = inactivo/completado, 1 = Biblioteca, 2 = Reserva, 3 = Perfil
   bool _localDismissed = false;
+  bool? _prevHasSeenWalkthrough;
+
+  // Variables de caché para evitar recrear la suscripción del stream reactivo
+  Stream<DocumentSnapshot>? _userStream;
+  String? _cachedUid;
 
   @override
   void initState() {
@@ -103,10 +108,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
+    if (uid != _cachedUid) {
+      _cachedUid = uid;
+      _userStream = uid == null
+          ? null
+          : FirebaseFirestore.instance.collection('users').doc(uid).snapshots();
+    }
+
     return StreamBuilder<DocumentSnapshot>(
-      stream: uid == null
-          ? const Stream.empty()
-          : FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      stream: _userStream ?? const Stream.empty(),
       builder: (context, snapshot) {
         String status = UserStatus.nuevo;
         bool hasSeenWalkthrough = false;
@@ -116,10 +126,11 @@ class _HomeScreenState extends State<HomeScreen> {
           status = data['status'] ?? UserStatus.nuevo;
           hasSeenWalkthrough = data['hasSeenWalkthrough'] ?? false;
 
-          // Si en Firestore se reinicia el tour, reactivamos localmente la bandera de descarte
-          if (!hasSeenWalkthrough && _localDismissed) {
+          // Si en Firestore se reinicia el tour (pasa de true a false), reactivamos localmente la bandera de descarte
+          if (_prevHasSeenWalkthrough == true && !hasSeenWalkthrough) {
             _localDismissed = false;
           }
+          _prevHasSeenWalkthrough = hasSeenWalkthrough;
 
           // Gatillar walkthrough si califica (nuevo, no lo ha visto, no descartado y está en pestaña Home)
           if (status == UserStatus.nuevo && !hasSeenWalkthrough && _onboardingStep == 0 && !_localDismissed && _selectedTab == 0) {
