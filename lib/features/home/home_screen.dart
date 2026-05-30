@@ -3833,8 +3833,9 @@ class _WalkthroughOverlayState extends State<WalkthroughOverlay>
         final renderBox = widget.targetKey.currentContext?.findRenderObject() as RenderBox?;
         if (renderBox == null) {
           // Render a simple full screen dark overlay while waiting for target to mount
+          // Block touches (mandatory interaction)
           return GestureDetector(
-            onTap: widget.onNext,
+            onTap: () {},
             child: Container(
               color: Colors.black.withOpacity(0.78),
               width: double.infinity,
@@ -3848,13 +3849,28 @@ class _WalkthroughOverlayState extends State<WalkthroughOverlay>
 
         return Stack(
           children: [
-            // Fondo oscuro atenuado
+            // Fondo oscuro atenuado que bloquea toques fortuitos
             GestureDetector(
-              onTap: widget.onNext,
+              onTap: () {}, // No hace nada al tocar fuera (interacción obligatoria)
               child: CustomPaint(
                 size: Size.infinite,
                 painter: _HighlightPainter(
                   rect: Rect.fromLTWH(position.dx, position.dy, size.width, size.height),
+                ),
+              ),
+            ),
+
+            // Área interactiva del Spotlight (tocar el elemento destacado avanza al siguiente paso)
+            Positioned(
+              left: position.dx,
+              top: position.dy,
+              width: size.width,
+              height: size.height,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: widget.onNext,
+                child: Container(
+                  color: Colors.transparent,
                 ),
               ),
             ),
@@ -3918,19 +3934,25 @@ class _WalkthroughOverlayState extends State<WalkthroughOverlay>
     }
 
     final double screenWidth = constraints.maxWidth;
-    const double bubbleLeft = 16.0;
-    const double bubbleRight = 16.0;
-    final double bubbleWidth = screenWidth - bubbleLeft - bubbleRight;
+    const double bubbleWidth = 290.0;
     
     final double targetCenterX = position.dx + size.width / 2;
-    double arrowLeft = targetCenterX - bubbleLeft - 9.0; // 9.0 is half of the triangle width (18)
-    arrowLeft = arrowLeft.clamp(16.0, bubbleWidth - 18.0 - 16.0);
+    
+    // Centrar la burbuja sobre el centro del target
+    double bubbleLeft = targetCenterX - (bubbleWidth / 2);
+    // Limitar para que no se salga de los márgenes de seguridad de la pantalla (mínimo 16px)
+    bubbleLeft = bubbleLeft.clamp(16.0, screenWidth - bubbleWidth - 16.0);
+    
+    // Posicionar el triángulo horizontalmente alineado con el centro del target relativo a la burbuja
+    double arrowLeft = targetCenterX - bubbleLeft - 9.0; // 9.0 es la mitad del ancho del triángulo (18)
+    // Evitar que el triángulo se salga de los bordes redondeados de la burbuja (radio 20)
+    arrowLeft = arrowLeft.clamp(20.0, bubbleWidth - 18.0 - 20.0);
 
     return Positioned(
       top: top,
       bottom: bottom,
       left: bubbleLeft,
-      right: bubbleRight,
+      width: bubbleWidth,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3946,107 +3968,116 @@ class _WalkthroughOverlayState extends State<WalkthroughOverlay>
           
           Material(
             color: Colors.transparent,
-            child: SizedBox(
-              width: double.infinity,
-              child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.24),
-                      blurRadius: 24,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: GingaColors.brandGreen.withOpacity(0.22),
-                    width: 1.5,
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.24),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
                   ),
+                ],
+                border: Border.all(
+                  color: GingaColors.brandGreen.withOpacity(0.22),
+                  width: 1.5,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: GingaColors.brandGreen.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.tips_and_updates,
-                            color: GingaColors.brandGreen,
-                            size: 16,
-                          ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: GingaColors.brandGreen.withOpacity(0.1),
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            widget.title,
-                            style: GoogleFonts.montserrat(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: GingaColors.textPrimary,
-                            ),
-                          ),
+                        child: const Icon(
+                          Icons.tips_and_updates,
+                          color: GingaColors.brandGreen,
+                          size: 16,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.description,
-                      style: GoogleFonts.nunito(
-                        fontSize: 13,
-                        color: GingaColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                        height: 1.5,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        TextButton(
-                          onPressed: widget.onDismiss,
-                          style: TextButton.styleFrom(
-                            foregroundColor: GingaColors.textSecondary,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                          ),
-                          child: Text(
-                            'Omitir',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          widget.title,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: GingaColors.textPrimary,
                           ),
                         ),
-                        ElevatedButton(
-                          onPressed: widget.onNext,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: GingaColors.brandGreen,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                          ),
-                          child: Text(
-                            widget.isLastStep ? '¡Empezar!' : 'Siguiente',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.description,
+                    style: GoogleFonts.nunito(
+                      fontSize: 12.5,
+                      color: GingaColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: widget.onDismiss,
+                        style: TextButton.styleFrom(
+                          foregroundColor: GingaColors.textSecondary,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(60, 36),
+                        ),
+                        child: Text(
+                          'Omitir',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                      ElevatedButton(
+                        onPressed: widget.onNext,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: GingaColors.brandGreen,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          minimumSize: const Size(90, 36),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.isLastStep ? '¡Empezar!' : 'Siguiente',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              widget.isLastStep ? Icons.check : Icons.arrow_forward,
+                              size: 13,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
