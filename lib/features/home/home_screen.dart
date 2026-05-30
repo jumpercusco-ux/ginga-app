@@ -1141,7 +1141,7 @@ class _VirtualDashboard extends StatelessWidget {
                         builder: (_) => const PracticarToqueScreen()),
                   ),
                   child: Container(
-                    height: 148,
+                    height: 168,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -1211,7 +1211,7 @@ class _VirtualDashboard extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => const CancioneroScreen()),
                   ),
                   child: Container(
-                    height: 148,
+                    height: 168,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.white,
