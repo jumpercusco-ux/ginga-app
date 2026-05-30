@@ -3,10 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../core/theme/ginga_theme.dart';
 
 class CrearClaseScreen extends StatefulWidget {
-  const CrearClaseScreen({super.key});
+  final String? claseId;
+  const CrearClaseScreen({super.key, this.claseId});
 
   @override
   State<CrearClaseScreen> createState() => _CrearClaseScreenState();
@@ -17,6 +22,104 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
   String _nivelSeleccionado = 'Iniciantes';
   String _selectedSede = 'Cusco';
   final _descripcionController = TextEditingController();
+  LatLng? _selectedLocation;
+  String _tipoClase = 'regular';
+  final _nombreCustomController = TextEditingController();
+  String _fechaTexto = '';
+  DateTime? _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.claseId != null) {
+      _cargarDatosClase();
+    }
+  }
+
+  Future<void> _cargarDatosClase() async {
+    setState(() => _isLoading = true);
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('clases')
+          .doc(widget.claseId)
+          .get();
+      if (doc.exists) {
+        final data = doc.data() ?? {};
+        setState(() {
+          _nombreClase = data['nombre'] ?? 'Kids';
+          _nivelSeleccionado = data['nivel'] ?? 'Iniciantes';
+          _selectedSede = data['sede'] ?? 'Cusco';
+          _descripcionController.text = data['descripcion'] ?? '';
+          _maxAlumnos = data['cupos_max'] ?? 12;
+          _modalidad = data['modalidad'] ?? 'Presencial';
+          _ubicacionController.text = data['ubicacion'] ?? '';
+          _claseGratuita = data['clase_gratuita'] ?? true;
+          _publicarInmediatamente = data['publicar_inmediatamente'] ?? true;
+          
+          _tipoClase = data['tipo'] ?? 'regular';
+          if (_tipoClase != 'regular') {
+            _nombreCustomController.text = data['nombre'] ?? '';
+            _fechaTexto = data['dias'] ?? '';
+          }
+
+          // Días recurrentes
+          final String diasRaw = data['dias'] ?? '';
+          if (diasRaw.isNotEmpty) {
+            _diasSeleccionados.clear();
+            if (_tipoClase == 'regular') {
+              _diasSeleccionados.addAll(diasRaw.split(',').map((d) => d.trim()));
+            }
+          }
+
+          // Horario
+          final String horaInicioRaw = data['hora'] ?? '18:00';
+          final String horaFinRaw = data['hora_fin'] ?? '19:00';
+          
+          final List<String> hi = horaInicioRaw.split(':');
+          if (hi.length == 2) {
+            _horaInicio = TimeOfDay(hour: int.parse(hi[0]), minute: int.parse(hi[1]));
+          }
+          final List<String> hf = horaFinRaw.split(':');
+          if (hf.length == 2) {
+            _horaFin = TimeOfDay(hour: int.parse(hf[0]), minute: int.parse(hf[1]));
+          }
+
+          // Coordenadas geográficas (con retrocompatibilidad)
+          final double? lat = data['lat'];
+          final double? lng = data['lng'];
+          if (lat != null && lng != null) {
+            _selectedLocation = LatLng(lat, lng);
+          }
+        });
+
+        // Intentar obtener la fecha exacta del evento desde la colección /eventos (Same-ID)
+        if (_tipoClase != 'regular') {
+          try {
+            final eventDoc = await FirebaseFirestore.instance
+                .collection('eventos')
+                .doc(widget.claseId)
+                .get();
+            if (eventDoc.exists) {
+              final eventData = eventDoc.data() ?? {};
+              final Timestamp? startTs = eventData['fecha_inicio'] as Timestamp?;
+              if (startTs != null) {
+                setState(() {
+                  _selectedDate = startTs.toDate();
+                });
+              }
+            }
+          } catch (e) {
+            debugPrint('Error al cargar datos del evento complementario: $e');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error al cargar datos de la clase: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
 
   final Set<String> _diasSeleccionados = {'J'};
   TimeOfDay _horaInicio = const TimeOfDay(hour: 18, minute: 0);
@@ -36,10 +139,306 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
   final List<String> _dias = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   final List<String> _modalidades = ['Presencial', 'Online', 'Híbrido'];
 
+  LatLng _getSedeLatLng(String sede) {
+    switch (sede.toLowerCase()) {
+      case 'lima':
+        return const LatLng(-12.0464, -77.0428);
+      case 'chimbote':
+        return const LatLng(-9.0853, -78.5786);
+      case 'cusco':
+      default:
+        return const LatLng(-13.5319, -71.9675);
+    }
+  }
+
+  void _showMapPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        LatLng tempLocation = _selectedLocation ?? _getSedeLatLng(_selectedSede);
+        final MapController pickerMapController = MapController();
+        final searchController = TextEditingController();
+        List<dynamic> searchResults = [];
+        bool isSearching = false;
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> buscarDireccion(String query) async {
+              if (query.trim().isEmpty) return;
+              setModalState(() {
+                isSearching = true;
+                searchResults = [];
+              });
+
+              try {
+                final response = await http.get(
+                  Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(query)}&format=json&limit=5&addressdetails=1'),
+                  headers: {'User-Agent': 'GingaApp/1.0 (jumperstudio)'},
+                );
+                if (response.statusCode == 200) {
+                  final data = json.decode(response.body);
+                  setModalState(() {
+                    searchResults = data;
+                  });
+                }
+              } catch (e) {
+                debugPrint('Error en geocodificación Nominatim: $e');
+              } finally {
+                setModalState(() {
+                  isSearching = false;
+                });
+              }
+            }
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Column(
+                children: [
+                  // Cabecera
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Seleccionar ubicación 📍',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Buscador Nominatim
+                  Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: searchController,
+                                style: GoogleFonts.nunito(fontSize: 14),
+                                decoration: InputDecoration(
+                                  hintText: 'Buscar calle, parque, plaza...',
+                                  hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary, fontSize: 13),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF5F5F5),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  suffixIcon: isSearching
+                                      ? const Padding(
+                                          padding: EdgeInsets.all(12.0),
+                                          child: SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: GingaColors.brandGreen),
+                                          ),
+                                        )
+                                      : IconButton(
+                                          icon: const Icon(Icons.clear, size: 18),
+                                          onPressed: () {
+                                            searchController.clear();
+                                            setModalState(() {
+                                              searchResults = [];
+                                            });
+                                          },
+                                        ),
+                                ),
+                                onSubmitted: (val) => buscarDireccion(val),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () => buscarDireccion(searchController.text),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: GingaColors.brandGreen,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                elevation: 0,
+                              ),
+                              child: const Icon(Icons.search, size: 20),
+                            ),
+                          ],
+                        ),
+
+                        // Lista flotante de sugerencias
+                        if (searchResults.isNotEmpty)
+                          Container(
+                            constraints: const BoxConstraints(maxHeight: 180),
+                            margin: const EdgeInsets.only(top: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                )
+                              ],
+                            ),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: searchResults.length,
+                              itemBuilder: (context, index) {
+                                final res = searchResults[index];
+                                final displayName = res['display_name'] ?? '';
+                                return ListTile(
+                                  dense: true,
+                                  leading: const Icon(Icons.location_on, color: GingaColors.brandGreen, size: 16),
+                                  title: Text(
+                                    displayName,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textPrimary),
+                                  ),
+                                  onTap: () {
+                                    final lat = double.tryParse(res['lat'] ?? '');
+                                    final lon = double.tryParse(res['lon'] ?? '');
+                                    if (lat != null && lon != null) {
+                                      final newPos = LatLng(lat, lon);
+                                      setModalState(() {
+                                        tempLocation = newPos;
+                                        searchResults = [];
+                                      });
+                                      pickerMapController.move(newPos, 16.0);
+                                      searchController.text = displayName;
+                                    }
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // Mapa Interactivo
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        FlutterMap(
+                          mapController: pickerMapController,
+                          options: MapOptions(
+                            initialCenter: tempLocation,
+                            initialZoom: 15.0,
+                            onTap: (tapPosition, point) {
+                              setModalState(() {
+                                tempLocation = point;
+                              });
+                            },
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'com.jumperstudio.ginga_app',
+                            ),
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: tempLocation,
+                                  width: 45,
+                                  height: 45,
+                                  child: const Icon(
+                                    Icons.location_on,
+                                    color: GingaColors.brandGreen,
+                                    size: 45,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Positioned(
+                          bottom: 12,
+                          left: 12,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.9),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Text(
+                              '💡 Toca cualquier parte del mapa para mover el pin de ubicación exacta.',
+                              style: GoogleFonts.nunito(fontSize: 11, fontWeight: FontWeight.w600, color: GingaColors.textSecondary),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
+
+                  // Botón Confirmar
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedLocation = tempLocation;
+                            // Only populate the address text field if it was empty, to preserve custom text
+                            if (_ubicacionController.text.trim().isEmpty && searchController.text.isNotEmpty) {
+                              _ubicacionController.text = searchController.text.split(',')[0];
+                            }
+                          });
+                          Navigator.pop(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: GingaColors.brandGreen,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          'Confirmar Ubicación 📍',
+                          style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _descripcionController.dispose();
     _ubicacionController.dispose();
+    _nombreCustomController.dispose();
     super.dispose();
   }
 
@@ -63,9 +462,27 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
   Future<void> _publicarClase() async {
-    if (_diasSeleccionados.isEmpty) {
+    if (_tipoClase == 'regular' && _diasSeleccionados.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Selecciona al menos un día',
+        content: Text('Selecciona al menos un día recurrente',
+            style: GoogleFonts.nunito(color: Colors.white)),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    if (_tipoClase != 'regular' && _fechaTexto.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Selecciona la fecha del evento',
+            style: GoogleFonts.nunito(color: Colors.white)),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    if (_tipoClase != 'regular' && _nombreCustomController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Ingresa un título para el evento/roda',
             style: GoogleFonts.nunito(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
@@ -76,30 +493,208 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
 
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-      await FirebaseFirestore.instance.collection('clases').add({
-        'nombre': _nombreClase,
+      final String finalNombre = _tipoClase == 'regular' 
+          ? _nombreClase 
+          : _nombreCustomController.text.trim();
+      final String finalBadge = _tipoClase == 'regular'
+          ? _nombreClase
+          : (_tipoClase == 'roda' ? 'Roda Especial 🔥' : 'Evento Especial 🌟');
+
+      final claseData = {
+        'nombre': finalNombre,
         'nivel': _nivelSeleccionado,
         'sede': _selectedSede,
-        'badge': _nombreClase,
+        'badge': finalBadge,
         'descripcion': _descripcionController.text.trim(),
-        'dias': _diasSeleccionados.join(', '),
+        'dias': _tipoClase == 'regular' ? _diasSeleccionados.join(', ') : _fechaTexto,
         'hora': _formatTime(_horaInicio),
         'hora_fin': _formatTime(_horaFin),
         'cupos_max': _maxAlumnos,
         'cupos_disponibles': _maxAlumnos,
         'modalidad': _modalidad,
         'ubicacion': _ubicacionController.text.trim(),
+        'lat': _selectedLocation?.latitude,
+        'lng': _selectedLocation?.longitude,
         'clase_gratuita': _claseGratuita,
         'publicar_inmediatamente': _publicarInmediatamente,
         'instructor_id': uid,
-        'tipo': 'regular',
-        'created_at': FieldValue.serverTimestamp(),
-      });
+        'tipo': _tipoClase,
+      };
+
+      if (widget.claseId != null) {
+        // 1. Actualizar en clases
+        await FirebaseFirestore.instance
+            .collection('clases')
+            .doc(widget.claseId)
+            .update(claseData);
+
+        // 2. Si es especial o roda, actualizar también en 'eventos' con el mismo ID
+        if (_tipoClase != 'regular') {
+          final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+          final instructorName = userDoc.data()?['nombre'] ?? 'Instructor / Mestre';
+
+          DateTime? startDateTime;
+          DateTime? endDateTime;
+          if (_selectedDate != null) {
+            startDateTime = DateTime(
+              _selectedDate!.year,
+              _selectedDate!.month,
+              _selectedDate!.day,
+              _horaInicio.hour,
+              _horaInicio.minute,
+            );
+            endDateTime = DateTime(
+              _selectedDate!.year,
+              _selectedDate!.month,
+              _selectedDate!.day,
+              _horaFin.hour,
+              _horaFin.minute,
+            );
+          } else {
+            final now = DateTime.now();
+            startDateTime = DateTime(now.year, now.month, now.day, _horaInicio.hour, _horaInicio.minute);
+            endDateTime = DateTime(now.year, now.month, now.day, _horaFin.hour, _horaFin.minute);
+          }
+
+          final String finalLugar = _ubicacionController.text.trim().isNotEmpty
+              ? _ubicacionController.text.trim()
+              : 'Sede: $_selectedSede';
+
+          final String bannerUrl = _tipoClase == 'roda'
+              ? 'assets/images/fiu_banner.png'
+              : 'assets/images/roda.jpg';
+
+          final String diaNombre = _fechaTexto.isNotEmpty ? _fechaTexto.split(' ').first : 'Evento';
+          final List<Map<String, String>> defaultCronograma = [
+            {
+              'dia': diaNombre,
+              'hora': _formatTime(_horaInicio),
+              'actividad': 'Inicio del evento y acreditación: $finalNombre',
+            },
+            {
+              'dia': diaNombre,
+              'hora': _formatTime(_horaFin),
+              'actividad': 'Cierre y Roda de integración general.',
+            }
+          ];
+
+          final eventDoc = await FirebaseFirestore.instance.collection('eventos').doc(widget.claseId).get();
+          final Map<String, dynamic> eventData = {
+            'titulo': finalNombre,
+            'organizador': instructorName,
+            'fecha_inicio': Timestamp.fromDate(startDateTime),
+            'fecha_fin': Timestamp.fromDate(endDateTime),
+            'fecha_texto': '$_fechaTexto, ${_formatTime(_horaInicio)} - ${_formatTime(_horaFin)}',
+            'lugar': finalLugar,
+            'descripcion': _descripcionController.text.trim(),
+            'imagen_url': eventDoc.exists && eventDoc.data()?['imagen_url'] != null
+                ? eventDoc.data()!['imagen_url']
+                : bannerUrl,
+            'cronograma': eventDoc.exists && eventDoc.data()?['cronograma'] != null
+                ? eventDoc.data()!['cronograma']
+                : defaultCronograma,
+          };
+
+          await FirebaseFirestore.instance
+              .collection('eventos')
+              .doc(widget.claseId)
+              .set(eventData, SetOptions(merge: true));
+        } else {
+          // Si cambió a regular, limpiamos el evento correspondiente si existía
+          await FirebaseFirestore.instance
+              .collection('eventos')
+              .doc(widget.claseId)
+              .delete();
+        }
+      } else {
+        claseData['created_at'] = FieldValue.serverTimestamp();
+        
+        if (_tipoClase != 'regular') {
+          // 1. Generar un nuevo ID de clase primero para usar el mismo ID
+          final newClassRef = FirebaseFirestore.instance.collection('clases').doc();
+          final String newDocId = newClassRef.id;
+
+          // 2. Guardar en 'clases' con ese ID
+          await newClassRef.set(claseData);
+
+          // 3. Crear el evento en 'eventos' con el mismo ID
+          final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+          final instructorName = userDoc.data()?['nombre'] ?? 'Instructor / Mestre';
+
+          DateTime? startDateTime;
+          DateTime? endDateTime;
+          if (_selectedDate != null) {
+            startDateTime = DateTime(
+              _selectedDate!.year,
+              _selectedDate!.month,
+              _selectedDate!.day,
+              _horaInicio.hour,
+              _horaInicio.minute,
+            );
+            endDateTime = DateTime(
+              _selectedDate!.year,
+              _selectedDate!.month,
+              _selectedDate!.day,
+              _horaFin.hour,
+              _horaFin.minute,
+            );
+          } else {
+            final now = DateTime.now();
+            startDateTime = DateTime(now.year, now.month, now.day, _horaInicio.hour, _horaInicio.minute);
+            endDateTime = DateTime(now.year, now.month, now.day, _horaFin.hour, _horaFin.minute);
+          }
+
+          final String finalLugar = _ubicacionController.text.trim().isNotEmpty
+              ? _ubicacionController.text.trim()
+              : 'Sede: $_selectedSede';
+
+          final String bannerUrl = _tipoClase == 'roda'
+              ? 'assets/images/fiu_banner.png'
+              : 'assets/images/roda.jpg';
+
+          final String diaNombre = _fechaTexto.isNotEmpty ? _fechaTexto.split(' ').first : 'Evento';
+          final List<Map<String, String>> defaultCronograma = [
+            {
+              'dia': diaNombre,
+              'hora': _formatTime(_horaInicio),
+              'actividad': 'Inicio del evento y acreditación: $finalNombre',
+            },
+            {
+              'dia': diaNombre,
+              'hora': _formatTime(_horaFin),
+              'actividad': 'Cierre y Roda de integración general.',
+            }
+          ];
+
+          final Map<String, dynamic> eventData = {
+            'titulo': finalNombre,
+            'organizador': instructorName,
+            'fecha_inicio': Timestamp.fromDate(startDateTime),
+            'fecha_fin': Timestamp.fromDate(endDateTime),
+            'fecha_texto': '$_fechaTexto, ${_formatTime(_horaInicio)} - ${_formatTime(_horaFin)}',
+            'lugar': finalLugar,
+            'descripcion': _descripcionController.text.trim(),
+            'imagen_url': bannerUrl,
+            'cronograma': defaultCronograma,
+          };
+
+          await FirebaseFirestore.instance
+              .collection('eventos')
+              .doc(newDocId)
+              .set(eventData);
+        } else {
+          // Clase regular estándar
+          await FirebaseFirestore.instance.collection('clases').add(claseData);
+        }
+      }
 
       if (mounted) {
         context.go('/instructor-clase');
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('¡Clase publicada exitosamente!',
+          content: Text(
+              widget.claseId != null
+                  ? '¡Clase actualizada exitosamente!'
+                  : '¡Clase publicada exitosamente!',
               style: GoogleFonts.nunito(color: Colors.white)),
           backgroundColor: GingaColors.brandGreen,
         ));
@@ -128,7 +723,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           icon: const Icon(Icons.arrow_back, color: GingaColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Crear clase',
+        title: Text(widget.claseId != null ? 'Editar clase' : 'Crear clase',
             style: GoogleFonts.montserrat(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -157,8 +752,8 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2),
                     )
-                  : const Icon(Icons.add, size: 20),
-              label: Text('Publicar clase',
+                  : Icon(widget.claseId != null ? Icons.save : Icons.add, size: 20),
+              label: Text(widget.claseId != null ? 'Guardar cambios' : 'Publicar clase',
                   style: GoogleFonts.montserrat(
                       fontSize: 15, fontWeight: FontWeight.w700)),
             ),
@@ -175,9 +770,13 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _label('Nombre de la clase'),
+                  _label('Tipo de Sesión'),
                   const SizedBox(height: 8),
-                  _dropdown(),
+                  _tipoSelector(),
+                  const SizedBox(height: 16),
+                  _label(_tipoClase == 'regular' ? 'Nombre de la clase' : 'Título del Evento / Roda'),
+                  const SizedBox(height: 8),
+                  _tipoClase == 'regular' ? _dropdown() : _customNameField(),
                   const SizedBox(height: 16),
                   _label('Sede de la clase'),
                   const SizedBox(height: 8),
@@ -214,42 +813,44 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
 
             // ── Horario recurrente ────────────────────────
             _buildCard(
-              title: 'Horario recurrente',
+              title: _tipoClase == 'regular' ? 'Horario recurrente' : 'Fecha y Horario',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _label('Días de la clase'),
+                  _label(_tipoClase == 'regular' ? 'Días de la clase' : 'Fecha del Evento / Roda'),
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: _dias.map((dia) {
-                      final sel = _diasSeleccionados.contains(dia);
-                      return GestureDetector(
-                        onTap: () => setState(() => sel
-                            ? _diasSeleccionados.remove(dia)
-                            : _diasSeleccionados.add(dia)),
-                        child: Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: sel
-                                ? GingaColors.brandGreen
-                                : const Color(0xFFF0F0F0),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(dia,
-                                style: GoogleFonts.montserrat(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: sel
-                                        ? Colors.white
-                                        : GingaColors.textSecondary)),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                  _tipoClase == 'regular'
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: _dias.map((dia) {
+                            final sel = _diasSeleccionados.contains(dia);
+                            return GestureDetector(
+                              onTap: () => setState(() => sel
+                                  ? _diasSeleccionados.remove(dia)
+                                  : _diasSeleccionados.add(dia)),
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: sel
+                                      ? GingaColors.brandGreen
+                                      : const Color(0xFFF0F0F0),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(dia,
+                                      style: GoogleFonts.montserrat(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: sel
+                                              ? Colors.white
+                                              : GingaColors.textSecondary)),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        )
+                      : _datePickerButton(),
                   const SizedBox(height: 20),
                   Row(
                     children: [
@@ -323,7 +924,6 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                             ))
                         .toList(),
                   ),
-                  const SizedBox(height: 16),
                   _label('Ubicación'),
                   const SizedBox(height: 8),
                   TextFormField(
@@ -335,6 +935,90 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                           color: GingaColors.textSecondary, size: 20),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  if (_selectedLocation != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                      child: SizedBox(
+                        height: 140,
+                        width: double.infinity,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: GestureDetector(
+                                onTap: () => _showMapPicker(context),
+                                child: AbsorbPointer(
+                                  child: FlutterMap(
+                                    options: MapOptions(
+                                      initialCenter: _selectedLocation!,
+                                      initialZoom: 15.0,
+                                      interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+                                    ),
+                                    children: [
+                                      TileLayer(
+                                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                        userAgentPackageName: 'com.jumperstudio.ginga_app',
+                                      ),
+                                      MarkerLayer(
+                                        markers: [
+                                          Marker(
+                                            point: _selectedLocation!,
+                                            width: 35,
+                                            height: 35,
+                                            child: const Icon(
+                                              Icons.location_on,
+                                              color: GingaColors.brandGreen,
+                                              size: 35,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: ElevatedButton.icon(
+                                onPressed: () => _showMapPicker(context),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white.withOpacity(0.9),
+                                  foregroundColor: GingaColors.textPrimary,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  elevation: 2,
+                                ),
+                                icon: const Icon(Icons.edit, size: 14, color: GingaColors.brandGreen),
+                                label: Text(
+                                  'Cambiar',
+                                  style: GoogleFonts.nunito(fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showMapPicker(context),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: GingaColors.brandGreen, width: 1.5),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.md)),
+                        ),
+                        icon: const Icon(Icons.map_outlined, color: GingaColors.brandGreen, size: 18),
+                        label: Text(
+                          'Marcar ubicación exacta en el mapa 🗺️',
+                          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.bold, color: GingaColors.brandGreen),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   _toggleRow(
                     title: 'Clase de prueba gratuita',
@@ -458,53 +1142,247 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
         ),
       );
 
-  Widget _dropdown() => Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+  Widget _tipoSelector() => Row(
+        children: [
+          Expanded(
+            child: _tipoCard(
+              label: 'Clase Regular',
+              value: 'regular',
+              icon: Icons.sports_martial_arts_rounded,
+              selectedColor: GingaColors.brandGreen,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _tipoCard(
+              label: 'Evento',
+              value: 'especial',
+              icon: Icons.star_rounded,
+              selectedColor: GingaColors.accentAmber,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _tipoCard(
+              label: 'Roda',
+              value: 'roda',
+              icon: Icons.local_fire_department_rounded,
+              selectedColor: Colors.deepOrange,
+            ),
+          ),
+        ],
+      );
+
+  Widget _tipoCard({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color selectedColor,
+  }) {
+    final isSelected = _tipoClase == value;
+    return GestureDetector(
+      onTap: () => setState(() => _tipoClase = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8F8F8),
+          color: isSelected ? selectedColor.withOpacity(0.08) : Colors.white,
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          border: Border.all(color: GingaColors.borderLight),
+          border: Border.all(
+            color: isSelected ? selectedColor : GingaColors.borderLight,
+            width: isSelected ? 2.0 : 1.0,
+          ),
         ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: _nombreClase,
-            isExpanded: true,
-            icon: const Icon(Icons.keyboard_arrow_down,
-                color: GingaColors.textSecondary),
-            style: GoogleFonts.nunito(
-                fontSize: 14, color: GingaColors.textPrimary),
-            items: _nombresClase
-                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-                .toList(),
-            onChanged: (val) => setState(() => _nombreClase = val!),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? selectedColor : GingaColors.textSecondary,
+              size: 24,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: GoogleFonts.nunito(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? selectedColor : GingaColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _customNameField() => TextFormField(
+        controller: _nombreCustomController,
+        style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+        decoration: InputDecoration(
+          hintText: _tipoClase == 'roda'
+              ? 'ej. Roda de Integración, Roda de Fin de Año'
+              : 'ej. Taller de Acrobacias, Masterclass Mestre Sidney',
+          hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary, fontSize: 13),
+          filled: true,
+          fillColor: const Color(0xFFF8F8F8),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(GingaRadius.md),
+            borderSide: const BorderSide(color: GingaColors.borderLight),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(GingaRadius.md),
+            borderSide: const BorderSide(color: GingaColors.borderLight),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(GingaRadius.md),
+            borderSide: const BorderSide(color: GingaColors.brandGreen, width: 2),
           ),
         ),
       );
 
-  Widget _sedeDropdown() => Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8F8F8),
-          borderRadius: BorderRadius.circular(GingaRadius.md),
-          border: Border.all(color: GingaColors.borderLight),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: _selectedSede,
-            isExpanded: true,
-            icon: const Icon(Icons.keyboard_arrow_down,
-                color: GingaColors.textSecondary),
-            style: GoogleFonts.nunito(
-                fontSize: 14, color: GingaColors.textPrimary),
-            items: _sedes
-                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-                .toList(),
-            onChanged: (val) => setState(() => _selectedSede = val!),
+  Widget _datePickerButton() => InkWell(
+        onTap: _seleccionarFechaEvento,
+        child: Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F8F8),
+            borderRadius: BorderRadius.circular(GingaRadius.md),
+            border: Border.all(color: GingaColors.borderLight),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_today_rounded,
+                  color: GingaColors.brandGreen, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _fechaTexto.isEmpty ? 'Seleccionar fecha del evento' : _fechaTexto,
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: _fechaTexto.isEmpty ? FontWeight.w500 : FontWeight.w700,
+                    color: _fechaTexto.isEmpty ? GingaColors.textSecondary : GingaColors.textPrimary,
+                  ),
+                ),
+              ),
+              const Icon(Icons.keyboard_arrow_right_rounded,
+                  color: GingaColors.textSecondary, size: 18),
+            ],
           ),
         ),
       );
+
+  Future<void> _seleccionarFechaEvento() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 1)),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: GingaColors.brandGreen),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+        _fechaTexto = _formatSpanishDate(picked);
+      });
+    }
+  }
+
+  String _formatSpanishDate(DateTime dt) {
+    final List<String> weekdays = [
+      'Lunes',
+      'Martes',
+      'Miércoles',
+      'Jueves',
+      'Viernes',
+      'Sábado',
+      'Domingo'
+    ];
+    final List<String> months = [
+      'Enero',
+      'Febrero',
+      'Marzo',
+      'Abril',
+      'Mayo',
+      'Junio',
+      'Julio',
+      'Agosto',
+      'Septiembre',
+      'Octubre',
+      'Noviembre',
+      'Diciembre'
+    ];
+    final String weekday = weekdays[dt.weekday - 1];
+    final String month = months[dt.month - 1];
+    return '$weekday ${dt.day} de $month';
+  }
+
+  Widget _dropdown() {
+    final List<String> itemsNombre = List.from(_nombresClase);
+    if (!itemsNombre.contains(_nombreClase)) {
+      itemsNombre.add(_nombreClase);
+    }
+
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F8F8),
+        borderRadius: BorderRadius.circular(GingaRadius.md),
+        border: Border.all(color: GingaColors.borderLight),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _nombreClase,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down,
+              color: GingaColors.textSecondary),
+          style: GoogleFonts.nunito(
+              fontSize: 14, color: GingaColors.textPrimary),
+          items: itemsNombre
+              .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+              .toList(),
+          onChanged: (val) => setState(() => _nombreClase = val!),
+        ),
+      ),
+    );
+  }
+
+  Widget _sedeDropdown() {
+    final List<String> itemsSede = List.from(_sedes);
+    if (!itemsSede.contains(_selectedSede)) {
+      itemsSede.add(_selectedSede);
+    }
+
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F8F8),
+        borderRadius: BorderRadius.circular(GingaRadius.md),
+        border: Border.all(color: GingaColors.borderLight),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedSede,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down,
+              color: GingaColors.textSecondary),
+          style: GoogleFonts.nunito(
+              fontSize: 14, color: GingaColors.textPrimary),
+          items: itemsSede
+              .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+              .toList(),
+          onChanged: (val) => setState(() => _selectedSede = val!),
+        ),
+      ),
+    );
+  }
 
   Widget _chip(
           {required String label,

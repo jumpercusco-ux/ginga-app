@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/ginga_theme.dart';
 
 class EventoDetalleScreen extends StatelessWidget {
@@ -131,7 +134,21 @@ class EventoDetalleScreen extends StatelessWidget {
                             ),
                           ),
                           GestureDetector(
-                            onTap: () {},
+                            onTap: () async {
+                              final Uri googleUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=-13.52491,-71.95473");
+                              final Uri appleUrl = Uri.parse("https://maps.apple.com/?q=Parque%20de%20la%20Roda%20Cusco&ll=-13.52491,-71.95473");
+                              try {
+                                if (await canLaunchUrl(googleUrl)) {
+                                  await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
+                                } else if (await canLaunchUrl(appleUrl)) {
+                                  await launchUrl(appleUrl, mode: LaunchMode.externalApplication);
+                                } else {
+                                  await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
+                                }
+                              } catch (e) {
+                                debugPrint("Could not launch maps: $e");
+                              }
+                            },
                             child: Text(
                               'Abrir en Maps',
                               style: GoogleFonts.nunito(
@@ -394,74 +411,99 @@ class _MestreCard extends StatelessWidget {
 class _MapPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 140,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: GingaColors.cardLight,
-        borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Grid lines simulando mapa
-          CustomPaint(
-            size: const Size(double.infinity, 140),
-            painter: _MapGridPainter(),
-          ),
-          // Pin
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    const lat = -13.52491;
+    const lng = -71.95473;
+    const label = 'Parque de la Roda, Cusco';
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(GingaRadius.lg),
+      child: Container(
+        height: 160,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          border: Border.all(color: GingaColors.borderLight),
+        ),
+        child: Stack(
+          children: [
+            FlutterMap(
+              options: MapOptions(
+                initialCenter: const LatLng(lat, lng),
+                initialZoom: 15.0,
+                onTap: (tapPosition, point) async {
+                  final Uri googleUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lng");
+                  final Uri appleUrl = Uri.parse("https://maps.apple.com/?q=${Uri.encodeComponent(label)}&ll=$lat,$lng");
+                  try {
+                    if (await canLaunchUrl(googleUrl)) {
+                      await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
+                    } else if (await canLaunchUrl(appleUrl)) {
+                      await launchUrl(appleUrl, mode: LaunchMode.externalApplication);
+                    } else {
+                      await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
+                    }
+                  } catch (e) {
+                    debugPrint("Could not launch maps on tap: $e");
+                  }
+                },
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.jumperstudio.ginga_app',
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: const LatLng(lat, lng),
+                      width: 40,
+                      height: 40,
+                      child: const Icon(
+                        Icons.location_on,
+                        color: GingaColors.brandGreen,
+                        size: 40,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Positioned(
+              bottom: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: GingaColors.brandGreen,
-                  borderRadius: BorderRadius.circular(GingaRadius.full),
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 4,
+                    )
+                  ],
                 ),
-                child: Text(
-                  'PARQUE DE LA RODA',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    letterSpacing: 0.5,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.navigation, color: GingaColors.brandGreen, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Toca para navegar',
+                      style: GoogleFonts.nunito(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: GingaColors.textPrimary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Container(
-                width: 2,
-                height: 12,
-                color: GingaColors.brandGreen,
-              ),
-              const Icon(Icons.location_on,
-                  color: GingaColors.brandGreen, size: 24),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
-}
-
-class _MapGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = GingaColors.borderLight
-      ..strokeWidth = 0.8;
-
-    for (double x = 0; x < size.width; x += 30) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += 30) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_) => false;
 }
 
 // ─────────────────────────────────────────

@@ -6,6 +6,8 @@ import 'musica_screen.dart';
 import 'tutor_detail_screen.dart';
 import 'cultura_screen.dart';
 import 'tutoriales_screen.dart';
+import 'glosario_screen.dart';
+import 'graduaciones_screen.dart';
 
 
 class BibliotecaScreen extends StatelessWidget {
@@ -89,6 +91,40 @@ class BibliotecaScreen extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (_) => const CulturaScreen(),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              _SeccionCard(
+                titulo: 'Glosario de Capoeira',
+                subtitulo: 'Diccionario oficial y términos clave del grupo FIU',
+                icono: Icons.translate_rounded,
+                tag: 'GLOSARIO',
+                tagColor: GingaColors.accentAmber,
+                color: GingaColors.accentAmber,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const GlosarioScreen(),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              _SeccionCard(
+                titulo: 'Sistema de Graduaciones',
+                subtitulo: 'Camino oficial de cuerdas de FIU y tu rango actual',
+                icono: Icons.military_tech_rounded,
+                tag: 'CUERDAS',
+                tagColor: Colors.blue,
+                color: Colors.blue,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const GraduacionesScreen(),
                   ),
                 ),
               ),

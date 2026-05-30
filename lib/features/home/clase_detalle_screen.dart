@@ -3,6 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/ginga_theme.dart';
 
 class ClaseDetalleScreen extends StatefulWidget {
@@ -16,6 +19,38 @@ class ClaseDetalleScreen extends StatefulWidget {
 
 class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
   bool _isLoading = false;
+
+  Future<Map<String, dynamic>?> _buscarEventoDestacado(String nombreClase, String badgeClase, String instructorClase) async {
+    try {
+      // 1. Intentar buscar por ID exacto de la clase para máxima robustez (Estrategia Same-ID)
+      final exactDoc = await FirebaseFirestore.instance.collection('eventos').doc(widget.claseId).get();
+      if (exactDoc.exists) {
+        return exactDoc.data();
+      }
+
+      // 2. Fallback a la búsqueda semántica de texto para retrocompatibilidad con eventos antiguos/sembrados
+      final query = await FirebaseFirestore.instance.collection('eventos').get();
+      for (var doc in query.docs) {
+        final data = doc.data();
+        final String titulo = (data['titulo'] ?? '').toString().toLowerCase().trim();
+        final String organizador = (data['organizador'] ?? '').toString().toLowerCase().trim();
+        
+        final lowerNombre = nombreClase.toLowerCase().trim();
+        final lowerBadge = badgeClase.toLowerCase().trim();
+        final lowerInst = instructorClase.toLowerCase().trim();
+
+        // Si coincide por título o por el badge o instructor
+        if (titulo.contains(lowerNombre) || lowerNombre.contains(titulo) ||
+            titulo.contains(lowerBadge) || lowerBadge.contains(titulo) ||
+            titulo.contains(lowerInst) || lowerInst.contains(organizador)) {
+          return data;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error al buscar evento destacado: $e');
+    }
+    return null;
+  }
 
   String _interpretarDiasDeSemana(String diasRaw) {
     if (diasRaw.isEmpty) return '';
@@ -133,6 +168,87 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
     }
   }
 
+  Future<void> _registrarAsistenciaEvento(
+      Map<String, dynamic> claseData, String userNombre, String uid) async {
+    setState(() => _isLoading = true);
+    try {
+      // 1. Agregar a la colección /reservas
+      await FirebaseFirestore.instance.collection('reservas').add({
+        'user_id': uid,
+        'clase_id': widget.claseId,
+        'nivel': claseData['nivel'] ?? '',
+        'hora': claseData['hora'] ?? '',
+        'dias': claseData['dias'] ?? '',
+        'status': 'confirmado',
+        'tipo': 'evento',
+        'created_at': FieldValue.serverTimestamp(),
+      });
+
+      // 2. Registrar también en la colección /eventos si corresponde para mantener la retrocompatibilidad
+      try {
+        final eventosQuery = await FirebaseFirestore.instance
+            .collection('eventos')
+            .where('titulo', isEqualTo: claseData['nombre'])
+            .limit(1)
+            .get();
+        if (eventosQuery.docs.isNotEmpty) {
+          final eventId = eventosQuery.docs.first.id;
+          await FirebaseFirestore.instance
+              .collection('eventos')
+              .doc(eventId)
+              .collection('registros')
+              .doc(uid)
+              .set({
+            'user_id': uid,
+            'nombre': userNombre,
+            'fecha_registro': Timestamp.now(),
+            'confirmado': true,
+          });
+        }
+      } catch (e) {
+        debugPrint('Error en registro secundario de eventos: $e');
+      }
+
+      // 3. Notificación in-app
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('notificaciones')
+          .add({
+        'titulo': 'Cupo reservado para evento 🗓️',
+        'mensaje': 'Confirmaste tu asistencia para "${claseData['nombre']}" el ${claseData['dias']} a las ${claseData['hora']}. ¡Nos vemos en la Roda!',
+        'fecha': FieldValue.serverTimestamp(),
+        'leido': false,
+        'tipo': 'evento',
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('¡Asistencia al evento confirmada! 🎉',
+                style: GoogleFonts.nunito(color: Colors.white)),
+            backgroundColor: GingaColors.brandGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error al registrar asistencia al evento: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al confirmar asistencia. Intenta de nuevo.',
+                style: GoogleFonts.nunito(color: Colors.white)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   Widget _buildInfoCard({
     required IconData icon,
     required String title,
@@ -231,6 +347,18 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
         final String descripcion = clase['descripcion'] ?? '';
         final String instructorId = clase['instructor_id'] ?? '';
         final String tipo = clase['tipo'] ?? 'regular';
+        final String badge = clase['badge'] ?? '';
+        final bool isEvent = tipo == 'especial' ||
+            tipo == 'roda' ||
+            badge.toLowerCase().contains('especial') ||
+            badge.toLowerCase().contains('roda') ||
+            badge.toLowerCase().contains('evento') ||
+            nombre.toLowerCase().contains('especial') ||
+            nombre.toLowerCase().contains('roda') ||
+            nombre.toLowerCase().contains('evento');
+
+        final double? lat = clase['lat'] != null ? (clase['lat'] as num).toDouble() : null;
+        final double? lng = clase['lng'] != null ? (clase['lng'] as num).toDouble() : null;
 
         final double ocupacionRatio =
             cuposMax > 0 ? (cuposMax - cuposDisponibles) / cuposMax : 0.0;
@@ -242,10 +370,14 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
               .snapshots(),
           builder: (builderContext, userSnapshot) {
             String userStatus = 'nuevo';
+            String userNombre = 'Alumno';
+            String userClaseId = '';
             if (userSnapshot.hasData && userSnapshot.data!.exists) {
               final userData =
                   userSnapshot.data!.data() as Map<String, dynamic>;
               userStatus = userData['status'] ?? 'nuevo';
+              userNombre = userData['nombre'] ?? 'Alumno';
+              userClaseId = userData['clase_id'] ?? '';
             }
 
             return Scaffold(
@@ -337,53 +469,168 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                             ),
                           ),
                         )
-                      : userStatus == 'activo'
-                          ? SafeArea(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                                child: Container(
-                                  height: 54,
-                                  decoration: BoxDecoration(
-                                    color: GingaColors.brandGreen.withOpacity(0.12),
-                                    borderRadius:
-                                        BorderRadius.circular(GingaRadius.md),
-                                    border: Border.all(
-                                        color: GingaColors.brandGreen
-                                            .withOpacity(0.4)),
-                                  ),
-                                  child: Center(
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(Icons.check_circle_rounded,
-                                            color: GingaColors.brandGreen, size: 20),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Eres miembro activo en esta clase',
-                                          style: GoogleFonts.montserrat(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                            color: GingaColors.brandGreen,
+                      : isEvent
+                          ? StreamBuilder<QuerySnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection('reservas')
+                                  .where('user_id', isEqualTo: uid)
+                                  .where('clase_id', isEqualTo: widget.claseId)
+                                  .snapshots(),
+                              builder: (context, resSnapshot) {
+                                final isRegistered = resSnapshot.hasData &&
+                                    resSnapshot.data!.docs.isNotEmpty;
+
+                                if (isRegistered) {
+                                  return SafeArea(
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                                      child: Container(
+                                        height: 54,
+                                        decoration: BoxDecoration(
+                                          color: GingaColors.brandGreen.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                                          border: Border.all(color: GingaColors.brandGreen.withOpacity(0.4)),
+                                        ),
+                                        child: Center(
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(Icons.check_circle_rounded, color: GingaColors.brandGreen, size: 20),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                '¡Tu cupo está reservado! ✅',
+                                                style: GoogleFonts.montserrat(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: GingaColors.brandGreen,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                      ],
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                return SafeArea(
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                                    child: SizedBox(
+                                      height: 54,
+                                      child: ElevatedButton(
+                                        onPressed: () => _registrarAsistenciaEvento(clase, userNombre, uid ?? ''),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: GingaColors.brandGreen,
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                                          ),
+                                          elevation: 0,
+                                        ),
+                                        child: Text(
+                                          'Confirmar Asistencia al Evento ☀️',
+                                          style: GoogleFonts.montserrat(
+                                              fontSize: 14, fontWeight: FontWeight.w700),
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
+                                );
+                              },
                             )
-                          : null,
-              body: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 10),
+                          : userStatus == 'activo'
+                              ? widget.claseId == userClaseId
+                                  ? SafeArea(
+                                      child: Padding(
+                                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                                        child: Container(
+                                          height: 54,
+                                          decoration: BoxDecoration(
+                                            color: GingaColors.brandGreen.withOpacity(0.12),
+                                            borderRadius:
+                                                BorderRadius.circular(GingaRadius.md),
+                                            border: Border.all(
+                                                color: GingaColors.brandGreen
+                                                    .withOpacity(0.4)),
+                                          ),
+                                          child: Center(
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(Icons.check_circle_rounded,
+                                                    color: GingaColors.brandGreen, size: 20),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Eres miembro activo en esta clase',
+                                                  style: GoogleFonts.montserrat(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: GingaColors.brandGreen,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : SafeArea(
+                                      child: Padding(
+                                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                                        child: Container(
+                                          height: 54,
+                                          decoration: BoxDecoration(
+                                            color: GingaColors.brandGreen.withOpacity(0.08),
+                                            borderRadius:
+                                                BorderRadius.circular(GingaRadius.md),
+                                            border: Border.all(
+                                                color: GingaColors.brandGreen
+                                                    .withOpacity(0.3)),
+                                          ),
+                                          child: Center(
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(Icons.info_outline,
+                                                    color: GingaColors.brandGreen, size: 20),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Eres miembro activo en otra clase',
+                                                  style: GoogleFonts.montserrat(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: GingaColors.brandGreen,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                              : null,
+              body: FutureBuilder<Map<String, dynamic>?>(
+                future: _buscarEventoDestacado(nombre, badge, instructorId),
+                builder: (context, eventSnapshot) {
+                  final eventData = eventSnapshot.data;
+                  final String displayDescription = eventData != null && (eventData['descripcion'] ?? '').toString().isNotEmpty
+                      ? eventData['descripcion']
+                      : descripcion;
+                  final String? organizador = eventData != null ? eventData['organizador'] : null;
+                  final List<dynamic> cronograma = eventData != null ? (eventData['cronograma'] ?? []) : [];
 
-                    // ── Banner Tarjeta Principal ────────────────────────
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 10),
+
+                        // ── Banner Tarjeta Principal ────────────────────────
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: tipo == 'roda'
@@ -403,6 +650,25 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (organizador != null && organizador.isNotEmpty) ...[
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'ORGANIZADO POR: ${organizador.toUpperCase()} 🌟',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 5),
@@ -621,7 +887,138 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                         ),
                       ],
                     ),
-
+                    if (lat != null && lng != null) ...[
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Ubicación exacta 📍',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () async {
+                              final Uri googleUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lng");
+                              final Uri appleUrl = Uri.parse("https://maps.apple.com/?q=${Uri.encodeComponent(ubicacion)}&ll=$lat,$lng");
+                              try {
+                                if (await canLaunchUrl(googleUrl)) {
+                                  await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
+                                } else if (await canLaunchUrl(appleUrl)) {
+                                  await launchUrl(appleUrl, mode: LaunchMode.externalApplication);
+                                } else {
+                                  await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
+                                }
+                              } catch (e) {
+                                debugPrint("Could not launch url: $e");
+                              }
+                            },
+                            child: Text(
+                              'Abrir en Maps',
+                              style: GoogleFonts.nunito(
+                                fontSize: 13,
+                                color: GingaColors.brandGreen,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(GingaRadius.lg),
+                        child: Container(
+                          height: 160,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(GingaRadius.lg),
+                            border: Border.all(color: GingaColors.borderLight),
+                          ),
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: FlutterMap(
+                                  options: MapOptions(
+                                    initialCenter: LatLng(lat, lng),
+                                    initialZoom: 15.0,
+                                    onTap: (tapPosition, point) async {
+                                      final Uri googleUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lng");
+                                      final Uri appleUrl = Uri.parse("https://maps.apple.com/?q=${Uri.encodeComponent(ubicacion)}&ll=$lat,$lng");
+                                      try {
+                                        if (await canLaunchUrl(googleUrl)) {
+                                          await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
+                                        } else if (await canLaunchUrl(appleUrl)) {
+                                          await launchUrl(appleUrl, mode: LaunchMode.externalApplication);
+                                        } else {
+                                          await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
+                                        }
+                                      } catch (e) {
+                                        debugPrint("Could not launch maps url on tap: $e");
+                                      }
+                                    },
+                                  ),
+                                  children: [
+                                    TileLayer(
+                                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                      userAgentPackageName: 'com.jumperstudio.ginga_app',
+                                    ),
+                                    MarkerLayer(
+                                      markers: [
+                                        Marker(
+                                          point: LatLng(lat, lng),
+                                          width: 40,
+                                          height: 40,
+                                          child: const Icon(
+                                            Icons.location_on,
+                                            color: GingaColors.brandGreen,
+                                            size: 40,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 8,
+                                right: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.9),
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Colors.black12,
+                                        blurRadius: 4,
+                                      )
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.navigation, color: GingaColors.brandGreen, size: 14),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Toca para navegar',
+                                        style: GoogleFonts.nunito(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: GingaColors.textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 24),
 
                     // ── Descripción de la Clase ──────────────────────
@@ -643,8 +1040,8 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                         border: Border.all(color: GingaColors.borderLight),
                       ),
                       child: Text(
-                        descripcion.isNotEmpty
-                            ? descripcion
+                        displayDescription.isNotEmpty
+                            ? displayDescription
                             : 'En esta clase de Capoeira aprenderás los fundamentos esenciales de la disciplina: movimientos básicos (ginga, esquivas, patadas), nociones de musicalidad, ritmo y la estructura tradicional de la Roda. Ideal para mejorar tu coordinación, flexibilidad y conectar con una comunidad global vibrante.',
                         style: GoogleFonts.nunito(
                           fontSize: 13.5,
@@ -654,14 +1051,139 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                       ),
                     ),
 
+                    // ── Cronograma del Evento (Timeline Visual Premium) ────
+                    if (cronograma.isNotEmpty) ...[
+                      const SizedBox(height: 28),
+                      Text(
+                        'Cronograma del Evento 📅',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: GingaColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(GingaRadius.lg),
+                          border: Border.all(color: GingaColors.borderLight),
+                        ),
+                        child: Column(
+                          children: List.generate(cronograma.length, (idx) {
+                            final item = cronograma[idx];
+                            final dia = item['dia'] ?? '';
+                            final hora = item['hora'] ?? '';
+                            final act = item['actividad'] ?? '';
+                            final isLast = idx == cronograma.length - 1;
+
+                            return IntrinsicHeight(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Column(
+                                    children: [
+                                      Container(
+                                        width: 22,
+                                        height: 22,
+                                        decoration: BoxDecoration(
+                                          color: GingaColors.brandGreen,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 3),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: GingaColors.brandGreen.withOpacity(0.3),
+                                              blurRadius: 4,
+                                            )
+                                          ],
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          '${idx + 1}',
+                                          style: GoogleFonts.montserrat(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w900,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                      if (!isLast)
+                                        Expanded(
+                                          child: Container(
+                                            width: 2,
+                                            color: GingaColors.brandGreen.withOpacity(0.3),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(bottom: 20.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFFFF8E1),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  dia.toString().toUpperCase(),
+                                                  style: GoogleFonts.montserrat(
+                                                    fontSize: 8.5,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: const Color(0xFFE65100),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                hora,
+                                                style: GoogleFonts.nunito(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: GingaColors.brandGreen,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            act,
+                                            style: GoogleFonts.nunito(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: GingaColors.textPrimary,
+                                              height: 1.4,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 32),
                   ],
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       },
     );
+  },
+);
   }
 }

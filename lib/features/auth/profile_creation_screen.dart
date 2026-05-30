@@ -121,7 +121,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         'nombre': _nombreController.text.trim(),
         'email': _emailController.text.trim(),
         'sede': _selectedSede,
-        'corda': 'Iniciante',
+        'corda': 'Crua',
         'fecha_inicio': null,
         'rol': 'alumno',
         'foto_url': fotoUrl,

@@ -70,7 +70,10 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/crear-clase',
-      builder: (context, state) => const CrearClaseScreen(),
+      builder: (context, state) {
+        final claseId = state.uri.queryParameters['claseId'];
+        return CrearClaseScreen(claseId: claseId);
+      },
     ),
     GoRoute(
       path: '/tutorial-detail',

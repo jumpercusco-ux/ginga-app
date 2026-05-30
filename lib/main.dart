@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'core/router/app_router.dart';
@@ -15,10 +17,20 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Configurar persistencia offline y caché persistente de Firestore
+  // Inicializar Firebase App Check para bloquear accesos no autorizados y bots
+  await FirebaseAppCheck.instance.activate(
+    androidProvider: kDebugMode 
+        ? AndroidProvider.debug 
+        : AndroidProvider.playIntegrity,
+    appleProvider: kDebugMode 
+        ? AppleProvider.debug 
+        : AppleProvider.appAttest,
+  );
+
+  // Configurar persistencia offline y límite inteligente de caché de Firestore
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    cacheSizeBytes: 104857600, // 100 MB de límite para optimizar rendimiento de memoria
   );
 
   // Registrar el controlador de segundo plano de FCM
@@ -44,7 +56,7 @@ class GingaApp extends StatelessWidget {
         }
 
         return MaterialApp.router(
-          title: 'Ginga App',
+          title: 'Ginga',
           debugShowCheckedModeBanner: false,
           theme: gingaLightTheme,
           darkTheme: gingaDarkTheme,

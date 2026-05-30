@@ -4,9 +4,11 @@ import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
+import 'package:table_calendar/table_calendar.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'mi_progreso_screen.dart';
 import '../biblioteca/practicar_toque_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 int _obtenerAsistenciasObjetivo(String corda) {
   switch (corda.toLowerCase()) {
@@ -57,18 +59,24 @@ class ProgresoScreen extends StatelessWidget {
       builder: (context, snapshot) {
         // Datos por defecto mientras carga
         String nombre = 'Alumno';
-        String corda = 'Iniciante';
+        String corda = 'Crua';
         String sede = 'Lima';
         String inicial = 'A';
         String? fotoUrl;
+        String userStatus = 'nuevo';
+        Timestamp? membresiaInicio;
+        Timestamp? membresiaFin;
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
           nombre = data['nombre'] ?? 'Alumno';
-          corda = data['corda'] ?? 'Iniciante';
+          corda = data['corda'] ?? 'Crua';
           sede = data['sede'] ?? 'Lima';
           inicial = nombre.isNotEmpty ? nombre[0].toUpperCase() : 'A';
           fotoUrl = data['foto_url'];
+          userStatus = data['status'] ?? 'nuevo';
+          membresiaInicio = data['membresia_inicio'] as Timestamp?;
+          membresiaFin = data['membresia_fin'] as Timestamp?;
         }
 
         return StreamBuilder<QuerySnapshot>(
@@ -81,6 +89,12 @@ class ProgresoScreen extends StatelessWidget {
             if (asistenciasSnapshot.hasData) {
               totalAsistencias = asistenciasSnapshot.data!.docs.length;
             }
+
+            final Set<String> asistenciasFechas = asistenciasSnapshot.hasData
+                ? asistenciasSnapshot.data!.docs
+                    .map((doc) => (doc.data() as Map<String, dynamic>)['fecha'] as String)
+                    .toSet()
+                : {};
 
             // --- CÁLCULO DE ACTIVIDAD SEMANAL EN TIEMPO REAL ---
             final ahora = DateTime.now();
@@ -321,6 +335,25 @@ class ProgresoScreen extends StatelessWidget {
                       _ActividadSemanal(
                           diasActivos: diasActivos,
                           totalAsistencias: totalAsistencias),
+
+                      const SizedBox(height: 28),
+                      _SectionHeader(
+                          title: 'Asistencia del Mes', actionLabel: ''),
+                      const SizedBox(height: 12),
+                      _AsistenciaMensual(asistenciasFechas: asistenciasFechas),
+
+                      if (uid != null) ...[
+                        const SizedBox(height: 28),
+                        _SectionHeader(
+                            title: 'Mi Membresía y Pagos', actionLabel: ''),
+                        const SizedBox(height: 12),
+                        _MembresiaYPagosSection(
+                          uid: uid,
+                          userStatus: userStatus,
+                          membresiaInicio: membresiaInicio,
+                          membresiaFin: membresiaFin,
+                        ),
+                      ],
 
                       const SizedBox(height: 28),
                       _SectionHeader(
@@ -803,4 +836,561 @@ class _LogroData {
     required this.color,
     required this.unlocked,
   });
+}
+
+class _AsistenciaMensual extends StatefulWidget {
+  final Set<String> asistenciasFechas;
+  const _AsistenciaMensual({required this.asistenciasFechas});
+
+  @override
+  State<_AsistenciaMensual> createState() => _AsistenciaMensualState();
+}
+
+class _AsistenciaMensualState extends State<_AsistenciaMensual> {
+  final CalendarFormat _calendarFormat = CalendarFormat.month;
+  DateTime _focusedDay = DateTime.now();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        border: Border.all(color: GingaColors.borderLight),
+      ),
+      child: TableCalendar(
+        firstDay: DateTime.utc(2020, 1, 1),
+        lastDay: DateTime.utc(2030, 12, 31),
+        focusedDay: _focusedDay,
+        calendarFormat: _calendarFormat,
+        availableCalendarFormats: const {
+          CalendarFormat.month: 'Mes',
+        },
+        headerStyle: HeaderStyle(
+          formatButtonVisible: false,
+          titleCentered: true,
+          titleTextStyle: GoogleFonts.montserrat(
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            color: GingaColors.textPrimary,
+          ),
+          leftChevronIcon: const Icon(Icons.chevron_left, color: GingaColors.brandGreen),
+          rightChevronIcon: const Icon(Icons.chevron_right, color: GingaColors.brandGreen),
+        ),
+        daysOfWeekStyle: DaysOfWeekStyle(
+          weekdayStyle: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: GingaColors.textSecondary),
+          weekendStyle: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: GingaColors.brandGreen),
+        ),
+        calendarStyle: CalendarStyle(
+          defaultTextStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary),
+          weekendTextStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary),
+          outsideDaysVisible: false,
+        ),
+        onPageChanged: (focusedDay) {
+          setState(() {
+            _focusedDay = focusedDay;
+          });
+        },
+        calendarBuilders: CalendarBuilders(
+          defaultBuilder: (context, day, focusedDay) {
+            final fechaStr = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+            final bool asistio = widget.asistenciasFechas.contains(fechaStr);
+            if (asistio) {
+              return Container(
+                margin: const EdgeInsets.all(4),
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: GingaColors.brandGreen,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '${day.day}',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              );
+            }
+            return null;
+          },
+          todayBuilder: (context, day, focusedDay) {
+            final fechaStr = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+            final bool asistio = widget.asistenciasFechas.contains(fechaStr);
+            return Container(
+              margin: const EdgeInsets.all(4),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: asistio ? GingaColors.brandGreen : Colors.transparent,
+                border: Border.all(color: GingaColors.brandGreen, width: 2),
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                '${day.day}',
+                style: GoogleFonts.montserrat(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: asistio ? Colors.white : GingaColors.brandGreen,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+//  SECCIÓN DE MEMBRESÍA Y HISTORIAL DE PAGOS (ALUMNO)
+// ─────────────────────────────────────────
+
+class _MembresiaYPagosSection extends StatelessWidget {
+  final String uid;
+  final String userStatus;
+  final Timestamp? membresiaInicio;
+  final Timestamp? membresiaFin;
+
+  const _MembresiaYPagosSection({
+    required this.uid,
+    required this.userStatus,
+    required this.membresiaInicio,
+    required this.membresiaFin,
+  });
+
+  String _formatFecha(DateTime? date) {
+    if (date == null) return '-';
+    final meses = [
+      'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
+      'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'
+    ];
+    return '${date.day} ${meses[date.month - 1]}, ${date.year}';
+  }
+
+  Future<void> _launchWhatsApp(BuildContext context) async {
+    const String message = 
+        '🥋 *¡Hola Instructor! Deseo coordinar la renovación de mi membresía en Capoeira Ginga.*\n\n'
+        '¿Me podría confirmar los datos o el monto de la cuota mensual para realizar el pago por Yape/Plin? ¡Muchas gracias! 👋';
+    const String telefonoGinga = '51987654321';
+    final String url = 'https://wa.me/$telefonoGinga?text=${Uri.encodeComponent(message)}';
+    
+    try {
+      final Uri uri = Uri.parse(url);
+      if (await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        debugPrint('WhatsApp lanzado con éxito');
+      } else {
+        throw 'No se pudo abrir WhatsApp';
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo abrir WhatsApp. Por favor, comunícate con tu instructor directamente.'),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    int diasRestantes = 0;
+    bool expirado = false;
+
+    if (membresiaFin != null) {
+      final finDate = membresiaFin!.toDate();
+      final ahora = DateTime.now();
+      // Calcular la diferencia a la medianoche para evitar desajustes de horas
+      final finDia = DateTime(finDate.year, finDate.month, finDate.day);
+      final ahoraDia = DateTime(ahora.year, ahora.month, ahora.day);
+      final diferencia = finDia.difference(ahoraDia).inDays;
+      if (diferencia >= 0) {
+        diasRestantes = diferencia;
+      } else {
+        expirado = true;
+      }
+    }
+
+    final String statusLimpio = userStatus.toLowerCase();
+    final bool esActivo = statusLimpio == 'activo' && !expirado;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Tarjeta Premium de Estado de Membresía
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: esActivo
+                ? const LinearGradient(
+                    colors: [Color(0xFF1B5E20), GingaColors.brandGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : (statusLimpio == 'prueba' || statusLimpio == 'nuevo'
+                    ? const LinearGradient(
+                        colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : const LinearGradient(
+                        colors: [Color(0xFFB71C1C), Color(0xFFD32F2F)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: (esActivo 
+                    ? GingaColors.brandGreen 
+                    : (statusLimpio == 'prueba' || statusLimpio == 'nuevo' 
+                        ? Colors.blue 
+                        : Colors.red)).withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    esActivo
+                        ? 'Acceso Regular Activo 🥋'
+                        : (statusLimpio == 'prueba' || statusLimpio == 'nuevo'
+                            ? 'Periodo de Prueba ⚡'
+                            : 'Membresía Vencida ⚠️'),
+                    style: GoogleFonts.montserrat(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      esActivo
+                          ? 'ACTIVO'
+                          : (statusLimpio == 'prueba' || statusLimpio == 'nuevo'
+                              ? 'LIBRE'
+                              : 'VENCIDO'),
+                      style: GoogleFonts.montserrat(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              if (esActivo && membresiaFin != null) ...[
+                Text(
+                  'Vence el: ${_formatFecha(membresiaFin!.toDate())}',
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  diasRestantes == 0
+                      ? '¡Tu membresía vence hoy!'
+                      : '¡Te quedan $diasRestantes días activos de entrenamiento!',
+                  style: GoogleFonts.nunito(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ] else if (statusLimpio == 'prueba' || statusLimpio == 'nuevo') ...[
+                Text(
+                  '¡Bienvenido a Capoeira Ginga!',
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Disfruta de tus clases de cortesía y coordina tu membresía regular con tu profesor.',
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.blue[900],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: () => _launchWhatsApp(context),
+                    icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                    label: Text(
+                      'Coordinar Membresía Regular',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                Text(
+                  membresiaFin != null
+                      ? 'Tu membresía expiró el: ${_formatFecha(membresiaFin!.toDate())}'
+                      : 'Aún no tienes una membresía regular activa.',
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Coordinar renovación y pago de cuota para restablecer tu acceso.',
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.red[900],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: () => _launchWhatsApp(context),
+                    icon: const Icon(Icons.chat, size: 16),
+                    label: Text(
+                      'Coordinar Renovación por WhatsApp',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
+        // 2. Historial de Pagos Recientes
+        Text(
+          'Historial de Pagos Recientes',
+          style: GoogleFonts.montserrat(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: GingaColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('pagos')
+              .where('user_id', isEqualTo: uid)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              debugPrint('Error al obtener historial de pagos: ${snapshot.error}');
+            }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: CircularProgressIndicator(color: GingaColors.brandGreen),
+                ),
+              );
+            }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: GingaColors.borderLight.withOpacity(0.5)),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.receipt_long_outlined, size: 40, color: GingaColors.textSecondary),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Aún no hay transacciones validadas en tu historial.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.nunito(
+                        fontSize: 13,
+                        color: GingaColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // Ordenar en memoria por fecha_pago de forma descendente para evitar requerir un índice compuesto en Firestore
+            final pagos = snapshot.data!.docs.toList();
+            pagos.sort((a, b) {
+              final aData = a.data() as Map<String, dynamic>;
+              final bData = b.data() as Map<String, dynamic>;
+              final Timestamp? aFecha = aData['fecha_pago'] as Timestamp?;
+              final Timestamp? bFecha = bData['fecha_pago'] as Timestamp?;
+              if (aFecha == null && bFecha == null) return 0;
+              if (aFecha == null) return 1;
+              if (bFecha == null) return -1;
+              return bFecha.compareTo(aFecha); // Orden descendente
+            });
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: pagos.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final pago = pagos[index].data() as Map<String, dynamic>;
+                final monto = pago['monto'] ?? 0.0;
+                final metodo = pago['metodo_pago'] ?? 'Yape';
+                final meses = pago['meses_pagados'] ?? 1;
+                final Timestamp? fechaPago = pago['fecha_pago'] as Timestamp?;
+                final fechaStr = _formatFecha(fechaPago?.toDate());
+
+                // Icono y color según el método de pago
+                IconData metodoIcon = Icons.payment;
+                Color metodoColor = Colors.grey;
+                switch (metodo.toString().toLowerCase()) {
+                  case 'yape':
+                    metodoIcon = Icons.phone_android;
+                    metodoColor = const Color(0xFF7A1FA2);
+                    break;
+                  case 'plin':
+                    metodoIcon = Icons.qr_code_2;
+                    metodoColor = const Color(0xFF00B0FF);
+                    break;
+                  case 'efectivo':
+                    metodoIcon = Icons.payments;
+                    metodoColor = const Color(0xFF388E3C);
+                    break;
+                  case 'transferencia':
+                    metodoIcon = Icons.account_balance;
+                    metodoColor = const Color(0xFF1976D2);
+                    break;
+                }
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: GingaColors.borderLight.withOpacity(0.5)),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: metodoColor.withOpacity(0.1),
+                        child: Icon(metodoIcon, color: metodoColor, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'S/ ${monto.toStringAsFixed(2)}',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$meses ${meses == 1 ? "mes" : "meses"} de acceso • $metodo',
+                              style: GoogleFonts.nunito(
+                                fontSize: 12,
+                                color: GingaColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            fechaStr,
+                            style: GoogleFonts.nunito(
+                              fontSize: 11,
+                              color: GingaColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.check_circle, size: 10, color: Colors.green),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Validado',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 9,
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
 }

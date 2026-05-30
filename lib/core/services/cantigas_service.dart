@@ -46,7 +46,7 @@ Vaya a la cuesta del pelourinho
 Mi corona es de oro
 Mi corona es de oro
 Soy nieto de rey nagô''',
-            'audio_url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+            'audio_url': 'assets/sounds/dong.mp3',
           },
           {
             'titulo': 'Paraná Ê',
@@ -94,7 +94,7 @@ No se mete a la capoeira.
 
 Paraná eh, Paraná eh, Paraná.
 Paraná eh, Paraná eh, Paraná.''',
-            'audio_url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+            'audio_url': 'assets/sounds/tchi.mp3',
           },
           {
             'titulo': 'Vem no Navio de Aruanda',
@@ -124,7 +124,7 @@ Trae el canto de fe y axé (energía)
 
 Viene en el barco de Aruanda, viene
 Viene en el barco de Aruanda, viene''',
-            'audio_url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+            'audio_url': 'assets/sounds/tim.mp3',
           },
           {
             'titulo': 'Ô Nanã Deixa Eu Ir',

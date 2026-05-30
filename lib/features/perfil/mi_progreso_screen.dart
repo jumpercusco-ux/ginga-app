@@ -110,12 +110,12 @@ class MiProgresoScreen extends StatelessWidget {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
       builder: (context, userSnapshot) {
-        String cordaActual = 'Iniciante';
+        String cordaActual = 'Crua';
         Timestamp? fechaInicio;
 
         if (userSnapshot.hasData && userSnapshot.data!.exists) {
           final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-          cordaActual = userData['corda'] ?? 'Iniciante';
+          cordaActual = userData['corda'] ?? 'Crua';
           fechaInicio = userData['fecha_inicio'] as Timestamp?;
         }
 
@@ -302,7 +302,7 @@ class _CordaTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<String> todasLasCordas = [
-      'Iniciante',
+      'Crua',
       'Corda Amarela',
       'Corda Laranja',
       'Corda Azul',

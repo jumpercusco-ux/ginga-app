@@ -14,6 +14,7 @@ class PracticarToqueScreen extends StatefulWidget {
 
 class _PracticarToqueScreenState extends State<PracticarToqueScreen>
     with TickerProviderStateMixin {
+  int _selectedInstrumentIndex = 0; // 0: Berimbau, 1: Pandeiro, 2: Atabaque
   int _selectedToqueIndex = 0;
   bool _isPlaying = false;
   late AnimationController _waveController;
@@ -29,40 +30,94 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
   late AudioPlayer _tinPlayer;
   bool _isLoadingSounds = true;
 
-  final List<_ToqueData> _toques = [
-    _ToqueData(
-      nombre: 'Angola',
-      descripcion: 'Juego bajo, estratégico, lento y tradicional. Exige paciencia y astucia.',
-      tag: 'LENTO',
-      tagColor: GingaColors.brandGreen,
-      bpm: 85,
-      silabas: ['Tchi', 'Tchi', 'Dong', '•', 'Tchi', 'Tchi', 'Tin', '•'],
-    ),
-    _ToqueData(
-      nombre: 'São Bento Pequeno',
-      descripcion: 'Juego intermedio, fluido y de transición. Ideal para entrenar combinaciones suaves.',
-      tag: 'MEDIO',
-      tagColor: GingaColors.accentAmber,
-      bpm: 110,
-      silabas: ['Tchi', 'Tchi', 'Tin', '•', 'Tchi', 'Tchi', 'Dong', '•'],
-    ),
-    _ToqueData(
-      nombre: 'São Bento Grande',
-      descripcion: 'Juego rápido, enérgico y altamente acrobático. Enfocado en patadas veloces y reflejos.',
-      tag: 'RÁPIDO',
-      tagColor: GingaColors.brandGreen,
-      bpm: 130,
-      silabas: ['Tchi', 'Tchi', 'Dong', '•', 'Tin', '•', 'Tin', '•'],
-    ),
-    _ToqueData(
-      nombre: 'Samba de Roda',
-      descripcion: 'Ritmo festivo, alegre y sincopado de clausura. Celebración con canto, palmas y baile.',
-      tag: 'ESPECIAL',
-      tagColor: GingaColors.accentAmber,
-      bpm: 145,
-      silabas: ['Tchi', 'Tchi', 'Dong', 'Tin', 'Dong', 'Tin', 'Dong', '•'],
-    ),
-  ];
+  final Map<int, List<_ToqueData>> _toquesPorInstrumento = {
+    0: [ // Berimbau
+      _ToqueData(
+        nombre: 'Angola',
+        descripcion: 'Juego bajo, estratégico, lento y tradicional. Exige paciencia y astucia.',
+        tag: 'LENTO',
+        tagColor: GingaColors.brandGreen,
+        bpm: 85,
+        silabas: ['Dong', 'Tchi', 'Tchi', 'Dong', 'Tim'],
+      ),
+      _ToqueData(
+        nombre: 'São Bento Pequeno',
+        descripcion: 'Juego intermedio, fluido y de transición. Ideal para entrenar combinaciones suaves.',
+        tag: 'MEDIO',
+        tagColor: GingaColors.accentAmber,
+        bpm: 110,
+        silabas: ['Dong', 'Tchi', 'Dong', 'Tchi', 'Tim'],
+      ),
+      _ToqueData(
+        nombre: 'São Bento Grande',
+        descripcion: 'Juego rápido, enérgico y altamente acrobático. Enfocado en patadas veloces y reflejos.',
+        tag: 'RÁPIDO',
+        tagColor: GingaColors.brandGreen,
+        bpm: 130,
+        silabas: ['Tchi', 'Tchi', 'Dong', 'Tchi', 'Tim'],
+      ),
+      _ToqueData(
+        nombre: 'Samba de Roda',
+        descripcion: 'Ritmo festivo, alegre y sincopado de clausura. Celebración con canto, palmas y baile.',
+        tag: 'ESPECIAL',
+        tagColor: GingaColors.accentAmber,
+        bpm: 145,
+        silabas: ['Tchi', 'Tchi', 'Dong', 'Tin', 'Dong', 'Tin', 'Dong', '•'],
+      ),
+    ],
+    1: [ // Pandeiro
+      _ToqueData(
+        nombre: 'Toque Básico',
+        descripcion: 'Ritmo base del pandeiro en capoeira. Combina golpe de pulgar, yemas y sacudidas de platinelas.',
+        tag: 'BÁSICO',
+        tagColor: GingaColors.brandGreen,
+        bpm: 100,
+        silabas: ['Tup', 'Taca', 'Plat', 'Tup', 'Taca', 'Plat'],
+      ),
+      _ToqueData(
+        nombre: 'Toque Dobrado',
+        descripcion: 'Variación sincopada avanzada. Dobla los golpes de mano para dar más velocidad al juego de la roda.',
+        tag: 'AVANZADO',
+        tagColor: GingaColors.accentAmber,
+        bpm: 115,
+        silabas: ['Tup', 'Tchi', 'Taca', 'Plat', 'Tup', 'Tchi', 'Taca', 'Plat'],
+      ),
+      _ToqueData(
+        nombre: 'Samba de Pandeiro',
+        descripcion: 'Compás festivo y rápido tradicionalmente usado para acompañar las palmas al final de la roda.',
+        tag: 'FIESTA',
+        tagColor: Colors.blue,
+        bpm: 125,
+        silabas: ['Tup', 'Plat', 'Taca', 'Plat', 'Tup', 'Plat', 'Taca', 'Plat'],
+      ),
+    ],
+    2: [ // Atabaque
+      _ToqueData(
+        nombre: 'Toque Congo',
+        descripcion: 'Ritmo majestuoso, constante y pesado. El latido del atabaque más sagrado en la roda.',
+        tag: 'SOLEMNE',
+        tagColor: GingaColors.brandGreen,
+        bpm: 105,
+        silabas: ['Gong', 'Muff', 'Slap', 'Muff', 'Gong', 'Muff', 'Slap', 'Muff'],
+      ),
+      _ToqueData(
+        nombre: 'Barravento',
+        descripcion: 'Toque sumamente rápido e inquieto. Caracterizado por slaps agudos e intensos.',
+        tag: 'ENÉRGICO',
+        tagColor: Colors.red,
+        bpm: 130,
+        silabas: ['Gong', 'Gong', 'Slap', 'Gong', 'Slap', 'Gong', 'Gong', 'Slap'],
+      ),
+      _ToqueData(
+        nombre: 'Toque Angola',
+        descripcion: 'Compás pausado y cadencioso para acompañar al berimbau en la roda tradicional de Angola.',
+        tag: 'CADENCIADO',
+        tagColor: GingaColors.accentAmber,
+        bpm: 85,
+        silabas: ['Gong', 'Slap', '•', 'Gong', 'Slap', '•'],
+      ),
+    ],
+  };
 
   @override
   void initState() {
@@ -78,6 +133,100 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
     )..repeat(reverse: true);
 
     _initAudio();
+
+    // Iniciar temporizador de 1 segundo para mostrar el modal de "En Construcción"
+    Timer(const Duration(seconds: 1), () {
+      if (mounted) {
+        _mostrarModalConstruccion();
+      }
+    });
+  }
+
+  void _mostrarModalConstruccion() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Bloquear cierre tocando fuera
+      builder: (BuildContext dialogContext) {
+        return WillPopScope(
+          onWillPop: () async => false, // Bloquear botón físico de retroceso de Android
+          child: AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(GingaRadius.lg),
+            ),
+            title: Column(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: GingaColors.accentAmber.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.construction_rounded,
+                    color: GingaColors.accentAmber,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Sección en Construcción 🛠️',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: GingaColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'Esta sección interactiva de Toques de Berimbau se encuentra actualmente bajo desarrollo activo para brindarte la mejor experiencia con sonido y ritmos. ¡Disponible muy pronto!',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.nunito(
+                color: GingaColors.textSecondary,
+                fontSize: 14,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            actionsAlignment: MainAxisAlignment.center,
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: SizedBox(
+                  width: 180,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Volver atrás
+                      Navigator.pop(dialogContext);
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: GingaColors.brandGreen,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(GingaRadius.full),
+                      ),
+                    ),
+                    child: Text(
+                      'Volver Atrás',
+                      style: GoogleFonts.montserrat(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _initAudio() async {
@@ -87,9 +236,9 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
       _tinPlayer = AudioPlayer();
 
       // Pre-cargar los sonidos desde assets locales
-      await _tchiPlayer.setAsset('assets/sounds/tchi.wav');
-      await _dongPlayer.setAsset('assets/sounds/dong.wav');
-      await _tinPlayer.setAsset('assets/sounds/tin.wav');
+      await _tchiPlayer.setAsset('assets/sounds/tchi.mp3');
+      await _dongPlayer.setAsset('assets/sounds/dong.mp3');
+      await _tinPlayer.setAsset('assets/sounds/tim.mp3');
 
       // Asegurar volumen al máximo
       await _tchiPlayer.setVolume(1.0);
@@ -139,15 +288,16 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
 
   void _startSequencer() {
     _stepTimer?.cancel();
-    final bpm = _toques[_selectedToqueIndex].bpm;
+    final toquesActuales = _toquesPorInstrumento[_selectedInstrumentIndex]!;
+    final bpm = toquesActuales[_selectedToqueIndex].bpm;
     // Subdivisiones de corchea para las sílabas: 60000ms / BPM / 2
-    final intervalMs = (60000 / bpm / 2).toInt();
+    final intervalMs = (60000 / bpm / 2 * 2.0).toInt();
 
     _stepTimer = Timer.periodic(Duration(milliseconds: intervalMs), (timer) {
       if (mounted && _isPlaying) {
-        final totalSteps = _toques[_selectedToqueIndex].silabas.length;
+        final totalSteps = toquesActuales[_selectedToqueIndex].silabas.length;
         final nextStep = (_currentStep + 1) % totalSteps;
-        final silaba = _toques[_selectedToqueIndex].silabas[nextStep];
+        final silaba = toquesActuales[_selectedToqueIndex].silabas[nextStep];
 
         // Disparar sonido con cero latencia
         if (!_isLoadingSounds) {
@@ -162,27 +312,69 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
   }
 
   void _playSyllableSound(String silaba) {
-    switch (silaba) {
-      case 'Tchi':
-        _tchiPlayer.seek(Duration.zero);
-        _tchiPlayer.play();
-        break;
-      case 'Dong':
-        _dongPlayer.seek(Duration.zero);
-        _dongPlayer.play();
-        break;
-      case 'Tin':
-        _tinPlayer.seek(Duration.zero);
-        _tinPlayer.play();
-        break;
-      default:
-        break;
+    if (_selectedInstrumentIndex == 0) {
+      // Berimbau
+      switch (silaba) {
+        case 'Tchi':
+          _tchiPlayer.seek(Duration.zero);
+          _tchiPlayer.play();
+          break;
+        case 'Dong':
+          _dongPlayer.seek(Duration.zero);
+          _dongPlayer.play();
+          break;
+        case 'Tin':
+        case 'Tim':
+          _tinPlayer.seek(Duration.zero);
+          _tinPlayer.play();
+          break;
+        default:
+          break;
+      }
+    } else if (_selectedInstrumentIndex == 1) {
+      // Pandeiro
+      switch (silaba) {
+        case 'Tup':
+          _dongPlayer.seek(Duration.zero);
+          _dongPlayer.play();
+          break;
+        case 'Tchi':
+        case 'Taca':
+          _tchiPlayer.seek(Duration.zero);
+          _tchiPlayer.play();
+          break;
+        case 'Plat':
+          _tinPlayer.seek(Duration.zero);
+          _tinPlayer.play();
+          break;
+        default:
+          break;
+      }
+    } else if (_selectedInstrumentIndex == 2) {
+      // Atabaque
+      switch (silaba) {
+        case 'Gong':
+          _dongPlayer.seek(Duration.zero);
+          _dongPlayer.play();
+          break;
+        case 'Slap':
+          _tinPlayer.seek(Duration.zero);
+          _tinPlayer.play();
+          break;
+        case 'Muff':
+          _tchiPlayer.seek(Duration.zero);
+          _tchiPlayer.play();
+          break;
+        default:
+          break;
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final selectedToque = _toques[_selectedToqueIndex];
+    final toquesActuales = _toquesPorInstrumento[_selectedInstrumentIndex]!;
+    final selectedToque = toquesActuales[_selectedToqueIndex];
 
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
@@ -231,6 +423,20 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
               ),
             ),
 
+            // ── Barra Selectora de Instrumentos (¡NUEVO!) ───────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Row(
+                children: [
+                  _buildInstrumentTab(0, 'Berimbau', Icons.music_note_rounded),
+                  const SizedBox(width: 8),
+                  _buildInstrumentTab(1, 'Pandeiro', Icons.donut_large_rounded),
+                  const SizedBox(width: 8),
+                  _buildInstrumentTab(2, 'Atabaque', Icons.layers_rounded),
+                ],
+              ),
+            ),
+
             // ── Reproductor y Análisis de Ritmo ──────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
@@ -238,7 +444,11 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'GUÍA RÍTMICA DIGITAL',
+                    _selectedInstrumentIndex == 0
+                        ? 'GUÍA RÍTMICA DIGITAL'
+                        : (_selectedInstrumentIndex == 1
+                            ? 'PULSO Y SÍNCOPA DE RODA'
+                            : 'LATIDO Y BASE DE RODA'),
                     style: GoogleFonts.montserrat(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
@@ -248,7 +458,11 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Simulador de Berimbau',
+                    _selectedInstrumentIndex == 0
+                        ? 'Simulador de Berimbau'
+                        : (_selectedInstrumentIndex == 1
+                            ? 'Simulador de Pandeiro'
+                            : 'Simulador de Atabaque'),
                     style: GoogleFonts.montserrat(
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
@@ -451,7 +665,11 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'CLAVE DE SONIDOS DEL BERIMBAU:',
+                      _selectedInstrumentIndex == 0
+                          ? 'CLAVE DE SONIDOS DEL BERIMBAU:'
+                          : (_selectedInstrumentIndex == 1
+                              ? 'CLAVE DE SONIDOS DEL PANDEIRO:'
+                              : 'CLAVE DE SONIDOS DEL ATABAQUE:'),
                       style: GoogleFonts.montserrat(
                         fontSize: 8.5,
                         fontWeight: FontWeight.w900,
@@ -460,15 +678,37 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Column(
-                      children: [
-                        _buildGlosarioItem('Tchi', 'Zumbido sordo', 'Piedra apoyada levemente contra el alambre'),
-                        const SizedBox(height: 10),
-                        _buildGlosarioItem('Dong', 'Grave / Abierto', 'Alambre libre / calabaza separada del pecho'),
-                        const SizedBox(height: 10),
-                        _buildGlosarioItem('Tin', 'Agudo / Seco', 'Piedra presionada fuertemente contra el alambre'),
-                      ],
-                    ),
+                    if (_selectedInstrumentIndex == 0) ...[
+                      Column(
+                        children: [
+                          _buildGlosarioItem('Tchi', 'Zumbido sordo', 'Piedra apoyada levemente contra el alambre'),
+                          const SizedBox(height: 10),
+                          _buildGlosarioItem('Dong', 'Grave / Abierto', 'Alambre libre / calabaza separada del pecho'),
+                          const SizedBox(height: 10),
+                          _buildGlosarioItem('Tin', 'Agudo / Seco', 'Piedra presionada fuertemente contra el alambre'),
+                        ],
+                      ),
+                    ] else if (_selectedInstrumentIndex == 1) ...[
+                      Column(
+                        children: [
+                          _buildGlosarioItem('Tup', 'Golpe de Pulgar', 'Golpe seco en el parche con el pulgar para marcar graves'),
+                          const SizedBox(height: 10),
+                          _buildGlosarioItem('Taca', 'Puntas de Dedos', 'Golpe ligero con las yemas en el borde superior del parche'),
+                          const SizedBox(height: 10),
+                          _buildGlosarioItem('Plat', 'Sacudida Platinelas', 'Movimiento de muñeca para hacer sonar los platillos brillantes'),
+                        ],
+                      ),
+                    ] else ...[
+                      Column(
+                        children: [
+                          _buildGlosarioItem('Gong', 'Golpe Abierto', 'Golpe resonante en el centro del cuero para el latido grave'),
+                          const SizedBox(height: 10),
+                          _buildGlosarioItem('Slap', 'Golpe Cerrado', 'Slap seco agudo con la mano abierta en el borde del tambor'),
+                          const SizedBox(height: 10),
+                          _buildGlosarioItem('Muff', 'Toque Ahogado', 'Golpe amortiguado apoyando la mano en el cuero para apagar resonancia'),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -528,10 +768,10 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _toques.length,
+                itemCount: toquesActuales.length,
                 itemBuilder: (context, index) {
                   return _ToqueCard(
-                    toque: _toques[index],
+                    toque: toquesActuales[index],
                     isSelected: _selectedToqueIndex == index,
                     onTap: () {
                       setState(() {
@@ -602,6 +842,62 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildInstrumentTab(int index, String label, IconData icon) {
+    final isSelected = _selectedInstrumentIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedInstrumentIndex = index;
+            _selectedToqueIndex = 0; // Reinicia selección al cambiar de instrumento
+            _isPlaying = false;
+            _currentStep = -1;
+            _stepTimer?.cancel();
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? GingaColors.brandGreen : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? GingaColors.brandGreen : GingaColors.borderLight,
+              width: 1.5,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: GingaColors.brandGreen.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    )
+                  ]
+                : [],
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? Colors.white : GingaColors.textSecondary,
+                size: 18,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: GoogleFonts.montserrat(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? Colors.white : GingaColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==========================================
+    // REGLA PARA PERFILES DE USUARIO Y NOTIFICACIONES
+    // ==========================================
+    match /users/{userId} {
+      allow read, write: if request.auth != null;
+      
+      // Permitir que cualquier usuario autenticado envíe una notificación (create),
+      // pero solo el dueño del buzón pueda leerla o gestionarla (read, update, delete)
+      match /notificaciones/{notificacionId} {
+        allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null;
+      }
+    }
+    
+    // ==========================================
+    // REGLA PARA LA TIENDA (CATÁLOGO DE PRODUCTOS)
+    // ==========================================
+    match /productos/{productId} {
+      // Cualquier alumno autenticado puede ver el catálogo
+      allow read: if request.auth != null;
+      
+      // Solo los usuarios con rol 'profesor' pueden crear, editar o eliminar productos
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor';
+    }
+    
+    // REGLA PARA LOS PEDIDOS DE LA TIENDA
+    match /pedidos/{pedidoId} {
+      // Alumnos e instructores autenticados pueden crear o leer los pedidos
+      allow read, write: if request.auth != null;
+    }
+    
+    // ==========================================
+    // REGLAS GENERALES PARA CLASES, ASISTENCIAS Y SESIONES
+    // ==========================================
+    match /clases/{claseId} {
+      allow read: if request.auth != null;
+      
+      // Permitir que los alumnos actualicen cupos al reservar
+      allow update: if request.auth != null;
+      
+      // Solo profesores pueden crear o eliminar clases
+      allow create, delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor';
+    }
+    
+    match /asistencias/{asistenciaId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /reservas/{reservaId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /sesiones/{sesionId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // ==========================================
+    // REGLA PARA LOS PAGOS Y TRANSACCIONES 💰 (¡NUEVO!)
+    // ==========================================
+    match /pagos/{pagoId} {
+      // Los alumnos pueden leer únicamente sus propios recibos de pago.
+      // Los instructores/profesores pueden leer todos los pagos para ver el consolidado financiero.
+      allow read: if request.auth != null && (
+        resource.data.user_id == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor'
+      );
+      
+      // Solo los usuarios con rol 'profesor' pueden registrar, modificar o borrar transacciones contables
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor';
+    }
+    
+    // ==========================================
+    // REGLA PARA LA BIBLIOTECA (TUTORIALES / LECCIONES)
+    // ==========================================
+    match /tutoriales/{tutorialId} {
+      // Cualquier alumno autenticado puede ver las lecciones
+      allow read: if request.auth != null;
+      
+      // Solo los usuarios con rol 'profesor' pueden crear, editar o eliminar lecciones
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor';
+    }
+    
+    // ==========================================
+    // REGLA PARA EL CANCIONERO (CANTIGAS / AUDIO REAL)
+    // ==========================================
+    match /cantigas/{cantigaId} {
+      // Cualquier alumno autenticado puede ver y reproducir las canciones
+      allow read: if request.auth != null;
+      
+      // Permite inicializar y sembrar el catálogo de cantigas a usuarios autenticados
+      allow write: if request.auth != null;
+    }
+    
+    // ==========================================
+    // REGLA PARA LOS EVENTOS Y REGISTROS (TALLERES)
+    // ==========================================
+    match /eventos/{eventId} {
+      // Cualquier alumno autenticado puede ver y leer los eventos programados
+      allow read: if request.auth != null;
+      
+      // Permite inicializar y gestionar eventos a usuarios autenticados
+      allow write: if request.auth != null;
+      
+      // Subcolección para los registros de asistencia al taller
+      match /registros/{userId} {
+        // Los alumnos pueden confirmar e inscribirse a sí mismos
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}

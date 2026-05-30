@@ -23,6 +23,11 @@ dependencies:
   video_player: ^2.11.1
   flutter_tts: ^4.2.5
   just_audio: ^0.9.42
+  table_calendar: ^3.0.9
+  firebase_app_check: ^0.3.1
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.1
+  http: ^1.2.0
 
 
 dev_dependencies:

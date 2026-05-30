@@ -63,11 +63,11 @@ class MusicaScreen extends StatelessWidget {
               // ── Toques de Berimbau Card ────────────────────
               _MusicaMenuCard(
                 titulo: 'Toques de Berimbau',
-                subtitulo: 'Identifica ritmos con IA en tiempo real',
+                subtitulo: 'Próximamente - Sección en desarrollo activo 🛠️',
                 icono: Icons.music_note,
-                tag: 'IA',
-                tagColor: GingaColors.brandGreen,
-                color: GingaColors.brandGreen,
+                tag: 'PRÓXIMAMENTE ⏳',
+                tagColor: GingaColors.accentAmber,
+                color: GingaColors.accentAmber,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(

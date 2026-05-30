@@ -81,8 +81,17 @@ class EventosService {
           'instructor': 'Mestre Sidney',
           'cupos_disponibles': 25,
           'tipo': 'especial',
+          'sede': 'Cusco',
           'lugar': 'Parque AMAUTA, Urb. Magisterio (El Mapa)',
         });
+      } else {
+        // Garantizar que todos los registros de este evento tengan la Sede 'Cusco' para retrocompatibilidad
+        for (var doc in queryClase.docs) {
+          final data = doc.data();
+          if (data['sede'] == null || data['sede'] != 'Cusco') {
+            await doc.reference.update({'sede': 'Cusco'});
+          }
+        }
       }
 
       // 2. Sembrar en la colección /eventos

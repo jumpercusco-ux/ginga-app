@@ -7,6 +7,7 @@ import '../../core/theme/ginga_theme.dart';
 import '../perfil/progreso_screen.dart';
 import 'qr_generator_screen.dart';
 import 'instructor_alumnos_screen.dart';
+import 'instructor_pagos_screen.dart';
 import '../biblioteca/cancionero_screen.dart';
 
 // Función global de navegación al QR Generator
@@ -42,6 +43,7 @@ class _InstructorClaseScreenState extends State<InstructorClaseScreen> {
         children: const [
           _InstructorDashboard(),
           InstructorAlumnosScreen(),
+          InstructorPagosScreen(),
           ProgresoScreen(),
         ],
       ),
@@ -461,6 +463,11 @@ class _InstructorBottomNav extends StatelessWidget {
           label: 'Alumnos',
         ),
         BottomNavigationBarItem(
+          icon: Icon(Icons.monetization_on_outlined),
+          activeIcon: Icon(Icons.monetization_on),
+          label: 'Finanzas',
+        ),
+        BottomNavigationBarItem(
           icon: Icon(Icons.person_outline),
           activeIcon: Icon(Icons.person),
           label: 'Mi Perfil',
@@ -575,6 +582,13 @@ class _ClaseInstructorCard extends StatelessWidget {
                               color: GingaColors.textSecondary)),
                   ],
                 ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.edit, color: GingaColors.brandGreen, size: 20),
+                onPressed: () => context.push('/crear-clase?claseId=$claseId'),
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(8),
               ),
               const SizedBox(width: 8),
               Column(

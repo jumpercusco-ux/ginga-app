@@ -339,9 +339,10 @@ class _HomeDashboard extends StatelessWidget {
         final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
         String status = data['status'] ?? UserStatus.nuevo;
         final nombre = data['nombre'] ?? 'Alumno';
-        final corda = data['corda'] ?? 'Iniciante';
+        final corda = data['corda'] ?? 'Crua';
         final claseId = data['clase_id'] ?? '';
         final sede = data['sede'] ?? '';
+        debugPrint('GINGA_DEBUG: Usuario "$nombre" tiene Sede "$sede" | Status: "$status" | UID: "$uid"');
         final Timestamp? membresiaFin = data['membresia_fin'];
 
         // Chequeo de expiración de membresía
@@ -356,6 +357,38 @@ class _HomeDashboard extends StatelessWidget {
                   .update({'status': UserStatus.inactivo});
             });
           }
+        }
+
+        // Auto-curación de sede incorrecta (si la sede es un nombre de clase o está vacía/inválida y tiene clase asignada)
+        if (uid != null &&
+            claseId.isNotEmpty &&
+            (sede == 'Kids' ||
+             sede == 'Adultos' ||
+             sede == 'Todos los niveles' ||
+             sede == '')) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            try {
+              final claseDoc = await FirebaseFirestore.instance
+                  .collection('clases')
+                  .doc(claseId)
+                  .get();
+              if (claseDoc.exists) {
+                final claseData = claseDoc.data() ?? {};
+                final claseSede = claseData['sede']; // ej: "Cusco", "Lima"
+                if (claseSede != null &&
+                    claseSede.toString().isNotEmpty &&
+                    claseSede.toString() != sede) {
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(uid)
+                      .update({'sede': claseSede.toString()});
+                  debugPrint('GINGA_DEBUG: Auto-corregida la sede del usuario a "${claseSede.toString()}" basada en su clase.');
+                }
+              }
+            } catch (e) {
+              debugPrint('Error en auto-curación de sede: $e');
+            }
+          });
         }
 
         return SafeArea(
@@ -1312,16 +1345,19 @@ class _EventosSede extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Si la sede es 'U. Continental', lo mapeamos a 'Cusco' para ver los eventos regionales de Cusco
+    final String querySede = (sede == 'U. Continental') ? 'Cusco' : sede;
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('clases')
-          .where('sede', isEqualTo: sede)
+          .where('sede', isEqualTo: querySede)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox.shrink();
 
         final docs = snapshot.data!.docs;
-        
+
         // Filtrar client-side para obtener solo tipo == 'especial' o 'roda'
         final eventos = docs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
@@ -1373,7 +1409,8 @@ class _ClasesNuevo extends StatelessWidget {
   final String uid;
   final String sede;
   final bool soloRegulares;
-  const _ClasesNuevo({required this.uid, required this.sede, this.soloRegulares = false});
+  const _ClasesNuevo(
+      {required this.uid, required this.sede, this.soloRegulares = false});
 
   @override
   Widget build(BuildContext context) {
@@ -1490,7 +1527,6 @@ String _interpretarDiasDeSemana(String diasRaw) {
   }).join(', ');
 }
 
-
 class _ClaseCardNuevo extends StatelessWidget {
   final String claseId;
   final String hora;
@@ -1522,17 +1558,18 @@ class _ClaseCardNuevo extends StatelessWidget {
   Widget build(BuildContext context) {
     // Determinar esquema de colores basado en el tipo de clase
     final bool isEvent = tipo == 'especial' || tipo == 'roda';
-    final Color accentColor = isEvent ? GingaColors.accentAmber : GingaColors.brandGreen;
-    
+    final Color accentColor =
+        isEvent ? GingaColors.accentAmber : GingaColors.brandGreen;
+
     // Colores suaves para las insignias
-    final Color badgeBgColor = isEvent 
+    final Color badgeBgColor = isEvent
         ? const Color(0xFFFFF8E1) // Ámbar muy suave
         : const Color(0xFFE8F5E9); // Verde muy suave
-        
+
     final Color badgeTextColor = isEvent
         ? const Color(0xFFE65100) // Ámbar/Naranja profundo
         : const Color(0xFF2E7D32); // Verde profundo
-        
+
     final IconData badgeIcon = tipo == 'roda'
         ? Icons.local_fire_department_rounded
         : tipo == 'especial'
@@ -1546,8 +1583,8 @@ class _ClaseCardNuevo extends StatelessWidget {
             : 'CLASE 🥋';
 
     // Determinar texto de ubicación
-    final String locationText = lugar.isNotEmpty 
-        ? lugar 
+    final String locationText = lugar.isNotEmpty
+        ? lugar
         : (ubicacion.isNotEmpty ? ubicacion : 'Sede Física');
 
     return GestureDetector(
@@ -1565,8 +1602,8 @@ class _ClaseCardNuevo extends StatelessWidget {
             ),
           ],
           border: Border.all(
-            color: isEvent 
-                ? GingaColors.accentAmber.withOpacity(0.3) 
+            color: isEvent
+                ? GingaColors.accentAmber.withOpacity(0.3)
                 : GingaColors.borderLight.withOpacity(0.7),
             width: isEvent ? 1.5 : 1.0,
           ),
@@ -1582,7 +1619,7 @@ class _ClaseCardNuevo extends StatelessWidget {
                   width: 5,
                   color: accentColor,
                 ),
-                
+
                 // 2. Información Central
                 Expanded(
                   child: Padding(
@@ -1595,15 +1632,18 @@ class _ClaseCardNuevo extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: badgeBgColor,
-                                borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                borderRadius:
+                                    BorderRadius.circular(GingaRadius.sm),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(badgeIcon, size: 12, color: badgeTextColor),
+                                  Icon(badgeIcon,
+                                      size: 12, color: badgeTextColor),
                                   const SizedBox(width: 4),
                                   Text(
                                     typeLabel,
@@ -1617,15 +1657,18 @@ class _ClaseCardNuevo extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            
+
                             // Insignia específica de la clase (ej. U. Continental 🎓)
                             if (badge.isNotEmpty && badge != nivel)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: GingaColors.backgroundLight,
-                                  border: Border.all(color: GingaColors.borderLight),
-                                  borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                  border: Border.all(
+                                      color: GingaColors.borderLight),
+                                  borderRadius:
+                                      BorderRadius.circular(GingaRadius.sm),
                                 ),
                                 child: Text(
                                   badge,
@@ -1639,7 +1682,7 @@ class _ClaseCardNuevo extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        
+
                         // Título de la clase/nivel
                         Text(
                           nivel,
@@ -1652,11 +1695,12 @@ class _ClaseCardNuevo extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 12),
-                        
+
                         // Fila de Horario y Días
                         Row(
                           children: [
-                            Icon(Icons.access_time_rounded, size: 14, color: accentColor),
+                            Icon(Icons.access_time_rounded,
+                                size: 14, color: accentColor),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -1671,12 +1715,13 @@ class _ClaseCardNuevo extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 6),
-                        
+
                         // Fila de Instructor
                         if (instructor.isNotEmpty) ...[
                           Row(
                             children: [
-                              const Icon(Icons.person_outline_rounded, size: 14, color: GingaColors.textSecondary),
+                              const Icon(Icons.person_outline_rounded,
+                                  size: 14, color: GingaColors.textSecondary),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -1691,12 +1736,13 @@ class _ClaseCardNuevo extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                         ],
-                        
+
                         // Fila de Lugar/Ubicación (📍 Crucial para saber a dónde ir)
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.location_on_outlined, size: 14, color: Colors.redAccent),
+                            const Icon(Icons.location_on_outlined,
+                                size: 14, color: Colors.redAccent),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -1716,16 +1762,17 @@ class _ClaseCardNuevo extends StatelessWidget {
                     ),
                   ),
                 ),
-                
+
                 // 3. Panel de Acción Derecho
                 Container(
                   width: 56,
                   decoration: BoxDecoration(
-                    color: isEvent 
-                        ? GingaColors.accentAmber.withOpacity(0.06) 
+                    color: isEvent
+                        ? GingaColors.accentAmber.withOpacity(0.06)
                         : GingaColors.brandGreen.withOpacity(0.04),
                     border: Border(
-                      left: BorderSide(color: GingaColors.borderLight.withOpacity(0.5)),
+                      left: BorderSide(
+                          color: GingaColors.borderLight.withOpacity(0.5)),
                     ),
                   ),
                   child: Column(
@@ -2689,7 +2736,7 @@ class _WorkshopBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 GestureDetector(
-                  onTap: () => _mostrarDetallesEvento(context, eventId, data),
+                  onTap: () => _navegarADetalleEventoOModal(context, eventId, data),
                   child: Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -2799,7 +2846,7 @@ class _WorkshopBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 GestureDetector(
-                  onTap: () => _mostrarDetallesEvento(context, eventId, data),
+                  onTap: () => _navegarADetalleEventoOModal(context, eventId, data),
                   child: Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -2917,6 +2964,71 @@ class _WorkshopBanner extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _navegarADetalleEventoOModal(
+      BuildContext context, String eventId, Map<String, dynamic> data) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: CircularProgressIndicator(color: GingaColors.brandGreen),
+      ),
+    );
+
+    // Función interna para limpiar emojis y caracteres especiales, dejando solo texto y números limpios
+    String cleanString(String text) {
+      return text
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^\w\s\u00C0-\u00FF]'), '') // Quita emojis, conserva letras y números acentuados
+          .replaceAll(RegExp(r'\s+'), ' ') // Normaliza espacios múltiples
+          .trim();
+    }
+
+    try {
+      final String eventTitle = data['titulo'] ?? '';
+      final String eventOrganizador = data['organizador'] ?? '';
+      
+      final String cleanTitle = cleanString(eventTitle);
+      final String cleanOrganizador = cleanString(eventOrganizador);
+
+      final clasesSnap = await FirebaseFirestore.instance
+          .collection('clases')
+          .where('tipo', isEqualTo: 'especial')
+          .get();
+      
+      String? matchedClaseId;
+      for (var doc in clasesSnap.docs) {
+        final cData = doc.data();
+        final String badge = (cData['badge'] ?? '').toString();
+        final String instructor = (cData['instructor'] ?? '').toString();
+        
+        final String cleanBadge = cleanString(badge);
+        final String cleanInstructor = cleanString(instructor);
+        
+        // Coincidencia robusta sin emojis (p. ej. "entreno y roda al aire libre" contiene "entreno y roda")
+        if ((cleanTitle.isNotEmpty && cleanBadge.isNotEmpty && (cleanTitle.contains(cleanBadge) || cleanBadge.contains(cleanTitle))) ||
+            (cleanTitle.isNotEmpty && cleanInstructor.isNotEmpty && (cleanTitle.contains(cleanInstructor) || cleanInstructor.contains(cleanTitle))) ||
+            (cleanInstructor.isNotEmpty && cleanOrganizador.isNotEmpty && (cleanInstructor.contains(cleanOrganizador) || cleanOrganizador.contains(cleanInstructor)))) {
+          matchedClaseId = doc.id;
+          break;
+        }
+      }
+
+      if (context.mounted) {
+        Navigator.pop(context); // Cierra loader
+        if (matchedClaseId != null) {
+          context.push('/clase-detalle?claseId=$matchedClaseId');
+        } else {
+          _mostrarDetallesEvento(context, eventId, data);
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Cierra loader
+        _mostrarDetallesEvento(context, eventId, data);
+      }
+    }
   }
 
   // ── Bottom Sheet de Detalles e Inscripción Interactiva ────────────────────
