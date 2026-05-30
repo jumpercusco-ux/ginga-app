@@ -496,6 +496,8 @@ class _HomeDashboard extends StatelessWidget {
           });
         }
 
+        final bool isVirtual = (sede == 'Virtual / A Distancia');
+
         return SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -519,7 +521,7 @@ class _HomeDashboard extends StatelessWidget {
                   sede: sede,
                   membresiaFin: membresiaFin,
                   nombre: nombre,
-                  reserveKey: classReserveKey,
+                  reserveKey: isVirtual ? null : classReserveKey,
                 ),
                 const SizedBox(height: 20),
 
@@ -529,6 +531,7 @@ class _HomeDashboard extends StatelessWidget {
                   claseId: claseId,
                   uid: uid ?? '',
                   sede: sede,
+                  reserveKey: isVirtual ? classReserveKey : null,
                 ),
                 const SizedBox(height: 20),
 
@@ -555,14 +558,14 @@ class _StatusBanner extends StatelessWidget {
   final String sede;
   final Timestamp? membresiaFin;
   final String nombre;
-  final GlobalKey reserveKey;
+  final Key? reserveKey;
 
   const _StatusBanner({
     required this.status,
     required this.sede,
     this.membresiaFin,
     required this.nombre,
-    required this.reserveKey,
+    this.reserveKey,
   });
 
   @override
@@ -755,18 +758,20 @@ class _ContentByStatus extends StatelessWidget {
   final String claseId;
   final String uid;
   final String sede;
+  final Key? reserveKey;
 
   const _ContentByStatus({
     required this.status,
     required this.claseId,
     required this.uid,
     required this.sede,
+    this.reserveKey,
   });
 
   @override
   Widget build(BuildContext context) {
     if (sede == 'Virtual / A Distancia') {
-      return _VirtualDashboard(uid: uid);
+      return _VirtualDashboard(uid: uid, reserveKey: reserveKey);
     }
 
     Widget content;
@@ -1016,7 +1021,8 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
 
 class _VirtualDashboard extends StatelessWidget {
   final String uid;
-  const _VirtualDashboard({required this.uid});
+  final Key? reserveKey;
+  const _VirtualDashboard({required this.uid, this.reserveKey});
 
   @override
   Widget build(BuildContext context) {
@@ -1025,6 +1031,7 @@ class _VirtualDashboard extends StatelessWidget {
       children: [
         // ── BANNER DE CONVERSIÓN FÍSICA A SEDE LOCAL ───────────────────────
         Container(
+          key: reserveKey,
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
