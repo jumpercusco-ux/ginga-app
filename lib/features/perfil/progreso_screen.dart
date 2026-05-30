@@ -96,23 +96,7 @@ class ProgresoScreen extends StatelessWidget {
                     .toSet()
                 : {};
 
-            // --- CÁLCULO DE ACTIVIDAD SEMANAL EN TIEMPO REAL ---
-            final ahora = DateTime.now();
-            final lunes = ahora.subtract(Duration(days: ahora.weekday - 1));
 
-            final List<String> fechasDeLaSemana = List.generate(7, (i) {
-              final dia = DateTime(lunes.year, lunes.month, lunes.day)
-                  .add(Duration(days: i));
-              return '${dia.year}-${dia.month.toString().padLeft(2, '0')}-${dia.day.toString().padLeft(2, '0')}';
-            });
-
-            final List<bool> diasActivos = List.generate(7, (i) {
-              final fechaStr = fechasDeLaSemana[i];
-              if (!asistenciasSnapshot.hasData) return false;
-              return asistenciasSnapshot.data!.docs.any((doc) =>
-                  (doc.data() as Map<String, dynamic>)['fecha'] == fechaStr);
-            });
-            // ----------------------------------------------------
 
             final int objetivo = _obtenerAsistenciasObjetivo(corda);
             final double porcentaje =
@@ -340,14 +324,6 @@ class ProgresoScreen extends StatelessWidget {
                       _SectionHeader(title: 'Tus Logros', actionLabel: ''),
                       const SizedBox(height: 12),
                       _LogrosRow(totalAsistencias: totalAsistencias),
-
-                      const SizedBox(height: 28),
-                      _SectionHeader(
-                          title: 'Actividad Semanal', actionLabel: ''),
-                      const SizedBox(height: 12),
-                      _ActividadSemanal(
-                          diasActivos: diasActivos,
-                          totalAsistencias: totalAsistencias),
 
                       const SizedBox(height: 28),
                       _SectionHeader(
@@ -631,114 +607,7 @@ class _LogroBadge extends StatelessWidget {
   }
 }
 
-class _ActividadSemanal extends StatelessWidget {
-  final List<bool> diasActivos;
-  final int totalAsistencias;
 
-  const _ActividadSemanal({
-    required this.diasActivos,
-    required this.totalAsistencias,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final int asistenciasSemana = diasActivos.where((a) => a).length;
-    final List<String> dias = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
-      ),
-      child: Column(
-        children: [
-          SizedBox(
-            height: 80,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(diasActivos.length, (i) {
-                final bool activo = diasActivos[i];
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 600),
-                  width: 28,
-                  height: activo ? 70.0 : 12.0,
-                  decoration: BoxDecoration(
-                    color:
-                        activo ? GingaColors.brandGreen : GingaColors.cardLight,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                );
-              }),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: dias
-                .map((d) => Text(d,
-                    style: GoogleFonts.montserrat(
-                        fontSize: 9,
-                        color: GingaColors.textSecondary,
-                        fontWeight: FontWeight.w600)))
-                .toList(),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: GingaColors.cardLight,
-              borderRadius: BorderRadius.circular(GingaRadius.md),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('CLASES ESTA SEMANA',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: GingaColors.textSecondary,
-                        letterSpacing: 0.5)),
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                          '$asistenciasSemana ${asistenciasSemana == 1 ? 'clase' : 'clases'}',
-                          style: GoogleFonts.montserrat(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: GingaColors.textPrimary)),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: asistenciasSemana > 0
-                              ? GingaColors.brandGreen
-                              : Colors.grey,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                            asistenciasSemana > 0 ? '¡Activo! 🔥' : 'Inactivo',
-                            style: GoogleFonts.nunito(
-                                fontSize: 9,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700)),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _DesafioCard extends StatelessWidget {
   final IconData icon;
