@@ -630,8 +630,8 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                               'mensaje': mensaje,
                                               'fecha': Timestamp.now(),
                                               'leido': false,
-                                              'tipo': 'profile',
-                                              'screen': 'profile', // Activa la redirección directa al perfil!
+                                              'tipo': 'general',
+                                              'screen': 'home', // Redirige al home en anuncios generales!
                                             });
                                             count = 1;
                                           } else {
@@ -665,8 +665,8 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                                 'mensaje': mensaje,
                                                 'fecha': Timestamp.now(),
                                                 'leido': false,
-                                                'tipo': 'profile',
-                                                'screen': 'profile', // Activa la redirección directa al perfil!
+                                                'tipo': 'general',
+                                                'screen': 'home', // Activa la redirección directa al home!
                                               });
                                               count++;
                                             }
