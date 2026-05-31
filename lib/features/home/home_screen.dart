@@ -2651,23 +2651,13 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
 
                   return ListView.builder(
                     itemCount: notifs.length,
-                    itemBuilder: (context, index) {
+                    itemBuilder: (itemContext, index) {
                       final notifDoc = notifs[index];
                       final data = notifDoc.data() as Map<String, dynamic>;
                       final String titulo = data['titulo'] ?? 'Alerta';
                       final String mensaje = data['mensaje'] ?? '';
                       final String tipo = data['tipo'] ?? 'sistema';
                       final bool leido = data['leido'] ?? false;
-
-                      // Marcar como leída de forma asíncrona al mostrarse
-                      if (!leido) {
-                        FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(uid)
-                            .collection('notificaciones')
-                            .doc(notifDoc.id)
-                            .update({'leido': true});
-                      }
 
                       IconData itemIcon = Icons.notifications_none;
                       Color itemColor = GingaColors.brandGreen;
@@ -2684,10 +2674,25 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                       }
 
                       return GestureDetector(
-                        onTap: () {
-                          // 1. Cerrar el buzón de notificaciones (Bottom Sheet)
-                          Navigator.pop(context);
-                          // 2. Ejecutar la redirección dinámica idéntica a la de la Push!
+                        onTap: () async {
+                          // 1. Marcar como leída de forma asíncrona al tocarla si no estaba leída
+                          if (!leido) {
+                            try {
+                              await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(uid)
+                                  .collection('notificaciones')
+                                  .doc(notifDoc.id)
+                                  .update({'leido': true});
+                            } catch (e) {
+                              debugPrint("Error al marcar notificación como leída: $e");
+                            }
+                          }
+                          // 2. Cerrar el buzón de notificaciones usando el context del bottom sheet
+                          if (sheetContext.mounted) {
+                            Navigator.pop(sheetContext);
+                          }
+                          // 3. Ejecutar la redirección dinámica idéntica a la de la Push!
                           NotificationService.instance.handleRawNotificationRouting(data);
                         },
                         child: Container(
