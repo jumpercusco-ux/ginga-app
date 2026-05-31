@@ -1369,7 +1369,26 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                     );
                   }
 
-                  final notifs = snapshot.data!.docs;
+                  final notifs = snapshot.data!.docs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return data['leido'] != true;
+                  }).toList();
+
+                  if (notifs.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.notifications_none, size: 60, color: GingaColors.textSecondary.withOpacity(0.3)),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No tienes notificaciones aún',
+                            style: GoogleFonts.nunito(color: GingaColors.textSecondary, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
 
                   return ListView.builder(
                     itemCount: notifs.length,
