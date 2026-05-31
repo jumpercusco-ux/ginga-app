@@ -3653,7 +3653,7 @@ class _GingaBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final adjustedPadding = bottomPadding > 0 ? bottomPadding * 0.5 : 0.0;
+    final adjustedPadding = bottomPadding > 0 ? bottomPadding * 0.3 : 0.0;
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
       notchMargin: 8.0,
@@ -3661,7 +3661,7 @@ class _GingaBottomNav extends StatelessWidget {
       elevation: 12,
       shadowColor: Colors.black.withOpacity(0.3),
       padding: EdgeInsets.zero,
-      height: 64 + adjustedPadding,
+      height: 56 + adjustedPadding,
       child: Padding(
         padding: EdgeInsets.only(bottom: adjustedPadding),
         child: Row(
