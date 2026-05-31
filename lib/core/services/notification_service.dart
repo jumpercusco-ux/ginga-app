@@ -71,17 +71,21 @@ class NotificationService {
     _initialized = true;
   }
 
-  /// Realiza la redirección de navegación táctil dinámica basada en el payload de datos (FCM data)
+  /// Realiza la redirección de navegación táctil dinámica basada en el payload de datos (FCM data o Buzón)
   void _handleNotificationRouting(RemoteMessage message) {
-    final data = message.data;
-    debugPrint("Procesando enrutamiento dinámico con data payload: $data");
+    handleRawNotificationRouting(Map<String, dynamic>.from(message.data));
+  }
+
+  /// Procesa y ejecuta el enrutamiento dinámico para cualquier payload de notificación (Push o In-app)
+  void handleRawNotificationRouting(Map<String, dynamic> data) {
+    debugPrint("Procesando enrutamiento dinámico con data: $data");
     final screen = data['screen'] ?? data['tipo']; // Soporta ambos campos por retrocompatibilidad
 
     try {
       if (screen == 'profile' || screen == 'mensualidad' || screen == 'membresia') {
         appRouter.go('/profile');
       } else if (screen == 'clase_detalle' || screen == 'clase' || screen == 'evento') {
-        final claseId = data['claseId'] ?? data['notificacionId'] ?? '';
+        final claseId = data['clase_id'] ?? data['claseId'] ?? data['notificacionId'] ?? '';
         if (claseId.isNotEmpty) {
           appRouter.go('/clase-detalle?claseId=$claseId');
         } else {
@@ -95,7 +99,7 @@ class NotificationService {
         appRouter.go('/home');
       }
     } catch (e) {
-      debugPrint("Error de enrutamiento dinámico en push: $e");
+      debugPrint("Error de enrutamiento dinámico: $e");
       // Fallback seguro a la pantalla de Inicio
       try {
         appRouter.go('/home');

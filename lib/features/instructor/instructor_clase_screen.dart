@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/services/notification_service.dart';
 import '../perfil/progreso_screen.dart';
 import 'qr_generator_screen.dart';
 import 'instructor_alumnos_screen.dart';
@@ -1407,68 +1408,76 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                         itemColor = Colors.purple;
                       }
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: leido ? Colors.transparent : itemColor.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(GingaRadius.md),
-                          border: Border.all(
-                            color: leido ? GingaColors.borderLight : itemColor.withOpacity(0.3),
-                            width: leido ? 1 : 1.5,
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: itemColor.withOpacity(0.12),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(itemIcon, color: itemColor, size: 20),
+                      return GestureDetector(
+                        onTap: () {
+                          // 1. Cerrar el buzón de notificaciones (Bottom Sheet / Dialog)
+                          Navigator.pop(context);
+                          // 2. Ejecutar la redirección dinámica idéntica a la de la Push!
+                          NotificationService.instance.handleRawNotificationRouting(data);
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: leido ? Colors.transparent : itemColor.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            border: Border.all(
+                              color: leido ? GingaColors.borderLight : itemColor.withOpacity(0.3),
+                              width: leido ? 1 : 1.5,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        titulo,
-                                        style: GoogleFonts.montserrat(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: GingaColors.textPrimary,
-                                        ),
-                                      ),
-                                      if (!leido)
-                                        Container(
-                                          width: 6,
-                                          height: 6,
-                                          decoration: const BoxDecoration(
-                                            color: Colors.red,
-                                            shape: BoxShape.circle,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: itemColor.withOpacity(0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(itemIcon, color: itemColor, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          titulo,
+                                          style: GoogleFonts.montserrat(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: GingaColors.textPrimary,
                                           ),
                                         ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    mensaje,
-                                    style: GoogleFonts.nunito(
-                                      fontSize: 12,
-                                      color: GingaColors.textSecondary,
-                                      height: 1.4,
+                                        if (!leido)
+                                          Container(
+                                            width: 6,
+                                            height: 6,
+                                            decoration: const BoxDecoration(
+                                              color: Colors.red,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                      ],
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      mensaje,
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 12,
+                                        color: GingaColors.textSecondary,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     },
