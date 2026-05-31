@@ -51,11 +51,7 @@ class NotificationService {
     // 5. Configurar el listener de mensajes pulsados con la App en segundo plano (minimizada)
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       debugPrint("Notificación pulsada (App en segundo plano): ${message.messageId}");
-      try {
-        appRouter.go('/home');
-      } catch (e) {
-        debugPrint("Error de navegación al pulsar push: $e");
-      }
+      _handleNotificationRouting(message);
     });
 
     // 6. Configurar la validación de mensaje inicial si la App estaba totalmente cerrada
@@ -64,7 +60,7 @@ class NotificationService {
         debugPrint("Notificación pulsada (App cerrada): ${message.messageId}");
         try {
           Future.delayed(const Duration(milliseconds: 500), () {
-            appRouter.go('/home');
+            _handleNotificationRouting(message);
           });
         } catch (e) {
           debugPrint("Error de navegación en initial message: $e");
@@ -73,6 +69,38 @@ class NotificationService {
     });
 
     _initialized = true;
+  }
+
+  /// Realiza la redirección de navegación táctil dinámica basada en el payload de datos (FCM data)
+  void _handleNotificationRouting(RemoteMessage message) {
+    final data = message.data;
+    debugPrint("Procesando enrutamiento dinámico con data payload: $data");
+    final screen = data['screen'] ?? data['tipo']; // Soporta ambos campos por retrocompatibilidad
+
+    try {
+      if (screen == 'profile' || screen == 'mensualidad') {
+        appRouter.go('/profile');
+      } else if (screen == 'clase_detalle' || screen == 'clase' || screen == 'evento') {
+        final claseId = data['claseId'] ?? data['notificacionId'] ?? '';
+        if (claseId.isNotEmpty) {
+          appRouter.go('/clase-detalle?claseId=$claseId');
+        } else {
+          appRouter.go('/home');
+        }
+      } else if (screen == 'tienda') {
+        appRouter.go('/tienda');
+      } else if (screen == 'carrito') {
+        appRouter.go('/carrito');
+      } else {
+        appRouter.go('/home');
+      }
+    } catch (e) {
+      debugPrint("Error de enrutamiento dinámico en push: $e");
+      // Fallback seguro a la pantalla de Inicio
+      try {
+        appRouter.go('/home');
+      } catch (_) {}
+    }
   }
 
   /// Solicita permisos para notificaciones al usuario.

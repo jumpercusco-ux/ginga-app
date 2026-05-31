@@ -1,3 +1,4 @@
+import 'package:ginga_app/features/perfil/progreso_screen.dart';
 import 'package:ginga_app/features/biblioteca/tutor_detail_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -56,6 +57,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/home',
       builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: '/profile',
+      builder: (context, state) => const ProgresoScreen(),
     ),
     GoRoute(
       path: '/clase-detalle',

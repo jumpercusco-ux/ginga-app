@@ -236,6 +236,35 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
 
                 SizedBox(
                   width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context); // Cerrar ficha primero
+                      _mostrarModalComunicado(context, targetStudentUid: data['uid'], targetStudentName: data['nombre']);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: GingaColors.brandGreen,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                      ),
+                    ),
+                    icon: const Icon(Icons.campaign, size: 18),
+                    label: Text(
+                      'Enviar Comunicado Push 📢',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () {
                       _registrarAsistenciaRetroactiva(context, data);
@@ -263,6 +292,445 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  // Modal interactivo de creación de comunicados y envío masivo/individual
+  void _mostrarModalComunicado(BuildContext context, {String? targetStudentUid, String? targetStudentName}) {
+    final bool isIndividual = targetStudentUid != null;
+    
+    // Controladores
+    final TextEditingController tituloController = TextEditingController(text: isIndividual ? 'Aviso del Profesor 📢' : 'Anuncio General 📢');
+    final TextEditingController mensajeController = TextEditingController();
+    
+    // Variables de Estado de Filtros
+    String scopeSeleccionado = isIndividual ? 'Individual' : 'Todos';
+    
+    String sedeSeleccionada = 'Cusco';
+    String? claseSeleccionadaId;
+    bool isClassesLoaded = false;
+    List<QueryDocumentSnapshot> clasesList = [];
+    bool enviando = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.xl)),
+      ),
+      builder: (BuildContext ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext contextModal, setStateModal) {
+            return FutureBuilder<QuerySnapshot>(
+              future: FirebaseFirestore.instance.collection('clases').get(),
+              builder: (context, classesSnapshot) {
+                if (classesSnapshot.hasData && !isClassesLoaded) {
+                  clasesList = classesSnapshot.data!.docs;
+                  isClassesLoaded = true;
+                  if (clasesList.isNotEmpty) {
+                    claseSeleccionadaId = clasesList.first.id;
+                  }
+                }
+
+                return Container(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(contextModal).size.height * 0.85,
+                  ),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(contextModal).viewInsets.bottom +
+                          (MediaQuery.of(contextModal).padding.bottom > 0
+                              ? MediaQuery.of(contextModal).padding.bottom + 12
+                              : 20),
+                      left: 20,
+                      right: 20,
+                      top: 24,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.campaign, color: GingaColors.brandGreen, size: 24),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                isIndividual ? 'Enviar Comunicado Individual' : 'Enviar Comunicado / Anuncio',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: GingaColors.textPrimary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          isIndividual 
+                              ? 'Enviar un mensaje push y buzón a: $targetStudentName' 
+                              : 'Envía un mensaje push masivo y regístralo en la campana de los alumnos.',
+                          style: GoogleFonts.nunito(
+                            fontSize: 13,
+                            color: GingaColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Selector de Destinatarios (Si no es individual)
+                        if (!isIndividual) ...[
+                          Text(
+                            'Enviar a:',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: scopeSeleccionado,
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(GingaRadius.md),
+                                borderSide: const BorderSide(color: GingaColors.borderLight),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(GingaRadius.md),
+                                borderSide: const BorderSide(color: GingaColors.borderLight),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(GingaRadius.md),
+                                borderSide: const BorderSide(color: GingaColors.brandGreen, width: 1.5),
+                              ),
+                            ),
+                            style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                            items: ['Todos', 'Por Sede', 'Por Clase'].map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value == 'Todos' ? 'Todos los Alumnos 🥋' : value),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setStateModal(() {
+                                  scopeSeleccionado = val;
+                                });
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Filtros Condicionales
+                        if (scopeSeleccionado == 'Por Sede' && !isIndividual) ...[
+                          Text(
+                            'Seleccionar Sede:',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: sedeSeleccionada,
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(GingaRadius.md),
+                                borderSide: const BorderSide(color: GingaColors.borderLight),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(GingaRadius.md),
+                                borderSide: const BorderSide(color: GingaColors.borderLight),
+                              ),
+                            ),
+                            style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                            items: ['Cusco', 'Lima', 'Chimbote', 'Virtual / A Distancia'].map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setStateModal(() {
+                                  sedeSeleccionada = val;
+                                });
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        if (scopeSeleccionado == 'Por Clase' && !isIndividual) ...[
+                          Text(
+                            'Seleccionar Clase:',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (classesSnapshot.connectionState == ConnectionState.waiting)
+                            const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
+                          else if (clasesList.isEmpty)
+                            Text('No hay clases creadas en el sistema.', style: GoogleFonts.nunito(color: Colors.red))
+                          else
+                            DropdownButtonFormField<String>(
+                              value: claseSeleccionadaId,
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                ),
+                              ),
+                              style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                              items: clasesList.map((doc) {
+                                final cdata = doc.data() as Map<String, dynamic>;
+                                return DropdownMenuItem<String>(
+                                  value: doc.id,
+                                  child: Text('${cdata['nombre'] ?? 'Sin nombre'} (${cdata['sede'] ?? 'Sin sede'})'),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setStateModal(() {
+                                    claseSeleccionadaId = val;
+                                  });
+                                }
+                              },
+                            ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Título del Mensaje
+                        Text(
+                          'Título de la Notificación:',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: tituloController,
+                          decoration: InputDecoration(
+                            hintText: 'Ingresa un título llamativo...',
+                            hintStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                            ),
+                          ),
+                          style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Mensaje / Comunicado
+                        Text(
+                          'Mensaje del Comunicado:',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: mensajeController,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            hintText: 'Escribe tu anuncio aquí...',
+                            hintStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                            ),
+                          ),
+                          style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Botones Acción
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: enviando ? null : () => Navigator.pop(contextModal),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: GingaColors.textSecondary,
+                                  side: const BorderSide(color: GingaColors.borderLight),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Cancelar',
+                                  style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: enviando 
+                                    ? null 
+                                    : () async {
+                                        final titulo = tituloController.text.trim();
+                                        final mensaje = mensajeController.text.trim();
+                                        if (titulo.isEmpty || mensaje.isEmpty) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Por favor completa todos los campos')),
+                                          );
+                                          return;
+                                        }
+
+                                        setStateModal(() {
+                                          enviando = true;
+                                        });
+
+                                        try {
+                                          int count = 0;
+                                          final batch = FirebaseFirestore.instance.batch();
+
+                                          if (isIndividual) {
+                                            // Enviar a un solo estudiante
+                                            final newDoc = FirebaseFirestore.instance
+                                                .collection('users')
+                                                .doc(targetStudentUid)
+                                                .collection('notificaciones')
+                                                .doc();
+                                            
+                                            batch.set(newDoc, {
+                                              'titulo': titulo,
+                                              'mensaje': mensaje,
+                                              'fecha': Timestamp.now(),
+                                              'leido': false,
+                                              'tipo': 'general',
+                                              'screen': 'profile', // Activa la redirección directa al perfil!
+                                            });
+                                            count = 1;
+                                          } else {
+                                            // Enviar de forma masiva / grupal
+                                            Query query = FirebaseFirestore.instance
+                                                .collection('users')
+                                                .where('role', isEqualTo: 'student');
+
+                                            if (scopeSeleccionado == 'Por Sede') {
+                                              if (sedeSeleccionada == 'Cusco') {
+                                                query = query.where('sede', whereIn: ['Cusco', 'U. Continental']);
+                                              } else {
+                                                query = query.where('sede', isEqualTo: sedeSeleccionada);
+                                              }
+                                            } else if (scopeSeleccionado == 'Por Clase') {
+                                              query = query.where('clase_id', isEqualTo: claseSeleccionadaId);
+                                            }
+
+                                            final snapshot = await query.get();
+                                            final docs = snapshot.docs;
+
+                                            for (var doc in docs) {
+                                              final newDoc = FirebaseFirestore.instance
+                                                  .collection('users')
+                                                  .doc(doc.id)
+                                                  .collection('notificaciones')
+                                                  .doc();
+                                              
+                                              batch.set(newDoc, {
+                                                'titulo': titulo,
+                                                'mensaje': mensaje,
+                                                'fecha': Timestamp.now(),
+                                                'leido': false,
+                                                'tipo': 'general',
+                                                'screen': 'profile', // Activa la redirección directa al perfil!
+                                              });
+                                              count++;
+                                            }
+                                          }
+
+                                          if (count > 0) {
+                                            await batch.commit();
+                                            if (contextModal.mounted) {
+                                              Navigator.pop(contextModal);
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('¡Comunicado enviado con éxito! 📢 Impactó a $count ' + (count == 1 ? 'alumno.' : 'alumnos.')),
+                                                  backgroundColor: GingaColors.brandGreen,
+                                                ),
+                                              );
+                                            }
+                                          } else {
+                                            setStateModal(() {
+                                              enviando = false;
+                                            });
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('No se encontraron alumnos que coincidan con la selección.')),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          debugPrint("Error al enviar comunicado masivo: $e");
+                                          setStateModal(() {
+                                            enviando = false;
+                                          });
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('Error al enviar: $e')),
+                                          );
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: GingaColors.brandGreen,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  ),
+                                ),
+                                child: enviando
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                      )
+                                    : Text(
+                                        'Enviar 🚀',
+                                        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );
