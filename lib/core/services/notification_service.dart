@@ -78,7 +78,7 @@ class NotificationService {
     final screen = data['screen'] ?? data['tipo']; // Soporta ambos campos por retrocompatibilidad
 
     try {
-      if (screen == 'profile' || screen == 'mensualidad') {
+      if (screen == 'profile' || screen == 'mensualidad' || screen == 'membresia') {
         appRouter.go('/profile');
       } else if (screen == 'clase_detalle' || screen == 'clase' || screen == 'evento') {
         final claseId = data['claseId'] ?? data['notificacionId'] ?? '';

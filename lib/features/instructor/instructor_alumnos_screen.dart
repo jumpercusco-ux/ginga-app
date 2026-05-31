@@ -630,7 +630,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                               'mensaje': mensaje,
                                               'fecha': Timestamp.now(),
                                               'leido': false,
-                                              'tipo': 'general',
+                                              'tipo': 'profile',
                                               'screen': 'profile', // Activa la redirección directa al perfil!
                                             });
                                             count = 1;
@@ -665,7 +665,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                                 'mensaje': mensaje,
                                                 'fecha': Timestamp.now(),
                                                 'leido': false,
-                                                'tipo': 'general',
+                                                'tipo': 'profile',
                                                 'screen': 'profile', // Activa la redirección directa al perfil!
                                               });
                                               count++;
