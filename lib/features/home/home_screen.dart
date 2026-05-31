@@ -3650,9 +3650,9 @@ class _GingaBottomNav extends StatelessWidget {
     required this.onTap,
     required this.bibliotecaTabKey,
   });
-
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
       notchMargin: 8.0,
@@ -3660,24 +3660,30 @@ class _GingaBottomNav extends StatelessWidget {
       elevation: 12,
       shadowColor: Colors.black.withOpacity(0.3),
       padding: EdgeInsets.zero,
-      height: 64,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          Expanded(
-            child: _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
-          ),
-          const SizedBox(width: 64), // Espacio central para el FAB con notch
-          Expanded(
-            child: _buildNavItem(
-              1,
-              Icons.menu_book_outlined,
-              Icons.menu_book,
-              'Biblioteca',
-              navKey: bibliotecaTabKey,
+      height: 64 + bottomPadding,
+      child: SafeArea(
+        bottom: true,
+        top: false,
+        left: false,
+        right: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            Expanded(
+              child: _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
             ),
-          ),
-        ],
+            const SizedBox(width: 64), // Espacio central para el FAB con notch
+            Expanded(
+              child: _buildNavItem(
+                1,
+                Icons.menu_book_outlined,
+                Icons.menu_book,
+                'Biblioteca',
+                navKey: bibliotecaTabKey,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
