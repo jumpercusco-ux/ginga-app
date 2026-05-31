@@ -388,7 +388,29 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back,
                       color: GingaColors.textPrimary),
-                  onPressed: () => builderContext.pop(),
+                  onPressed: () async {
+                    if (builderContext.canPop()) {
+                      builderContext.pop();
+                    } else {
+                      try {
+                        final uid = FirebaseAuth.instance.currentUser?.uid;
+                        if (uid != null) {
+                          final doc = await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(uid)
+                              .get();
+                          final role = doc.data()?['rol'] ?? 'alumno';
+                          if (role == 'profesor') {
+                            if (builderContext.mounted) builderContext.go('/instructor-clase');
+                            return;
+                          }
+                        }
+                      } catch (e) {
+                        debugPrint("Error al validar rol para navegacion back: $e");
+                      }
+                      if (builderContext.mounted) builderContext.go('/home');
+                    }
+                  },
                 ),
                 title: Text(
                   'Detalle de la Clase',

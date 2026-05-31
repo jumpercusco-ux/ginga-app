@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/services/tienda_service.dart';
@@ -31,7 +32,29 @@ class _TiendaScreenState extends State<TiendaScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: GingaColors.textPrimary),
-          onPressed: () => context.pop(),
+          onPressed: () async {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              try {
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                if (uid != null) {
+                  final doc = await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(uid)
+                      .get();
+                  final role = doc.data()?['rol'] ?? 'alumno';
+                  if (role == 'profesor') {
+                    if (context.mounted) context.go('/instructor-clase');
+                    return;
+                  }
+                }
+              } catch (e) {
+                debugPrint("Error al validar rol para navegacion back: $e");
+              }
+              if (context.mounted) context.go('/home');
+            }
+          },
         ),
         title: Text(
           'Ginga Store',

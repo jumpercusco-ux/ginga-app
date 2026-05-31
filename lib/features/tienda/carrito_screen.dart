@@ -257,7 +257,29 @@ class _CarritoScreenState extends State<CarritoScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: GingaColors.textPrimary),
-          onPressed: () => context.pop(),
+          onPressed: () async {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              try {
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                if (uid != null) {
+                  final doc = await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(uid)
+                      .get();
+                  final role = doc.data()?['rol'] ?? 'alumno';
+                  if (role == 'profesor') {
+                    if (context.mounted) context.go('/instructor-clase');
+                    return;
+                  }
+                }
+              } catch (e) {
+                debugPrint("Error al validar rol para navegacion back: $e");
+              }
+              if (context.mounted) context.go('/home');
+            }
+          },
         ),
         title: Text(
           'Carrito de Reservas',
