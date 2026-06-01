@@ -249,49 +249,128 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
     }
   }
 
+  void _mostrarDetalleDialog(BuildContext context, String title, String value, IconData icon) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(GingaRadius.lg),
+          ),
+          backgroundColor: GingaColors.backgroundLight,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: GingaColors.brandGreen.withOpacity(0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: GingaColors.brandGreen, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      title,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: GingaColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  value,
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    color: GingaColors.textPrimary,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: GingaColors.brandGreen,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(GingaRadius.full),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Entendido',
+                      style: GoogleFonts.montserrat(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildInfoCard({
     required IconData icon,
     required String title,
     required String value,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(GingaRadius.md),
-        border: Border.all(color: GingaColors.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: GingaColors.brandGreen, size: 16),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: GoogleFonts.montserrat(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: GingaColors.textSecondary,
-                  letterSpacing: 0.5,
+    return GestureDetector(
+      onTap: () => _mostrarDetalleDialog(context, title, value, icon),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(GingaRadius.md),
+          border: Border.all(color: GingaColors.borderLight),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: GingaColors.brandGreen, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  title,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textSecondary,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: GoogleFonts.nunito(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: GingaColors.textPrimary,
+              ],
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: GoogleFonts.nunito(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: GingaColors.textPrimary,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
