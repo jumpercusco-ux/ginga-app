@@ -37,7 +37,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
         'Coordinamos para realizar el pago en efectivo/yape y recoger mis artículos en la academia. ¡Muchas gracias! 👋';
 
     // Número de teléfono de prueba/academia (se puede configurar en Firestore o dejar como placeholder)
-    const String telefonoProfesor = '51987654321'; // Ejemplo de número
+    const String telefonoProfesor = '51954642457'; // Número oficial de la academia
     final String url = 'https://wa.me/$telefonoProfesor?text=${Uri.encodeComponent(message)}';
 
     try {

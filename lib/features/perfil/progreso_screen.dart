@@ -842,7 +842,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
     const String message = 
         '🥋 *¡Hola Instructor! Deseo coordinar la renovación de mi membresía en Capoeira Ginga.*\n\n'
         '¿Me podría confirmar los datos o el monto de la cuota mensual para realizar el pago por Yape/Plin? ¡Muchas gracias! 👋';
-    const String telefonoGinga = '51987654321';
+    const String telefonoGinga = '51954642457';
     final String url = 'https://wa.me/$telefonoGinga?text=${Uri.encodeComponent(message)}';
     
     try {

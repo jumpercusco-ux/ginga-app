@@ -74,7 +74,8 @@ class _TiendaScreenState extends State<TiendaScreen> {
                 clipBehavior: Clip.none,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.shopping_bag_outlined, color: GingaColors.textPrimary, size: 26),
+                    icon: const Icon(Icons.shopping_bag_outlined,
+                        color: GingaColors.textPrimary, size: 26),
                     onPressed: () => context.push('/carrito'),
                   ),
                   if (count > 0)
@@ -133,7 +134,9 @@ class _TiendaScreenState extends State<TiendaScreen> {
                       style: GoogleFonts.montserrat(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: isSelected ? Colors.white : GingaColors.textSecondary,
+                        color: isSelected
+                            ? Colors.white
+                            : GingaColors.textSecondary,
                       ),
                     ),
                     selected: isSelected,
@@ -150,7 +153,9 @@ class _TiendaScreenState extends State<TiendaScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(GingaRadius.full),
                       side: BorderSide(
-                        color: isSelected ? GingaColors.brandGreen : GingaColors.borderLight,
+                        color: isSelected
+                            ? GingaColors.brandGreen
+                            : GingaColors.borderLight,
                         width: 1,
                       ),
                     ),
@@ -164,10 +169,14 @@ class _TiendaScreenState extends State<TiendaScreen> {
           // ── Grid del Catálogo de Productos ──────────────────────────────
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('productos').snapshots(),
+              stream: FirebaseFirestore.instance
+                  .collection('productos')
+                  .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen));
+                  return const Center(
+                      child: CircularProgressIndicator(
+                          color: GingaColors.brandGreen));
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -175,11 +184,14 @@ class _TiendaScreenState extends State<TiendaScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.storefront_outlined, size: 64, color: GingaColors.textSecondary.withOpacity(0.3)),
+                        Icon(Icons.storefront_outlined,
+                            size: 64,
+                            color: GingaColors.textSecondary.withOpacity(0.3)),
                         const SizedBox(height: 12),
                         Text(
                           'No hay productos disponibles por ahora',
-                          style: GoogleFonts.nunito(color: GingaColors.textSecondary, fontSize: 14),
+                          style: GoogleFonts.nunito(
+                              color: GingaColors.textSecondary, fontSize: 14),
                         ),
                       ],
                     ),
@@ -197,7 +209,8 @@ class _TiendaScreenState extends State<TiendaScreen> {
                   return Center(
                     child: Text(
                       'No hay productos en esta categoría',
-                      style: GoogleFonts.nunito(color: GingaColors.textSecondary, fontSize: 14),
+                      style: GoogleFonts.nunito(
+                          color: GingaColors.textSecondary, fontSize: 14),
                     ),
                   );
                 }
@@ -217,11 +230,13 @@ class _TiendaScreenState extends State<TiendaScreen> {
                     final String id = doc.id;
                     final String nombre = data['nombre'] ?? '';
                     final String descripcion = data['descripcion'] ?? '';
-                    final double precio = (data['precio'] as num?)?.toDouble() ?? 0.0;
+                    final double precio =
+                        (data['precio'] as num?)?.toDouble() ?? 0.0;
                     final String categoria = data['categoria'] ?? 'ropa';
                     final String imagenUrl = data['imagen_url'] ?? '';
                     final int stock = (data['stock'] as num?)?.toInt() ?? 0;
-                    final double rating = (data['rating'] as num?)?.toDouble() ?? 4.5;
+                    final double rating =
+                        (data['rating'] as num?)?.toDouble() ?? 4.5;
 
                     return _ProductCard(
                       id: id,
@@ -306,7 +321,8 @@ class _ProductCard extends StatelessWidget {
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: double.infinity,
-                            errorBuilder: (context, error, stackTrace) => Center(
+                            errorBuilder: (context, error, stackTrace) =>
+                                Center(
                               child: Icon(
                                 categoryIcon,
                                 color: categoryColor.withOpacity(0.4),
@@ -328,7 +344,8 @@ class _ProductCard extends StatelessWidget {
                       top: 8,
                       left: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.red.shade400,
                           borderRadius: BorderRadius.circular(4),
@@ -349,7 +366,8 @@ class _ProductCard extends StatelessWidget {
                       top: 8,
                       left: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade600,
                           borderRadius: BorderRadius.circular(4),
@@ -369,7 +387,8 @@ class _ProductCard extends StatelessWidget {
                     top: 8,
                     right: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.9),
                         borderRadius: BorderRadius.circular(GingaRadius.sm),
@@ -378,7 +397,8 @@ class _ProductCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.star, color: GingaColors.accentAmber, size: 10),
+                          const Icon(Icons.star,
+                              color: GingaColors.accentAmber, size: 10),
                           const SizedBox(width: 2),
                           Text(
                             rating.toStringAsFixed(1),
@@ -454,7 +474,9 @@ class _ProductCard extends StatelessWidget {
                                 SnackBar(
                                   content: Text(
                                     '¡$nombre añadido al carrito! 🛒',
-                                    style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w600),
+                                    style: GoogleFonts.nunito(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600),
                                   ),
                                   backgroundColor: GingaColors.brandGreen,
                                   duration: const Duration(seconds: 2),
