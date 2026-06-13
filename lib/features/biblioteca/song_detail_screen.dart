@@ -433,7 +433,10 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Letra & Ritmo: ${widget.cantiga.autor}',
+                      widget.cantiga.autor == widget.cantiga.interprete
+                          ? 'Mestre/Cantor: ${widget.cantiga.autor} • Ritmo: ${widget.cantiga.ritmo}'
+                          : 'Compositor: ${widget.cantiga.autor} • Cantor: ${widget.cantiga.interprete} • Ritmo: ${widget.cantiga.ritmo}',
+                      textAlign: TextAlign.center,
                       style: GoogleFonts.nunito(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -1298,4 +1301,43 @@ class _SpectrogramPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SpectrogramPainter old) => true;
+}
+
+class SongDetailLoader extends StatelessWidget {
+  final String songId;
+  const SongDetailLoader({super.key, required this.songId});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('cantigas').doc(songId).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator(color: GingaColors.brandGreen)),
+          );
+        }
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Scaffold(
+            body: Center(child: Text('Canción no encontrada')),
+          );
+        }
+        final data = snapshot.data!.data() as Map<String, dynamic>;
+        final cantiga = Cantiga(
+          id: snapshot.data!.id,
+          titulo: data['titulo'] ?? '',
+          ritmo: data['ritmo'] ?? 'Corrido',
+          autor: data['autor'] ?? 'Tradicional',
+          interprete: data['interprete'] ?? 'Tradicional',
+          duracion: data['duracion'] ?? '2:00',
+          contexto: data['contexto'] ?? '',
+          letraPt: data['letraPt'] ?? '',
+          letraEs: data['letraEs'] ?? '',
+          audioUrl: data['audio_url'] ?? '',
+          letraPtSincronizada: data['letraPtSincronizada'] as List<dynamic>?,
+        );
+        return SongDetailScreen(cantiga: cantiga);
+      },
+    );
+  }
 }

@@ -8,83 +8,7 @@ import '../../core/models/cuerdas_fiu.dart';
 class GraduacionesScreen extends StatelessWidget {
   const GraduacionesScreen({super.key});
 
-  String _limpiarNombreCorda(String cordaRaw) {
-    return cordaRaw
-        .toLowerCase()
-        .replaceAll('cuerda', '')
-        .replaceAll('corda', '')
-        .replaceAll('á', 'a')
-        .replaceAll('é', 'e')
-        .replaceAll('í', 'i')
-        .replaceAll('ó', 'o')
-        .replaceAll('ú', 'u')
-        .replaceAll('ñ', 'n')
-        .trim();
-  }
 
-  bool _verificarCordaActiva(String cordaUsuario, CordaFIU cordaItem) {
-    if (cordaUsuario.isEmpty) return false;
-    final u = _limpiarNombreCorda(cordaUsuario);
-    final n = _limpiarNombreCorda(cordaItem.nombre);
-    final r = _limpiarNombreCorda(cordaItem.rango);
-
-    // 1. Coincidencia exacta de nombres o rangos limpios
-    if (u == n || u == r) return true;
-
-    // 2. Mapeos específicos de términos en español/portugués y sinónimos
-    
-    // Crua / Cruda / Gris / Iniciante
-    if ((u == 'crua' || u == 'cruda' || u == 'gris' || u == 'iniciante') && n == 'crua') {
-      return true;
-    }
-
-    // Verde
-    if ((u == 'verde' || u == 'alumno iniciante') && n == 'verde') {
-      return true;
-    }
-
-    // Naranja / Laranja
-    if ((u == 'laranja' || u == 'naranja' || u == 'alumno regular') && n == 'laranja') {
-      return true;
-    }
-
-    // Amarilla / Amarela
-    if ((u == 'amarela' || u == 'amarilla' || u == 'amarillo' || u == 'alumno graduado' || u == 'graduado' || u == 'intermedio') && n == 'amarela') {
-      return true;
-    }
-
-    // Monitor
-    if ((u == 'monitor' || u == 'monitora' || u == 'amarelo e azul' || u == 'amarillo y azul') && n == 'amarelo e azul') {
-      return true;
-    }
-
-    // Azul / Instrutor
-    if ((u == 'azul' || u == 'instructor' || u == 'instrutor' || u == 'instrutora') && n == 'azul') {
-      return true;
-    }
-
-    // Roxa / Morada / Professor
-    if ((u == 'roxa' || u == 'morada' || u == 'profesor' || u == 'profesora' || u == 'professor' || u == 'professora') && n == 'roxa') {
-      return true;
-    }
-
-    // Marrom / Marrón / Contra Mestre
-    if ((u == 'marrom' || u == 'marron' || u == 'contra mestre' || u == 'contramestre') && n == 'marrom') {
-      return true;
-    }
-
-    // Preta / Negra / Negro / Mestre
-    if ((u == 'preta' || u == 'negra' || u == 'negro' || u == 'mestre' || u == 'maestro') && n == 'preta') {
-      return true;
-    }
-
-    // Branca / Blanca / Blanco / Grão Mestre
-    if ((u == 'branca' || u == 'blanca' || u == 'blanco' || u == 'grao mestre' || u == 'gran mestre' || u == 'gran maestro') && n == 'branca') {
-      return true;
-    }
-
-    return false;
-  }
 
   Widget _buildCordaVisual(CordaFIU corda) {
     if (corda.esMixta) {
@@ -327,7 +251,7 @@ class GraduacionesScreen extends StatelessWidget {
                           itemCount: CuerdasFIU.lista.length,
                           itemBuilder: (context, index) {
                             final corda = CuerdasFIU.lista[index];
-                            final isActive = _verificarCordaActiva(userCorda, corda);
+                            final isActive = CuerdasFIU.verificarCordaActiva(userCorda, corda);
 
                             return Container(
                               margin: const EdgeInsets.only(bottom: 14),

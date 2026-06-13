@@ -7,7 +7,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/widgets/ginga_cached_image.dart';
 
 class CrearClaseScreen extends StatefulWidget {
   final String? claseId;
@@ -27,12 +31,49 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
   final _nombreCustomController = TextEditingController();
   String _fechaTexto = '';
   DateTime? _selectedDate;
+  final _organizadorController = TextEditingController();
+  final List<Map<String, String>> _cronograma = [
+    {
+      'hora': '09:00 AM',
+      'actividad': 'Acreditación y Calentamiento',
+    },
+    {
+      'hora': '10:00 AM',
+      'actividad': 'Exhibición y Talleres Especiales',
+    },
+    {
+      'hora': '11:00 AM',
+      'actividad': 'Roda de Integración General',
+    },
+  ];
+
+  File? _selectedImageFile;
+  final ImagePicker _picker = ImagePicker();
+  String _existingImageUrl = '';
 
   @override
   void initState() {
     super.initState();
+    _initInstructorName();
     if (widget.claseId != null) {
       _cargarDatosClase();
+    }
+  }
+
+  Future<void> _initInstructorName() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null && widget.claseId == null) {
+      try {
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        final name = userDoc.data()?['nombre'];
+        if (name != null && mounted) {
+          setState(() {
+            _organizadorController.text = name;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error inicializando nombre del instructor: $e');
+      }
     }
   }
 
@@ -55,6 +96,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           _ubicacionController.text = data['ubicacion'] ?? '';
           _claseGratuita = data['clase_gratuita'] ?? true;
           _publicarInmediatamente = data['publicar_inmediatamente'] ?? true;
+          _existingImageUrl = data['imagen_url'] ?? '';
           
           _tipoClase = data['tipo'] ?? 'regular';
           if (_tipoClase != 'regular') {
@@ -85,8 +127,8 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           }
 
           // Coordenadas geográficas (con retrocompatibilidad)
-          final double? lat = data['lat'];
-          final double? lng = data['lng'];
+          final double? lat = data['lat'] != null ? (data['lat'] as num).toDouble() : null;
+          final double? lng = data['lng'] != null ? (data['lng'] as num).toDouble() : null;
           if (lat != null && lng != null) {
             _selectedLocation = LatLng(lat, lng);
           }
@@ -107,6 +149,25 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   _selectedDate = startTs.toDate();
                 });
               }
+              // Cargar organizador y cronograma
+              final String org = eventData['organizador'] ?? '';
+              final List<dynamic>? cronogramaRaw = eventData['cronograma'];
+              setState(() {
+                if (org.isNotEmpty) {
+                  _organizadorController.text = org;
+                }
+                if (cronogramaRaw != null && cronogramaRaw.isNotEmpty) {
+                  _cronograma.clear();
+                  for (var item in cronogramaRaw) {
+                    if (item is Map) {
+                      _cronograma.add({
+                        'hora': (item['hora'] ?? '').toString(),
+                        'actividad': (item['actividad'] ?? '').toString(),
+                      });
+                    }
+                  }
+                }
+              });
             }
           } catch (e) {
             debugPrint('Error al cargar datos del evento complementario: $e');
@@ -117,6 +178,27 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
       debugPrint('Error al cargar datos de la clase: $e');
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _seleccionarImagen() async {
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1080,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImageFile = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al seleccionar imagen: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -341,37 +423,39 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   Expanded(
                     child: Stack(
                       children: [
-                        FlutterMap(
-                          mapController: pickerMapController,
-                          options: MapOptions(
-                            initialCenter: tempLocation,
-                            initialZoom: 15.0,
-                            onTap: (tapPosition, point) {
-                              setModalState(() {
-                                tempLocation = point;
-                              });
-                            },
-                          ),
-                          children: [
-                            TileLayer(
-                              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                              userAgentPackageName: 'com.jumperstudio.ginga_app',
+                        Positioned.fill(
+                          child: FlutterMap(
+                            mapController: pickerMapController,
+                            options: MapOptions(
+                              initialCenter: tempLocation,
+                              initialZoom: 15.0,
+                              onTap: (tapPosition, point) {
+                                setModalState(() {
+                                  tempLocation = point;
+                                });
+                              },
                             ),
-                            MarkerLayer(
-                              markers: [
-                                Marker(
-                                  point: tempLocation,
-                                  width: 45,
-                                  height: 45,
-                                  child: const Icon(
-                                    Icons.location_on,
-                                    color: GingaColors.brandGreen,
-                                    size: 45,
+                            children: [
+                              TileLayer(
+                                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName: 'com.jumperstudio.ginga_app',
+                              ),
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: tempLocation,
+                                    width: 45,
+                                    height: 45,
+                                    child: const Icon(
+                                      Icons.location_on,
+                                      color: GingaColors.brandGreen,
+                                      size: 45,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                         Positioned(
                           bottom: 12,
@@ -439,7 +523,17 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
     _descripcionController.dispose();
     _ubicacionController.dispose();
     _nombreCustomController.dispose();
+    _organizadorController.dispose();
     super.dispose();
+  }
+
+  void _agregarItemCronograma() {
+    setState(() {
+      _cronograma.add({
+        'hora': '10:00 AM',
+        'actividad': 'Nueva Actividad',
+      });
+    });
   }
 
   Future<void> _pickTime(bool esInicio) async {
@@ -500,6 +594,44 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           ? _nombreClase
           : (_tipoClase == 'roda' ? 'Roda Especial 🔥' : 'Evento Especial 🌟');
 
+      // Calcular fechas para eventos/rodas especiales
+      DateTime? startDateTime;
+      DateTime? endDateTime;
+      if (_tipoClase != 'regular') {
+        if (_selectedDate != null) {
+          startDateTime = DateTime(
+            _selectedDate!.year,
+            _selectedDate!.month,
+            _selectedDate!.day,
+            _horaInicio.hour,
+            _horaInicio.minute,
+          );
+          endDateTime = DateTime(
+            _selectedDate!.year,
+            _selectedDate!.month,
+            _selectedDate!.day,
+            _horaFin.hour,
+            _horaFin.minute,
+          );
+        } else {
+          final now = DateTime.now();
+          startDateTime = DateTime(now.year, now.month, now.day, _horaInicio.hour, _horaInicio.minute);
+          endDateTime = DateTime(now.year, now.month, now.day, _horaFin.hour, _horaFin.minute);
+        }
+      }
+
+      String finalImageUrl = _existingImageUrl;
+      if (_selectedImageFile != null) {
+        final fileName = 'clases_imagenes/${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final ref = FirebaseStorage.instance.ref().child(fileName);
+        final uploadTask = await ref.putFile(_selectedImageFile!);
+        finalImageUrl = await uploadTask.ref.getDownloadURL();
+      } else if (finalImageUrl.isEmpty || finalImageUrl.startsWith('assets/')) {
+        finalImageUrl = _tipoClase == 'roda'
+            ? 'assets/images/fiu_banner.png'
+            : 'assets/images/roda.jpg';
+      }
+
       final claseData = {
         'nombre': finalNombre,
         'nivel': _nivelSeleccionado,
@@ -519,6 +651,8 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
         'publicar_inmediatamente': _publicarInmediatamente,
         'instructor_id': uid,
         'tipo': _tipoClase,
+        'fecha_fin': endDateTime != null ? Timestamp.fromDate(endDateTime) : null,
+        'imagen_url': finalImageUrl,
       };
 
       if (widget.claseId != null) {
@@ -533,66 +667,45 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
           final instructorName = userDoc.data()?['nombre'] ?? 'Instructor / Mestre';
 
-          DateTime? startDateTime;
-          DateTime? endDateTime;
-          if (_selectedDate != null) {
-            startDateTime = DateTime(
-              _selectedDate!.year,
-              _selectedDate!.month,
-              _selectedDate!.day,
-              _horaInicio.hour,
-              _horaInicio.minute,
-            );
-            endDateTime = DateTime(
-              _selectedDate!.year,
-              _selectedDate!.month,
-              _selectedDate!.day,
-              _horaFin.hour,
-              _horaFin.minute,
-            );
-          } else {
-            final now = DateTime.now();
-            startDateTime = DateTime(now.year, now.month, now.day, _horaInicio.hour, _horaInicio.minute);
-            endDateTime = DateTime(now.year, now.month, now.day, _horaFin.hour, _horaFin.minute);
-          }
-
           final String finalLugar = _ubicacionController.text.trim().isNotEmpty
               ? _ubicacionController.text.trim()
               : 'Sede: $_selectedSede';
 
-          final String bannerUrl = _tipoClase == 'roda'
-              ? 'assets/images/fiu_banner.png'
-              : 'assets/images/roda.jpg';
+          final String bannerUrl = finalImageUrl;
 
           final String diaNombre = _fechaTexto.isNotEmpty ? _fechaTexto.split(' ').first : 'Evento';
-          final List<Map<String, String>> defaultCronograma = [
-            {
-              'dia': diaNombre,
-              'hora': _formatTime(_horaInicio),
-              'actividad': 'Inicio del evento y acreditación: $finalNombre',
-            },
-            {
-              'dia': diaNombre,
-              'hora': _formatTime(_horaFin),
-              'actividad': 'Cierre y Roda de integración general.',
-            }
-          ];
+          final List<Map<String, String>> finalCronograma = _cronograma.isNotEmpty
+              ? _cronograma.map((item) => {
+                  'dia': diaNombre,
+                  'hora': item['hora'] ?? '',
+                  'actividad': item['actividad'] ?? '',
+                }).toList()
+              : [
+                  {
+                    'dia': diaNombre,
+                    'hora': _formatTime(_horaInicio),
+                    'actividad': 'Inicio del evento y acreditación: $finalNombre',
+                  },
+                  {
+                    'dia': diaNombre,
+                    'hora': _formatTime(_horaFin),
+                    'actividad': 'Cierre y Roda de integración general.',
+                  }
+                ];
 
-          final eventDoc = await FirebaseFirestore.instance.collection('eventos').doc(widget.claseId).get();
           final Map<String, dynamic> eventData = {
             'titulo': finalNombre,
-            'organizador': instructorName,
-            'fecha_inicio': Timestamp.fromDate(startDateTime),
-            'fecha_fin': Timestamp.fromDate(endDateTime),
+            'organizador': _organizadorController.text.trim().isNotEmpty 
+                ? _organizadorController.text.trim() 
+                : instructorName,
+            'fecha_inicio': startDateTime != null ? Timestamp.fromDate(startDateTime) : null,
+            'fecha_fin': endDateTime != null ? Timestamp.fromDate(endDateTime) : null,
             'fecha_texto': '$_fechaTexto, ${_formatTime(_horaInicio)} - ${_formatTime(_horaFin)}',
             'lugar': finalLugar,
             'descripcion': _descripcionController.text.trim(),
-            'imagen_url': eventDoc.exists && eventDoc.data()?['imagen_url'] != null
-                ? eventDoc.data()!['imagen_url']
-                : bannerUrl,
-            'cronograma': eventDoc.exists && eventDoc.data()?['cronograma'] != null
-                ? eventDoc.data()!['cronograma']
-                : defaultCronograma,
+            'imagen_url': finalImageUrl,
+            'cronograma': finalCronograma,
+            'publicar_inmediatamente': _publicarInmediatamente,
           };
 
           await FirebaseFirestore.instance
@@ -621,67 +734,55 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
           final instructorName = userDoc.data()?['nombre'] ?? 'Instructor / Mestre';
 
-          DateTime? startDateTime;
-          DateTime? endDateTime;
-          if (_selectedDate != null) {
-            startDateTime = DateTime(
-              _selectedDate!.year,
-              _selectedDate!.month,
-              _selectedDate!.day,
-              _horaInicio.hour,
-              _horaInicio.minute,
-            );
-            endDateTime = DateTime(
-              _selectedDate!.year,
-              _selectedDate!.month,
-              _selectedDate!.day,
-              _horaFin.hour,
-              _horaFin.minute,
-            );
-          } else {
-            final now = DateTime.now();
-            startDateTime = DateTime(now.year, now.month, now.day, _horaInicio.hour, _horaInicio.minute);
-            endDateTime = DateTime(now.year, now.month, now.day, _horaFin.hour, _horaFin.minute);
-          }
-
           final String finalLugar = _ubicacionController.text.trim().isNotEmpty
               ? _ubicacionController.text.trim()
               : 'Sede: $_selectedSede';
 
-          final String bannerUrl = _tipoClase == 'roda'
-              ? 'assets/images/fiu_banner.png'
-              : 'assets/images/roda.jpg';
+          final String bannerUrl = finalImageUrl;
 
           final String diaNombre = _fechaTexto.isNotEmpty ? _fechaTexto.split(' ').first : 'Evento';
-          final List<Map<String, String>> defaultCronograma = [
-            {
-              'dia': diaNombre,
-              'hora': _formatTime(_horaInicio),
-              'actividad': 'Inicio del evento y acreditación: $finalNombre',
-            },
-            {
-              'dia': diaNombre,
-              'hora': _formatTime(_horaFin),
-              'actividad': 'Cierre y Roda de integración general.',
-            }
-          ];
+          final List<Map<String, String>> finalCronograma = _cronograma.isNotEmpty
+              ? _cronograma.map((item) => {
+                  'dia': diaNombre,
+                  'hora': item['hora'] ?? '',
+                  'actividad': item['actividad'] ?? '',
+                }).toList()
+              : [
+                  {
+                    'dia': diaNombre,
+                    'hora': _formatTime(_horaInicio),
+                    'actividad': 'Inicio del evento y acreditación: $finalNombre',
+                  },
+                  {
+                    'dia': diaNombre,
+                    'hora': _formatTime(_horaFin),
+                    'actividad': 'Cierre y Roda de integración general.',
+                  }
+                ];
 
           final Map<String, dynamic> eventData = {
             'titulo': finalNombre,
-            'organizador': instructorName,
-            'fecha_inicio': Timestamp.fromDate(startDateTime),
-            'fecha_fin': Timestamp.fromDate(endDateTime),
+            'organizador': _organizadorController.text.trim().isNotEmpty 
+                ? _organizadorController.text.trim() 
+                : instructorName,
+            'fecha_inicio': startDateTime != null ? Timestamp.fromDate(startDateTime) : null,
+            'fecha_fin': endDateTime != null ? Timestamp.fromDate(endDateTime) : null,
             'fecha_texto': '$_fechaTexto, ${_formatTime(_horaInicio)} - ${_formatTime(_horaFin)}',
             'lugar': finalLugar,
             'descripcion': _descripcionController.text.trim(),
-            'imagen_url': bannerUrl,
-            'cronograma': defaultCronograma,
+            'imagen_url': finalImageUrl,
+            'cronograma': finalCronograma,
+            'publicar_inmediatamente': _publicarInmediatamente,
           };
 
           await FirebaseFirestore.instance
               .collection('eventos')
               .doc(newDocId)
               .set(eventData);
+
+          if (_publicarInmediatamente) {
+            await _notificarAlumnosNuevaClase(newDocId, finalNombre, _tipoClase, _selectedSede);
+          }
         } else {
           // Clase regular estándar
           await FirebaseFirestore.instance.collection('clases').add(claseData);
@@ -806,6 +907,199 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                         'Describe el contenido o la dinámica de la clase...'),
                   ),
                 ],
+              ),
+            ),
+
+            if (_tipoClase != 'regular') ...[
+              const SizedBox(height: 16),
+              _buildCard(
+                title: 'Detalles del Evento (Opcional)',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _label('Organizador / Mestre Invitado'),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _organizadorController,
+                      style: GoogleFonts.nunito(
+                          fontSize: 13, color: GingaColors.textPrimary),
+                      decoration: _inputDecoration(
+                          'Ej: Mestre Sidney, Instructor Enrique...'),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _label('Cronograma de Actividades'),
+                        TextButton.icon(
+                          onPressed: _agregarItemCronograma,
+                          icon: const Icon(Icons.add, size: 16, color: GingaColors.brandGreen),
+                          label: Text(
+                            'Añadir bloque',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.brandGreen,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (_cronograma.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text(
+                            'No hay actividades programadas',
+                            style: GoogleFonts.nunito(
+                              fontSize: 12,
+                              color: GingaColors.textSecondary,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _cronograma.length,
+                        itemBuilder: (context, index) {
+                          final item = _cronograma[index];
+                          return Card(
+                            key: ValueKey(item),
+                            margin: const EdgeInsets.only(bottom: 8),
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              side: BorderSide(color: GingaColors.borderLight),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Row(
+                                children: [
+                                  // Hora input
+                                  SizedBox(
+                                    width: 100,
+                                    child: TextFormField(
+                                      initialValue: item['hora'],
+                                      onChanged: (val) {
+                                        _cronograma[index]['hora'] = val;
+                                      },
+                                      style: GoogleFonts.nunito(
+                                          fontSize: 12, color: GingaColors.textPrimary),
+                                      decoration: InputDecoration(
+                                        hintText: '09:00 AM',
+                                        isDense: true,
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                          borderSide: BorderSide(color: GingaColors.borderLight),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Actividad input
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: item['actividad'],
+                                      onChanged: (val) {
+                                        _cronograma[index]['actividad'] = val;
+                                      },
+                                      style: GoogleFonts.nunito(
+                                          fontSize: 12, color: GingaColors.textPrimary),
+                                      decoration: InputDecoration(
+                                        hintText: 'Actividad...',
+                                        isDense: true,
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                          borderSide: BorderSide(color: GingaColors.borderLight),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                    onPressed: () {
+                                      setState(() {
+                                        _cronograma.removeAt(index);
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 16),
+
+            // ── Imagen de Portada (Opcional) ──────────────
+            _buildCard(
+              title: 'Imagen de Portada / Banner (Opcional)',
+              child: GestureDetector(
+                onTap: _seleccionarImagen,
+                child: Container(
+                  width: double.infinity,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F8F8),
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                    border: Border.all(color: GingaColors.borderLight),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _selectedImageFile != null
+                      ? Image.file(_selectedImageFile!, fit: BoxFit.cover)
+                      : (_existingImageUrl.isNotEmpty
+                          ? (_existingImageUrl.startsWith('assets/')
+                              ? Image.asset(_existingImageUrl, fit: BoxFit.cover)
+                              : GingaCachedImage(
+                                  imageUrl: _existingImageUrl,
+                                  fit: BoxFit.cover,
+                                  category: 'evento',
+                                  errorWidget: const Center(
+                                    child: Icon(Icons.broken_image_outlined, color: Colors.grey, size: 40),
+                                  ),
+                                ))
+                          : Container(
+                              color: const Color(0xFFF8F8F8),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                    size: 40,
+                                    color: GingaColors.brandGreen,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Subir una foto de portada personalizada 📸',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: GingaColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Ideal para eventos y clases especiales',
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 11,
+                                      color: GingaColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
+                ),
               ),
             ),
 
@@ -1510,4 +1804,64 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           ),
         ],
       );
+
+  Future<void> _notificarAlumnosNuevaClase(
+      String claseId, String nombreClase, String tipo, String sede) async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('sede', isEqualTo: sede)
+          .where('rol', isEqualTo: 'alumno')
+          .get();
+
+      if (querySnapshot.docs.isEmpty) return;
+
+      String titulo = '¡Nueva Clase Disponible! 🥋';
+      String tipoNoti = 'clase';
+      if (tipo == 'roda') {
+        titulo = '¡Nueva Roda Especial! 🔥';
+        tipoNoti = 'evento';
+      } else if (tipo == 'especial') {
+        titulo = '¡Nuevo Evento Especial! 🌟';
+        tipoNoti = 'evento';
+      }
+
+      final String msg = tipo == 'regular'
+          ? 'Se ha programado una nueva clase de "$nombreClase" para el grupo de tu sede. ¡Revisa los horarios!'
+          : 'Se ha publicado el evento "$nombreClase" en tu sede. ¡Reserva tu cupo antes de que se agote!';
+
+      int count = 0;
+      WriteBatch batch = FirebaseFirestore.instance.batch();
+
+      for (var doc in querySnapshot.docs) {
+        final notifRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(doc.id)
+            .collection('notificaciones')
+            .doc();
+
+        batch.set(notifRef, {
+          'titulo': titulo,
+          'mensaje': msg,
+          'fecha': FieldValue.serverTimestamp(),
+          'leido': false,
+          'tipo': tipoNoti,
+          'clase_id': claseId,
+        });
+
+        count++;
+        if (count % 400 == 0) {
+          await batch.commit();
+          batch = FirebaseFirestore.instance.batch();
+        }
+      }
+
+      if (count % 400 != 0) {
+        await batch.commit();
+      }
+      debugPrint('Notificaciones de nueva clase enviadas a $count alumnos.');
+    } catch (e) {
+      debugPrint('Error enviando notificaciones de nueva clase: $e');
+    }
+  }
 }

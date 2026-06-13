@@ -151,144 +151,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
   }
 
-  Future<void> _mostrarSimuladorCheckIn() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: GingaColors.backgroundLight,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (BuildContext sheetContext) {
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('sesiones')
-              .where('activa', isEqualTo: true)
-              .snapshots(),
-          builder: (builderContext, snapshot) {
-            if (!snapshot.hasData) {
-              return const SizedBox(
-                height: 200,
-                child: Center(
-                  child: CircularProgressIndicator(color: GingaColors.brandGreen),
-                ),
-              );
-            }
-
-            final sesiones = snapshot.data!.docs;
-
-            if (sesiones.isEmpty) {
-              return SizedBox(
-                height: 220,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      'No hay sesiones de clase activas hoy.\n(Abre una primero como Profesor desde su vista para simular la asistencia)',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.nunito(
-                        fontSize: 14,
-                        color: GingaColors.textSecondary,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }
-
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                20,
-                20,
-                MediaQuery.of(builderContext).padding.bottom > 0
-                    ? MediaQuery.of(builderContext).padding.bottom + 12
-                    : 20,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.bolt, color: GingaColors.accentAmber),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Simulador de Check-in',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: GingaColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Selecciona una clase activa de hoy para simular el escaneo del código QR:',
-                    style: GoogleFonts.nunito(
-                      fontSize: 13,
-                      color: GingaColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: sesiones.length,
-                      itemBuilder: (listContext, index) {
-                        final sesion = sesiones[index];
-                        final data = sesion.data() as Map<String, dynamic>;
-                        final nivel = data['nivel'] ?? 'Clase de Capoeira';
-                        final hora = data['hora'] ?? '';
-                        final fecha = data['fecha'] ?? '';
-
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: const BorderSide(color: GingaColors.borderLight),
-                          ),
-                          child: ListTile(
-                            title: Text(
-                              nivel,
-                              style: GoogleFonts.montserrat(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: GingaColors.textPrimary,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '$hora — $fecha',
-                              style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary),
-                            ),
-                            trailing: const Icon(
-                              Icons.arrow_forward_ios,
-                              size: 14,
-                              color: GingaColors.brandGreen,
-                            ),
-                            onTap: () {
-                              _controller.stop();
-                              Navigator.pop(sheetContext);
-                              _procesarQR(sesion.id);
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   void _reiniciarEscaneo() {
     _controller.start();
     setState(() {
@@ -364,35 +226,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 ],
               ),
             ),
-            // Botón de Simulador de Desarrollo al fondo
-            Positioned(
-              bottom: 40,
-              left: 40,
-              right: 40,
-              child: SizedBox(
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: _mostrarSimuladorCheckIn,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: 0.15),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(GingaRadius.full),
-                      side: const BorderSide(color: Colors.white38),
-                    ),
-                  ),
-                  icon: const Icon(Icons.bolt, color: GingaColors.accentAmber),
-                  label: Text(
-                    'Simular Escaneo (Desarrollo)',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+
           ],
         );
       },
@@ -470,19 +304,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            TextButton.icon(
-                              onPressed: _mostrarSimuladorCheckIn,
-                              icon: const Icon(Icons.bolt, color: GingaColors.brandGreen),
-                              label: Text(
-                                'Simular Escaneo (Desarrollo)',
-                                style: GoogleFonts.montserrat(
-                                  color: GingaColors.brandGreen,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
+
                           ],
                         ],
                       ),

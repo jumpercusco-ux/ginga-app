@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/widgets/ginga_cached_image.dart';
 
 class CrearProductoScreen extends StatefulWidget {
   final String productoId;
@@ -224,8 +225,12 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
                           clipBehavior: Clip.antiAlias,
                           child: _imageFile != null
                               ? Image.file(_imageFile!, fit: BoxFit.cover)
-                              : (_imagenUrlExistente != null && _imagenUrlExistente!.startsWith('http'))
-                                  ? Image.network(_imagenUrlExistente!, fit: BoxFit.cover)
+                              : (_imagenUrlExistente != null && (_imagenUrlExistente!.startsWith('http') || _imagenUrlExistente!.startsWith('assets/')))
+                                  ? GingaCachedImage(
+                                      imageUrl: _imagenUrlExistente!,
+                                      fit: BoxFit.cover,
+                                      category: _categoriaSeleccionada,
+                                    )
                                   : Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [

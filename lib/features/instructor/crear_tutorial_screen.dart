@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/services/tutoriales_service.dart';
+import '../biblioteca/widgets/tutorial_thumbnail.dart';
 
 class CrearTutorialScreen extends StatefulWidget {
   final String tutorialId;
@@ -32,6 +33,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
   String _selectedLevel = 'Iniciante';
   String _existingImageUrl = '';
   String _existingVideoUrl = '';
+  bool _visible = true;
 
   // Selector de imagen y video
   File? _selectedImageFile;
@@ -80,6 +82,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
           _selectedLevel = data['nivel'] ?? 'Iniciante';
           _existingImageUrl = data['imagen_url'] ?? '';
           _existingVideoUrl = data['video_url'] ?? '';
+          _visible = data['visible'] ?? true;
         });
       }
     } catch (e) {
@@ -174,6 +177,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
         tipError: _tipErrorController.text.trim(),
         imagenUrl: finalImageUrl,
         videoUrl: finalVideoUrl,
+        visible: _visible,
       );
 
       if (mounted) {
@@ -308,28 +312,12 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                         clipBehavior: Clip.antiAlias,
                         child: _selectedImageFile != null
                             ? Image.file(_selectedImageFile!, fit: BoxFit.cover)
-                            : (_existingImageUrl.isNotEmpty
-                                ? (_existingImageUrl.startsWith('assets/')
-                                    ? Image.asset(_existingImageUrl, fit: BoxFit.cover)
-                                    : Image.network(_existingImageUrl, fit: BoxFit.cover, errorBuilder: (c, o, s) {
-                                        return const Center(child: Icon(Icons.broken_image_outlined));
-                                      }))
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.add_photo_alternate_outlined,
-                                          size: 24, color: GingaColors.textSecondary.withOpacity(0.6)),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Añadir foto de portada',
-                                        style: GoogleFonts.montserrat(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: GingaColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  )),
+                            : TutorialThumbnail(
+                                imagenUrl: _existingImageUrl,
+                                categoria: _selectedCategory,
+                                titulo: _tituloController.text,
+                                iconSize: 26,
+                              ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -429,7 +417,41 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                       style: GoogleFonts.nunito(color: GingaColors.textPrimary),
                       decoration: _buildInputDecoration('Ej: Apoyar el talón completo frena tu velocidad de escape...'),
                     ),
-                    const SizedBox(height: 32),
+                    // Visibilidad / Borrador Switch
+                    Container(
+                      margin: const EdgeInsets.only(top: 8, bottom: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                        border: Border.all(color: GingaColors.borderLight),
+                      ),
+                      child: SwitchListTile(
+                        value: _visible,
+                        activeColor: GingaColors.brandGreen,
+                        title: Text(
+                          'Publicar en la Biblioteca',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        subtitle: Text(
+                          _visible
+                              ? 'Visible para todos los alumnos en su biblioteca.'
+                              : 'Guardado como borrador (oculto para alumnos).',
+                          style: GoogleFonts.nunito(
+                            fontSize: 12,
+                            color: GingaColors.textSecondary,
+                          ),
+                        ),
+                        onChanged: (bool val) {
+                          setState(() {
+                            _visible = val;
+                          });
+                        },
+                      ),
+                    ),
 
                     // Botón Guardar
                     SizedBox(

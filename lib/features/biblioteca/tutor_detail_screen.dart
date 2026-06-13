@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/services/tts_service.dart';
 import 'practicar_movimiento_screen.dart'; 
+import 'widgets/tutorial_thumbnail.dart';
 
 class TutorialDetailScreen extends StatefulWidget {
   final String title;
@@ -104,13 +106,11 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
   }
 
   Widget _buildPlaceholder() {
-    return Container(
-      color: GingaColors.brandGreen,
-      child: const Icon(
-        Icons.play_circle_outline,
-        color: Colors.white,
-        size: 64,
-      ),
+    return TutorialThumbnail(
+      imagenUrl: '',
+      categoria: widget.category,
+      titulo: widget.title,
+      iconSize: 44,
     );
   }
 
@@ -145,18 +145,14 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                       ),
                     )
                   else
-                    // 2. Mostrar la miniatura por defecto si no se ha reproducido el video
-                    (widget.imageUrl.startsWith('assets/')
-                        ? Image.asset(
-                            widget.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-                          )
-                        : Image.network(
-                            widget.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-                          )),
+                    // 2. Mostrar la miniatura (usa la imagen si existe, o gradiente dinámico si no)
+                    TutorialThumbnail(
+                      imagenUrl: widget.imageUrl,
+                      categoria: widget.category,
+                      titulo: widget.title,
+                      iconSize: 44,
+                      showPlayIcon: false,
+                    ),
 
                   // Overlay gradiente para legibilidad
                   Container(
@@ -481,6 +477,42 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class TutorialDetailLoader extends StatelessWidget {
+  final String tutorialId;
+  const TutorialDetailLoader({super.key, required this.tutorialId});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('tutoriales').doc(tutorialId).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator(color: GingaColors.brandGreen)),
+          );
+        }
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Scaffold(
+            body: Center(child: Text('Tutorial no encontrado')),
+          );
+        }
+        final data = snapshot.data!.data() as Map<String, dynamic>;
+        return TutorialDetailScreen(
+          title: data['titulo'] ?? '',
+          category: data['categoria'] ?? 'Ataques',
+          level: data['nivel'] ?? 'Iniciante',
+          description: data['descripcion'] ?? '',
+          tipMestre: data['tipMestre'] ?? '',
+          tipError: data['tipError'] ?? '',
+          imageUrl: data['imagen_url'] ?? '',
+          videoUrl: data['video_url'] ?? '',
+          duracion: data['duracion'] ?? '5 min',
+        );
+      },
     );
   }
 }

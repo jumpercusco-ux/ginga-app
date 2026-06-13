@@ -94,6 +94,7 @@ class TutorialesService {
     required String tipError,
     required String imagenUrl,
     String videoUrl = '',
+    bool visible = true,
   }) async {
     final data = {
       'titulo': titulo,
@@ -105,6 +106,7 @@ class TutorialesService {
       'tipError': tipError,
       'imagen_url': imagenUrl,
       'video_url': videoUrl,
+      'visible': visible,
     };
 
     if (id != null && id.isNotEmpty) {

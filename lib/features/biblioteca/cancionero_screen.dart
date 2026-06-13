@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'song_detail_screen.dart';
+import 'crear_cantiga_screen.dart';
 
 class Cantiga {
   final String id;
   final String titulo;
   final String ritmo;
   final String autor;
+  final String interprete;
   final String duracion;
   final String contexto;
   final String letraPt;
@@ -21,6 +24,7 @@ class Cantiga {
     required this.titulo,
     required this.ritmo,
     required this.autor,
+    required this.interprete,
     required this.duracion,
     required this.contexto,
     required this.letraPt,
@@ -41,6 +45,33 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
   String _searchQuery = '';
   String _selectedCategory = 'Todos';
   final TextEditingController _searchController = TextEditingController();
+  bool _esProfesor = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkUserRole();
+  }
+
+  Future<void> _checkUserRole() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists && mounted) {
+          final rol = doc.data()?['rol'] ?? 'alumno';
+          setState(() {
+            _esProfesor = rol == 'profesor';
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error al validar rol en cancionero: $e");
+    }
+  }
 
   @override
   void dispose() {
@@ -210,6 +241,7 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                       titulo: data['titulo'] ?? '',
                       ritmo: data['ritmo'] ?? 'Corrido',
                       autor: data['autor'] ?? 'Tradicional',
+                      interprete: data['interprete'] ?? 'Tradicional',
                       duracion: data['duracion'] ?? '2:00',
                       contexto: data['contexto'] ?? '',
                       letraPt: data['letraPt'] ?? '',
@@ -261,8 +293,10 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final cantiga = filtered[index];
-                      return Container(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
+                      return _StaggeredListItem(
+                        index: index,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
@@ -342,11 +376,17 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                                               ),
                                             ),
                                             const SizedBox(width: 8),
-                                            Text(
-                                              cantiga.autor,
-                                              style: GoogleFonts.nunito(
-                                                fontSize: 11,
-                                                color: GingaColors.textSecondary,
+                                            Expanded(
+                                              child: Text(
+                                                cantiga.autor == cantiga.interprete
+                                                    ? cantiga.autor
+                                                    : '${cantiga.autor} (cantado por ${cantiga.interprete})',
+                                                style: GoogleFonts.nunito(
+                                                  fontSize: 11,
+                                                  color: GingaColors.textSecondary,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
                                           ],
@@ -372,15 +412,120 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                             ),
                           ),
                         ),
-                      );
-                    },
-                  );
+                      ),
+                    );
+                  },
+                );
                 },
               ),
             ),
           ],
         ),
       ),
+      floatingActionButton: _esProfesor
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CrearCantigaScreen()),
+                );
+              },
+              backgroundColor: GingaColors.brandGreen,
+              elevation: 4,
+              icon: const Icon(Icons.mic_external_on_rounded, color: Colors.white),
+              label: Text(
+                'Agregar Cantiga',
+                style: GoogleFonts.montserrat(
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            )
+          : null,
     );
   }
 }
+
+// ─────────────────────────────────────────
+//  STAGGERED LIST ITEM ANIMATION
+// ─────────────────────────────────────────
+
+class _StaggeredListItem extends StatefulWidget {
+  final int index;
+  final Widget child;
+
+  const _StaggeredListItem({
+    required this.index,
+    required this.child,
+  });
+
+  @override
+  State<_StaggeredListItem> createState() => _StaggeredListItemState();
+}
+
+class _StaggeredListItemState extends State<_StaggeredListItem>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacityAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+      ),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, 0.25),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    // Ejecutar con un sutil retraso desfasado
+    final delay = Duration(milliseconds: widget.index * 40);
+    Future.delayed(delay, () {
+      if (mounted) {
+        _controller.forward();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _opacityAnimation.value,
+          child: FractionalTranslation(
+            translation: _slideAnimation.value,
+            child: child,
+          ),
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+

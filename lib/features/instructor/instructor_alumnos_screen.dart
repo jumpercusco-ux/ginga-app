@@ -19,6 +19,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
   final List<String> _sedes = ['Todos', 'Virtual / A Distancia', 'Lima', 'Cusco', 'U. Continental', 'Chimbote'];
   String _selectedStatusFilter = 'Todos';
   final List<String> _statuses = ['Todos', 'Activo', 'Nuevo', 'Prueba', 'Inactivo'];
+  bool _showArchived = false;
 
   // Función para construir cada fila informativa de la Ficha
   Widget _buildFichaRow(IconData icon, String label, String value, {bool isAlert = false, Widget? suffix}) {
@@ -230,6 +231,10 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
 
                 const Divider(height: 32, color: GingaColors.borderLight),
 
+                _FichaProgresoCard(uid: data['uid'] ?? '', corda: corda),
+
+                const Divider(height: 32, color: GingaColors.borderLight),
+
                 _FichaAsistenciasCalendar(uid: data['uid'] ?? ''),
 
                 const SizedBox(height: 16),
@@ -288,6 +293,87 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                   ),
                 ),
 
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context); // Cerrar ficha antes de abrir el modal de compensación
+                      _mostrarModalCompensacion(context, data);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: GingaColors.accentAmber,
+                      side: const BorderSide(color: GingaColors.accentAmber),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                      ),
+                    ),
+                    icon: const Icon(Icons.auto_awesome_outlined, size: 16),
+                    label: Text(
+                      'Compensar por Feriado / Suspensión 📅',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                if (status == 'eliminado')
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        _reactivarAlumno(context, data['uid'] ?? '', data['nombre'] ?? '');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: GingaColors.brandGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                        ),
+                      ),
+                      icon: const Icon(Icons.flash_on_rounded, size: 16),
+                      label: Text(
+                        'Reactivar Alumno ⚡',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        _confirmarArchivarAlumno(context, data['uid'] ?? '', data['nombre'] ?? '');
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        side: const BorderSide(color: Colors.redAccent),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                        ),
+                      ),
+                      icon: const Icon(Icons.archive_outlined, size: 16),
+                      label: Text(
+                        'Dar de Baja / Archivar Alumno 📂',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+
                 const SizedBox(height: 24),
               ],
             ),
@@ -295,6 +381,125 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
         );
       },
     );
+  }
+
+  void _confirmarArchivarAlumno(BuildContext context, String uid, String nombre) {
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.lg)),
+          title: Text(
+            '¿Dar de Baja Alumno? ⚠️',
+            style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, color: Colors.redAccent),
+          ),
+          content: Text(
+            '¿Estás seguro de que deseas dar de baja a "$nombre"? Perderá acceso a la aplicación y no aparecerá en tus listas activas, pero se conservará su historial de pagos, pedidos y asistencias.',
+            style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                'Cancelar',
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: GingaColors.textSecondary),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _archivarAlumno(context, uid, nombre);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.md)),
+              ),
+              child: Text(
+                'Dar de Baja',
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _archivarAlumno(BuildContext context, String uid, String nombre) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: GingaColors.brandGreen),
+      ),
+    );
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'status': 'eliminado',
+      });
+
+      if (context.mounted) {
+        Navigator.pop(context); // Quitar loader
+        Navigator.pop(context); // Cerrar ficha de alumno
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Alumno "$nombre" dado de baja con éxito 📂'),
+            backgroundColor: GingaColors.brandGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Quitar loader
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al dar de baja: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _reactivarAlumno(BuildContext context, String uid, String nombre) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: GingaColors.brandGreen),
+      ),
+    );
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'status': 'activo',
+      });
+
+      if (context.mounted) {
+        Navigator.pop(context); // Quitar loader
+        Navigator.pop(context); // Cerrar ficha de alumno
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Alumno "$nombre" reactivado con éxito ⚡'),
+            backgroundColor: GingaColors.brandGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Quitar loader
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al reactivar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // Modal interactivo de creación de comunicados y envío masivo/individual
@@ -310,8 +515,16 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
     
     String sedeSeleccionada = 'Cusco';
     String? claseSeleccionadaId;
-    bool isClassesLoaded = false;
+    String screenSeleccionado = 'home';
+    String? claseRedireccionId;
+    String? tutorialRedireccionId;
+    String? cantigaRedireccionId;
+    String? productoRedireccionId;
+    bool isDataLoaded = false;
     List<QueryDocumentSnapshot> clasesList = [];
+    List<QueryDocumentSnapshot> tutorialesList = [];
+    List<QueryDocumentSnapshot> cantigasList = [];
+    List<QueryDocumentSnapshot> productosList = [];
     bool enviando = false;
 
     showModalBottomSheet(
@@ -324,14 +537,32 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
       builder: (BuildContext ctx) {
         return StatefulBuilder(
           builder: (BuildContext contextModal, setStateModal) {
-            return FutureBuilder<QuerySnapshot>(
-              future: FirebaseFirestore.instance.collection('clases').get(),
-              builder: (context, classesSnapshot) {
-                if (classesSnapshot.hasData && !isClassesLoaded) {
-                  clasesList = classesSnapshot.data!.docs;
-                  isClassesLoaded = true;
+            return FutureBuilder<List<QuerySnapshot>>(
+              future: Future.wait([
+                FirebaseFirestore.instance.collection('clases').get(),
+                FirebaseFirestore.instance.collection('tutoriales').get(),
+                FirebaseFirestore.instance.collection('cantigas').get(),
+                FirebaseFirestore.instance.collection('productos').get(),
+              ]),
+              builder: (context, snapshot) {
+                if (snapshot.hasData && !isDataLoaded) {
+                  clasesList = snapshot.data![0].docs;
+                  tutorialesList = snapshot.data![1].docs;
+                  cantigasList = snapshot.data![2].docs;
+                  productosList = snapshot.data![3].docs;
+                  isDataLoaded = true;
                   if (clasesList.isNotEmpty) {
                     claseSeleccionadaId = clasesList.first.id;
+                    claseRedireccionId = clasesList.first.id;
+                  }
+                  if (tutorialesList.isNotEmpty) {
+                    tutorialRedireccionId = tutorialesList.first.id;
+                  }
+                  if (cantigasList.isNotEmpty) {
+                    cantigaRedireccionId = cantigasList.first.id;
+                  }
+                  if (productosList.isNotEmpty) {
+                    productoRedireccionId = productosList.first.id;
                   }
                 }
 
@@ -480,7 +711,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          if (classesSnapshot.connectionState == ConnectionState.waiting)
+                          if (snapshot.connectionState == ConnectionState.waiting)
                             const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
                           else if (clasesList.isEmpty)
                             Text('No hay clases creadas en el sistema.', style: GoogleFonts.nunito(color: Colors.red))
@@ -572,7 +803,254 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           ),
                           style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
+
+                        // Redirección del Comunicado
+                        Text(
+                          'Pantalla de Destino (Redirección):',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          value: screenSeleccionado,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              borderSide: const BorderSide(color: GingaColors.brandGreen, width: 1.5),
+                            ),
+                          ),
+                          style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                          items: const [
+                            DropdownMenuItem(value: 'home', child: Text('Inicio 🏠')),
+                            DropdownMenuItem(value: 'tienda', child: Text('Tienda Virtual 📦')),
+                            DropdownMenuItem(value: 'membresia', child: Text('Mi Membresía / Perfil 👤')),
+                            DropdownMenuItem(value: 'clase_detalle', child: Text('Clase o Evento Específico 🗓️')),
+                            DropdownMenuItem(value: 'tutorial', child: Text('Tutorial Específico 📖')),
+                            DropdownMenuItem(value: 'cantiga', child: Text('Canción Específica 🎵')),
+                            DropdownMenuItem(value: 'producto', child: Text('Producto Específico 🛍️')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setStateModal(() {
+                                screenSeleccionado = val;
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        if (screenSeleccionado == 'clase_detalle') ...[
+                          Text(
+                            'Seleccionar Clase o Evento Destino:',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (snapshot.connectionState == ConnectionState.waiting)
+                            const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
+                          else if (clasesList.isEmpty)
+                            Text('No hay clases/eventos creados en el sistema.', style: GoogleFonts.nunito(color: Colors.red))
+                          else
+                            DropdownButtonFormField<String>(
+                              value: claseRedireccionId,
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                ),
+                              ),
+                              style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                              items: clasesList.map((doc) {
+                                final cdata = doc.data() as Map<String, dynamic>;
+                                final String nombre = cdata['nombre'] ?? 'Sin nombre';
+                                final String sede = cdata['sede'] ?? 'Sin sede';
+                                final String tipo = cdata['tipo'] ?? 'regular';
+                                final String tipoTag = tipo == 'regular' ? '🥋' : '🌟';
+                                return DropdownMenuItem<String>(
+                                  value: doc.id,
+                                  child: Text('$tipoTag $nombre ($sede)'),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setStateModal(() {
+                                    claseRedireccionId = val;
+                                  });
+                                }
+                              },
+                            ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        if (screenSeleccionado == 'tutorial') ...[
+                          Text(
+                            'Seleccionar Tutorial Destino:',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (snapshot.connectionState == ConnectionState.waiting)
+                            const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
+                          else if (tutorialesList.isEmpty)
+                            Text('No hay tutoriales creados en el sistema.', style: GoogleFonts.nunito(color: Colors.red))
+                          else
+                            DropdownButtonFormField<String>(
+                              value: tutorialRedireccionId,
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                ),
+                              ),
+                              style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                              items: tutorialesList.map((doc) {
+                                final tdata = doc.data() as Map<String, dynamic>;
+                                final String titulo = tdata['titulo'] ?? 'Sin título';
+                                final String categoria = tdata['categoria'] ?? 'General';
+                                return DropdownMenuItem<String>(
+                                  value: doc.id,
+                                  child: Text('📖 $titulo ($categoria)'),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setStateModal(() {
+                                    tutorialRedireccionId = val;
+                                  });
+                                }
+                              },
+                            ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        if (screenSeleccionado == 'cantiga') ...[
+                          Text(
+                            'Seleccionar Canción Destino:',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (snapshot.connectionState == ConnectionState.waiting)
+                            const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
+                          else if (cantigasList.isEmpty)
+                            Text('No hay canciones creadas en el sistema.', style: GoogleFonts.nunito(color: Colors.red))
+                          else
+                            DropdownButtonFormField<String>(
+                              value: cantigaRedireccionId,
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                ),
+                              ),
+                              style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                              items: cantigasList.map((doc) {
+                                final sdata = doc.data() as Map<String, dynamic>;
+                                final String titulo = sdata['titulo'] ?? 'Sin título';
+                                final String ritmo = sdata['ritmo'] ?? 'General';
+                                return DropdownMenuItem<String>(
+                                  value: doc.id,
+                                  child: Text('🎵 $titulo ($ritmo)'),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setStateModal(() {
+                                    cantigaRedireccionId = val;
+                                  });
+                                }
+                              },
+                            ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        if (screenSeleccionado == 'producto') ...[
+                          Text(
+                            'Seleccionar Producto Destino:',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (snapshot.connectionState == ConnectionState.waiting)
+                            const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
+                          else if (productosList.isEmpty)
+                            Text('No hay productos creados en el sistema.', style: GoogleFonts.nunito(color: Colors.red))
+                          else
+                            DropdownButtonFormField<String>(
+                              value: productoRedireccionId,
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                ),
+                              ),
+                              style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                              items: productosList.map((doc) {
+                                final pdata = doc.data() as Map<String, dynamic>;
+                                final String nombre = pdata['nombre'] ?? 'Sin nombre';
+                                final num precio = pdata['precio'] ?? 0;
+                                return DropdownMenuItem<String>(
+                                  value: doc.id,
+                                  child: Text('🛍️ $nombre (S/ $precio)'),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setStateModal(() {
+                                    productoRedireccionId = val;
+                                  });
+                                }
+                              },
+                            ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        const SizedBox(height: 12),
 
                         // Botones Acción
                         Row(
@@ -630,15 +1108,23 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                               'mensaje': mensaje,
                                               'fecha': Timestamp.now(),
                                               'leido': false,
-                                              'tipo': 'general',
-                                              'screen': 'home', // Redirige al home en anuncios generales!
+                                              'tipo': screenSeleccionado,
+                                              'screen': screenSeleccionado,
+                                              if (screenSeleccionado == 'clase_detalle')
+                                                'clase_id': claseRedireccionId,
+                                              if (screenSeleccionado == 'tutorial')
+                                                'tutorial_id': tutorialRedireccionId,
+                                              if (screenSeleccionado == 'cantiga')
+                                                'song_id': cantigaRedireccionId,
+                                              if (screenSeleccionado == 'producto')
+                                                'producto_id': productoRedireccionId,
                                             });
                                             count = 1;
                                           } else {
                                             // Enviar de forma masiva / grupal
                                             Query query = FirebaseFirestore.instance
                                                 .collection('users')
-                                                .where('role', isEqualTo: 'student');
+                                                .where('rol', isEqualTo: 'alumno');
 
                                             if (scopeSeleccionado == 'Por Sede') {
                                               if (sedeSeleccionada == 'Cusco') {
@@ -665,8 +1151,16 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                                 'mensaje': mensaje,
                                                 'fecha': Timestamp.now(),
                                                 'leido': false,
-                                                'tipo': 'general',
-                                                'screen': 'home', // Activa la redirección directa al home!
+                                                'tipo': screenSeleccionado,
+                                                'screen': screenSeleccionado,
+                                                if (screenSeleccionado == 'clase_detalle')
+                                                  'clase_id': claseRedireccionId,
+                                                if (screenSeleccionado == 'tutorial')
+                                                  'tutorial_id': tutorialRedireccionId,
+                                                if (screenSeleccionado == 'cantiga')
+                                                  'song_id': cantigaRedireccionId,
+                                                if (screenSeleccionado == 'producto')
+                                                  'producto_id': productoRedireccionId,
                                               });
                                               count++;
                                             }
@@ -718,6 +1212,960 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                       )
                                     : Text(
                                         'Enviar 🚀',
+                                        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Carga datos para la compensación
+  Future<Map<String, dynamic>> _cargarDatosCompensacion(String uid, String? claseId) async {
+    final Future<DocumentSnapshot?> fetchClase = (claseId != null && claseId.isNotEmpty)
+        ? FirebaseFirestore.instance.collection('clases').doc(claseId).get()
+        : Future.value(null);
+
+    final Future<QuerySnapshot> fetchCompensaciones = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('compensaciones')
+        .orderBy('fecha_compensacion', descending: true)
+        .limit(3)
+        .get();
+
+    // Consultamos únicamente por user_id para evitar requerir índices compuestos en Firebase
+    final Future<QuerySnapshot> fetchUltimoPago = FirebaseFirestore.instance
+        .collection('pagos')
+        .where('user_id', isEqualTo: uid)
+        .get();
+
+    final results = await Future.wait([fetchClase, fetchCompensaciones, fetchUltimoPago]);
+    
+    // Filtrado y ordenamiento en memoria para evitar colisiones de índices de Firebase
+    final pagosDocs = (results[2] as QuerySnapshot).docs;
+    final pagosCompletados = pagosDocs.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return data['estado'] == 'completado';
+    }).toList();
+
+    pagosCompletados.sort((a, b) {
+      final aData = a.data() as Map<String, dynamic>;
+      final bData = b.data() as Map<String, dynamic>;
+      final Timestamp? aTime = aData['fecha_pago'] as Timestamp?;
+      final Timestamp? bTime = bData['fecha_pago'] as Timestamp?;
+      if (aTime == null && bTime == null) return 0;
+      if (aTime == null) return 1;
+      if (bTime == null) return -1;
+      return bTime.compareTo(aTime); // Orden descendente
+    });
+
+    final Map<String, dynamic>? ultimoPagoData = pagosCompletados.isNotEmpty
+        ? pagosCompletados.first.data() as Map<String, dynamic>?
+        : null;
+
+    return {
+      'clase': results[0] as DocumentSnapshot?,
+      'compensaciones': (results[1] as QuerySnapshot).docs,
+      'ultimoPago': ultimoPagoData,
+    };
+  }
+
+  // Calcula la siguiente sesión de clase saltando días según el horario
+  DateTime calcularSiguienteSesion(DateTime fechaBase, List<String> diasClase, int sesionesAAgregar) {
+    final Map<String, int> mapDias = {
+      'L': DateTime.monday,
+      'M': DateTime.tuesday,
+      'X': DateTime.wednesday,
+      'J': DateTime.thursday,
+      'V': DateTime.friday,
+      'S': DateTime.saturday,
+      'D': DateTime.sunday,
+    };
+    
+    final List<int> diasSemanaInt = diasClase
+        .map((d) => mapDias[d.trim().toUpperCase()])
+        .whereType<int>()
+        .toList();
+        
+    if (diasSemanaInt.isEmpty) {
+      return fechaBase.add(Duration(days: sesionesAAgregar));
+    }
+    
+    diasSemanaInt.sort();
+    
+    DateTime fechaCalculada = fechaBase;
+    int sesionesEncontradas = 0;
+    DateTime ultimaClaseEncontrada = fechaBase;
+    
+    while (sesionesEncontradas < sesionesAAgregar) {
+      if (diasSemanaInt.contains(fechaCalculada.weekday)) {
+        sesionesEncontradas++;
+        ultimaClaseEncontrada = fechaCalculada;
+      }
+      if (sesionesEncontradas < sesionesAAgregar) {
+        fechaCalculada = fechaCalculada.add(const Duration(days: 1));
+      }
+    }
+    
+    return ultimaClaseEncontrada.add(const Duration(days: 1));
+  }
+
+  // Modal para compensar membresía por feriado / suspensión (sin cobros contables)
+  void _mostrarModalCompensacion(BuildContext context, Map<String, dynamic> data) {
+    final uid = data['uid'] ?? '';
+    final String alumnoNombre = data['nombre'] ?? 'Sin nombre';
+    final DateTime? finActual = data['membresia_fin'] != null
+        ? (data['membresia_fin'] as Timestamp).toDate()
+        : null;
+    final String? claseId = data['clase_id'];
+
+    // Variables locales de estado del modal
+    String motivoSeleccionado = 'feriado'; // feriado, inasistencia_justificada, suspension_profesor, congelar, otro
+    String detalleMotivoText = 'Feriado';
+    DateTime fechaReferencia = DateTime.now(); // fecha del feriado o de la inasistencia
+    int sesionesAAgregar = 1; // para feriados e inasistencias
+    int diasACongelar = 7; // para congelamientos
+    bool isLoading = false;
+    
+    DateTime baseVencimiento = finActual != null && finActual.isAfter(DateTime.now())
+        ? finActual
+        : DateTime.now();
+        
+    DateTime nuevaFechaVencimiento = baseVencimiento.add(const Duration(days: 1));
+    bool isCustomDate = false;
+    bool isConfirmEnabled = true;
+    String? warningMessage;
+    
+    List<String> listDiasClase = [];
+    List<DocumentSnapshot> lastCompensaciones = [];
+    Map<String, dynamic>? ultimoPagoData;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.xl)),
+      ),
+      builder: (BuildContext ctx) {
+        return FutureBuilder<Map<String, dynamic>>(
+          future: _cargarDatosCompensacion(uid, claseId),
+          builder: (contextFuture, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                height: 250,
+                child: const Center(
+                  child: CircularProgressIndicator(color: GingaColors.brandGreen),
+                ),
+              );
+            }
+            
+            if (snapshot.hasError) {
+              return Container(
+                height: 200,
+                padding: const EdgeInsets.all(20),
+                child: Center(
+                  child: Text('Error al cargar datos del alumno: ${snapshot.error}', style: GoogleFonts.nunito(color: Colors.red)),
+                ),
+              );
+            }
+
+            final datMap = snapshot.data!;
+            final DocumentSnapshot? claseDoc = datMap['clase'];
+            lastCompensaciones = datMap['compensaciones'] as List<DocumentSnapshot>;
+            ultimoPagoData = datMap['ultimoPago'] as Map<String, dynamic>?;
+
+            if (claseDoc != null && claseDoc.exists) {
+              final String rawDias = (claseDoc.data() as Map<String, dynamic>)['dias'] ?? '';
+              listDiasClase = rawDias.split(',').map((d) => d.trim()).where((d) => d.isNotEmpty).toList();
+            }
+
+            return StatefulBuilder(
+              builder: (contextModal, setStateModal) {
+                // Función interna para recalcular la nueva fecha de vencimiento basándose en los inputs
+                void recalcularNuevaFecha() {
+                  if (isCustomDate) return; // Si es fecha personalizada, no sobreescribir la elegida a mano
+                  
+                  if (motivoSeleccionado == 'feriado' || motivoSeleccionado == 'inasistencia_justificada' || motivoSeleccionado == 'suspension_profesor') {
+                    nuevaFechaVencimiento = calcularSiguienteSesion(baseVencimiento, listDiasClase, sesionesAAgregar);
+                  } else if (motivoSeleccionado == 'congelar') {
+                    nuevaFechaVencimiento = baseVencimiento.add(Duration(days: diasACongelar));
+                  } else {
+                    nuevaFechaVencimiento = baseVencimiento.add(Duration(days: sesionesAAgregar));
+                  }
+                }
+
+                // Función interna para realizar validaciones en tiempo real
+                void realizarValidaciones() {
+                  warningMessage = null;
+                  isConfirmEnabled = true;
+
+                  if (motivoSeleccionado == 'feriado') {
+                    // Validar si ya existe un feriado compensado para la fecha seleccionada
+                    final String idFeriadoTarget = "${fechaReferencia.year}-${fechaReferencia.month.toString().padLeft(2, '0')}-${fechaReferencia.day.toString().padLeft(2, '0')}";
+                    bool feriadoYaExiste = false;
+                    for (var doc in lastCompensaciones) {
+                      final c = doc.data() as Map<String, dynamic>;
+                      if (c['motivo'] == 'feriado' && c['id_feriado'] == idFeriadoTarget) {
+                        feriadoYaExiste = true;
+                        break;
+                      }
+                    }
+                    if (feriadoYaExiste) {
+                      warningMessage = '⚠️ El alumno ya fue compensado por el feriado del ${fechaReferencia.day}/${fechaReferencia.month}/${fechaReferencia.year}. Evita duplicaciones.';
+                      isConfirmEnabled = false;
+                    }
+                  } else if (motivoSeleccionado == 'inasistencia_justificada') {
+                    // Validar límite de inasistencias en este ciclo
+                    if (ultimoPagoData != null) {
+                      final DateTime? fechaPago = ultimoPagoData!['fecha_pago'] != null
+                          ? (ultimoPagoData!['fecha_pago'] as Timestamp).toDate()
+                          : null;
+
+                      if (fechaPago != null) {
+                        int count = 0;
+                        for (var doc in lastCompensaciones) {
+                          final c = doc.data() as Map<String, dynamic>;
+                          if (c['motivo'] == 'inasistencia_justificada') {
+                            final DateTime? fc = c['fecha_compensacion'] != null
+                                ? (c['fecha_compensacion'] as Timestamp).toDate()
+                                : null;
+                            if (fc != null && fc.isAfter(fechaPago)) {
+                              count++;
+                            }
+                          }
+                        }
+                        if (count >= 2) {
+                          warningMessage = '❌ Límite alcanzado: El alumno ya compensó las 2 inasistencias permitidas en este ciclo de pago (iniciado el ' + fechaPago.day.toString() + '/' + fechaPago.month.toString() + '/' + fechaPago.year.toString() + ').';
+                          isConfirmEnabled = false;
+                        } else {
+                          warningMessage = 'ℹ️ Inasistencias justificadas compensadas en este ciclo: ' + count.toString() + ' / 2.';
+                        }
+                      }
+                    } else {
+                      warningMessage = '⚠️ No se encontró un pago registrado en el sistema. Límite de inasistencias deshabilitado.';
+                    }
+                  }
+                }
+
+                // Ejecutamos cálculo inicial en primer render si no ha sido editado
+                recalcularNuevaFecha();
+                realizarValidaciones();
+
+                final String currentFinText = finActual != null
+                    ? "${finActual.day}/${finActual.month}/${finActual.year}"
+                    : "No tiene membresía activa";
+
+                return Container(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(contextModal).size.height * 0.9,
+                  ),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(contextModal).viewInsets.bottom +
+                          (MediaQuery.of(contextModal).padding.bottom > 0
+                              ? MediaQuery.of(contextModal).padding.bottom + 12
+                              : 20),
+                      left: 20,
+                      right: 20,
+                      top: 24,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Cabecera
+                        Row(
+                          children: [
+                            const Icon(Icons.auto_awesome_outlined, color: GingaColors.accentAmber, size: 24),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Compensar Membresía',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: GingaColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Alumno: ' + alumnoNombre,
+                          style: GoogleFonts.nunito(
+                            fontSize: 14,
+                            color: GingaColors.textSecondary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (listDiasClase.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Horario del Alumno: ' + listDiasClase.join(", "),
+                            style: GoogleFonts.nunito(
+                              fontSize: 13,
+                              color: GingaColors.brandGreen,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+
+                        // Vencimiento Actual
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8F8F8),
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            border: Border.all(color: GingaColors.borderLight),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline_rounded, color: GingaColors.textSecondary, size: 18),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Vencimiento actual:',
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 11,
+                                      color: GingaColors.textSecondary,
+                                    ),
+                                  ),
+                                  Text(
+                                    currentFinText,
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: GingaColors.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Seleccionar Motivo
+                        Text(
+                          'Motivo de la Compensación:',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          value: motivoSeleccionado,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              borderSide: const BorderSide(color: GingaColors.brandGreen),
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFF8F8F8),
+                          ),
+                          style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                          items: const [
+                            DropdownMenuItem(value: 'feriado', child: Text('Feriado / Festivo 📅')),
+                            DropdownMenuItem(value: 'inasistencia_justificada', child: Text('Inasistencia Justificada (Límite 2) 🤒')),
+                            DropdownMenuItem(value: 'suspension_profesor', child: Text('Suspensión por el Profesor 🥋')),
+                            DropdownMenuItem(value: 'congelar', child: Text('Congelar por Viaje / Salud ❄️')),
+                            DropdownMenuItem(value: 'otro', child: Text('Otro motivo especial 📝')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setStateModal(() {
+                                motivoSeleccionado = val;
+                                isCustomDate = false;
+                                if (val == 'feriado') {
+                                  detalleMotivoText = 'Feriado';
+                                  sesionesAAgregar = 1;
+                                } else if (val == 'inasistencia_justificada') {
+                                  detalleMotivoText = 'Inasistencia justificada';
+                                  sesionesAAgregar = 1;
+                                } else if (val == 'suspension_profesor') {
+                                  detalleMotivoText = 'Clase suspendida por el profesor';
+                                  sesionesAAgregar = 1;
+                                } else if (val == 'congelar') {
+                                  detalleMotivoText = 'Congelamiento temporal';
+                                  diasACongelar = 7;
+                                } else {
+                                  detalleMotivoText = 'Otros motivos';
+                                  sesionesAAgregar = 1;
+                                }
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Formulario Dinámico según Motivo
+                        if (motivoSeleccionado == 'feriado') ...[
+                          Text(
+                            'Fecha del Feriado:',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () async {
+                              final selected = await showDatePicker(
+                                context: contextModal,
+                                initialDate: fechaReferencia,
+                                firstDate: DateTime.now().subtract(const Duration(days: 60)),
+                                lastDate: DateTime.now().add(const Duration(days: 60)),
+                              );
+                              if (selected != null) {
+                                setStateModal(() {
+                                  fechaReferencia = selected;
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8F8F8),
+                                borderRadius: BorderRadius.circular(GingaRadius.md),
+                                border: Border.all(color: GingaColors.borderLight),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    fechaReferencia.day.toString() + '/' + fechaReferencia.month.toString() + '/' + fechaReferencia.year.toString(),
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: GingaColors.textPrimary,
+                                    ),
+                                  ),
+                                  const Icon(Icons.calendar_month_rounded, size: 18, color: GingaColors.brandGreen),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Nombre del Feriado:',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            onChanged: (val) => setStateModal(() { detalleMotivoText = val.trim(); }),
+                            decoration: InputDecoration(
+                              hintText: 'Ej: San Pedro y San Pablo',
+                              hintStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary),
+                              filled: true,
+                              fillColor: const Color(0xFFF8F8F8),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(GingaRadius.md),
+                                borderSide: const BorderSide(color: GingaColors.borderLight),
+                              ),
+                            ),
+                            style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 16),
+                        ] else if (motivoSeleccionado == 'inasistencia_justificada') ...[
+                          Text(
+                            'Fecha de la Inasistencia:',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () async {
+                              final selected = await showDatePicker(
+                                context: contextModal,
+                                initialDate: fechaReferencia,
+                                firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                                lastDate: DateTime.now(),
+                              );
+                              if (selected != null) {
+                                setStateModal(() {
+                                  fechaReferencia = selected;
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8F8F8),
+                                borderRadius: BorderRadius.circular(GingaRadius.md),
+                                border: Border.all(color: GingaColors.borderLight),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    fechaReferencia.day.toString() + '/' + fechaReferencia.month.toString() + '/' + fechaReferencia.year.toString(),
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: GingaColors.textPrimary,
+                                    ),
+                                  ),
+                                  const Icon(Icons.calendar_month_rounded, size: 18, color: GingaColors.brandGreen),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Alerta/Advertencia de Validación en Tiempo Real
+                        if (warningMessage != null) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: warningMessage!.contains('❌') 
+                                  ? Colors.red.shade50 
+                                  : warningMessage!.contains('⚠️') 
+                                      ? GingaColors.accentAmber.withOpacity(0.08) 
+                                      : Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              border: Border.all(
+                                color: warningMessage!.contains('❌') 
+                                    ? Colors.red.shade200 
+                                    : warningMessage!.contains('⚠️') 
+                                        ? GingaColors.accentAmber.withOpacity(0.2) 
+                                        : Colors.blue.shade200,
+                              ),
+                            ),
+                            child: Text(
+                              warningMessage!,
+                              style: GoogleFonts.nunito(
+                                fontSize: 12,
+                                color: warningMessage!.contains('❌') 
+                                    ? Colors.red.shade900 
+                                    : warningMessage!.contains('⚠️') 
+                                        ? const Color(0xFF856404) 
+                                        : Colors.blue.shade900,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Opciones de Compensación Rápida (Chips)
+                        Text(
+                          motivoSeleccionado == 'congelar' 
+                              ? 'Tiempo de Congelamiento:' 
+                              : 'Compensación a Aplicar:',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            if (motivoSeleccionado == 'congelar') ...[
+                              ChoiceChip(
+                                label: const Text('1 semana'),
+                                selected: diasACongelar == 7 && !isCustomDate,
+                                onSelected: (val) {
+                                  setStateModal(() {
+                                    diasACongelar = 7;
+                                    isCustomDate = false;
+                                  });
+                                },
+                                selectedColor: GingaColors.brandGreen,
+                                labelStyle: GoogleFonts.montserrat(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: (diasACongelar == 7 && !isCustomDate) ? Colors.white : GingaColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: const Text('2 semanas'),
+                                selected: diasACongelar == 14 && !isCustomDate,
+                                onSelected: (val) {
+                                  setStateModal(() {
+                                    diasACongelar = 14;
+                                    isCustomDate = false;
+                                  });
+                                },
+                                selectedColor: GingaColors.brandGreen,
+                                labelStyle: GoogleFonts.montserrat(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: (diasACongelar == 14 && !isCustomDate) ? Colors.white : GingaColors.textPrimary,
+                                ),
+                              ),
+                            ] else ...[
+                              ChoiceChip(
+                                label: const Text('+1 Sesión'),
+                                selected: sesionesAAgregar == 1 && !isCustomDate,
+                                onSelected: (val) {
+                                  setStateModal(() {
+                                    sesionesAAgregar = 1;
+                                    isCustomDate = false;
+                                  });
+                                },
+                                selectedColor: GingaColors.brandGreen,
+                                labelStyle: GoogleFonts.montserrat(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: (sesionesAAgregar == 1 && !isCustomDate) ? Colors.white : GingaColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              if (motivoSeleccionado != 'inasistencia_justificada') ...[
+                                ChoiceChip(
+                                  label: const Text('+2 Sesiones'),
+                                  selected: sesionesAAgregar == 2 && !isCustomDate,
+                                  onSelected: (val) {
+                                    setStateModal(() {
+                                      sesionesAAgregar = 2;
+                                      isCustomDate = false;
+                                    });
+                                  },
+                                  selectedColor: GingaColors.brandGreen,
+                                  labelStyle: GoogleFonts.montserrat(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: (sesionesAAgregar == 2 && !isCustomDate) ? Colors.white : GingaColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                            ],
+                            ChoiceChip(
+                              label: const Text('Fecha Libre 📅'),
+                              selected: isCustomDate,
+                              onSelected: (val) async {
+                                final selected = await showDatePicker(
+                                  context: contextModal,
+                                  initialDate: nuevaFechaVencimiento,
+                                  firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  builder: (context, child) => Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: const ColorScheme.light(primary: GingaColors.brandGreen),
+                                    ),
+                                    child: child!,
+                                  ),
+                                );
+                                if (selected != null) {
+                                  setStateModal(() {
+                                    nuevaFechaVencimiento = selected;
+                                    isCustomDate = true;
+                                  });
+                                }
+                              },
+                              selectedColor: GingaColors.brandGreen,
+                              labelStyle: GoogleFonts.montserrat(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: isCustomDate ? Colors.white : GingaColors.textPrimary),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Fecha de Vencimiento Calculada
+                        Text(
+                          'Nuevo Vencimiento de Membresía:',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            border: Border.all(color: GingaColors.brandGreen, width: 1.5),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                nuevaFechaVencimiento.day.toString() + '/' + nuevaFechaVencimiento.month.toString() + '/' + nuevaFechaVencimiento.year.toString(),
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: GingaColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                isCustomDate ? 'Fecha Libre' : (motivoSeleccionado == 'congelar' ? 'congelamiento' : 'proyección de clase'),
+                                style: GoogleFonts.nunito(
+                                  fontSize: 11,
+                                  color: GingaColors.brandGreen,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Historial de Compensaciones
+                        if (lastCompensaciones.isNotEmpty) ...[
+                          Text(
+                            'Historial de Compensaciones Recientes:',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: lastCompensaciones.length,
+                            itemBuilder: (context, index) {
+                              final comp = lastCompensaciones[index].data() as Map<String, dynamic>;
+                              final String mot = comp['motivo'] ?? 'otro';
+                              final String det = comp['detalle'] ?? '';
+                              final int dias = comp['dias_compensados'] ?? 0;
+                              final DateTime? fechaC = comp['fecha_compensacion'] != null
+                                  ? (comp['fecha_compensacion'] as Timestamp).toDate()
+                                  : null;
+
+                              String motivoLabel = 'Otro';
+                              IconData icon = Icons.info_outline;
+                              if (mot == 'feriado') {
+                                motivoLabel = 'Feriado';
+                                icon = Icons.calendar_month_outlined;
+                              } else if (mot == 'inasistencia_justificada') {
+                                motivoLabel = 'Inasistencia';
+                                icon = Icons.sick_outlined;
+                              } else if (mot == 'congelar') {
+                                motivoLabel = 'Congelamiento';
+                                icon = Icons.ac_unit_outlined;
+                              } else if (mot == 'suspension_profesor') {
+                                motivoLabel = 'Suspensión';
+                                icon = Icons.cancel_presentation_outlined;
+                              }
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF9F9F9),
+                                  borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                  border: Border.all(color: GingaColors.borderLight),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(icon, size: 16, color: GingaColors.textSecondary),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            motivoLabel + ' - ' + det,
+                                            style: GoogleFonts.nunito(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: GingaColors.textPrimary,
+                                            ),
+                                          ),
+                                          if (fechaC != null)
+                                            Text(
+                                              'Otorgado: ' + fechaC.day.toString() + '/' + fechaC.month.toString() + '/' + fechaC.year.toString(),
+                                              style: GoogleFonts.nunito(
+                                                fontSize: 10,
+                                                color: GingaColors.textSecondary,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: GingaColors.brandGreen.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        '+' + dias.toString() + ' d',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: GingaColors.brandGreen,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+
+                        // Botones de Confirmar/Cancelar
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(contextModal),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: GingaColors.textSecondary,
+                                  side: const BorderSide(color: GingaColors.borderLight),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Cancelar',
+                                  style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: (!isConfirmEnabled)
+                                    ? null
+                                    : () async {
+                                        setStateModal(() { isConfirmEnabled = false; });
+                                        try {
+                                          final int diasComp = nuevaFechaVencimiento.difference(baseVencimiento).inDays;
+                                          final String registeredBy = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+                                          // 1. Guardar registro en la subcolección compensaciones del alumno
+                                          final String idFeriadoValue = motivoSeleccionado == 'feriado' 
+                                              ? "${fechaReferencia.year}-${fechaReferencia.month.toString().padLeft(2, '0')}-${fechaReferencia.day.toString().padLeft(2, '0')}"
+                                              : '';
+                                          
+                                          await FirebaseFirestore.instance
+                                              .collection('users')
+                                              .doc(uid)
+                                              .collection('compensaciones')
+                                              .add({
+                                            'motivo': motivoSeleccionado,
+                                            'detalle': detalleMotivoText,
+                                            'fecha_compensacion': FieldValue.serverTimestamp(),
+                                            'dias_compensados': diasComp > 0 ? diasComp : 1,
+                                            'vencimiento_anterior': finActual != null ? Timestamp.fromDate(finActual) : null,
+                                            'vencimiento_nuevo': Timestamp.fromDate(nuevaFechaVencimiento),
+                                            'registrado_por': registeredBy,
+                                            'id_feriado': idFeriadoValue,
+                                            'fecha_inasistencia': motivoSeleccionado == 'inasistencia_justificada' ? Timestamp.fromDate(fechaReferencia) : null,
+                                          });
+
+                                          // 2. Actualizar el vencimiento y estado del alumno
+                                          await FirebaseFirestore.instance.collection('users').doc(uid).update({
+                                            'status': 'activo',
+                                            'membresia_fin': Timestamp.fromDate(nuevaFechaVencimiento),
+                                          });
+
+                                          // 3. Crear notificación personalizada
+                                          final nuevoVencimientoTexto = nuevaFechaVencimiento.day.toString() + '/' + nuevaFechaVencimiento.month.toString() + '/' + nuevaFechaVencimiento.year.toString();
+                                          String msg = '';
+                                          if (motivoSeleccionado == 'feriado') {
+                                            msg = 'Tu membresía ha sido extendida por ' + (sesionesAAgregar == 1 ? "1 sesión" : sesionesAAgregar.toString() + " sesiones") + ' debido al feriado de "' + detalleMotivoText + '". Tu nuevo vencimiento es el ' + nuevoVencimientoTexto + '.';
+                                          } else if (motivoSeleccionado == 'inasistencia_justificada') {
+                                            msg = 'Se ha reincorporado 1 sesión a tu membresía por inasistencia justificada. Tu nuevo vencimiento es el ' + nuevoVencimientoTexto + '.';
+                                          } else if (motivoSeleccionado == 'congelar') {
+                                            msg = 'Tu membresía ha sido congelada por ' + (diasACongelar == 7 ? "1 semana" : "2 semanas") + '. Tu nuevo vencimiento se pospone al ' + nuevoVencimientoTexto + '.';
+                                          } else {
+                                            msg = 'Tu membresía ha sido extendida por el motivo "' + detalleMotivoText + '". Tu nuevo vencimiento es el ' + nuevoVencimientoTexto + '.';
+                                          }
+
+                                          await FirebaseFirestore.instance
+                                              .collection('users')
+                                              .doc(uid)
+                                              .collection('notificaciones')
+                                              .add({
+                                            'titulo': 'Membresía Compensada 🎁',
+                                            'mensaje': msg,
+                                            'fecha': FieldValue.serverTimestamp(),
+                                            'leido': false,
+                                            'tipo': 'membresia',
+                                          });
+
+                                          if (contextModal.mounted) {
+                                            Navigator.pop(contextModal);
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('Compensación registrada 🎉. Vence: ' + nuevoVencimientoTexto),
+                                                backgroundColor: GingaColors.brandGreen,
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (contextModal.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('Error al guardar compensación: ' + e.toString()),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        } finally {
+                                          setStateModal(() { isConfirmEnabled = true; });
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: GingaColors.brandGreen,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  ),
+                                ),
+                                child: (!isConfirmEnabled)
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                      )
+                                    : Text(
+                                        'Confirmar 🚀',
                                         style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700),
                                       ),
                               ),
@@ -1391,17 +2839,45 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Gestión de Alumnos',
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Gestión de Alumnos',
+                          style: GoogleFonts.montserrat(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: GingaColors.textPrimary)),
+                      Text('Administra el perfil, fichas y membresías de tus alumnos',
+                          style: GoogleFonts.nunito(
+                              fontSize: 14, color: GingaColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _mostrarModalComunicado(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: GingaColors.brandGreen,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    minimumSize: const Size(0, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                    ),
+                  ),
+                  icon: const Icon(Icons.campaign, size: 18),
+                  label: Text(
+                    'Comunicado 📢',
                     style: GoogleFonts.montserrat(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: GingaColors.textPrimary)),
-                Text('Administra el perfil, fichas y membresías de tus alumnos',
-                    style: GoogleFonts.nunito(
-                        fontSize: 14, color: GingaColors.textSecondary)),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1513,6 +2989,30 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Ver Alumnos de Baja',
+                      style: GoogleFonts.nunito(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Switch(
+                      value: _showArchived,
+                      activeColor: GingaColors.brandGreen,
+                      onChanged: (val) {
+                        setState(() {
+                          _showArchived = val;
+                        });
+                      },
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
               ],
             ),
@@ -1541,9 +3041,19 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                 // Filtrar alumnos client-side por nombre, sede y estado
                 final filteredDocs = snapshot.data!.docs.where((doc) {
                   final data = doc.data() as Map<String, dynamic>;
-                  final nombre = (data['nombre'] ?? '').toString().toLowerCase();
+                  final nombreRaw = (data['nombre'] ?? '').toString().trim();
+                  final sedeRaw = (data['sede'] ?? '').toString().trim();
+                  if (nombreRaw.isEmpty || sedeRaw.isEmpty) {
+                    return false;
+                  }
+
+                  final nombre = nombreRaw.toLowerCase();
                   final sede = (data['sede'] ?? '').toString();
                   final status = (data['status'] ?? '').toString();
+
+                  if (status == 'eliminado' && !_showArchived) {
+                    return false;
+                  }
 
                   final matchesSearch = nombre.contains(_searchQuery.toLowerCase());
                   final matchesSede = _selectedSedeFilter == 'Todos' || sede == _selectedSedeFilter;
@@ -1587,6 +3097,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     final status = data['status'] ?? 'desconocido';
                     final userSede = data['sede'] ?? 'Sin sede';
                     final String? fotoUrl = data['foto_url'];
+                    final String corda = data['corda'] ?? 'Crua';
 
                     return GestureDetector(
                       onTap: () {
@@ -1667,11 +3178,17 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                                             : Colors.red)),
                                       ),
                                       const SizedBox(width: 6),
-                                      Text('•  $userSede',
+                                      Flexible(
+                                        child: Text(
+                                          '•  $userSede • $corda',
                                           style: GoogleFonts.nunito(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w600,
-                                              color: GingaColors.textSecondary)),
+                                              color: GingaColors.textSecondary),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      _StudentProgressText(uid: doc.id, corda: corda),
                                     ],
                                   ),
                                 ],
@@ -1975,6 +3492,175 @@ class _FichaAsistenciasCalendarState extends State<_FichaAsistenciasCalendar> {
                       ),
                     );
                   },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+//  SECCIÓN DE PROGRESO DE GRADUACIÓN (OPCIÓN C)
+// ─────────────────────────────────────────
+
+String _obtenerSiguienteCorda(String cordaUsuario) {
+  final cordaObj = CuerdasFIU.encontrarCordaFIU(cordaUsuario);
+  if (cordaObj != null) {
+    final nextIndex = cordaObj.index; 
+    if (nextIndex < CuerdasFIU.lista.length) {
+      return CuerdasFIU.lista[nextIndex].nombre;
+    }
+    return 'Graduado';
+  }
+  return 'Crua e Verde';
+}
+
+class _StudentProgressText extends StatelessWidget {
+  final String uid;
+  final String corda;
+
+  const _StudentProgressText({required this.uid, required this.corda});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('asistencias')
+          .where('user_id', isEqualTo: uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Text(
+            ' • 🎯 ...%',
+            style: GoogleFonts.nunito(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: GingaColors.textSecondary,
+            ),
+          );
+        }
+        final int totalAsistencias = snapshot.data!.docs.length;
+        final cordaObj = CuerdasFIU.encontrarCordaFIU(corda);
+        final int objetivo = cordaObj != null
+            ? CuerdasFIU.obtenerClasesObjetivo(cordaObj.index)
+            : 100;
+        final double porcentaje = (totalAsistencias / objetivo).clamp(0.0, 1.0);
+        final int porcentajeInt = (porcentaje * 100).toInt();
+
+        return Text(
+          ' • 🎯 $porcentajeInt%',
+          style: GoogleFonts.nunito(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: GingaColors.brandGreen,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FichaProgresoCard extends StatelessWidget {
+  final String uid;
+  final String corda;
+
+  const _FichaProgresoCard({required this.uid, required this.corda});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('asistencias')
+          .where('user_id', isEqualTo: uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(12.0),
+              child: CircularProgressIndicator(color: GingaColors.brandGreen, strokeWidth: 2),
+            ),
+          );
+        }
+
+        final int totalAsistencias = snapshot.hasData ? snapshot.data!.docs.length : 0;
+        final cordaObj = CuerdasFIU.encontrarCordaFIU(corda);
+        final int objetivo = cordaObj != null
+            ? CuerdasFIU.obtenerClasesObjetivo(cordaObj.index)
+            : 100;
+        final double porcentaje = (totalAsistencias / objetivo).clamp(0.0, 1.0);
+        final int porcentajeInt = (porcentaje * 100).toInt();
+
+        final String siguienteCorda = _obtenerSiguienteCorda(corda);
+        
+        // Objetivo de cuerda texto
+        String descCorda = totalAsistencias >= objetivo
+            ? '¡Clases completadas! ($totalAsistencias/$objetivo)'
+            : 'Faltan ${objetivo - totalAsistencias} clases para graduarse ($totalAsistencias de $objetivo)';
+        if (siguienteCorda == 'Graduado') {
+          descCorda = '¡Has alcanzado el rango máximo en Ginga!';
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: GingaColors.borderLight.withValues(alpha: 0.8)),
+          ),
+          child: Row(
+            children: [
+              // Círculo de progreso
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: CircularProgressIndicator(
+                      value: porcentaje,
+                      backgroundColor: GingaColors.borderLight,
+                      color: GingaColors.brandGreen,
+                      strokeWidth: 6,
+                    ),
+                  ),
+                  Text(
+                    '$porcentajeInt%',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: GingaColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              // Detalles del objetivo
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      siguienteCorda == 'Graduado' ? 'Camino Completado 🏆' : 'Siguiente Cuerda: $siguienteCorda',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      descCorda,
+                      style: GoogleFonts.nunito(
+                        fontSize: 12,
+                        color: GingaColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'musica_screen.dart';
 import 'tutor_detail_screen.dart';
@@ -127,6 +128,18 @@ class BibliotecaScreen extends StatelessWidget {
                     builder: (_) => const GraduacionesScreen(),
                   ),
                 ),
+              ),
+
+              const SizedBox(height: 14),
+
+              _SeccionCard(
+                titulo: 'Nuestros Mestres',
+                subtitulo: 'Conoce a los líderes y fundadores de la Família Irmãos Unidos',
+                icono: Icons.diversity_3_rounded,
+                tag: 'LINAJE',
+                tagColor: Colors.deepPurple,
+                color: Colors.deepPurple,
+                onTap: () => context.push('/nuestros-mestres'),
               ),
 
               const SizedBox(height: 28),

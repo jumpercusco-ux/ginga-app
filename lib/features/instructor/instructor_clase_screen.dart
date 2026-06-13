@@ -25,6 +25,79 @@ void _navigateToQrGenerator(
   );
 }
 
+Future<void> _deleteClase(BuildContext context, String claseId, String tipo) async {
+  try {
+    // 1. Eliminar de 'clases'
+    await FirebaseFirestore.instance.collection('clases').doc(claseId).delete();
+
+    // 2. Si no es regular, eliminar también de 'eventos'
+    if (tipo != 'regular') {
+      await FirebaseFirestore.instance.collection('eventos').doc(claseId).delete();
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sesión eliminada con éxito 🗑️'),
+          backgroundColor: GingaColors.brandGreen,
+        ),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al eliminar: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
+
+void _confirmDeleteClase(BuildContext context, String claseId, String name, String tipo) {
+  showDialog(
+    context: context,
+    builder: (BuildContext ctx) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.lg)),
+        title: Text(
+          '¿Eliminar sesión? ⚠️',
+          style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, color: GingaColors.textPrimary),
+        ),
+        content: Text(
+          '¿Estás seguro de que deseas eliminar "$name"? Se borrarán todos los registros asociados de forma permanente.',
+          style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: GingaColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _deleteClase(context, claseId, tipo);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.md)),
+            ),
+            child: Text(
+              'Eliminar',
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
+
 class InstructorClaseScreen extends StatefulWidget {
   const InstructorClaseScreen({super.key});
 
@@ -37,11 +110,35 @@ class _InstructorClaseScreenState extends State<InstructorClaseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
-      body: IndexedStack(
-        index: _selectedTab,
-        children: const [
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: uid == null
+          ? const Stream.empty()
+          : FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+          final rol = data['rol'] ?? 'alumno';
+          if (rol != 'profesor' && rol != 'administrador') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                context.go('/home');
+              }
+            });
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(color: GingaColors.brandGreen),
+              ),
+            );
+          }
+        }
+
+        return Scaffold(
+          backgroundColor: GingaColors.backgroundLight,
+          body: IndexedStack(
+            index: _selectedTab,
+            children: const [
           _InstructorDashboard(),
           InstructorAlumnosScreen(),
           InstructorPagosScreen(),
@@ -73,11 +170,34 @@ class _InstructorClaseScreenState extends State<InstructorClaseScreen> {
         },
       ),
     );
+        },
+      );
   }
 }
 
 class _InstructorDashboard extends StatelessWidget {
   const _InstructorDashboard();
+
+  Widget _buildEmptySection(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        border: Border.all(color: GingaColors.borderLight),
+      ),
+      child: Center(
+        child: Text(
+          message,
+          style: GoogleFonts.nunito(
+            color: GingaColors.textSecondary,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -131,14 +251,6 @@ class _InstructorDashboard extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            Text('Clases de hoy',
-                style: GoogleFonts.montserrat(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary)),
-
-            const SizedBox(height: 12),
-
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('clases')
@@ -151,38 +263,90 @@ class _InstructorDashboard extends StatelessWidget {
                   );
                 }
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: GingaColors.cardLight,
-                      borderRadius: BorderRadius.circular(GingaRadius.lg),
-                    ),
-                    child: Center(
-                      child: Text('No hay clases registradas',
-                          style: GoogleFonts.nunito(
-                              color: GingaColors.textSecondary)),
-                    ),
-                  );
+                final now = DateTime.now();
+                final allDocs = snapshot.hasData ? snapshot.data!.docs : [];
+                
+                final clasesRegulares = <QueryDocumentSnapshot>[];
+                final eventosYRodas = <QueryDocumentSnapshot>[];
+
+                for (var doc in allDocs) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final String tipo = data['tipo'] ?? 'regular';
+
+                  bool isActive = true;
+                  if (tipo != 'regular') {
+                    final Timestamp? fechaFinTs = data['fecha_fin'] as Timestamp?;
+                    if (fechaFinTs != null) {
+                      isActive = fechaFinTs.toDate().isAfter(now);
+                    }
+                  }
+
+                  if (isActive) {
+                    if (tipo == 'regular') {
+                      clasesRegulares.add(doc);
+                    } else {
+                      eventosYRodas.add(doc);
+                    }
+                  }
                 }
 
                 return Column(
-                  children: snapshot.data!.docs.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _ClaseInstructorCard(
-                        claseId: doc.id,
-                        hora: data['hora'] ?? '',
-                        nivel: data['nivel'] ?? '',
-                        badge: data['badge'] ?? '',
-                        dias: data['dias'] ?? '',
-                        cuposDisponibles: data['cupos_disponibles'] ?? 0,
-                        cuposMax: data['cupos_max'] ?? 10,
-                        tipo: data['tipo'] ?? 'regular',
-                      ),
-                    );
-                  }).toList(),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Clases Regulares de Hoy 🥋',
+                        style: GoogleFonts.montserrat(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textPrimary)),
+                    const SizedBox(height: 8),
+                    if (clasesRegulares.isEmpty)
+                      _buildEmptySection('No hay clases regulares registradas hoy')
+                    else
+                      ...clasesRegulares.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _ClaseInstructorCard(
+                            claseId: doc.id,
+                            hora: data['hora'] ?? '',
+                            nivel: data['nivel'] ?? '',
+                            badge: data['badge'] ?? '',
+                            dias: data['dias'] ?? '',
+                            cuposDisponibles: data['cupos_disponibles'] ?? 0,
+                            cuposMax: data['cupos_max'] ?? 10,
+                            tipo: data['tipo'] ?? 'regular',
+                            publicarInmediatamente: data['publicar_inmediatamente'] ?? true,
+                          ),
+                        );
+                      }),
+                    const SizedBox(height: 16),
+                    Text('Eventos y Rodas de Hoy 🌟',
+                        style: GoogleFonts.montserrat(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textPrimary)),
+                    const SizedBox(height: 8),
+                    if (eventosYRodas.isEmpty)
+                      _buildEmptySection('No hay eventos o rodas activos hoy')
+                    else
+                      ...eventosYRodas.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _ClaseInstructorCard(
+                            claseId: doc.id,
+                            hora: data['hora'] ?? '',
+                            nivel: data['nivel'] ?? '',
+                            badge: data['badge'] ?? '',
+                            dias: data['dias'] ?? '',
+                            cuposDisponibles: data['cupos_disponibles'] ?? 0,
+                            cuposMax: data['cupos_max'] ?? 10,
+                            tipo: data['tipo'] ?? 'regular',
+                            publicarInmediatamente: data['publicar_inmediatamente'] ?? true,
+                          ),
+                        );
+                      }),
+                  ],
                 );
               },
             ),
@@ -380,42 +544,67 @@ class _InstructorDashboard extends StatelessWidget {
                   );
                 }
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: GingaColors.cardLight,
-                      borderRadius: BorderRadius.circular(GingaRadius.lg),
-                      border: Border.all(color: GingaColors.borderLight),
-                    ),
-                    child: Center(
-                      child: Text('No hay clases registradas aún',
-                          style: GoogleFonts.nunito(
-                              color: GingaColors.textSecondary)),
-                    ),
-                  );
+                final allDocs = snapshot.hasData ? snapshot.data!.docs : [];
+                final clasesRegularesHistorial = <QueryDocumentSnapshot>[];
+                final eventosYRodasHistorial = <QueryDocumentSnapshot>[];
+
+                for (var doc in allDocs) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final String tipo = data['tipo'] ?? 'regular';
+                  if (tipo == 'regular') {
+                    clasesRegularesHistorial.add(doc);
+                  } else {
+                    eventosYRodasHistorial.add(doc);
+                  }
                 }
 
                 return Column(
-                  children: snapshot.data!.docs.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final claseId = doc.id;
-                    final nivel = data['nivel'] ?? 'Clase';
-                    final hora = data['hora'] ?? '';
-                    final badge = data['badge'] ?? '';
-                    final dias = data['dias'] ?? '';
-                    final tipo = data['tipo'] ?? 'regular';
-
-                    return _ClaseHistorialGroupCard(
-                      claseId: claseId,
-                      nivel: nivel,
-                      hora: hora,
-                      badge: badge,
-                      dias: dias,
-                      tipo: tipo,
-                    );
-                  }).toList(),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Historial de Clases Regulares 🥋',
+                        style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textSecondary)),
+                    const SizedBox(height: 8),
+                    if (clasesRegularesHistorial.isEmpty)
+                      _buildEmptySection('No hay clases regulares registradas aún')
+                    else
+                      ...clasesRegularesHistorial.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        return _ClaseHistorialGroupCard(
+                          claseId: doc.id,
+                          nivel: data['nivel'] ?? 'Clase',
+                          hora: data['hora'] ?? '',
+                          badge: data['badge'] ?? '',
+                          dias: data['dias'] ?? '',
+                          tipo: data['tipo'] ?? 'regular',
+                          fechaFin: data['fecha_fin'] as Timestamp?,
+                        );
+                      }),
+                    const SizedBox(height: 20),
+                    Text('Historial de Eventos y Rodas 🌟',
+                        style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.textSecondary)),
+                    const SizedBox(height: 8),
+                    if (eventosYRodasHistorial.isEmpty)
+                      _buildEmptySection('No hay eventos o rodas registrados aún')
+                    else
+                      ...eventosYRodasHistorial.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        return _ClaseHistorialGroupCard(
+                          claseId: doc.id,
+                          nivel: data['nivel'] ?? 'Clase',
+                          hora: data['hora'] ?? '',
+                          badge: data['badge'] ?? '',
+                          dias: data['dias'] ?? '',
+                          tipo: data['tipo'] ?? 'regular',
+                          fechaFin: data['fecha_fin'] as Timestamp?,
+                        );
+                      }),
+                  ],
                 );
               },
             ),
@@ -482,6 +671,69 @@ class _InstructorBottomNav extends StatelessWidget {
 //  CLASE INSTRUCTOR CARD
 // ─────────────────────────────────────────
 
+class LevelColorPalette {
+  final Color badgeBg;
+  final Color badgeText;
+  final Color accent;
+  final IconData icon;
+  final String label;
+
+  const LevelColorPalette({
+    required this.badgeBg,
+    required this.badgeText,
+    required this.accent,
+    required this.icon,
+    required this.label,
+  });
+
+  static LevelColorPalette getPalette(String nivel, String badge, bool isEventOrRoda, String tipo) {
+    if (isEventOrRoda) {
+      return LevelColorPalette(
+        badgeBg: const Color(0xFFFFF8E1),
+        badgeText: const Color(0xFFE65100),
+        accent: GingaColors.accentAmber,
+        icon: tipo == 'roda' ? Icons.local_fire_department_rounded : Icons.star_rounded,
+        label: tipo == 'roda' ? 'RODA 🔥' : 'EVENTO 🌟',
+      );
+    }
+    
+    final textToCheck = '${nivel.toLowerCase()} ${badge.toLowerCase()}';
+    if (textToCheck.contains('kids') || textToCheck.contains('niño') || textToCheck.contains('infantil')) {
+      return const LevelColorPalette(
+        badgeBg: Color(0xFFE0F7FA), // Cyan suave
+        badgeText: Color(0xFF006064), // Cyan oscuro
+        accent: Color(0xFF00ACC1), // Cyan vibrante
+        icon: Icons.child_care_rounded,
+        label: 'KIDS 👶',
+      );
+    } else if (textToCheck.contains('adulto') || textToCheck.contains('iniciante') || textToCheck.contains('avanzado') || textToCheck.contains('básico') || textToCheck.contains('medio') || textToCheck.contains('principiante')) {
+      return const LevelColorPalette(
+        badgeBg: Color(0xFFE8EAF6), // Indigo suave
+        badgeText: Color(0xFF1A237E), // Indigo oscuro
+        accent: Color(0xFF3F51B5), // Indigo vibrante
+        icon: Icons.fitness_center_rounded,
+        label: 'ADULTOS 🏋️',
+      );
+    } else if (textToCheck.contains('todo') || textToCheck.contains('mixto') || textToCheck.contains('general')) {
+      return const LevelColorPalette(
+        badgeBg: Color(0xFFF3E5F5), // Púrpura suave
+        badgeText: Color(0xFF4A148C), // Púrpura oscuro
+        accent: Color(0xFF9C27B0), // Púrpura vibrante
+        icon: Icons.groups_rounded,
+        label: 'MIXTO 👥',
+      );
+    } else {
+      return const LevelColorPalette(
+        badgeBg: Color(0xFFE8F5E9), // Verde suave
+        badgeText: Color(0xFF2E7D32), // Verde oscuro
+        accent: GingaColors.brandGreen, // Verde vibrante
+        icon: Icons.sports_martial_arts_rounded,
+        label: 'CLASE 🥋',
+      );
+    }
+  }
+}
+
 class _ClaseInstructorCard extends StatelessWidget {
   final String claseId;
   final String hora;
@@ -491,6 +743,7 @@ class _ClaseInstructorCard extends StatelessWidget {
   final int cuposDisponibles;
   final int cuposMax;
   final String tipo;
+  final bool publicarInmediatamente;
 
   const _ClaseInstructorCard({
     required this.claseId,
@@ -501,139 +754,222 @@ class _ClaseInstructorCard extends StatelessWidget {
     required this.cuposDisponibles,
     required this.cuposMax,
     required this.tipo,
+    required this.publicarInmediatamente,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool isEventOrRoda = tipo != 'regular';
+    final palette = LevelColorPalette.getPalette(nivel, badge, isEventOrRoda, tipo);
+
+    final Color leftBorderColor = tipo == 'roda'
+        ? const Color(0xFFE65100) // Naranja intenso
+        : (tipo == 'evento'
+            ? GingaColors.accentAmber // Amarillo dorado
+            : palette.accent); // Color del nivel
+
     final badgeColor = tipo == 'roda'
-        ? GingaColors.accentAmber
-        : GingaColors.brandGreen;
+        ? const Color(0xFFE65100)
+        : (tipo == 'evento'
+            ? GingaColors.accentAmber
+            : palette.accent);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: leftBorderColor,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: hora.contains('-') || hora.length > 5 ? 82 : 62,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 4, vertical: 6),
-                decoration: BoxDecoration(
-                  color: GingaColors.brandGreen,
-                  borderRadius: BorderRadius.circular(GingaRadius.sm),
-                ),
-                child: Center(
-                  child: Text(
-                    hora,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.montserrat(
-                        fontSize: hora.contains('-') || hora.length > 5 ? 10 : 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white),
+      child: Container(
+        margin: const EdgeInsets.only(left: 5),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isEventOrRoda ? const Color(0xFFFFFDF8) : Colors.white,
+          borderRadius: const BorderRadius.only(
+            topRight: Radius.circular(GingaRadius.lg),
+            bottomRight: Radius.circular(GingaRadius.lg),
+          ),
+          border: Border.all(color: GingaColors.borderLight),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => context.push('/clase-detalle?claseId=$claseId'),
+              child: Row(
+                children: [
+                  Container(
+                    width: hora.contains('-') || hora.length > 5 ? 82 : 62,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: leftBorderColor,
+                      borderRadius: BorderRadius.circular(GingaRadius.sm),
+                    ),
+                    child: Center(
+                      child: Text(
+                        hora,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.montserrat(
+                            fontSize: hora.contains('-') || hora.length > 5 ? 10 : 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            nivel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.montserrat(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: GingaColors.textPrimary),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: badgeColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(badge,
-                              style: GoogleFonts.montserrat(
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                nivel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.montserrat(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: GingaColors.textPrimary),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: badgeColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(badge,
+                                  style: GoogleFonts.montserrat(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      color: badgeColor)),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: publicarInmediatamente
+                                    ? GingaColors.brandGreen.withValues(alpha: 0.12)
+                                    : GingaColors.textSecondary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                publicarInmediatamente ? 'VISIBLE' : 'BORRADOR',
+                                style: GoogleFonts.montserrat(
                                   fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                  color: badgeColor)),
+                                  fontWeight: FontWeight.w800,
+                                  color: publicarInmediatamente
+                                      ? GingaColors.brandGreen
+                                      : GingaColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
+                        if (dias.isNotEmpty)
+                          Text(dias,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.nunito(
+                                  fontSize: 11,
+                                  color: GingaColors.textSecondary)),
                       ],
                     ),
-                    if (dias.isNotEmpty)
-                      Text(dias,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('$cuposDisponibles/$cuposMax',
+                          style: GoogleFonts.montserrat(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: cuposDisponibles == 0
+                                  ? Colors.red
+                                  : GingaColors.brandGreen)),
+                      Text('cupos',
                           style: GoogleFonts.nunito(
-                              fontSize: 11,
+                              fontSize: 10,
                               color: GingaColors.textSecondary)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.edit, color: GingaColors.brandGreen, size: 20),
-                onPressed: () => context.push('/crear-clase?claseId=$claseId'),
-                constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(8),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('$cuposDisponibles/$cuposMax',
-                      style: GoogleFonts.montserrat(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: cuposDisponibles == 0
-                              ? Colors.red
-                              : GingaColors.brandGreen)),
-                  Text('cupos',
-                      style: GoogleFonts.nunito(
-                          fontSize: 10,
-                          color: GingaColors.textSecondary)),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () =>
-                  _navigateToQrGenerator(context, claseId, nivel, hora),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: GingaColors.brandGreen,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(GingaRadius.md),
-                ),
-                elevation: 0,
-              ),
-              icon: const Icon(Icons.qr_code, size: 18),
-              label: Text('Generar QR de asistencia',
-                  style: GoogleFonts.montserrat(
-                      fontSize: 13, fontWeight: FontWeight.w700)),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 14),
+
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        _navigateToQrGenerator(context, claseId, nivel, hora),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: leftBorderColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                      ),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.qr_code, size: 18),
+                    label: Text('Generar QR de asistencia',
+                        style: GoogleFonts.montserrat(
+                            fontSize: 13, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.visibility_outlined, color: Colors.blue, size: 20),
+                    onPressed: () => context.push('/clase-detalle?claseId=$claseId'),
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(10),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: leftBorderColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                  ),
+                  child: IconButton(
+                    icon: Icon(Icons.edit, color: leftBorderColor, size: 20),
+                    onPressed: () => context.push('/crear-clase?claseId=$claseId'),
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(10),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                    onPressed: () => _confirmDeleteClase(context, claseId, nivel, tipo),
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(10),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -728,6 +1064,7 @@ class _ClaseHistorialGroupCard extends StatefulWidget {
   final String badge;
   final String dias;
   final String tipo;
+  final Timestamp? fechaFin;
 
   const _ClaseHistorialGroupCard({
     required this.claseId,
@@ -736,6 +1073,7 @@ class _ClaseHistorialGroupCard extends StatefulWidget {
     required this.badge,
     required this.dias,
     required this.tipo,
+    required this.fechaFin,
   });
 
   @override
@@ -747,161 +1085,230 @@ class _ClaseHistorialGroupCardState extends State<_ClaseHistorialGroupCard> {
 
   @override
   Widget build(BuildContext context) {
-    final badgeColor = widget.tipo == 'roda'
-        ? GingaColors.accentAmber
-        : GingaColors.brandGreen;
+    final bool isArchived = widget.tipo != 'regular' &&
+        widget.fechaFin != null &&
+        widget.fechaFin!.toDate().isBefore(DateTime.now());
+
+    final badgeColor = isArchived
+        ? Colors.grey.shade600
+        : (widget.tipo == 'roda'
+            ? const Color(0xFFE65100)
+            : (widget.tipo == 'evento'
+                ? GingaColors.accentAmber
+                : GingaColors.brandGreen));
+
+    final leadingColor = isArchived ? Colors.grey.shade600 : badgeColor;
+    final badgeText = isArchived ? 'Archivado 📁' : widget.badge;
+    final bool isEventOrRoda = widget.tipo != 'regular';
 
     return Container(
+      clipBehavior: Clip.antiAlias,
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: leadingColor,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
       ),
-      child: Column(
-        children: [
-          Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              onExpansionChanged: (val) {
-                setState(() => _expanded = val);
-              },
-              leading: CircleAvatar(
-                radius: 18,
-                backgroundColor: badgeColor.withValues(alpha: 0.1),
-                child: Icon(
-                  Icons.class_outlined,
-                  color: badgeColor,
-                  size: 18,
-                ),
+      child: Container(
+        margin: const EdgeInsets.only(left: 5),
+        decoration: BoxDecoration(
+          color: isEventOrRoda ? const Color(0xFFFFFDF8) : Colors.white,
+          borderRadius: const BorderRadius.only(
+            topRight: Radius.circular(GingaRadius.lg),
+            bottomRight: Radius.circular(GingaRadius.lg),
+          ),
+          border: Border.all(color: GingaColors.borderLight),
+        ),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            onExpansionChanged: (val) {
+              setState(() => _expanded = val);
+            },
+            leading: CircleAvatar(
+              radius: 18,
+              backgroundColor: leadingColor.withValues(alpha: 0.1),
+              child: Icon(
+                Icons.class_outlined,
+                color: leadingColor,
+                size: 18,
               ),
-              title: Text(
-                widget.nivel,
-                style: GoogleFonts.montserrat(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: GingaColors.textPrimary,
-                ),
+            ),
+            title: Text(
+              widget.nivel,
+              style: GoogleFonts.montserrat(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: GingaColors.textPrimary,
               ),
-              subtitle: Text(
-                '${widget.hora} — ${widget.dias}',
-                style: GoogleFonts.nunito(
-                  fontSize: 11,
-                  color: GingaColors.textSecondary,
-                ),
+            ),
+            subtitle: Text(
+              '${widget.hora} — ${widget.dias}',
+              style: GoogleFonts.nunito(
+                fontSize: 11,
+                color: GingaColors.textSecondary,
               ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: badgeColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      widget.badge,
-                      style: GoogleFonts.montserrat(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: badgeColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
-                    color: GingaColors.textSecondary,
-                  ),
-                ],
-              ),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16, top: 4),
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('sesiones')
-                        .where('clase_id', isEqualTo: widget.claseId)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(12),
-                            child: CircularProgressIndicator(color: GingaColors.brandGreen, strokeWidth: 2),
-                          ),
-                        );
-                      }
-
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Text(
-                            'No se han iniciado sesiones de esta clase aún.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.nunito(
-                              fontSize: 12,
-                              color: GingaColors.textSecondary,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        );
-                      }
-
-                      final docs = snapshot.data!.docs.toList();
-                      
-                      docs.sort((a, b) {
-                        final aData = a.data() as Map<String, dynamic>;
-                        final bData = b.data() as Map<String, dynamic>;
-                        final aTime = aData['created_at'] as Timestamp?;
-                        final bTime = bData['created_at'] as Timestamp?;
-                        if (aTime == null && bTime == null) return 0;
-                        if (aTime == null) return 1;
-                        if (bTime == null) return -1;
-                        return bTime.compareTo(aTime);
-                      });
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            height: 1,
-                            color: GingaColors.borderLight,
-                            margin: const EdgeInsets.only(bottom: 12),
-                          ),
-                          Text(
-                            'Sesiones registradas:',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: GingaColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          ...docs.map((doc) {
-                            final sesionData = doc.data() as Map<String, dynamic>;
-                            final String sesionId = doc.id;
-                            final String fecha = sesionData['fecha'] ?? '';
-                            final String hora = sesionData['hora'] ?? '';
-                            final bool activa = sesionData['activa'] ?? false;
-
-                            return _SessionDateItem(
-                              sesionId: sesionId,
-                              nivel: widget.nivel,
-                              hora: hora,
-                              fecha: fecha,
-                              activa: activa,
-                            );
-                          }),
-                        ],
-                      );
-                    },
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
                   ),
+                  child: Text(
+                    badgeText,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: badgeColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  _expanded ? Icons.expand_less : Icons.expand_more,
+                  color: GingaColors.textSecondary,
                 ),
               ],
             ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16, top: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Action buttons row for history card
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          icon: const Icon(Icons.visibility_outlined, color: Colors.blue, size: 16),
+                          label: Text(
+                            'Ver detalle',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              color: Colors.blue,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          onPressed: () => context.push('/clase-detalle?claseId=${widget.claseId}'),
+                        ),
+                        const SizedBox(width: 12),
+                        TextButton.icon(
+                          icon: Icon(Icons.edit, color: leadingColor, size: 16),
+                          label: Text(
+                            'Editar sesión',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              color: leadingColor,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          onPressed: () => context.push('/crear-clase?claseId=${widget.claseId}'),
+                        ),
+                        const SizedBox(width: 12),
+                        TextButton.icon(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 16),
+                          label: Text(
+                            'Eliminar',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              color: Colors.red,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          onPressed: () => _confirmDeleteClase(context, widget.claseId, widget.nivel, widget.tipo),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('sesiones')
+                          .where('clase_id', isEqualTo: widget.claseId)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(color: GingaColors.brandGreen, strokeWidth: 2),
+                            ),
+                          );
+                        }
+
+                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              'No se han iniciado sesiones de esta clase aún.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.nunito(
+                                  fontSize: 12,
+                                  color: GingaColors.textSecondary,
+                                  fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          );
+                        }
+
+                        final docs = snapshot.data!.docs.toList();
+                        
+                        docs.sort((a, b) {
+                          final aData = a.data() as Map<String, dynamic>;
+                          final bData = b.data() as Map<String, dynamic>;
+                          final aTime = aData['created_at'] as Timestamp?;
+                          final bTime = bData['created_at'] as Timestamp?;
+                          if (aTime == null && bTime == null) return 0;
+                          if (aTime == null) return 1;
+                          if (bTime == null) return -1;
+                          return bTime.compareTo(aTime);
+                        });
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              height: 1,
+                              color: GingaColors.borderLight,
+                              margin: const EdgeInsets.only(bottom: 12),
+                            ),
+                            Text(
+                              'Sesiones registradas:',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ...docs.map((doc) {
+                              final sesionData = doc.data() as Map<String, dynamic>;
+                              final String sesionId = doc.id;
+                              final String fecha = sesionData['fecha'] ?? '';
+                              final String hora = sesionData['hora'] ?? '';
+                              final bool activa = sesionData['activa'] ?? false;
+
+                              return _SessionDateItem(
+                                sesionId: sesionId,
+                                nivel: widget.nivel,
+                                hora: hora,
+                                fecha: fecha,
+                                activa: activa,
+                              );
+                            }),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1415,6 +1822,9 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                       } else if (tipo == 'tienda') {
                         itemIcon = Icons.shopping_bag_outlined;
                         itemColor = Colors.purple;
+                      } else if (tipo == 'evento' || tipo == 'clase' || tipo == 'clase_detalle') {
+                        itemIcon = Icons.calendar_today_outlined;
+                        itemColor = GingaColors.brandGreen;
                       }
 
                       return GestureDetector(

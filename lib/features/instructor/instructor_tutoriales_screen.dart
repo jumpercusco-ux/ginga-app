@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/services/tutoriales_service.dart';
+import '../biblioteca/widgets/tutorial_thumbnail.dart';
 
 class InstructorTutorialesScreen extends StatefulWidget {
   const InstructorTutorialesScreen({super.key});
@@ -254,6 +255,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                       final nivel = data['nivel'] ?? 'Iniciante';
                       final duracion = data['duracion'] ?? '6 min';
                       final imagenUrl = data['imagen_url'] ?? '';
+                      final bool visible = data['visible'] ?? true;
 
                       return Container(
                         margin: const EdgeInsets.symmetric(vertical: 6),
@@ -283,41 +285,66 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
                                 ),
                                 clipBehavior: Clip.antiAlias,
-                                child: imagenUrl.isNotEmpty
-                                    ? (imagenUrl.startsWith('assets/')
-                                        ? Image.asset(imagenUrl, fit: BoxFit.cover)
-                                        : Image.network(imagenUrl, fit: BoxFit.cover, errorBuilder: (c, o, s) {
-                                            return const Icon(Icons.play_circle_fill, color: GingaColors.brandGreen);
-                                          }))
-                                    : const Icon(Icons.play_circle_fill, color: GingaColors.brandGreen, size: 28),
+                                child: TutorialThumbnail(
+                                  imagenUrl: imagenUrl,
+                                  categoria: categoria,
+                                  titulo: titulo,
+                                  iconSize: 20,
+                                ),
                               ),
                               const SizedBox(width: 14),
 
                               // Textos descriptivos
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      titulo,
-                                      style: GoogleFonts.montserrat(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: GingaColors.textPrimary,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        titulo,
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: GingaColors.textPrimary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: GingaColors.cardLight,
-                                            borderRadius: BorderRadius.circular(4),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: visible
+                                                  ? GingaColors.brandGreen.withOpacity(0.08)
+                                                  : GingaColors.textSecondary.withOpacity(0.08),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: visible
+                                                    ? GingaColors.brandGreen.withOpacity(0.2)
+                                                    : GingaColors.textSecondary.withOpacity(0.2),
+                                                width: 0.5,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              visible ? 'VISIBLE' : 'BORRADOR',
+                                              style: GoogleFonts.montserrat(
+                                                fontSize: 8,
+                                                fontWeight: FontWeight.w800,
+                                                color: visible
+                                                    ? GingaColors.brandGreen
+                                                    : GingaColors.textSecondary,
+                                              ),
+                                            ),
                                           ),
-                                          child: Text(
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: GingaColors.cardLight,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
                                             nivel,
                                             style: GoogleFonts.montserrat(
                                               fontSize: 8,
@@ -331,12 +358,16 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        Text(
-                                          '$categoria • $duracion',
-                                          style: GoogleFonts.nunito(
-                                            fontSize: 11,
-                                            color: GingaColors.textSecondary,
-                                            fontWeight: FontWeight.w600,
+                                        Flexible(
+                                          child: Text(
+                                            '$categoria • $duracion',
+                                            style: GoogleFonts.nunito(
+                                              fontSize: 11,
+                                              color: GingaColors.textSecondary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                       ],

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/widgets/ginga_cached_image.dart';
 
 class InstructorTiendaScreen extends StatelessWidget {
   const InstructorTiendaScreen({super.key});
@@ -184,6 +185,7 @@ class InstructorTiendaScreen extends StatelessWidget {
               final double precio = (data['precio'] as num?)?.toDouble() ?? 0.0;
               final int stock = (data['stock'] as num?)?.toInt() ?? 0;
               final String categoria = data['categoria'] ?? 'ropa';
+              final String imagenUrl = data['imagen_url'] ?? '';
 
               Color categoryColor = GingaColors.brandGreen;
               IconData categoryIcon = Icons.shopping_bag_outlined;
@@ -216,10 +218,18 @@ class InstructorTiendaScreen extends StatelessWidget {
                         color: categoryColor.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(GingaRadius.md),
                       ),
-                      child: Icon(
-                        categoryIcon,
-                        color: categoryColor,
-                        size: 24,
+                      clipBehavior: Clip.antiAlias,
+                      child: GingaCachedImage(
+                        imageUrl: imagenUrl,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        category: categoria,
+                        errorWidget: Icon(
+                          categoryIcon,
+                          color: categoryColor,
+                          size: 24,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 14),

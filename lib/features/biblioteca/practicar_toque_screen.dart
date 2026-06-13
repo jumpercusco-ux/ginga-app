@@ -19,6 +19,7 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
   bool _isPlaying = false;
   late AnimationController _waveController;
   late AnimationController _pulseController;
+  late AnimationController _beatController;
   
   // Secuenciador rítmico fonético
   Timer? _stepTimer;
@@ -131,6 +132,11 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
+
+    _beatController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 140),
+    );
 
     _initAudio();
 
@@ -265,6 +271,7 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
   void dispose() {
     _waveController.dispose();
     _pulseController.dispose();
+    _beatController.dispose();
     _stepTimer?.cancel();
     _tchiPlayer.dispose();
     _dongPlayer.dispose();
@@ -312,6 +319,10 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
   }
 
   void _playSyllableSound(String silaba) {
+    if (silaba != '•') {
+      _beatController.forward(from: 0.0);
+    }
+
     if (_selectedInstrumentIndex == 0) {
       // Berimbau
       switch (silaba) {
@@ -847,6 +858,37 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
 
   Widget _buildInstrumentTab(int index, String label, IconData icon) {
     final isSelected = _selectedInstrumentIndex == index;
+    Widget tabContent = Column(
+      children: [
+        Icon(
+          icon,
+          color: isSelected ? Colors.white : GingaColors.textSecondary,
+          size: 18,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: GoogleFonts.montserrat(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: isSelected ? Colors.white : GingaColors.textPrimary,
+          ),
+        ),
+      ],
+    );
+
+    if (isSelected && _isPlaying) {
+      tabContent = ScaleTransition(
+        scale: Tween<double>(begin: 1.0, end: 1.15).animate(
+          CurvedAnimation(
+            parent: _beatController,
+            curve: Curves.decelerate,
+          ),
+        ),
+        child: tabContent,
+      );
+    }
+
     return Expanded(
       child: GestureDetector(
         onTap: () {
@@ -878,24 +920,7 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                   ]
                 : [],
           ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? Colors.white : GingaColors.textSecondary,
-                size: 18,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: GoogleFonts.montserrat(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: isSelected ? Colors.white : GingaColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
+          child: tabContent,
         ),
       ),
     );

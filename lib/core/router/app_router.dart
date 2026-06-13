@@ -1,5 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:ginga_app/features/perfil/progreso_screen.dart';
+import 'package:ginga_app/features/perfil/editar_perfil_screen.dart';
+import 'package:ginga_app/features/biblioteca/nuestros_mestres_screen.dart';
 import 'package:ginga_app/features/biblioteca/tutor_detail_screen.dart';
+import 'package:ginga_app/features/biblioteca/song_detail_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:ginga_app/features/onboarding/splash_screen.dart';
@@ -18,6 +22,9 @@ import 'package:ginga_app/features/instructor/instructor_tienda_screen.dart';
 import 'package:ginga_app/features/instructor/crear_producto_screen.dart';
 import 'package:ginga_app/features/instructor/instructor_tutoriales_screen.dart';
 import 'package:ginga_app/features/instructor/crear_tutorial_screen.dart';
+import 'package:ginga_app/features/eventos/eventos_screen.dart';
+import 'package:ginga_app/features/eventos/evento_detalle_screen.dart';
+import 'package:ginga_app/features/auth/desactivada_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/splash',
@@ -29,7 +36,8 @@ final appRouter = GoRouter(
       '/login',
       '/onboarding',
       '/profile-creation',
-      '/splash'
+      '/splash',
+      '/cuenta-desactivada'
     ];
     final isPublic = publicRoutes.contains(loc);
 
@@ -63,6 +71,14 @@ final appRouter = GoRouter(
       builder: (context, state) => const ProgresoScreen(),
     ),
     GoRoute(
+      path: '/editar-perfil',
+      builder: (context, state) => const EditarPerfilScreen(),
+    ),
+    GoRoute(
+      path: '/nuestros-mestres',
+      builder: (context, state) => const NuestrosMestresScreen(),
+    ),
+    GoRoute(
       path: '/clase-detalle',
       builder: (context, state) {
         final claseId = state.uri.queryParameters['claseId'] ?? '';
@@ -82,7 +98,25 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/tutorial-detail',
-      builder: (context, state) => const TutorialDetailScreen(),
+      builder: (context, state) {
+        final tutorialId = state.uri.queryParameters['tutorialId'] ?? '';
+        if (tutorialId.isNotEmpty) {
+          return TutorialDetailLoader(tutorialId: tutorialId);
+        }
+        return const TutorialDetailScreen();
+      },
+    ),
+    GoRoute(
+      path: '/song-detail',
+      builder: (context, state) {
+        final songId = state.uri.queryParameters['songId'] ?? '';
+        if (songId.isNotEmpty) {
+          return SongDetailLoader(songId: songId);
+        }
+        return const Scaffold(
+          body: Center(child: Text('ID de canción no especificado')),
+        );
+      },
     ),
     GoRoute(
       path: '/practicar-toque',
@@ -124,6 +158,21 @@ final appRouter = GoRouter(
         final tutorialId = state.uri.queryParameters['tutorialId'] ?? '';
         return CrearTutorialScreen(tutorialId: tutorialId);
       },
+    ),
+    GoRoute(
+      path: '/eventos',
+      builder: (context, state) => const EventosScreen(),
+    ),
+    GoRoute(
+      path: '/evento-detalle',
+      builder: (context, state) {
+        final eventId = state.uri.queryParameters['eventId'] ?? '';
+        return EventoDetalleScreen(eventId: eventId);
+      },
+    ),
+    GoRoute(
+      path: '/cuenta-desactivada',
+      builder: (context, state) => const DesactivadaScreen(),
     ),
   ],
 );

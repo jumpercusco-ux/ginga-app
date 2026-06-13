@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
+import 'dart:ui' as ui;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -274,32 +275,310 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _forgotPassword() async {
-    if (_emailController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Ingresa tu email primero',
-            style: GoogleFonts.nunito(color: Colors.white)),
-        backgroundColor: GingaColors.brandGreen,
-      ));
-      return;
-    }
-    try {
-      await FirebaseAuth.instance
-          .sendPasswordResetEmail(email: _emailController.text.trim());
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Email de recuperación enviado',
-              style: GoogleFonts.nunito(color: Colors.white)),
-          backgroundColor: GingaColors.brandGreen,
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error al enviar email',
-              style: GoogleFonts.nunito(color: Colors.white)),
-          backgroundColor: Colors.red,
-        ));
-      }
-    }
+    _mostrarModalRecuperarPass(context);
+  }
+
+  void _mostrarModalRecuperarPass(BuildContext context) {
+    final emailController = TextEditingController(text: _emailController.text.trim());
+    final formKey = GlobalKey<FormState>();
+    bool isDialogLoading = false;
+    bool isSent = false;
+    String? dialogError;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: Dialog(
+                backgroundColor: GingaColors.cardLight,
+                elevation: 6,
+                insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(GingaRadius.lg),
+                  side: BorderSide(color: GingaColors.brandGreen.withOpacity(0.15)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                  child: AnimatedSize(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    child: isSent
+                        ? _buildSuccessView(dialogContext)
+                        : _buildFormView(
+                            dialogContext,
+                            formKey,
+                            emailController,
+                            isDialogLoading,
+                            dialogError,
+                            (fn) => setDialogState(fn),
+                            (sentVal) => setDialogState(() => isSent = sentVal),
+                            (loadingVal) => setDialogState(() => isDialogLoading = loadingVal),
+                            (errorVal) => setDialogState(() => dialogError = errorVal),
+                          ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSuccessView(BuildContext dialogContext) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: GingaColors.brandGreen.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.mark_email_read_outlined,
+            color: GingaColors.brandGreen,
+            size: 36,
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          '¡Enlace Enviado!',
+          style: GoogleFonts.montserrat(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: GingaColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Hemos enviado un correo de recuperación. Revisa tu bandeja de entrada o carpeta de spam.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.nunito(
+            fontSize: 13.5,
+            color: GingaColors.textSecondary,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: GingaColors.brandGreen,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(GingaRadius.full),
+              ),
+              elevation: 0,
+            ),
+            child: Text(
+              'Entendido',
+              style: GoogleFonts.montserrat(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormView(
+    BuildContext dialogContext,
+    GlobalKey<FormState> formKey,
+    TextEditingController emailController,
+    bool isLoading,
+    String? error,
+    void Function(void Function()) setDialogState,
+    void Function(bool) setSent,
+    void Function(bool) setLoading,
+    void Function(String?) setError,
+  ) {
+    return Form(
+      key: formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: GingaColors.brandGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                ),
+                child: const Icon(
+                  Icons.mail_lock_outlined,
+                  color: GingaColors.brandGreen,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Recuperar Contraseña',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: GingaColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Ingresa tu correo electrónico registrado y te enviaremos un enlace seguro para restablecer tu contraseña.',
+            style: GoogleFonts.nunito(
+              fontSize: 13,
+              color: GingaColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 20),
+          TextFormField(
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+            decoration: const InputDecoration(
+              hintText: 'Correo electrónico',
+              prefixIcon: Icon(
+                Icons.email_outlined,
+                color: GingaColors.textSecondary,
+                size: 20,
+              ),
+            ),
+            validator: (val) {
+              if (val == null || val.isEmpty) return 'Ingresa tu correo';
+              if (!val.contains('@')) return 'Correo inválido';
+              return null;
+            },
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(GingaRadius.sm),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red.shade600, size: 14),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      error,
+                      style: GoogleFonts.nunito(fontSize: 12, color: Colors.red.shade700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: GingaColors.borderLight),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(GingaRadius.full),
+                      ),
+                    ),
+                    child: Text(
+                      'Cancelar',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            if (!formKey.currentState!.validate()) return;
+                            setLoading(true);
+                            setError(null);
+
+                            try {
+                              await FirebaseAuth.instance.sendPasswordResetEmail(
+                                email: emailController.text.trim(),
+                              );
+                              setSent(true);
+                            } on FirebaseAuthException catch (e) {
+                              switch (e.code) {
+                                case 'user-not-found':
+                                  setError('No existe una cuenta con este email.');
+                                  break;
+                                case 'invalid-email':
+                                  setError('El email es inválido.');
+                                  break;
+                                default:
+                                  setError('Error al enviar email. Intenta de nuevo.');
+                              }
+                            } catch (_) {
+                              setError('Ocurrió un error inesperado.');
+                            } finally {
+                              setLoading(false);
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: GingaColors.brandGreen,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(GingaRadius.full),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            'Enviar Enlace',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

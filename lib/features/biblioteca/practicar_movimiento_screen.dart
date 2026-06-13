@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
+import 'package:just_audio/just_audio.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/services/tts_service.dart';
+import 'widgets/tutorial_thumbnail.dart';
 
 class PracticarMovimientoScreen extends StatefulWidget {
   final String titulo;
@@ -33,6 +34,9 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
   bool _isRunning = false;
   bool _isCompleted = false;
   bool _metronomeActive = false;
+
+  // Reproductor de metrónomo/base rítmica
+  AudioPlayer? _metronomePlayer;
 
   // Controlador del video looping en el círculo
   VideoPlayerController? _videoPlayerController;
@@ -72,6 +76,20 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
     _inicializarVideoLoop();
     _startTimer();
     _startQuoteRotation();
+    _initMetronome();
+  }
+
+  Future<void> _initMetronome() async {
+    try {
+      _metronomePlayer = AudioPlayer();
+      // Usaremos un archivo local en assets/sounds/base_berimbau.mp3
+      // Nota: Si el usuario aún no coloca el archivo, el try-catch lo ignorará silenciosamente para no romper la app
+      await _metronomePlayer!.setAsset('assets/sounds/base_berimbau.mp3');
+      await _metronomePlayer!.setLoopMode(LoopMode.one); // Bucle infinito
+      await _metronomePlayer!.setVolume(1.0);
+    } catch (e) {
+      debugPrint('Error al inicializar metrónomo (el archivo podría no existir aún): $e');
+    }
   }
 
   @override
@@ -80,6 +98,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
     _quoteTimer?.cancel();
     _videoPlayerController?.dispose();
     TtsService.instance.stop(); // Detener narración de voz al salir
+    _metronomePlayer?.dispose(); // Liberar reproductor
     super.dispose();
   }
 
@@ -125,6 +144,9 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
     _timer?.cancel();
     setState(() => _isRunning = true);
     _videoPlayerController?.play();
+    if (_metronomeActive && _metronomePlayer != null) {
+      _metronomePlayer!.play().catchError((e) => debugPrint('Error al reanudar metrónomo: $e'));
+    }
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
         setState(() {
@@ -140,6 +162,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
     _timer?.cancel();
     setState(() => _isRunning = false);
     _videoPlayerController?.pause();
+    _metronomePlayer?.pause();
   }
 
   void _startQuoteRotation() {
@@ -156,6 +179,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
     _timer?.cancel();
     _quoteTimer?.cancel();
     _videoPlayerController?.pause();
+    _metronomePlayer?.stop();
     setState(() {
       _isRunning = false;
       _isCompleted = true;
@@ -169,18 +193,12 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
   }
 
   Widget _buildPlaceholderImage() {
-    if (widget.imageUrl.startsWith('assets/')) {
-      return Image.asset(widget.imageUrl, fit: BoxFit.cover);
-    }
-    return Image.network(
-      widget.imageUrl,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          color: GingaColors.cardLight,
-          child: const Icon(Icons.sports_martial_arts, color: GingaColors.brandGreen, size: 48),
-        );
-      },
+    return TutorialThumbnail(
+      imagenUrl: widget.imageUrl,
+      categoria: widget.categoria,
+      titulo: widget.titulo,
+      iconSize: 32,
+      showPlayIcon: false,
     );
   }
 
@@ -483,16 +501,40 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                     const SizedBox(width: 8),
                     Switch(
                       value: _metronomeActive,
-                      onChanged: (val) {
+                      onChanged: (val) async {
                         setState(() {
                           _metronomeActive = val;
                         });
+                        
+                        if (_metronomePlayer != null) {
+                          try {
+                            if (val) {
+                              // Intentar volver a cargar si no se había cargado (p. ej., si el archivo no existía en el arranque)
+                              if (_metronomePlayer!.duration == null) {
+                                await _metronomePlayer!.setAsset('assets/sounds/base_berimbau.mp3');
+                                await _metronomePlayer!.setLoopMode(LoopMode.one);
+                              }
+                              // Solo reproducir si el cronómetro principal está corriendo
+                              if (_isRunning) {
+                                await _metronomePlayer!.play();
+                              }
+                            } else {
+                              await _metronomePlayer!.pause();
+                            }
+                          } catch (e) {
+                            debugPrint('Error al activar base rítmica: $e');
+                          }
+                        }
+
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(val 
-                              ? 'Base rítmica activada (Ritmo: Ginga Base)' 
+                              ? (_isRunning 
+                                  ? 'Base rítmica activada (Ritmo: Ginga Base)' 
+                                  : 'Base rítmica activada (sonará al iniciar el cronómetro)') 
                               : 'Base rítmica desactivada'),
-                            duration: const Duration(seconds: 1),
+                            duration: const Duration(seconds: 2),
                             backgroundColor: GingaColors.brandGreen,
                           ),
                         );

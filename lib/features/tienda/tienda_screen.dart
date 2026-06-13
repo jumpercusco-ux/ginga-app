@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/services/tienda_service.dart';
+import '../../core/widgets/ginga_cached_image.dart';
 
 class TiendaScreen extends StatefulWidget {
-  const TiendaScreen({super.key});
+  final bool isTab;
+  const TiendaScreen({super.key, this.isTab = false});
 
   @override
   State<TiendaScreen> createState() => _TiendaScreenState();
@@ -18,6 +19,7 @@ class _TiendaScreenState extends State<TiendaScreen> {
 
   final List<Map<String, String>> _categorias = [
     {'id': 'todos', 'label': 'Todos'},
+    {'id': 'membresias', 'label': 'Membresías'},
     {'id': 'ropa', 'label': 'Ropa'},
     {'id': 'instrumentos', 'label': 'Instrumentos'},
     {'id': 'accesorios', 'label': 'Accesorios'},
@@ -30,32 +32,19 @@ class _TiendaScreenState extends State<TiendaScreen> {
       appBar: AppBar(
         backgroundColor: GingaColors.backgroundLight,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: GingaColors.textPrimary),
-          onPressed: () async {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              try {
-                final uid = FirebaseAuth.instance.currentUser?.uid;
-                if (uid != null) {
-                  final doc = await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(uid)
-                      .get();
-                  final role = doc.data()?['rol'] ?? 'alumno';
-                  if (role == 'profesor') {
-                    if (context.mounted) context.go('/instructor-clase');
-                    return;
+        leading: widget.isTab
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back,
+                    color: GingaColors.textPrimary),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/home');
                   }
-                }
-              } catch (e) {
-                debugPrint("Error al validar rol para navegacion back: $e");
-              }
-              if (context.mounted) context.go('/home');
-            }
-          },
-        ),
+                },
+              ),
         title: Text(
           'Ginga Store',
           style: GoogleFonts.montserrat(
@@ -216,7 +205,12 @@ class _TiendaScreenState extends State<TiendaScreen> {
                 }
 
                 return GridView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    top: 10,
+                    bottom: 150,
+                  ),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     crossAxisSpacing: 14,
@@ -293,6 +287,9 @@ class _ProductCard extends StatelessWidget {
     } else if (categoria == 'accesorios') {
       categoryIcon = Icons.grade_outlined;
       categoryColor = Colors.purple;
+    } else if (categoria == 'membresias') {
+      categoryIcon = Icons.card_membership_outlined;
+      categoryColor = Colors.teal;
     }
 
     return GestureDetector(
@@ -315,28 +312,21 @@ class _ProductCard extends StatelessWidget {
                   Container(
                     width: double.infinity,
                     color: categoryColor.withOpacity(0.08),
-                    child: imagenUrl.startsWith('http')
-                        ? Image.network(
-                            imagenUrl,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Center(
-                              child: Icon(
-                                categoryIcon,
-                                color: categoryColor.withOpacity(0.4),
-                                size: 40,
-                              ),
-                            ),
-                          )
-                        : Center(
-                            child: Icon(
-                              categoryIcon,
-                              color: categoryColor.withOpacity(0.4),
-                              size: 40,
-                            ),
+                    child: Hero(
+                      tag: 'product-image-$id',
+                      child: GingaCachedImage(
+                        imageUrl: imagenUrl,
+                        fit: BoxFit.cover,
+                        category: categoria,
+                        errorWidget: Center(
+                          child: Icon(
+                            categoryIcon,
+                            color: categoryColor.withOpacity(0.4),
+                            size: 40,
                           ),
+                        ),
+                      ),
+                    ),
                   ),
                   // Indicador de Stock Bajo
                   if (stock <= 5 && stock > 0)
@@ -458,8 +448,8 @@ class _ProductCard extends StatelessWidget {
                       if (stock > 0)
                         GestureDetector(
                           onTap: () {
-                            if (categoria == 'ropa') {
-                              // Si es ropa requiere ir al detalle a elegir talla
+                            if (categoria == 'ropa' || categoria == 'membresias') {
+                              // Si es ropa o membresia requiere ir al detalle
                               context.push('/producto-detail?productoId=$id');
                             } else {
                               // Si es instrumento/accesorio se añade directamente

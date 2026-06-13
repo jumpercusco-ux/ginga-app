@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'tutor_detail_screen.dart';
+import 'widgets/tutorial_thumbnail.dart';
 
 class TutorialesScreen extends StatefulWidget {
   const TutorialesScreen({super.key});
@@ -182,18 +183,19 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                     );
                   }
 
-                  // Filtrar localmente por búsqueda y categoría
+                  // Filtrar localmente por búsqueda, categoría y visibilidad (borradores ocultos)
                   final docs = snapshot.data!.docs.where((doc) {
                     final data = doc.data() as Map<String, dynamic>;
                     final titulo = (data['titulo'] ?? '').toString().toLowerCase();
                     final descripcion = (data['descripcion'] ?? '').toString().toLowerCase();
                     final categoria = data['categoria'] ?? 'Ataques';
+                    final bool visible = data['visible'] ?? true;
 
                     final matchesSearch = titulo.contains(_searchQuery.toLowerCase()) ||
                         descripcion.contains(_searchQuery.toLowerCase());
                     final matchesCategory = _selectedCategory == 'Todos' || categoria == _selectedCategory;
 
-                    return matchesSearch && matchesCategory;
+                    return matchesSearch && matchesCategory && visible;
                   }).toList();
 
                   if (docs.isEmpty) {
@@ -239,8 +241,10 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                       final tipMestre = data['tipMestre'] ?? '';
                       final tipError = data['tipError'] ?? '';
 
-                      return Container(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
+                      return _StaggeredListItem(
+                        index: index,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
@@ -288,13 +292,12 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                                       borderRadius: BorderRadius.circular(GingaRadius.md),
                                     ),
                                     clipBehavior: Clip.antiAlias,
-                                    child: imagenUrl.isNotEmpty
-                                        ? (imagenUrl.startsWith('assets/')
-                                            ? Image.asset(imagenUrl, fit: BoxFit.cover)
-                                            : Image.network(imagenUrl, fit: BoxFit.cover, errorBuilder: (c, o, s) {
-                                                return const Icon(Icons.play_circle_fill_rounded, color: GingaColors.brandGreen);
-                                              }))
-                                        : const Icon(Icons.play_circle_fill_rounded, color: GingaColors.brandGreen, size: 28),
+                                    child: TutorialThumbnail(
+                                      imagenUrl: imagenUrl,
+                                      categoria: categoria,
+                                      titulo: titulo,
+                                      iconSize: 22,
+                                    ),
                                   ),
                                   const SizedBox(width: 14),
 
@@ -370,9 +373,10 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                             ),
                           ),
                         ),
-                      );
-                    },
-                  );
+                      ),
+                    );
+                  },
+                );
                 },
               ),
             ),
@@ -382,3 +386,85 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
     );
   }
 }
+
+// ─────────────────────────────────────────
+//  STAGGERED LIST ITEM ANIMATION
+// ─────────────────────────────────────────
+
+class _StaggeredListItem extends StatefulWidget {
+  final int index;
+  final Widget child;
+
+  const _StaggeredListItem({
+    required this.index,
+    required this.child,
+  });
+
+  @override
+  State<_StaggeredListItem> createState() => _StaggeredListItemState();
+}
+
+class _StaggeredListItemState extends State<_StaggeredListItem>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacityAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+      ),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, 0.25),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    // Ejecutar con un sutil retraso desfasado
+    final delay = Duration(milliseconds: widget.index * 40);
+    Future.delayed(delay, () {
+      if (mounted) {
+        _controller.forward();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _opacityAnimation.value,
+          child: FractionalTranslation(
+            translation: _slideAnimation.value,
+            child: child,
+          ),
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+

@@ -3,8 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/services/tienda_service.dart';
+import '../../core/widgets/ginga_cached_image.dart';
 
 class ProductoDetalleScreen extends StatefulWidget {
   final String productoId;
@@ -17,11 +19,48 @@ class ProductoDetalleScreen extends StatefulWidget {
 class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
   int _cantidad = 1;
   String? _tallaSeleccionada;
+  late Stream<DocumentSnapshot> _productStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _productStream = FirebaseFirestore.instance
+        .collection('productos')
+        .doc(widget.productoId)
+        .snapshots();
+  }
+
+  Future<void> _launchWhatsApp(BuildContext context, String planNombre, double planPrecio) async {
+    final String message = 
+        '🥋 *¡Hola! Deseo adquirir/renovar mi membresía en Capoeira Ginga.*\n\n'
+        '📋 *Detalle del Plan:* $planNombre\n'
+        '💰 *Precio:* S/ ${planPrecio.toStringAsFixed(2)}\n\n'
+        '¿Me podrían indicar los medios de pago para coordinar la activación? ¡Muchas gracias! 👋';
+    const String telefonoGinga = '51954642457';
+    final String url = 'https://wa.me/$telefonoGinga?text=${Uri.encodeComponent(message)}';
+    
+    try {
+      final Uri uri = Uri.parse(url);
+      if (await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        debugPrint('WhatsApp lanzado con éxito');
+      } else {
+        throw 'No se pudo abrir WhatsApp';
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo abrir WhatsApp. Por favor, comunícate con la academia directamente.'),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('productos').doc(widget.productoId).snapshots(),
+      stream: _productStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -67,6 +106,9 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
           categoryIcon = Icons.grade_outlined;
         } else if (categoria == 'ropa') {
           categoryIcon = Icons.checkroom_outlined;
+        } else if (categoria == 'membresias') {
+          categoryColor = Colors.teal;
+          categoryIcon = Icons.card_membership_outlined;
         }
 
         return Scaffold(
@@ -114,61 +156,81 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: SizedBox(
                 height: 54,
-                child: ElevatedButton(
-                  onPressed: stock <= 0
-                      ? null
-                      : () {
-                          if (hasSizes && _tallaSeleccionada == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Por favor, selecciona una talla/medida antes de agregar. 🥋',
-                                  style: GoogleFonts.nunito(color: Colors.white),
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                            return;
-                          }
+                child: categoria == 'membresias'
+                    ? ElevatedButton.icon(
+                        onPressed: () => _launchWhatsApp(context, nombre, precio),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF25D366), // Verde WhatsApp
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.full),
+                          ),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                        label: Text(
+                          'Adquirir por WhatsApp 🥋',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      )
+                    : ElevatedButton(
+                        onPressed: stock <= 0
+                            ? null
+                            : () {
+                                if (hasSizes && _tallaSeleccionada == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Por favor, selecciona una talla/medida antes de agregar. 🥋',
+                                        style: GoogleFonts.nunito(color: Colors.white),
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
 
-                          TiendaService.instance.agregarAlCarrito(
-                            id: widget.productoId,
-                            nombre: nombre,
-                            precio: precio,
-                            imagenUrl: imagenUrl,
-                            categoria: categoria,
-                            cantidad: _cantidad,
-                            talla: hasSizes ? _tallaSeleccionada : null,
-                          );
+                                TiendaService.instance.agregarAlCarrito(
+                                  id: widget.productoId,
+                                  nombre: nombre,
+                                  precio: precio,
+                                  imagenUrl: imagenUrl,
+                                  categoria: categoria,
+                                  cantidad: _cantidad,
+                                  talla: hasSizes ? _tallaSeleccionada : null,
+                                );
 
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '¡$nombre ${hasSizes ? "($_tallaSeleccionada) " : ""}añadido al carrito! 🛒',
-                                style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w600),
-                              ),
-                              backgroundColor: GingaColors.brandGreen,
-                              duration: const Duration(seconds: 2),
-                              action: SnackBarAction(
-                                label: 'VER',
-                                textColor: Colors.white,
-                                onPressed: () => context.push('/carrito'),
-                              ),
-                            ),
-                          );
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: GingaColors.brandGreen,
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(GingaRadius.full),
-                    ),
-                  ),
-                  child: Text(
-                    stock <= 0 ? 'Artículo Agotado' : 'Añadir al Carrito de Reservas',
-                    style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
-                  ),
-                ),
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      '¡$nombre ${hasSizes ? "($_tallaSeleccionada) " : ""}añadido al carrito! 🛒',
+                                      style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w600),
+                                    ),
+                                    backgroundColor: GingaColors.brandGreen,
+                                    duration: const Duration(seconds: 2),
+                                    action: SnackBarAction(
+                                      label: 'VER',
+                                      textColor: Colors.white,
+                                      onPressed: () => context.push('/carrito'),
+                                    ),
+                                  ),
+                                );
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: GingaColors.brandGreen,
+                          disabledBackgroundColor: Colors.grey.shade300,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.full),
+                          ),
+                        ),
+                        child: Text(
+                          stock <= 0 ? 'Artículo Agotado' : 'Añadir al Carrito de Reservas',
+                          style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+                        ),
+                      ),
               ),
             ),
           ),
@@ -192,25 +254,20 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                   child: Stack(
                     children: [
                       Center(
-                        child: imagenUrl.startsWith('http')
-                            ? Image.network(
-                                imagenUrl,
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                height: double.infinity,
-                                errorBuilder: (context, error, stackTrace) => Center(
-                                  child: Icon(
-                                    categoryIcon,
-                                    color: categoryColor.withOpacity(0.4),
-                                    size: 90,
-                                  ),
-                                ),
-                              )
-                            : Icon(
-                                categoryIcon,
-                                color: categoryColor.withOpacity(0.4),
-                                size: 90,
-                              ),
+                        child: GingaCachedImage(
+                          imageUrl: imagenUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          category: categoria,
+                          errorWidget: Center(
+                            child: Icon(
+                              categoryIcon,
+                              color: categoryColor.withOpacity(0.4),
+                              size: 90,
+                            ),
+                          ),
+                        ),
                       ),
                       // Badge de Categoría
                       Positioned(
@@ -285,17 +342,19 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            stock <= 0
-                                ? 'Sin unidades disponibles'
-                                : 'Stock disponible: $stock unidades',
+                            categoria == 'membresias'
+                                ? 'Membresía Oficial Ginga App'
+                                : (stock <= 0
+                                    ? 'Sin unidades disponibles'
+                                    : 'Stock disponible: $stock unidades'),
                             style: GoogleFonts.nunito(
                               fontSize: 13,
-                              color: stock <= 0
+                              color: stock <= 0 && categoria != 'membresias'
                                   ? Colors.red
-                                  : stock <= 5
+                                  : stock <= 5 && categoria != 'membresias'
                                       ? GingaColors.accentAmber
                                       : GingaColors.textSecondary,
-                              fontWeight: stock <= 5 ? FontWeight.w700 : FontWeight.w500,
+                              fontWeight: stock <= 5 && categoria != 'membresias' ? FontWeight.w700 : FontWeight.w500,
                             ),
                           ),
                         ],
@@ -337,7 +396,7 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                 const SizedBox(height: 24),
 
                 // ── Tallas / Medidas Disponibles ───────────────────────
-                if (hasSizes && stock > 0) ...[
+                if (categoria != 'membresias' && hasSizes && stock > 0) ...[
                   Text(
                     'Selecciona variante o talla',
                     style: GoogleFonts.montserrat(
@@ -384,7 +443,7 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                 ],
 
                 // ── Selector de Volumen / Cantidad ───────────────────
-                if (stock > 0) ...[
+                if (categoria != 'membresias' && stock > 0) ...[
                   Text(
                     'Cantidad a reservar',
                     style: GoogleFonts.montserrat(

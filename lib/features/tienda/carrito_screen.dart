@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/services/tienda_service.dart';
+import '../../core/widgets/ginga_cached_image.dart';
 
 class CarritoScreen extends StatefulWidget {
   const CarritoScreen({super.key});
@@ -391,10 +392,18 @@ class _CarritoScreenState extends State<CarritoScreen> {
                               color: categoryColor.withOpacity(0.08),
                               borderRadius: BorderRadius.circular(GingaRadius.md),
                             ),
-                            child: Icon(
-                              categoryIcon,
-                              color: categoryColor.withOpacity(0.6),
-                              size: 26,
+                            clipBehavior: Clip.antiAlias,
+                            child: GingaCachedImage(
+                              imageUrl: item.imagenUrl,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              category: item.categoria,
+                              errorWidget: Icon(
+                                categoryIcon,
+                                color: categoryColor.withOpacity(0.6),
+                                size: 26,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -509,7 +518,14 @@ class _CarritoScreenState extends State<CarritoScreen> {
 
               // ── Panel Inferior del Checkout de Reservas ───────────────────
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  20,
+                  20,
+                  MediaQuery.of(context).padding.bottom > 0
+                      ? MediaQuery.of(context).padding.bottom + 12
+                      : 20,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border(

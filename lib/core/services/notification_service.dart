@@ -80,11 +80,10 @@ class NotificationService {
   void handleRawNotificationRouting(Map<String, dynamic> data) {
     debugPrint("Procesando enrutamiento dinámico con data: $data");
     final screen = data['screen'] ?? data['tipo']; // Soporta ambos campos por retrocompatibilidad
-
     try {
       if (screen == 'profile' || screen == 'mensualidad' || screen == 'membresia') {
         appRouter.go('/profile');
-      } else if (screen == 'clase_detalle' || screen == 'clase' || screen == 'evento') {
+      } else if (screen == 'clase_detalle' || screen == 'clase' || screen == 'evento' || screen == 'bienvenida' || screen == 'recordatorio_prueba') {
         final claseId = data['clase_id'] ?? data['claseId'] ?? data['notificacionId'] ?? '';
         if (claseId.isNotEmpty) {
           appRouter.go('/clase-detalle?claseId=$claseId');
@@ -95,6 +94,27 @@ class NotificationService {
         appRouter.go('/tienda');
       } else if (screen == 'carrito') {
         appRouter.go('/carrito');
+      } else if (screen == 'tutorial') {
+        final tutorialId = data['tutorial_id'] ?? data['tutorialId'] ?? '';
+        if (tutorialId.isNotEmpty) {
+          appRouter.go('/tutorial-detail?tutorialId=$tutorialId');
+        } else {
+          appRouter.go('/home');
+        }
+      } else if (screen == 'song' || screen == 'cantiga') {
+        final songId = data['song_id'] ?? data['songId'] ?? data['cantiga_id'] ?? data['cantigaId'] ?? '';
+        if (songId.isNotEmpty) {
+          appRouter.go('/song-detail?songId=$songId');
+        } else {
+          appRouter.go('/home');
+        }
+      } else if (screen == 'producto' || screen == 'producto_detalle') {
+        final prodId = data['producto_id'] ?? data['productoId'] ?? '';
+        if (prodId.isNotEmpty) {
+          appRouter.go('/producto-detail?productoId=$prodId');
+        } else {
+          appRouter.go('/tienda');
+        }
       } else {
         appRouter.go('/home');
       }

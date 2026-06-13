@@ -6,45 +6,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../core/theme/ginga_theme.dart';
-import 'mi_progreso_screen.dart';
-import '../biblioteca/practicar_toque_screen.dart';
+
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/models/cuerdas_fiu.dart';
 
-int _obtenerAsistenciasObjetivo(String corda) {
-  switch (corda.toLowerCase()) {
-    case 'iniciación':
-    case 'iniciacion':
-    case 'iniciante':
-      return 24;
-    case 'corda amarela':
-      return 48;
-    case 'corda naranja':
-    case 'corda laranja':
-      return 60;
-    case 'corda azul':
-      return 80;
-    default:
-      return 100;
+int _obtenerAsistenciasObjetivo(String cordaUsuario) {
+  final cordaObj = CuerdasFIU.encontrarCordaFIU(cordaUsuario);
+  if (cordaObj != null) {
+    return CuerdasFIU.obtenerClasesObjetivo(cordaObj.index);
   }
+  return 100;
 }
 
-String _obtenerSiguienteCorda(String corda) {
-  switch (corda.toLowerCase()) {
-    case 'iniciación':
-    case 'iniciacion':
-    case 'iniciante':
-      return 'Corda Amarela';
-    case 'corda amarela':
-      return 'Corda Laranja';
-    case 'corda naranja':
-    case 'corda laranja':
-      return 'Corda Azul';
-    case 'corda azul':
-      return 'Corda Verde';
-    default:
-      return 'Graduado';
-  }
-}
+
+
 
 class ProgresoScreen extends StatelessWidget {
   const ProgresoScreen({super.key});
@@ -103,42 +78,7 @@ class ProgresoScreen extends StatelessWidget {
                 (totalAsistencias / objetivo).clamp(0.0, 1.0);
             final int porcentajeInt = (porcentaje * 100).toInt();
 
-            final String siguienteCorda = _obtenerSiguienteCorda(corda);
 
-            // Ritmo dinámico para practicar
-            String tituloToque = 'Domina el ritmo Angola';
-            String descToque = 'Practica con el simulador de berimbau';
-            switch (corda.toLowerCase()) {
-              case 'iniciación':
-              case 'iniciacion':
-              case 'iniciante':
-                tituloToque = 'Domina el ritmo Angola';
-                descToque = 'Practica toques básicos en el simulador';
-                break;
-              case 'corda amarela':
-                tituloToque = 'Domina São Bento Pequeno';
-                descToque = 'Practica toques medios en el simulador';
-                break;
-              case 'corda naranja':
-              case 'corda laranja':
-                tituloToque = 'Domina São Bento Grande';
-                descToque = 'Practica toques rápidos en el simulador';
-                break;
-              default:
-                tituloToque = 'Domina Samba de Roda';
-                descToque = 'Practica toques avanzados y festivos';
-                break;
-            }
-
-            // Objetivo de cuerda dinámico
-            String tituloCorda = 'Objetivo: $siguienteCorda';
-            String descCorda = totalAsistencias >= objetivo
-                ? '¡Clases completadas! ($totalAsistencias/$objetivo)'
-                : 'Faltan ${objetivo - totalAsistencias} clases para graduarte ($totalAsistencias de $objetivo)';
-            if (siguienteCorda == 'Graduado') {
-              tituloCorda = 'Camino Completado';
-              descCorda = '¡Has alcanzado el rango máximo en Ginga!';
-            }
 
             return Scaffold(
               backgroundColor: GingaColors.backgroundLight,
@@ -172,7 +112,6 @@ class ProgresoScreen extends StatelessWidget {
 
                       const SizedBox(height: 24),
 
-                      // ── Card de perfil real ──────────────
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
@@ -182,80 +121,98 @@ class ProgresoScreen extends StatelessWidget {
                           border: Border.all(
                               color: GingaColors.brandGreen.withOpacity(0.3)),
                         ),
-                        child: Row(
+                        child: Stack(
                           children: [
-                            // Avatar con inicial
-                            CircleAvatar(
-                              radius: 32,
-                              backgroundColor: GingaColors.brandGreen,
-                              backgroundImage: fotoUrl != null && fotoUrl!.isNotEmpty
-                                  ? NetworkImage(fotoUrl!)
-                                  : null,
-                              child: fotoUrl != null && fotoUrl!.isNotEmpty
-                                  ? null
-                                  : Text(
-                                      inicial,
-                                      style: GoogleFonts.montserrat(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w800,
-                                        color: Colors.white,
+                            Row(
+                              children: [
+                                // Avatar con inicial
+                                CircleAvatar(
+                                  radius: 32,
+                                  backgroundColor: GingaColors.brandGreen,
+                                  backgroundImage: fotoUrl != null && fotoUrl.isNotEmpty
+                                      ? NetworkImage(fotoUrl)
+                                      : null,
+                                  child: fotoUrl != null && fotoUrl.isNotEmpty
+                                      ? null
+                                      : Text(
+                                          inicial,
+                                          style: GoogleFonts.montserrat(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        nombre,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w800,
+                                          color: GingaColors.textPrimary,
+                                        ),
                                       ),
-                                    ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: const BoxDecoration(
+                                              color: GingaColors.brandGreen,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            corda,
+                                            style: GoogleFonts.nunito(
+                                              fontSize: 13,
+                                              color: GingaColors.brandGreen,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.location_on_outlined,
+                                              size: 13,
+                                              color: GingaColors.textSecondary),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            sede,
+                                            style: GoogleFonts.nunito(
+                                              fontSize: 12,
+                                              color: GingaColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    nombre,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.montserrat(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      color: GingaColors.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: const BoxDecoration(
-                                          color: GingaColors.brandGreen,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        corda,
-                                        style: GoogleFonts.nunito(
-                                          fontSize: 13,
-                                          color: GingaColors.brandGreen,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.location_on_outlined,
-                                          size: 13,
-                                          color: GingaColors.textSecondary),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        sede,
-                                        style: GoogleFonts.nunito(
-                                          fontSize: 12,
-                                          color: GingaColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                            Positioned(
+                              top: 0,
+                              right: 0,
+                              child: IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
+                                icon: const Icon(
+                                  Icons.edit_note_rounded,
+                                  color: GingaColors.brandGreen,
+                                  size: 26,
+                                ),
+                                onPressed: () => context.push('/editar-perfil'),
                               ),
                             ),
                           ],
@@ -333,46 +290,117 @@ class ProgresoScreen extends StatelessWidget {
 
                       const SizedBox(height: 28),
                       _SectionHeader(
-                          title: 'Próximos Desafíos', actionLabel: ''),
+                          title: 'Configuración de App', actionLabel: ''),
                       const SizedBox(height: 12),
-
-                      GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PracticarToqueScreen(),
-                          ),
-                        ),
-                        child: _DesafioCard(
-                          icon: Icons.music_note_outlined,
-                          titulo: tituloToque,
-                          subtitulo: descToque,
-                          color: GingaColors.brandGreen,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const MiProgresoScreen(),
-                          ),
-                        ),
-                        child: _DesafioCard(
-                          icon: Icons.emoji_events_outlined,
-                          titulo: tituloCorda,
-                          subtitulo: descCorda,
-                          color: GingaColors.accentAmber,
-                        ),
-                      ),
+                      _NotificationToggleCard(uid: uid),
 
                       const SizedBox(height: 32),
+                      Center(
+                        child: Text(
+                          'Versión 1.0.131 (v131)',
+                          style: GoogleFonts.nunito(
+                            fontSize: 12,
+                            color: GingaColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
               ),
             );
           },
+        );
+      },
+    );
+  }
+}
+
+class _NotificationToggleCard extends StatelessWidget {
+  final String? uid;
+  const _NotificationToggleCard({required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    if (uid == null) return const SizedBox();
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        bool notificationsEnabled = true;
+
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>;
+          notificationsEnabled = data['notifications_enabled'] != false;
+        }
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(GingaRadius.lg),
+            border: Border.all(color: GingaColors.borderLight),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: GingaColors.brandGreen.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.notifications_active_outlined,
+                  color: GingaColors.brandGreen,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Notificaciones Push',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Recibir alertas de clases, pagos y novedades',
+                      style: GoogleFonts.nunito(
+                        fontSize: 11,
+                        color: GingaColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                value: notificationsEnabled,
+                activeColor: GingaColors.brandGreen,
+                activeTrackColor: GingaColors.brandGreen.withOpacity(0.3),
+                onChanged: (val) async {
+                  try {
+                    await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(uid)
+                        .update({'notifications_enabled': val});
+                  } catch (e) {
+                    debugPrint('Error actualizando notificaciones: $e');
+                  }
+                },
+              ),
+            ],
+          ),
         );
       },
     );
@@ -527,7 +555,7 @@ class _LogrosRow extends StatelessWidget {
       _LogroData(
         icon: Icons.check_circle_outline,
         label: 'Primer Paso',
-        desc: totalAsistencias >= 1 ? '¡1ª clase tomada!' : 'Toma 1 clase',
+        desc: totalAsistencias >= 1 ? '1 clase' : 'Toma 1 clase',
         color: GingaColors.brandGreen,
         unlocked: totalAsistencias >= 1,
       ),
@@ -535,8 +563,8 @@ class _LogrosRow extends StatelessWidget {
         icon: Icons.local_fire_department,
         label: 'Constancia',
         desc: totalAsistencias >= 5
-            ? '5 clases tomadas'
-            : '$totalAsistencias de 5 clases',
+            ? '5 clases'
+            : '$totalAsistencias de 5',
         color: GingaColors.accentAmber,
         unlocked: totalAsistencias >= 5,
       ),
@@ -544,15 +572,47 @@ class _LogrosRow extends StatelessWidget {
         icon: Icons.emoji_events_outlined,
         label: 'Camino Medio',
         desc: totalAsistencias >= 12
-            ? '12 clases tomadas'
-            : '$totalAsistencias de 12 clases',
+            ? '12 clases'
+            : '$totalAsistencias de 12',
         color: Colors.blueAccent,
         unlocked: totalAsistencias >= 12,
       ),
+      _LogroData(
+        icon: Icons.music_note_outlined,
+        label: 'Ritmo y Cadencia',
+        desc: totalAsistencias >= 25
+            ? '25 clases'
+            : '$totalAsistencias de 25',
+        color: Colors.purpleAccent,
+        unlocked: totalAsistencias >= 25,
+      ),
+      _LogroData(
+        icon: Icons.shield_outlined,
+        label: 'Guerrero Ginga',
+        desc: totalAsistencias >= 50
+            ? '50 clases'
+            : '$totalAsistencias de 50',
+        color: Colors.redAccent,
+        unlocked: totalAsistencias >= 50,
+      ),
+      _LogroData(
+        icon: Icons.workspace_premium_outlined,
+        label: 'Mestre Arena',
+        desc: totalAsistencias >= 100
+            ? '100 clases'
+            : '$totalAsistencias de 100',
+        color: const Color(0xFFFFD700),
+        unlocked: totalAsistencias >= 100,
+      ),
     ];
-    return Row(
-      children:
-          logros.map((l) => Expanded(child: _LogroBadge(logro: l))).toList(),
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 16,
+      childAspectRatio: 0.82,
+      children: logros.map((l) => _LogroBadge(logro: l)).toList(),
     );
   }
 }
@@ -609,62 +669,7 @@ class _LogroBadge extends StatelessWidget {
 
 
 
-class _DesafioCard extends StatelessWidget {
-  final IconData icon;
-  final String titulo;
-  final String subtitulo;
-  final Color color;
 
-  const _DesafioCard({
-    required this.icon,
-    required this.titulo,
-    required this.subtitulo,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(GingaRadius.sm),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(titulo,
-                    style: GoogleFonts.montserrat(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary)),
-                Text(subtitulo,
-                    style: GoogleFonts.nunito(
-                        fontSize: 12, color: GingaColors.textSecondary)),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right,
-              color: GingaColors.textSecondary, size: 20),
-        ],
-      ),
-    );
-  }
-}
 
 class _SectionHeader extends StatelessWidget {
   final String title;
@@ -1256,6 +1261,173 @@ class _MembresiaYPagosSection extends StatelessWidget {
                   ),
                 );
               },
+            );
+          },
+        ),
+        const SizedBox(height: 24),
+
+        // 3. Historial de Compensaciones de Membresía
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('compensaciones')
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              debugPrint('Error al obtener compensaciones: ${snapshot.error}');
+            }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox.shrink();
+            }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return const SizedBox.shrink(); // Ocultar si no hay registros
+            }
+
+            final compensaciones = snapshot.data!.docs.toList();
+            compensaciones.sort((a, b) {
+              final aData = a.data() as Map<String, dynamic>;
+              final bData = b.data() as Map<String, dynamic>;
+              final Timestamp? aFecha = aData['fecha_compensacion'] as Timestamp?;
+              final Timestamp? bFecha = bData['fecha_compensacion'] as Timestamp?;
+              if (aFecha == null && bFecha == null) return 0;
+              if (aFecha == null) return 1;
+              if (bFecha == null) return -1;
+              return bFecha.compareTo(aFecha); // Descendente
+            });
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Compensaciones y Extensiones',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Días o sesiones reincorporadas a tu membresía sin cobros contables.',
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    color: GingaColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: compensaciones.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final comp = compensaciones[index].data() as Map<String, dynamic>;
+                    final motivo = comp['motivo'] ?? 'Compensación';
+                    final dias = comp['dias_compensados'] ?? comp['dias_añadidos'] ?? 0;
+                    final detalle = comp['detalle'] ?? '';
+                    final Timestamp? fechaReg = comp['fecha_compensacion'] as Timestamp?;
+                    final regStr = _formatFecha(fechaReg?.toDate());
+
+                    // Visualización según motivo
+                    IconData icon = Icons.card_giftcard;
+                    Color color = Colors.green;
+                    String labelMotivo = motivo;
+                    String qtyLabel = '+$dias ${dias == 1 ? "día" : "días"}';
+
+                    final motivoLower = motivo.toString().toLowerCase();
+                    if (motivoLower.contains('feriado')) {
+                      icon = Icons.calendar_today_outlined;
+                      color = const Color(0xFFFFB300); // Amber
+                      labelMotivo = 'Feriado / Festivo 📅';
+                    } else if (motivoLower.contains('inasistencia')) {
+                      icon = Icons.thermostat;
+                      color = const Color(0xFF1E88E5); // Blue
+                      labelMotivo = 'Inasistencia Justificada 🤒';
+                    } else if (motivoLower.contains('congelar')) {
+                      icon = Icons.ac_unit_outlined;
+                      color = const Color(0xFF00ACC1); // Cyan
+                      labelMotivo = 'Membresía Congelada ❄️';
+                    } else if (motivoLower.contains('suspension') || motivoLower.contains('suspensión')) {
+                      icon = Icons.report_problem_outlined;
+                      color = const Color(0xFFE53935); // Red/Orange
+                      labelMotivo = 'Clase Suspendida ⚠️';
+                    } else if (motivoLower.contains('otro')) {
+                      icon = Icons.card_giftcard;
+                      color = Colors.green;
+                      labelMotivo = 'Compensación Especial 📝';
+                    }
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: GingaColors.borderLight.withOpacity(0.5)),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: color.withOpacity(0.1),
+                            child: Icon(icon, color: color, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  labelMotivo,
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: GingaColors.textPrimary,
+                                  ),
+                                ),
+                                if (detalle.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    detalle,
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 12,
+                                      color: GingaColors.textSecondary,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                qtyLabel,
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: color,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                regStr,
+                                style: GoogleFonts.nunito(
+                                  fontSize: 11,
+                                  color: GingaColors.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
             );
           },
         ),

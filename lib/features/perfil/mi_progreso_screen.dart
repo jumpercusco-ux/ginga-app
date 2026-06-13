@@ -3,67 +3,48 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/models/cuerdas_fiu.dart';
 
-String _obtenerSiguienteCorda(String corda) {
-  switch (corda.toLowerCase()) {
-    case 'iniciación':
-    case 'iniciacion':
-    case 'iniciante':
-      return 'Corda Amarela';
-    case 'corda amarela':
-      return 'Corda Laranja';
-    case 'corda naranja':
-    case 'corda laranja':
-      return 'Corda Azul';
-    case 'corda azul':
-      return 'Corda Verde';
-    default:
-      return 'Graduado';
+int _obtenerAsistenciasObjetivo(String cordaUsuario) {
+  final cordaObj = CuerdasFIU.encontrarCordaFIU(cordaUsuario);
+  if (cordaObj != null) {
+    return CuerdasFIU.obtenerClasesObjetivo(cordaObj.index);
   }
+  return 100;
 }
 
-int _obtenerAsistenciasObjetivo(String corda) {
-  switch (corda.toLowerCase()) {
-    case 'iniciación':
-    case 'iniciacion':
-    case 'iniciante':
-      return 24;
-    case 'corda amarela':
-      return 48;
-    case 'corda naranja':
-    case 'corda laranja':
-      return 60;
-    case 'corda azul':
-      return 80;
-    default:
-      return 100;
+String _obtenerSiguienteCorda(String cordaUsuario) {
+  final cordaObj = CuerdasFIU.encontrarCordaFIU(cordaUsuario);
+  if (cordaObj != null) {
+    final nextIndex = cordaObj.index; 
+    if (nextIndex < CuerdasFIU.lista.length) {
+      return CuerdasFIU.lista[nextIndex].nombre;
+    }
+    return 'Graduado';
   }
+  return 'Crua e Verde';
 }
 
 Map<String, dynamic> _obtenerToquesInfo(String cordaActual, int totalAsistencias) {
   int requerido = 4;
   String nombreToques = 'Toques Básicos (Angola / São Bento)';
   
-  switch (cordaActual.toLowerCase()) {
-    case 'iniciación':
-    case 'iniciacion':
-    case 'iniciante':
+  final cordaFiu = CuerdasFIU.encontrarCordaFIU(cordaActual);
+  if (cordaFiu != null) {
+    final idx = cordaFiu.index;
+    if (idx <= 4) {
       requerido = 4;
       nombreToques = 'Toques Básicos (Angola / São Bento)';
-      break;
-    case 'corda amarela':
+    } else if (idx <= 8) {
       requerido = 10;
       nombreToques = 'Toques Medios (Benguela / S. Bento Pequeno)';
-      break;
-    case 'corda naranja':
-    case 'corda laranja':
+    } else if (idx <= 10) {
       requerido = 20;
       nombreToques = 'Toque de Roda (Iúna)';
-      break;
-    default:
+    } else {
       requerido = 30;
       nombreToques = 'Toques Avanzados (Cavalaria / Santa Maria)';
-      break;
+    }
   }
   
   final bool completado = totalAsistencias >= requerido;
@@ -301,16 +282,13 @@ class _CordaTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<String> todasLasCordas = [
-      'Crua',
-      'Corda Amarela',
-      'Corda Laranja',
-      'Corda Azul',
-      'Corda Verde'
-    ];
+    final List<String> todasLasCordas = CuerdasFIU.lista.map((c) => c.nombre).toList();
 
-    int indiceActual = todasLasCordas.indexWhere(
-        (c) => c.toLowerCase() == cordaActual.toLowerCase());
+    int indiceActual = -1;
+    final cordaObj = CuerdasFIU.encontrarCordaFIU(cordaActual);
+    if (cordaObj != null) {
+      indiceActual = CuerdasFIU.lista.indexWhere((c) => c.index == cordaObj.index);
+    }
     if (indiceActual == -1) indiceActual = 0;
 
     final List<_CordaItem> timelineItems = [];

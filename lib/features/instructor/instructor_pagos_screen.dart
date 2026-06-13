@@ -443,13 +443,20 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        'S/ ${totalMes.toStringAsFixed(2)}',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween<double>(begin: 0.0, end: totalMes),
+                        duration: const Duration(milliseconds: 900),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, child) {
+                          return Text(
+                            'S/ ${value.toStringAsFixed(2)}',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 16),
                       // Desglose compacto de métodos
@@ -479,7 +486,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('users')
-                      .where('role', isNotEqualTo: 'instructor') // Solo alumnos
+                      .where('rol', isEqualTo: 'alumno') // Solo alumnos
                       .snapshots(),
                   builder: (context, usersSnapshot) {
                     if (usersSnapshot.connectionState == ConnectionState.waiting) {
@@ -500,7 +507,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                         final status = data['status'] ?? 'nuevo';
 
                         // Alumnos inactivos o activos cuya membresía venza pronto (próximos 7 días)
-                        if (status == 'inactivo' || status == 'nuevo') {
+                        if (status == 'inactivo') {
                           alumnosMorosos.add(doc);
                         } else if (status == 'activo' && data['membresia_fin'] != null) {
                           final fin = (data['membresia_fin'] as Timestamp).toDate();
@@ -698,64 +705,104 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                       itemBuilder: (context, index) {
                         final doc = snapshot.data!.docs[index];
                         final data = doc.data() as Map<String, dynamic>;
-                        final nombre = data['user_name'] ?? 'Alumno';
+                        final String pagoId = doc.id;
+                        final String userId = data['user_id'] ?? '';
+                        final String nombreOriginal = data['user_name'] ?? 'Alumno';
                         final monto = (data['monto'] as num?)?.toDouble() ?? 0.0;
                         final metodo = data['metodo_pago'] ?? 'Yape';
                         final timestamp = data['fecha_pago'] as Timestamp?;
                         final date = timestamp?.toDate();
                         final String dateStr = date != null ? '${date.day}/${date.month}' : '';
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(GingaRadius.lg),
-                            border: Border.all(color: GingaColors.borderLight),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
+                        return FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+                          builder: (context, userSnap) {
+                            bool isDeBaja = false;
+                            if (userSnap.hasData && userSnap.data!.exists) {
+                              final uData = userSnap.data!.data() as Map<String, dynamic>;
+                              isDeBaja = uData['status'] == 'eliminado';
+                            }
+
+                            final String displayName = isDeBaja ? '$nombreOriginal (De Baja 📂)' : nombreOriginal;
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(GingaRadius.lg),
+                                border: Border.all(color: GingaColors.borderLight),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: GingaColors.brandGreen.withValues(alpha: 0.1),
-                                    child: const Icon(Icons.payment, color: GingaColors.brandGreen, size: 14),
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor: GingaColors.brandGreen.withValues(alpha: 0.1),
+                                          child: const Icon(Icons.payment, color: GingaColors.brandGreen, size: 14),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                displayName,
+                                                style: GoogleFonts.montserrat(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: isDeBaja ? Colors.redAccent : GingaColors.textPrimary,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                'Método: $metodo • $dateStr',
+                                                style: GoogleFonts.nunito(
+                                                  fontSize: 10,
+                                                  color: GingaColors.textSecondary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        nombre,
+                                        '+ S/ ${monto.toStringAsFixed(2)}',
                                         style: GoogleFonts.montserrat(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: GingaColors.textPrimary,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                          color: GingaColors.brandGreen,
                                         ),
                                       ),
-                                      Text(
-                                        'Método: $metodo • $dateStr',
-                                        style: GoogleFonts.nunito(
-                                          fontSize: 10,
-                                          color: GingaColors.textSecondary,
-                                        ),
+                                      const SizedBox(width: 12),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit_outlined, size: 16, color: GingaColors.textSecondary),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () => _editarPagoModal(context, pagoId, data),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () => _confirmarEliminarPago(context, pagoId, nombreOriginal, monto),
                                       ),
                                     ],
                                   ),
                                 ],
                               ),
-                              Text(
-                                '+ S/ ${monto.toStringAsFixed(2)}',
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  color: GingaColors.brandGreen,
-                                ),
-                              ),
-                            ],
-                          ),
+                            );
+                          },
                         );
                       },
                     );
@@ -768,6 +815,353 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
           );
         },
       ),
+    );
+  }
+
+  void _confirmarEliminarPago(BuildContext context, String pagoId, String alumno, double monto) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.lg)),
+        title: Text(
+          'Eliminar Transacción 🗑️',
+          style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 16, color: GingaColors.textPrimary),
+        ),
+        content: Text(
+          '¿Estás seguro de que deseas eliminar permanentemente el registro de pago de S/ ${monto.toStringAsFixed(2)} para $alumno?\n\nEsta acción recalculará la caja mensual al instante y no se puede deshacer.',
+          style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textSecondary, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.montserrat(color: GingaColors.textSecondary, fontWeight: FontWeight.bold),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await FirebaseFirestore.instance.collection('pagos').doc(pagoId).delete();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Transacción eliminada con éxito 🎉', style: GoogleFonts.nunito(color: Colors.white)),
+                      backgroundColor: GingaColors.brandGreen,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error al eliminar transacción: $e', style: GoogleFonts.nunito(color: Colors.white)),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: Text(
+              'Eliminar',
+              style: GoogleFonts.montserrat(color: Colors.redAccent, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _editarPagoModal(BuildContext context, String pagoId, Map<String, dynamic> pagoData) {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final double originalMonto = (pagoData['monto'] as num?)?.toDouble() ?? 0.0;
+    final String originalMetodo = pagoData['metodo_pago'] ?? 'Yape';
+    final Timestamp? originalTs = pagoData['fecha_pago'] as Timestamp?;
+    final DateTime originalDate = originalTs?.toDate() ?? DateTime.now();
+
+    final TextEditingController montoController = TextEditingController(text: originalMonto.toString());
+    String selectedMetodo = originalMetodo;
+    DateTime selectedDate = originalDate;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: EdgeInsets.fromLTRB(
+                24,
+                24,
+                24,
+                MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Editar Transacción ✏️',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Alumno: ${pagoData['user_name'] ?? 'Alumno'}',
+                      style: GoogleFonts.nunito(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Monto
+                    Text(
+                      'Monto Cobrado (S/)',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: montoController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        hintText: 'Ej. 120.00',
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                          borderSide: const BorderSide(color: GingaColors.borderLight),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                          borderSide: const BorderSide(color: GingaColors.brandGreen, width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Método de pago
+                    Text(
+                      'Método de Pago',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                        border: Border.all(color: GingaColors.borderLight),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedMetodo,
+                          isExpanded: true,
+                          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: GingaColors.textSecondary),
+                          items: ['Yape', 'Plin', 'Efectivo', 'Transferencia'].map((String val) {
+                            return DropdownMenuItem<String>(
+                              value: val,
+                              child: Text(
+                                val,
+                                style: GoogleFonts.nunito(
+                                  fontWeight: FontWeight.w600,
+                                  color: GingaColors.textPrimary,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setModalState(() => selectedMetodo = val);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Fecha
+                    Text(
+                      'Fecha de Pago',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: GingaColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () async {
+                        final DateTime? pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now().add(const Duration(days: 1)),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: const ColorScheme.light(
+                                  primary: GingaColors.brandGreen,
+                                  onPrimary: Colors.white,
+                                  onSurface: GingaColors.textPrimary,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (pickedDate != null) {
+                          if (!context.mounted) return;
+                          final TimeOfDay? pickedTime = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.fromDateTime(selectedDate),
+                          );
+                          if (pickedTime != null) {
+                            setModalState(() {
+                              selectedDate = DateTime(
+                                pickedDate.year,
+                                pickedDate.month,
+                                pickedDate.day,
+                                pickedTime.hour,
+                                pickedTime.minute,
+                              );
+                            });
+                          }
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                          border: Border.all(color: GingaColors.borderLight),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${selectedDate.day}/${selectedDate.month}/${selectedDate.year} ${selectedDate.hour.toString().padLeft(2, '0')}:${selectedDate.minute.toString().padLeft(2, '0')}',
+                              style: GoogleFonts.nunito(
+                                fontWeight: FontWeight.w600,
+                                color: GingaColors.textPrimary,
+                              ),
+                            ),
+                            const Icon(Icons.calendar_today_rounded, size: 16, color: GingaColors.brandGreen),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Botones de Acción
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.full)),
+                              minimumSize: const Size(0, 48),
+                            ),
+                            child: Text(
+                              'Cancelar',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              final double? nuevoMonto = double.tryParse(montoController.text);
+                              if (nuevoMonto == null || nuevoMonto <= 0) {
+                                scaffoldMessenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text('Por favor, ingresa un monto válido', style: GoogleFonts.nunito(color: Colors.white)),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+
+                              Navigator.pop(context);
+                              try {
+                                await FirebaseFirestore.instance.collection('pagos').doc(pagoId).update({
+                                  'monto': nuevoMonto,
+                                  'metodo_pago': selectedMetodo,
+                                  'fecha_pago': Timestamp.fromDate(selectedDate),
+                                });
+
+                                scaffoldMessenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text('Transacción actualizada con éxito 🎉', style: GoogleFonts.nunito(color: Colors.white)),
+                                    backgroundColor: GingaColors.brandGreen,
+                                  ),
+                                );
+                              } catch (e) {
+                                scaffoldMessenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error al actualizar: $e', style: GoogleFonts.nunito(color: Colors.white)),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: GingaColors.brandGreen,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.full)),
+                              minimumSize: const Size(0, 48),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              'Guardar Cambios',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -792,13 +1186,20 @@ class _DesgloseItem extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          'S/ ${value.toStringAsFixed(0)}',
-          style: GoogleFonts.montserrat(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-          ),
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.0, end: value),
+          duration: const Duration(milliseconds: 900),
+          curve: Curves.easeOutCubic,
+          builder: (context, animatedVal, child) {
+            return Text(
+              'S/ ${animatedVal.toStringAsFixed(0)}',
+              style: GoogleFonts.montserrat(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            );
+          },
         ),
       ],
     );
