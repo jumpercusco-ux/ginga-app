@@ -83,12 +83,12 @@ class _EventosScreenState extends State<EventosScreen> {
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         leading: widget.isTab
             ? null
             : IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, color: GingaColors.textPrimary, size: 18),
+                icon: Icon(Icons.arrow_back_ios_new, color: GingaColors.textPrimary, size: 18),
                 onPressed: () {
                   if (context.canPop()) {
                     context.pop();
@@ -227,6 +227,11 @@ class _EventosScreenState extends State<EventosScreen> {
 
   Widget _buildFilterTab(int index, String label) {
     final isSelected = _selectedFilterIndex == index;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final unselectedBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final unselectedTextColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _selectedFilterIndex = index),
@@ -235,10 +240,10 @@ class _EventosScreenState extends State<EventosScreen> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isSelected ? GingaColors.brandGreen : Colors.white,
+            color: isSelected ? GingaColors.brandGreen : unselectedBg,
             borderRadius: BorderRadius.circular(GingaRadius.md),
             border: Border.all(
-              color: isSelected ? GingaColors.brandGreen : GingaColors.borderLight,
+              color: isSelected ? GingaColors.brandGreen : borderColor,
             ),
             boxShadow: isSelected
                 ? [
@@ -255,7 +260,7 @@ class _EventosScreenState extends State<EventosScreen> {
             style: GoogleFonts.montserrat(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: isSelected ? Colors.white : GingaColors.textSecondary,
+              color: isSelected ? Colors.white : unselectedTextColor,
             ),
           ),
         ),
@@ -343,12 +348,18 @@ class _EventoCard extends StatelessWidget {
     final lugar = data['lugar'] ?? 'Por definir';
     final imagenUrl = data['imagen_url'] ?? '';
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
-        boxShadow: [
+        border: Border.all(color: borderColor),
+        boxShadow: isDark ? [] : [
           BoxShadow(
             color: Colors.black.withOpacity(0.02),
             blurRadius: 8,
@@ -435,7 +446,7 @@ class _EventoCard extends StatelessWidget {
                   style: GoogleFonts.montserrat(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
-                    color: GingaColors.textPrimary,
+                    color: textColor,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -443,7 +454,7 @@ class _EventoCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today_outlined, size: 13, color: GingaColors.textSecondary),
+                    Icon(Icons.calendar_today_outlined, size: 13, color: subtitleColor),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -451,7 +462,7 @@ class _EventoCard extends StatelessWidget {
                         style: GoogleFonts.nunito(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: GingaColors.textSecondary,
+                          color: subtitleColor,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -462,14 +473,14 @@ class _EventoCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    const Icon(Icons.location_on_outlined, size: 13, color: GingaColors.textSecondary),
+                    Icon(Icons.location_on_outlined, size: 13, color: subtitleColor),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         lugar,
                         style: GoogleFonts.nunito(
                           fontSize: 12,
-                          color: GingaColors.textSecondary,
+                          color: subtitleColor,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

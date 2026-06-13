@@ -63,7 +63,7 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
       stream: _productStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
+          return Scaffold(
             backgroundColor: GingaColors.backgroundLight,
             body: Center(child: CircularProgressIndicator(color: GingaColors.brandGreen)),
           );
@@ -117,7 +117,7 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
             backgroundColor: GingaColors.backgroundLight,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: GingaColors.textPrimary),
+              icon: Icon(Icons.arrow_back, color: GingaColors.textPrimary),
               onPressed: () async {
                 if (context.canPop()) {
                   context.pop();

@@ -117,7 +117,7 @@ class GraduacionesScreen extends StatelessWidget {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
+                        icon: Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),

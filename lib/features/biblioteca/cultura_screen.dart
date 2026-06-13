@@ -233,7 +233,7 @@ class _CulturaScreenState extends State<CulturaScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
+                    icon: Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
                   ),
                   Expanded(
                     child: Text(
@@ -377,7 +377,7 @@ class _CulturaScreenState extends State<CulturaScreen> {
                                   ],
                                 ),
                               ),
-                              const Icon(
+                              Icon(
                                 Icons.arrow_forward_ios_rounded,
                                 color: GingaColors.textSecondary,
                                 size: 14,

@@ -24,7 +24,7 @@ class MusicaScreen extends StatelessWidget {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
+                      icon: Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -123,15 +123,19 @@ class _MusicaMenuCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(GingaRadius.lg),
-          border: Border.all(color: GingaColors.borderLight),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           children: [
@@ -194,7 +198,7 @@ class _MusicaMenuCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: GingaColors.textSecondary, size: 20),
+            Icon(Icons.chevron_right, color: GingaColors.textSecondary, size: 20),
           ],
         ),
       ),

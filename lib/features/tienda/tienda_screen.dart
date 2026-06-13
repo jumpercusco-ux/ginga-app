@@ -27,6 +27,10 @@ class _TiendaScreenState extends State<TiendaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       appBar: AppBar(
@@ -35,7 +39,7 @@ class _TiendaScreenState extends State<TiendaScreen> {
         leading: widget.isTab
             ? null
             : IconButton(
-                icon: const Icon(Icons.arrow_back,
+                icon: Icon(Icons.arrow_back,
                     color: GingaColors.textPrimary),
                 onPressed: () {
                   if (context.canPop()) {
@@ -63,7 +67,7 @@ class _TiendaScreenState extends State<TiendaScreen> {
                 clipBehavior: Clip.none,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.shopping_bag_outlined,
+                    icon: Icon(Icons.shopping_bag_outlined,
                         color: GingaColors.textPrimary, size: 26),
                     onPressed: () => context.push('/carrito'),
                   ),
@@ -137,14 +141,14 @@ class _TiendaScreenState extends State<TiendaScreen> {
                       }
                     },
                     selectedColor: GingaColors.brandGreen,
-                    backgroundColor: Colors.white,
+                    backgroundColor: cardBg,
                     disabledColor: Colors.transparent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(GingaRadius.full),
                       side: BorderSide(
                         color: isSelected
                             ? GingaColors.brandGreen
-                            : GingaColors.borderLight,
+                            : borderColor,
                         width: 1,
                       ),
                     ),
@@ -276,6 +280,10 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     IconData categoryIcon = Icons.shopping_bag_outlined;
     Color categoryColor = GingaColors.brandGreen;
 
@@ -296,9 +304,9 @@ class _ProductCard extends StatelessWidget {
       onTap: () => context.push('/producto-detail?productoId=$id'),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(GingaRadius.lg),
-          border: Border.all(color: GingaColors.borderLight, width: 1),
+          border: Border.all(color: borderColor, width: 1),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -380,9 +388,9 @@ class _ProductCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
+                        color: isDark ? GingaColors.backgroundDark.withOpacity(0.9) : Colors.white.withOpacity(0.9),
                         borderRadius: BorderRadius.circular(GingaRadius.sm),
-                        border: Border.all(color: GingaColors.borderLight),
+                        border: Border.all(color: borderColor),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,

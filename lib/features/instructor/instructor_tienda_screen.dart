@@ -98,7 +98,7 @@ class InstructorTiendaScreen extends StatelessWidget {
         backgroundColor: GingaColors.backgroundLight,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: GingaColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: GingaColors.textPrimary),
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -264,7 +264,7 @@ class InstructorTiendaScreen extends StatelessWidget {
                               Container(
                                 width: 3,
                                 height: 3,
-                                decoration: const BoxDecoration(
+                                decoration: BoxDecoration(
                                   color: GingaColors.textSecondary,
                                   shape: BoxShape.circle,
                                 ),

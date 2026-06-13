@@ -207,7 +207,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                           eyeShape: QrEyeShape.square,
                           color: GingaColors.brandGreen,
                         ),
-                        dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleStyle: QrDataModuleStyle(
                           dataModuleShape: QrDataModuleShape.square,
                           color: GingaColors.textPrimary,
                         ),

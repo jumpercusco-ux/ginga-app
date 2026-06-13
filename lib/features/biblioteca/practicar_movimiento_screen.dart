@@ -222,7 +222,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: GingaColors.textPrimary, size: 28),
+                    icon: Icon(Icons.close_rounded, color: GingaColors.textPrimary, size: 28),
                     onPressed: () {
                       _showExitConfirmationDialog();
                     },

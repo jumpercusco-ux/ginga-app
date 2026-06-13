@@ -9,6 +9,7 @@ import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/ginga_theme.dart';
+import 'core/theme/theme_manager.dart';
 import 'core/services/notification_service.dart';
 
 void main() async {
@@ -16,6 +17,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await ThemeManager.instance.init();
 
   // Inicializar Firebase App Check para bloquear accesos no autorizados y bots
   await FirebaseAppCheck.instance.activate(
@@ -64,13 +66,18 @@ class GingaApp extends StatelessWidget {
           });
         }
 
-        return MaterialApp.router(
-          title: 'Ginga',
-          debugShowCheckedModeBanner: false,
-          theme: gingaLightTheme,
-          darkTheme: gingaDarkTheme,
-          themeMode: ThemeMode.system,
-          routerConfig: appRouter,
+        return ListenableBuilder(
+          listenable: ThemeManager.instance,
+          builder: (context, _) {
+            return MaterialApp.router(
+              title: 'Ginga',
+              debugShowCheckedModeBanner: false,
+              theme: gingaLightTheme,
+              darkTheme: gingaDarkTheme,
+              themeMode: ThemeManager.instance.themeMode,
+              routerConfig: appRouter,
+            );
+          },
         );
       },
     );

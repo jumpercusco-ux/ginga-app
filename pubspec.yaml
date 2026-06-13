@@ -30,6 +30,7 @@ dependencies:
   http: ^1.2.0
   cached_network_image: ^3.4.1
   flutter_blurhash: ^0.9.1
+  shared_preferences: ^2.5.5
 
 
 dev_dependencies:

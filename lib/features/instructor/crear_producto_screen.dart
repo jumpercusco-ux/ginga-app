@@ -183,7 +183,7 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
         backgroundColor: GingaColors.backgroundLight,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: GingaColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: GingaColors.textPrimary),
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -287,7 +287,7 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GingaRadius.md),
-                          borderSide: const BorderSide(color: GingaColors.borderLight),
+                          borderSide: BorderSide(color: GingaColors.borderLight),
                         ),
                       ),
                       items: _categorias.map((cat) {

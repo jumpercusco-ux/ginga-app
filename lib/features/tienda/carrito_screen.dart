@@ -257,7 +257,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
         backgroundColor: GingaColors.backgroundLight,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: GingaColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: GingaColors.textPrimary),
           onPressed: () async {
             if (context.canPop()) {
               context.pop();
@@ -294,6 +294,11 @@ class _CarritoScreenState extends State<CarritoScreen> {
       body: ValueListenableBuilder<Map<String, CartItem>>(
         valueListenable: TiendaService.instance.carritoNotifier,
         builder: (context, carrito, child) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+          final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+          final tallaBg = isDark ? GingaColors.backgroundDark : GingaColors.borderLight;
+          final panelBorderColor = isDark ? GingaColors.backgroundDark : GingaColors.borderLight;
           if (carrito.isEmpty) {
             return Center(
               child: Column(
@@ -378,9 +383,9 @@ class _CarritoScreenState extends State<CarritoScreen> {
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: cardBg,
                         borderRadius: BorderRadius.circular(GingaRadius.lg),
-                        border: Border.all(color: GingaColors.borderLight),
+                        border: Border.all(color: borderColor),
                       ),
                       child: Row(
                         children: [
@@ -428,7 +433,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: GingaColors.borderLight,
+                                      color: tallaBg,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
@@ -527,9 +532,9 @@ class _CarritoScreenState extends State<CarritoScreen> {
                       : 20,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cardBg,
                   border: Border(
-                    top: BorderSide(color: GingaColors.borderLight, width: 1.5),
+                    top: BorderSide(color: panelBorderColor, width: 1.5),
                   ),
                 ),
                 child: Column(

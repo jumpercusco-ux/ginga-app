@@ -129,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontSize: 14, color: GingaColors.textPrimary),
                   decoration: InputDecoration(
                     hintText: 'Correo electrónico',
-                    prefixIcon: const Icon(Icons.email_outlined,
+                    prefixIcon: Icon(Icons.email_outlined,
                         color: GingaColors.textSecondary, size: 20),
                   ),
                   validator: (val) {
@@ -149,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontSize: 14, color: GingaColors.textPrimary),
                   decoration: InputDecoration(
                     hintText: 'Contraseña',
-                    prefixIcon: const Icon(Icons.lock_outline,
+                    prefixIcon: Icon(Icons.lock_outline,
                         color: GingaColors.textSecondary, size: 20),
                     suffixIcon: GestureDetector(
                       onTap: () => setState(
@@ -452,7 +452,7 @@ class _LoginScreenState extends State<LoginScreen> {
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
             style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Correo electrónico',
               prefixIcon: Icon(
                 Icons.email_outlined,

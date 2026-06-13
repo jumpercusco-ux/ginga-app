@@ -131,7 +131,7 @@ class MiProgresoScreen extends StatelessWidget {
                         children: [
                           GestureDetector(
                             onTap: () => Navigator.of(context).pop(),
-                            child: const Icon(Icons.arrow_back_ios_new,
+                            child: Icon(Icons.arrow_back_ios_new,
                                 size: 18, color: GingaColors.textPrimary),
                           ),
                           const SizedBox(width: 12),
@@ -388,7 +388,7 @@ class _CordaTimeline extends StatelessWidget {
                         const Icon(Icons.check_circle,
                             color: GingaColors.brandGreen, size: 20)
                       else if (corda.status == _CordaStatus.bloqueada)
-                        const Icon(Icons.lock_outline,
+                        Icon(Icons.lock_outline,
                             color: GingaColors.textSecondary, size: 18),
                     ],
                   ),
@@ -429,7 +429,7 @@ class _TimelineDot extends StatelessWidget {
           ? const Icon(Icons.circle, color: Colors.white, size: 10)
           : status == _CordaStatus.completada
               ? const Icon(Icons.check, color: Colors.white, size: 12)
-              : const Icon(Icons.lock_outline, color: GingaColors.textSecondary, size: 10),
+              : Icon(Icons.lock_outline, color: GingaColors.textSecondary, size: 10),
     );
   }
 }

@@ -166,7 +166,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     ),
                   ],
                 ),
-                const Divider(height: 32, color: GingaColors.borderLight),
+                Divider(height: 32, color: GingaColors.borderLight),
 
                 // Datos Personales
                 Text('Información Académica y de Contacto',
@@ -201,7 +201,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                 if (created != null)
                   _buildFichaRow(Icons.calendar_today_outlined, 'Fecha de registro', '${created.day}/${created.month}/${created.year}'),
 
-                const Divider(height: 32, color: GingaColors.borderLight),
+                Divider(height: 32, color: GingaColors.borderLight),
 
                 // Detalles de Membresía
                 Text('Detalles de Membresía',
@@ -218,7 +218,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                 ] else
                   Row(
                     children: [
-                      const Icon(Icons.info_outline, size: 18, color: GingaColors.textSecondary),
+                      Icon(Icons.info_outline, size: 18, color: GingaColors.textSecondary),
                       const SizedBox(width: 8),
                       Text(
                         status == 'nuevo' 
@@ -229,11 +229,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     ],
                   ),
 
-                const Divider(height: 32, color: GingaColors.borderLight),
+                Divider(height: 32, color: GingaColors.borderLight),
 
                 _FichaProgresoCard(uid: data['uid'] ?? '', corda: corda),
 
-                const Divider(height: 32, color: GingaColors.borderLight),
+                Divider(height: 32, color: GingaColors.borderLight),
 
                 _FichaAsistenciasCalendar(uid: data['uid'] ?? ''),
 
@@ -630,11 +630,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(GingaRadius.md),
-                                borderSide: const BorderSide(color: GingaColors.borderLight),
+                                borderSide: BorderSide(color: GingaColors.borderLight),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(GingaRadius.md),
-                                borderSide: const BorderSide(color: GingaColors.borderLight),
+                                borderSide: BorderSide(color: GingaColors.borderLight),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -676,11 +676,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(GingaRadius.md),
-                                borderSide: const BorderSide(color: GingaColors.borderLight),
+                                borderSide: BorderSide(color: GingaColors.borderLight),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(GingaRadius.md),
-                                borderSide: const BorderSide(color: GingaColors.borderLight),
+                                borderSide: BorderSide(color: GingaColors.borderLight),
                               ),
                             ),
                             style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
@@ -722,11 +722,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
-                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                  borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
-                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                  borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                               ),
                               style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
@@ -765,11 +765,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             hintStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
-                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                              borderSide: BorderSide(color: GingaColors.borderLight),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
-                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                              borderSide: BorderSide(color: GingaColors.borderLight),
                             ),
                           ),
                           style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w700),
@@ -794,11 +794,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             hintStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
-                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                              borderSide: BorderSide(color: GingaColors.borderLight),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
-                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                              borderSide: BorderSide(color: GingaColors.borderLight),
                             ),
                           ),
                           style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
@@ -821,11 +821,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
-                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                              borderSide: BorderSide(color: GingaColors.borderLight),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
-                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                              borderSide: BorderSide(color: GingaColors.borderLight),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -873,11 +873,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
-                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                  borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
-                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                  borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                               ),
                               style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
@@ -924,11 +924,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
-                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                  borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
-                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                  borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                               ),
                               style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
@@ -973,11 +973,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
-                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                  borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
-                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                  borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                               ),
                               style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
@@ -1022,11 +1022,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
-                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                  borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
-                                  borderSide: const BorderSide(color: GingaColors.borderLight),
+                                  borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                               ),
                               style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
@@ -1060,7 +1060,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 onPressed: enviando ? null : () => Navigator.pop(contextModal),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: GingaColors.textSecondary,
-                                  side: const BorderSide(color: GingaColors.borderLight),
+                                  side: BorderSide(color: GingaColors.borderLight),
                                   padding: const EdgeInsets.symmetric(vertical: 14),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -1535,7 +1535,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.info_outline_rounded, color: GingaColors.textSecondary, size: 18),
+                              Icon(Icons.info_outline_rounded, color: GingaColors.textSecondary, size: 18),
                               const SizedBox(width: 8),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1578,11 +1578,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
-                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                              borderSide: BorderSide(color: GingaColors.borderLight),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
-                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                              borderSide: BorderSide(color: GingaColors.borderLight),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -1693,7 +1693,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                               fillColor: const Color(0xFFF8F8F8),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(GingaRadius.md),
-                                borderSide: const BorderSide(color: GingaColors.borderLight),
+                                borderSide: BorderSide(color: GingaColors.borderLight),
                               ),
                             ),
                             style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
@@ -2052,7 +2052,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 onPressed: () => Navigator.pop(contextModal),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: GingaColors.textSecondary,
-                                  side: const BorderSide(color: GingaColors.borderLight),
+                                  side: BorderSide(color: GingaColors.borderLight),
                                   padding: const EdgeInsets.symmetric(vertical: 14),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -2280,7 +2280,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 value: claseSeleccionadaId,
                                 hint: Text('Selecciona una clase regular', style: GoogleFonts.nunito(fontSize: 13)),
                                 isExpanded: true,
-                                icon: const Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
+                                icon: Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
                                 style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
                                 items: clasesList.map((doc) {
                                   final cData = doc.data() as Map<String, dynamic>;
@@ -2403,7 +2403,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             fillColor: const Color(0xFFF8F8F8),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
-                              borderSide: const BorderSide(color: GingaColors.borderLight),
+                              borderSide: BorderSide(color: GingaColors.borderLight),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -2438,7 +2438,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             child: DropdownButton<String>(
                               value: metodoPagoSeleccionado,
                               isExpanded: true,
-                              icon: const Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
+                              icon: Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
                               style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w700),
                               items: metodosPago.map((metodo) {
                                 return DropdownMenuItem<String>(
@@ -2897,7 +2897,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     decoration: InputDecoration(
                       hintText: 'Buscar por nombre...',
                       hintStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary),
-                      prefixIcon: const Icon(Icons.search, color: GingaColors.textSecondary, size: 20),
+                      prefixIcon: Icon(Icons.search, color: GingaColors.textSecondary, size: 20),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     ),
@@ -3238,7 +3238,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
+            colorScheme: ColorScheme.light(
               primary: GingaColors.brandGreen,
               onPrimary: Colors.white,
               onSurface: GingaColors.textPrimary,

@@ -359,10 +359,14 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color iconColor,
     required VoidCallback onAction,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bottomSheetBg = isDark ? GingaColors.backgroundDark : Colors.white;
+    final handleColor = isDark ? Colors.grey[700] : Colors.grey[300];
+
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: bottomSheetBg,
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(32),
           topRight: Radius.circular(32),
         ),
@@ -380,7 +384,7 @@ class _HomeScreenState extends State<HomeScreen> {
             width: 40,
             height: 5,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: handleColor,
               borderRadius: BorderRadius.circular(10),
             ),
           ),
@@ -687,7 +691,7 @@ class _StatusBanner extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const TutorialesScreen(),
+                  builder: (_) => TutorialesScreen(),
                 ),
               );
             },
@@ -836,7 +840,7 @@ class _ContentByStatus extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _SectionTitle(title: 'Tu clase asignada', actionLabel: ''),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _ClasePendiente(claseId: claseId),
             ],
           );
@@ -845,7 +849,7 @@ class _ContentByStatus extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _SectionTitle(title: 'Clases disponibles', actionLabel: ''),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                 'Elige una clase y toma una sesión gratuita para empezar tu camino 🥋✨',
                 style: GoogleFonts.nunito(
@@ -855,7 +859,7 @@ class _ContentByStatus extends StatelessWidget {
                   height: 1.3,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _ClasesNuevo(uid: uid, sede: sede, soloRegulares: true),
             ],
           );
@@ -868,7 +872,7 @@ class _ContentByStatus extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionTitle(title: 'Tu reserva', actionLabel: ''),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(
               'Este es el grupo en el que realizaste tu reserva 🥋✨',
               style: GoogleFonts.nunito(
@@ -878,7 +882,7 @@ class _ContentByStatus extends StatelessWidget {
                 height: 1.3,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _ReservaPendiente(uid: uid),
           ],
         );
@@ -890,7 +894,7 @@ class _ContentByStatus extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionTitle(title: 'Tu clase', actionLabel: ''),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _ClaseActivo(claseId: claseId),
           ],
         );
@@ -921,10 +925,11 @@ class _ContentByStatus extends StatelessWidget {
 // ─────────────────────────────────────────
 
 void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: isDark ? GingaColors.backgroundDark : Colors.white,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.xl)),
     ),
@@ -1029,16 +1034,16 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF9F9F9),
+                          color: isDark ? GingaColors.surfaceDark : const Color(0xFFF9F9F9),
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
-                          border: Border.all(color: GingaColors.borderLight),
+                          border: Border.all(color: isDark ? Colors.transparent : GingaColors.borderLight),
                         ),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(10),
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
+                              decoration: BoxDecoration(
+                                color: isDark ? GingaColors.backgroundDark : Colors.white,
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.storefront_outlined,
@@ -1068,7 +1073,7 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
                                 ],
                               ),
                             ),
-                            const Icon(Icons.chevron_right,
+                            Icon(Icons.chevron_right,
                                 color: GingaColors.textSecondary, size: 20),
                           ],
                         ),
@@ -1088,7 +1093,7 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
 class _VirtualDashboard extends StatelessWidget {
   final String uid;
   final Key? reserveKey;
-  const _VirtualDashboard({required this.uid, this.reserveKey});
+  _VirtualDashboard({required this.uid, this.reserveKey});
 
   @override
   Widget build(BuildContext context) {
@@ -1099,9 +1104,9 @@ class _VirtualDashboard extends StatelessWidget {
         Container(
           key: reserveKey,
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [
                 Color(0xFFE8F5E9), // verde menta muy claro
                 Color(0xFFC8E6C9), // verde claro
@@ -1113,15 +1118,15 @@ class _VirtualDashboard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: GingaColors.brandGreen.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.location_on_outlined,
+                child: Icon(Icons.location_on_outlined,
                     color: GingaColors.brandGreen, size: 24),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1134,7 +1139,7 @@ class _VirtualDashboard extends StatelessWidget {
                         color: GingaColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       'Visita nuestras academias presenciales en Cusco, Lima o Chimbote y reserva tu primera clase GRATIS.',
                       style: GoogleFonts.nunito(
@@ -1147,19 +1152,19 @@ class _VirtualDashboard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () => _mostrarSelectorSedeFisica(context, uid),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: GingaColors.brandGreen,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  minimumSize: const Size(0, 36),
+                  minimumSize: Size(0, 36),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
                   ),
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 ),
                 child: Text(
                   'Reservar',
@@ -1172,11 +1177,11 @@ class _VirtualDashboard extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
 
         // ── PRÁCTICA DEL DÍA (RODA & INSTRUMENTO) ───────────────────────
         _SectionTitle(title: 'Práctica del Día 🪘🎵', actionLabel: ''),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1187,11 +1192,11 @@ class _VirtualDashboard extends StatelessWidget {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const PracticarToqueScreen()),
+                        builder: (_) => PracticarToqueScreen()),
                   ),
                   child: Container(
                     height: 168,
-                    padding: const EdgeInsets.all(14),
+                    padding: EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(GingaRadius.lg),
@@ -1201,15 +1206,15 @@ class _VirtualDashboard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: Colors.blue.withOpacity(0.08),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.music_note_outlined,
+                          child: Icon(Icons.music_note_outlined,
                               color: Colors.blue, size: 20),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         Text(
                           'Toque de Angola',
                           style: GoogleFonts.montserrat(
@@ -1218,7 +1223,7 @@ class _VirtualDashboard extends StatelessWidget {
                             color: GingaColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2),
                         Text(
                           'El toque tradicional para el juego bajo y táctico.',
                           maxLines: 2,
@@ -1229,8 +1234,8 @@ class _VirtualDashboard extends StatelessWidget {
                             height: 1.3,
                           ),
                         ),
-                        const Spacer(),
-                        const SizedBox(height: 8),
+                        Spacer(),
+                        SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -1242,7 +1247,7 @@ class _VirtualDashboard extends StatelessWidget {
                                 color: Colors.blue,
                               ),
                             ),
-                            const Icon(Icons.arrow_forward_rounded,
+                            Icon(Icons.arrow_forward_rounded,
                                 color: Colors.blue, size: 12),
                           ],
                         ),
@@ -1251,17 +1256,17 @@ class _VirtualDashboard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               // Canción del Día
               Expanded(
                 child: GestureDetector(
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const CancioneroScreen()),
+                    MaterialPageRoute(builder: (_) => CancioneroScreen()),
                   ),
                   child: Container(
                     height: 168,
-                    padding: const EdgeInsets.all(14),
+                    padding: EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(GingaRadius.lg),
@@ -1271,15 +1276,15 @@ class _VirtualDashboard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: GingaColors.brandGreen.withOpacity(0.08),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.menu_book_outlined,
+                          child: Icon(Icons.menu_book_outlined,
                               color: GingaColors.brandGreen, size: 20),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         Text(
                           'Canta con el Karaoke',
                           style: GoogleFonts.montserrat(
@@ -1288,7 +1293,7 @@ class _VirtualDashboard extends StatelessWidget {
                             color: GingaColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2),
                         Text(
                           'Aprende las cantigas de capoeira más populares y practica con sus letras.',
                           maxLines: 2,
@@ -1299,8 +1304,8 @@ class _VirtualDashboard extends StatelessWidget {
                             height: 1.3,
                           ),
                         ),
-                        const Spacer(),
-                        const SizedBox(height: 8),
+                        Spacer(),
+                        SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -1312,7 +1317,7 @@ class _VirtualDashboard extends StatelessWidget {
                                 color: GingaColors.brandGreen,
                               ),
                             ),
-                            const Icon(Icons.arrow_forward_rounded,
+                            Icon(Icons.arrow_forward_rounded,
                                 color: GingaColors.brandGreen, size: 12),
                           ],
                         ),
@@ -1324,7 +1329,7 @@ class _VirtualDashboard extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 28),
+        SizedBox(height: 28),
 
         // ── RECOMENDADO PARA TI (TUTORIALES EN VIDEO) ───────────────────────
         Row(
@@ -1532,7 +1537,7 @@ class _FeaturedLessonCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.access_time_outlined,
+                      Icon(Icons.access_time_outlined,
                           size: 10, color: GingaColors.textSecondary),
                       const SizedBox(width: 2),
                       Text(
@@ -2073,7 +2078,7 @@ class _ClaseCardNuevo extends StatelessWidget {
                             if (instructor.isNotEmpty) ...[
                               Row(
                                 children: [
-                                  const Icon(Icons.person_outline_rounded,
+                                  Icon(Icons.person_outline_rounded,
                                       size: 14, color: GingaColors.textSecondary),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -2272,14 +2277,19 @@ class _ClaseActivo extends StatelessWidget {
   final String claseId;
   const _ClaseActivo({required this.claseId});
 
-  Widget _buildInfoBadge(IconData icon, String text) {
+  Widget _buildInfoBadge(BuildContext context, IconData icon, String text) {
     if (text.isEmpty) return const SizedBox.shrink();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final badgeBg = isDark ? GingaColors.backgroundDark : GingaColors.backgroundLight;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textSecondary;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: GingaColors.backgroundLight,
+        color: badgeBg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2291,7 +2301,7 @@ class _ClaseActivo extends StatelessWidget {
             style: GoogleFonts.nunito(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: GingaColors.textSecondary,
+              color: textColor,
             ),
           ),
         ],
@@ -2338,16 +2348,20 @@ class _ClaseActivo extends StatelessWidget {
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
 
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+        final borderColor = isDark ? GingaColors.brandGreen.withOpacity(0.15) : GingaColors.brandGreen.withOpacity(0.2);
+
         return GestureDetector(
           onTap: () => context.push('/clase-detalle?claseId=$claseId'),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardBg,
               borderRadius: BorderRadius.circular(GingaRadius.lg),
               border:
-                  Border.all(color: GingaColors.brandGreen.withOpacity(0.2)),
-              boxShadow: [
+                  Border.all(color: borderColor),
+              boxShadow: isDark ? [] : [
                 BoxShadow(
                   color: GingaColors.brandGreen.withOpacity(0.04),
                   blurRadius: 10,
@@ -2407,11 +2421,11 @@ class _ClaseActivo extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     _buildInfoBadge(
-                        Icons.access_time_rounded, data['hora'] ?? ''),
-                    _buildInfoBadge(Icons.calendar_today_outlined,
+                        context, Icons.access_time_rounded, data['hora'] ?? ''),
+                    _buildInfoBadge(context, Icons.calendar_today_outlined,
                         _interpretarDiasDeSemana(data['dias'] ?? '')),
                     _buildInfoBadge(
-                        Icons.person_outline_rounded, data['instructor'] ?? ''),
+                        context, Icons.person_outline_rounded, data['instructor'] ?? ''),
                   ],
                 ),
               ],
@@ -2433,12 +2447,19 @@ class _ClaseInactivo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final textAccent = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    final textMuted = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+    final iconBg = isDark ? GingaColors.backgroundDark : GingaColors.borderLight;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
@@ -2446,11 +2467,11 @@ class _ClaseInactivo extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: GingaColors.borderLight,
+              color: iconBg,
               borderRadius: BorderRadius.circular(GingaRadius.sm),
             ),
-            child: const Icon(Icons.lock_outline,
-                color: GingaColors.textSecondary, size: 24),
+            child: Icon(Icons.lock_outline,
+                color: textMuted, size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -2461,10 +2482,10 @@ class _ClaseInactivo extends StatelessWidget {
                     style: GoogleFonts.montserrat(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textSecondary)),
+                        color: textAccent)),
                 Text('Renueva tu mensualidad para continuar',
                     style: GoogleFonts.nunito(
-                        fontSize: 12, color: GingaColors.textSecondary)),
+                        fontSize: 12, color: textMuted)),
               ],
             ),
           ),
@@ -2513,12 +2534,19 @@ class _ClasePendiente extends StatelessWidget {
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
 
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+        final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+        final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+        final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+        final hourBg = isDark ? GingaColors.backgroundDark : Colors.grey.shade200;
+
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardBg,
             borderRadius: BorderRadius.circular(GingaRadius.lg),
-            border: Border.all(color: GingaColors.borderLight),
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             children: [
@@ -2526,7 +2554,7 @@ class _ClasePendiente extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
+                  color: hourBg,
                   borderRadius: BorderRadius.circular(GingaRadius.sm),
                 ),
                 child: Text(
@@ -2534,7 +2562,7 @@ class _ClasePendiente extends StatelessWidget {
                   style: GoogleFonts.montserrat(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: GingaColors.textSecondary,
+                    color: subtitleColor,
                   ),
                 ),
               ),
@@ -2548,21 +2576,21 @@ class _ClasePendiente extends StatelessWidget {
                       style: GoogleFonts.montserrat(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textSecondary,
+                        color: textColor,
                       ),
                     ),
                     Text(
                       _interpretarDiasDeSemana(data['dias'] ?? ''),
                       style: GoogleFonts.nunito(
                         fontSize: 11,
-                        color: GingaColors.textSecondary,
+                        color: subtitleColor,
                       ),
                     ),
                     Text(
                       'Instructor: ${data['instructor'] ?? ""}',
                       style: GoogleFonts.nunito(
                         fontSize: 11,
-                        color: GingaColors.textSecondary,
+                        color: subtitleColor,
                       ),
                     ),
                   ],
@@ -2572,16 +2600,16 @@ class _ClasePendiente extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
+                  color: isDark ? Colors.amber.shade900.withOpacity(0.3) : Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(GingaRadius.full),
-                  border: Border.all(color: Colors.amber.shade200),
+                  border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade200),
                 ),
                 child: Text(
                   'PENDIENTE',
                   style: GoogleFonts.montserrat(
                     fontSize: 9,
                     fontWeight: FontWeight.w800,
-                    color: Colors.amber.shade700,
+                    color: isDark ? Colors.amber.shade200 : Colors.amber.shade700,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -2707,7 +2735,7 @@ class _NotificationsBell extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             IconButton(
-              icon: const Icon(Icons.notifications_outlined,
+              icon: Icon(Icons.notifications_outlined,
                   size: 26, color: GingaColors.textPrimary),
               onPressed: () => _mostrarBuzonNotificaciones(context, uid),
             ),
@@ -3754,7 +3782,7 @@ class _NoticiasRow extends StatelessWidget {
             imagePath: 'assets/images/roda.jpg',
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         Expanded(
           child: _NoticiaCard(
             titulo: 'Tips: Movimientos',
@@ -3913,10 +3941,11 @@ class _GingaBottomNavState extends State<_GingaBottomNav>
     final bool isIOS = Theme.of(context).platform == TargetPlatform.iOS;
     final adjustedPadding = isIOS ? bottomPadding : (bottomPadding > 0 ? 12.0 : 0.0);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
       notchMargin: 8.0,
-      color: Colors.white,
+      color: isDark ? GingaColors.backgroundDark : Colors.white,
       elevation: 12,
       shadowColor: Colors.black.withValues(alpha: 0.3),
       padding: EdgeInsets.zero,
@@ -3983,7 +4012,7 @@ class _GingaBottomNavState extends State<_GingaBottomNav>
                     final double currentX = startX + (endX - startX) * curveX;
                     
                     // Altura base donde descansa la gota (debajo del icono)
-                    const double baseY = 27.0; 
+                    double baseY = 27.0; 
                     final double currentY = baseY - (jumpHeight * heightMultiplier);
 
                     // Estiramiento (squash & stretch) de la gota de agua

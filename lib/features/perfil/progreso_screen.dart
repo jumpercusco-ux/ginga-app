@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/theme/theme_manager.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/cuerdas_fiu.dart';
@@ -80,8 +81,15 @@ class ProgresoScreen extends StatelessWidget {
 
 
 
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+            final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+            final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+            final cardThemeBg = Theme.of(context).cardTheme.color ?? GingaColors.cardLight;
+            final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
             return Scaffold(
-              backgroundColor: GingaColors.backgroundLight,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               body: SafeArea(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -98,14 +106,14 @@ class ProgresoScreen extends StatelessWidget {
                               style: GoogleFonts.montserrat(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
-                                  color: GingaColors.textPrimary)),
+                                  color: textColor)),
                           IconButton(
                             onPressed: () async {
                               await FirebaseAuth.instance.signOut();
                               if (context.mounted) context.go('/splash');
                             },
-                            icon: const Icon(Icons.logout,
-                                color: GingaColors.textSecondary, size: 22),
+                            icon: Icon(Icons.logout,
+                                color: subtitleColor, size: 22),
                           ),
                         ],
                       ),
@@ -116,10 +124,10 @@ class ProgresoScreen extends StatelessWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: GingaColors.cardLight,
+                          color: cardThemeBg,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
                           border: Border.all(
-                              color: GingaColors.brandGreen.withOpacity(0.3)),
+                              color: GingaColors.brandGreen.withOpacity(isDark ? 0.15 : 0.3)),
                         ),
                         child: Stack(
                           children: [
@@ -155,7 +163,7 @@ class ProgresoScreen extends StatelessWidget {
                                         style: GoogleFonts.montserrat(
                                           fontSize: 18,
                                           fontWeight: FontWeight.w800,
-                                          color: GingaColors.textPrimary,
+                                          color: textColor,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -183,15 +191,15 @@ class ProgresoScreen extends StatelessWidget {
                                       const SizedBox(height: 2),
                                       Row(
                                         children: [
-                                          const Icon(Icons.location_on_outlined,
+                                          Icon(Icons.location_on_outlined,
                                               size: 13,
-                                              color: GingaColors.textSecondary),
+                                              color: subtitleColor),
                                           const SizedBox(width: 4),
                                           Text(
                                             sede,
                                             style: GoogleFonts.nunito(
                                               fontSize: 12,
-                                              color: GingaColors.textSecondary,
+                                              color: subtitleColor,
                                             ),
                                           ),
                                         ],
@@ -205,9 +213,9 @@ class ProgresoScreen extends StatelessWidget {
                               top: 0,
                               right: 0,
                               child: IconButton(
-                                constraints: const BoxConstraints(),
+                                constraints: BoxConstraints(),
                                 padding: EdgeInsets.zero,
-                                icon: const Icon(
+                                icon: Icon(
                                   Icons.edit_note_rounded,
                                   color: GingaColors.brandGreen,
                                   size: 26,
@@ -220,10 +228,10 @@ class ProgresoScreen extends StatelessWidget {
                       ),
 
                       if (uid != null) ...[
-                        const SizedBox(height: 28),
+                        SizedBox(height: 28),
                         _SectionHeader(
                             title: 'Mi Membresía y Pagos', actionLabel: ''),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         _MembresiaYPagosSection(
                           uid: uid,
                           userStatus: userStatus,
@@ -232,7 +240,7 @@ class ProgresoScreen extends StatelessWidget {
                         ),
                       ],
 
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24),
 
                       // ── Círculo de progreso ──────────────
                       Center(
@@ -243,7 +251,7 @@ class ProgresoScreen extends StatelessWidget {
                           fotoUrl: fotoUrl,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20),
                       Center(
                         child: Column(
                           children: [
@@ -251,13 +259,13 @@ class ProgresoScreen extends StatelessWidget {
                                 style: GoogleFonts.montserrat(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
-                                    color: GingaColors.textPrimary)),
-                            const SizedBox(height: 4),
+                                    color: textColor)),
+                            SizedBox(height: 4),
                             Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 4),
                               decoration: BoxDecoration(
-                                color: GingaColors.cardLight,
+                                color: GingaColors.brandGreen.withOpacity(0.15),
                                 borderRadius:
                                     BorderRadius.circular(GingaRadius.full),
                               ),
@@ -267,7 +275,7 @@ class ProgresoScreen extends StatelessWidget {
                                       color: GingaColors.brandGreen,
                                       fontWeight: FontWeight.w600)),
                             ),
-                            const SizedBox(height: 12),
+                            SizedBox(height: 12),
                             _XpBar(
                               total: totalAsistencias,
                               objetivo: objetivo,
@@ -277,22 +285,24 @@ class ProgresoScreen extends StatelessWidget {
                         ),
                       ),
 
-                      const SizedBox(height: 28),
+                      SizedBox(height: 28),
                       _SectionHeader(title: 'Tus Logros', actionLabel: ''),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       _LogrosRow(totalAsistencias: totalAsistencias),
 
-                      const SizedBox(height: 28),
+                      SizedBox(height: 28),
                       _SectionHeader(
                           title: 'Asistencia del Mes', actionLabel: ''),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       _AsistenciaMensual(asistenciasFechas: asistenciasFechas),
 
-                      const SizedBox(height: 28),
+                      SizedBox(height: 28),
                       _SectionHeader(
                           title: 'Configuración de App', actionLabel: ''),
                       const SizedBox(height: 12),
                       _NotificationToggleCard(uid: uid),
+                      const SizedBox(height: 12),
+                      const _ThemeToggleCard(),
 
                       const SizedBox(height: 32),
                       Center(
@@ -300,7 +310,7 @@ class ProgresoScreen extends StatelessWidget {
                           'Versión 1.0.131 (v131)',
                           style: GoogleFonts.nunito(
                             fontSize: 12,
-                            color: GingaColors.textSecondary,
+                            color: subtitleColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -326,6 +336,12 @@ class _NotificationToggleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (uid == null) return const SizedBox();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
@@ -342,9 +358,9 @@ class _NotificationToggleCard extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardBg,
             borderRadius: BorderRadius.circular(GingaRadius.lg),
-            border: Border.all(color: GingaColors.borderLight),
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             children: [
@@ -371,14 +387,14 @@ class _NotificationToggleCard extends StatelessWidget {
                       style: GoogleFonts.montserrat(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary,
+                        color: textColor,
                       ),
                     ),
                     Text(
                       'Recibir alertas de clases, pagos y novedades',
                       style: GoogleFonts.nunito(
                         fontSize: 11,
-                        color: GingaColors.textSecondary,
+                        color: subtitleColor,
                       ),
                     ),
                   ],
@@ -407,6 +423,129 @@ class _NotificationToggleCard extends StatelessWidget {
   }
 }
 
+class _ThemeToggleCard extends StatelessWidget {
+  const _ThemeToggleCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+
+    return ListenableBuilder(
+      listenable: ThemeManager.instance,
+      builder: (context, _) {
+        final currentMode = ThemeManager.instance.themeMode;
+        
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(GingaRadius.lg),
+            border: Border.all(color: borderColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: GingaColors.brandGreen.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      currentMode == ThemeMode.dark
+                          ? Icons.dark_mode_outlined
+                          : currentMode == ThemeMode.light
+                              ? Icons.light_mode_outlined
+                              : Icons.settings_brightness_outlined,
+                      color: GingaColors.brandGreen,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Tema de la App',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: textColor,
+                          ),
+                        ),
+                        Text(
+                          'Elige el aspecto visual de la interfaz',
+                          style: GoogleFonts.nunito(
+                            fontSize: 11,
+                            color: subtitleColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<ThemeMode>(
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return GingaColors.brandGreen;
+                      }
+                      return isDark ? GingaColors.surfaceDark.withOpacity(0.5) : Colors.grey.shade100;
+                    }),
+                    foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return Colors.white;
+                      }
+                      return textColor;
+                    }),
+                    side: WidgetStateProperty.all(BorderSide.none),
+                  ),
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      label: Text('Claro', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      icon: Icon(Icons.light_mode, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      label: Text('Oscuro', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      icon: Icon(Icons.dark_mode, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      label: Text('Sistema', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      icon: Icon(Icons.settings, size: 16),
+                    ),
+                  ],
+                  selected: {currentMode},
+                  onSelectionChanged: (newSelection) {
+                    ThemeManager.instance.setThemeMode(newSelection.first);
+                  },
+                  showSelectedIcon: false,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 // ─────────────────────────────────────────
 //  CÍRCULO DE PROGRESO
 // ─────────────────────────────────────────
@@ -426,6 +565,11 @@ class _ProgressCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final progressCircleBg = isDark ? GingaColors.surfaceDark : GingaColors.borderLight;
+    final avatarBg = isDark ? GingaColors.surfaceDark : GingaColors.cardLight;
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+
     return SizedBox(
       width: 140,
       height: 140,
@@ -434,14 +578,14 @@ class _ProgressCircle extends StatelessWidget {
         children: [
           CustomPaint(
             size: const Size(140, 140),
-            painter: _CirclePainter(progress: porcentaje),
+            painter: _CirclePainter(progress: porcentaje, backgroundColor: progressCircleBg),
           ),
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               CircleAvatar(
                 radius: 32,
-                backgroundColor: GingaColors.cardLight,
+                backgroundColor: avatarBg,
                 backgroundImage: fotoUrl != null && fotoUrl!.isNotEmpty
                     ? NetworkImage(fotoUrl!)
                     : null,
@@ -458,7 +602,7 @@ class _ProgressCircle extends StatelessWidget {
                   style: GoogleFonts.montserrat(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: GingaColors.textPrimary)),
+                      color: textColor)),
             ],
           ),
         ],
@@ -469,7 +613,8 @@ class _ProgressCircle extends StatelessWidget {
 
 class _CirclePainter extends CustomPainter {
   final double progress;
-  const _CirclePainter({required this.progress});
+  final Color backgroundColor;
+  const _CirclePainter({required this.progress, required this.backgroundColor});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -479,7 +624,7 @@ class _CirclePainter extends CustomPainter {
         center,
         radius,
         Paint()
-          ..color = GingaColors.borderLight
+          ..color = backgroundColor
           ..style = PaintingStyle.stroke
           ..strokeWidth = 8);
     canvas.drawArc(
@@ -497,7 +642,7 @@ class _CirclePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CirclePainter oldDelegate) =>
-      oldDelegate.progress != progress;
+      oldDelegate.progress != progress || oldDelegate.backgroundColor != backgroundColor;
 }
 
 class _XpBar extends StatelessWidget {
@@ -513,6 +658,10 @@ class _XpBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+    final barBg = isDark ? GingaColors.surfaceDark : GingaColors.borderLight;
+
     return SizedBox(
       width: 260,
       child: Column(
@@ -522,10 +671,10 @@ class _XpBar extends StatelessWidget {
             children: [
               Text('$total / $objetivo clases',
                   style: GoogleFonts.nunito(
-                      fontSize: 12, color: GingaColors.textSecondary)),
+                      fontSize: 12, color: subtitleColor)),
               Text('para el siguiente corda',
                   style: GoogleFonts.nunito(
-                      fontSize: 11, color: GingaColors.textSecondary)),
+                      fontSize: 11, color: subtitleColor)),
             ],
           ),
           const SizedBox(height: 6),
@@ -534,7 +683,7 @@ class _XpBar extends StatelessWidget {
             child: LinearProgressIndicator(
               value: porcentaje,
               minHeight: 8,
-              backgroundColor: GingaColors.borderLight,
+              backgroundColor: barBg,
               valueColor: const AlwaysStoppedAnimation(GingaColors.brandGreen),
             ),
           ),
@@ -623,8 +772,12 @@ class _LogroBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+
     final Color badgeColor =
-        logro.unlocked ? logro.color : Colors.grey.shade400;
+        logro.unlocked ? logro.color : (isDark ? Colors.grey.shade600 : Colors.grey.shade400);
 
     return Column(
       children: [
@@ -632,12 +785,12 @@ class _LogroBadge extends StatelessWidget {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: badgeColor.withValues(alpha: 0.12),
+            color: badgeColor.withOpacity(0.12),
             borderRadius: BorderRadius.circular(GingaRadius.md),
             border: Border.all(
               color: logro.unlocked
-                  ? badgeColor.withValues(alpha: 0.3)
-                  : Colors.grey.shade300,
+                  ? badgeColor.withOpacity(0.3)
+                  : (isDark ? Colors.white.withOpacity(0.12) : Colors.grey.shade300),
               width: 1,
             ),
           ),
@@ -654,14 +807,14 @@ class _LogroBadge extends StatelessWidget {
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 color: logro.unlocked
-                    ? GingaColors.textPrimary
-                    : GingaColors.textSecondary,
+                    ? textColor
+                    : subtitleColor,
                 height: 1.2)),
         const SizedBox(height: 2),
         Text(logro.desc,
             textAlign: TextAlign.center,
             style: GoogleFonts.nunito(
-                fontSize: 9, color: GingaColors.textSecondary, height: 1.2)),
+                fontSize: 9, color: subtitleColor, height: 1.2)),
       ],
     );
   }
@@ -678,6 +831,9 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -685,7 +841,7 @@ class _SectionHeader extends StatelessWidget {
             style: GoogleFonts.montserrat(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: GingaColors.textPrimary)),
+                color: textColor)),
         if (actionLabel.isNotEmpty)
           Text(actionLabel,
               style: GoogleFonts.nunito(
@@ -726,12 +882,18 @@ class _AsistenciaMensualState extends State<_AsistenciaMensual> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: borderColor),
       ),
       child: TableCalendar(
         firstDay: DateTime.utc(2020, 1, 1),
@@ -747,18 +909,18 @@ class _AsistenciaMensualState extends State<_AsistenciaMensual> {
           titleTextStyle: GoogleFonts.montserrat(
             fontWeight: FontWeight.w700,
             fontSize: 14,
-            color: GingaColors.textPrimary,
+            color: textColor,
           ),
           leftChevronIcon: const Icon(Icons.chevron_left, color: GingaColors.brandGreen),
           rightChevronIcon: const Icon(Icons.chevron_right, color: GingaColors.brandGreen),
         ),
         daysOfWeekStyle: DaysOfWeekStyle(
-          weekdayStyle: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: GingaColors.textSecondary),
+          weekdayStyle: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: subtitleColor),
           weekendStyle: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: GingaColors.brandGreen),
         ),
         calendarStyle: CalendarStyle(
-          defaultTextStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary),
-          weekendTextStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary),
+          defaultTextStyle: GoogleFonts.nunito(fontSize: 13, color: textColor),
+          weekendTextStyle: GoogleFonts.nunito(fontSize: 13, color: textColor),
           outsideDaysVisible: false,
         ),
         onPageChanged: (focusedDay) {
@@ -872,6 +1034,12 @@ class _MembresiaYPagosSection extends StatelessWidget {
   Widget build(BuildContext context) {
     int diasRestantes = 0;
     bool expirado = false;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
 
     if (membresiaFin != null) {
       final finDate = membresiaFin!.toDate();
@@ -1086,7 +1254,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
           style: GoogleFonts.montserrat(
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: GingaColors.textPrimary,
+            color: textColor,
           ),
         ),
         const SizedBox(height: 12),
@@ -1113,20 +1281,20 @@ class _MembresiaYPagosSection extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cardBg,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: GingaColors.borderLight.withOpacity(0.5)),
+                  border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : GingaColors.borderLight.withOpacity(0.5)),
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.receipt_long_outlined, size: 40, color: GingaColors.textSecondary),
+                    Icon(Icons.receipt_long_outlined, size: 40, color: subtitleColor),
                     const SizedBox(height: 8),
                     Text(
                       'Aún no hay transacciones validadas en tu historial.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.nunito(
                         fontSize: 13,
-                        color: GingaColors.textSecondary,
+                        color: subtitleColor,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1185,9 +1353,9 @@ class _MembresiaYPagosSection extends StatelessWidget {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cardBg,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: GingaColors.borderLight.withOpacity(0.5)),
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : GingaColors.borderLight.withOpacity(0.5)),
                   ),
                   child: Row(
                     children: [
@@ -1206,7 +1374,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                               style: GoogleFonts.montserrat(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: GingaColors.textPrimary,
+                                color: textColor,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -1214,7 +1382,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                               '$meses ${meses == 1 ? "mes" : "meses"} de acceso • $metodo',
                               style: GoogleFonts.nunito(
                                 fontSize: 12,
-                                color: GingaColors.textSecondary,
+                                color: subtitleColor,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1228,7 +1396,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                             fechaStr,
                             style: GoogleFonts.nunito(
                               fontSize: 11,
-                              color: GingaColors.textSecondary,
+                              color: subtitleColor,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -1304,7 +1472,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                   style: GoogleFonts.montserrat(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary,
+                    color: textColor,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1312,7 +1480,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                   'Días o sesiones reincorporadas a tu membresía sin cobros contables.',
                   style: GoogleFonts.nunito(
                     fontSize: 12,
-                    color: GingaColors.textSecondary,
+                    color: subtitleColor,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1362,9 +1530,9 @@ class _MembresiaYPagosSection extends StatelessWidget {
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: cardBg,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: GingaColors.borderLight.withOpacity(0.5)),
+                        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : GingaColors.borderLight.withOpacity(0.5)),
                       ),
                       child: Row(
                         children: [
@@ -1383,7 +1551,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                                   style: GoogleFonts.montserrat(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    color: GingaColors.textPrimary,
+                                    color: textColor,
                                   ),
                                 ),
                                 if (detalle.isNotEmpty) ...[
@@ -1392,7 +1560,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                                     detalle,
                                     style: GoogleFonts.nunito(
                                       fontSize: 12,
-                                      color: GingaColors.textSecondary,
+                                      color: subtitleColor,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -1416,7 +1584,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                                 regStr,
                                 style: GoogleFonts.nunito(
                                   fontSize: 11,
-                                  color: GingaColors.textSecondary,
+                                  color: subtitleColor,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),

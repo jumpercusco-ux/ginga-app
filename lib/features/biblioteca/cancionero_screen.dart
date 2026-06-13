@@ -85,6 +85,10 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
@@ -98,7 +102,7 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
+                    icon: Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
                   ),
                   Expanded(
                     child: Text(
@@ -128,7 +132,7 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                 decoration: InputDecoration(
                   hintText: 'Buscar canciones, letras...',
                   hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary.withOpacity(0.6)),
-                  prefixIcon: const Icon(Icons.search, color: GingaColors.textSecondary),
+                  prefixIcon: Icon(Icons.search, color: GingaColors.textSecondary),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
@@ -141,15 +145,15 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                         )
                       : null,
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: cardBg,
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
-                    borderSide: const BorderSide(color: GingaColors.borderLight),
+                    borderSide: BorderSide(color: borderColor),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
-                    borderSide: const BorderSide(color: GingaColors.borderLight),
+                    borderSide: BorderSide(color: borderColor),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -178,10 +182,10 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
-                        color: isSelected ? GingaColors.brandGreen : Colors.white,
+                        color: isSelected ? GingaColors.brandGreen : cardBg,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected ? GingaColors.brandGreen : GingaColors.borderLight,
+                          color: isSelected ? GingaColors.brandGreen : borderColor,
                         ),
                       ),
                       alignment: Alignment.center,
@@ -265,7 +269,7 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.library_music_outlined, size: 48, color: GingaColors.borderLight),
+                          Icon(Icons.library_music_outlined, size: 48, color: GingaColors.borderLight),
                           const SizedBox(height: 12),
                           Text(
                             'No se encontraron cantigas',
@@ -298,10 +302,10 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                         child: Container(
                           margin: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: cardBg,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
-                          border: Border.all(color: GingaColors.borderLight),
-                          boxShadow: [
+                          border: Border.all(color: borderColor),
+                          boxShadow: isDark ? [] : [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.02),
                               blurRadius: 8,

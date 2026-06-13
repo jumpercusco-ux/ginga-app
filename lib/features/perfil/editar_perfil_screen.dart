@@ -114,7 +114,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
+            colorScheme: ColorScheme.light(
               primary: GingaColors.brandGreen,
               onPrimary: Colors.white,
               onSurface: GingaColors.textPrimary,
@@ -194,7 +194,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: GingaColors.textPrimary, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: GingaColors.textPrimary, size: 20),
           onPressed: () => context.pop(),
         ),
       ),
@@ -465,11 +465,11 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          borderSide: const BorderSide(color: GingaColors.borderLight),
+          borderSide: BorderSide(color: GingaColors.borderLight),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          borderSide: const BorderSide(color: GingaColors.borderLight),
+          borderSide: BorderSide(color: GingaColors.borderLight),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -528,9 +528,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
           ),
           prefixIcon: Icon(icon, color: GingaColors.textSecondary, size: 20),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+          contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 8),
         ),
-        icon: const Padding(
+        icon: Padding(
           padding: EdgeInsets.only(right: 12),
           child: Icon(Icons.keyboard_arrow_down_rounded, color: GingaColors.textSecondary),
         ),
@@ -591,7 +591,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                 ],
               ),
             ),
-            const Icon(Icons.calendar_today_outlined, color: GingaColors.textSecondary, size: 16),
+            Icon(Icons.calendar_today_outlined, color: GingaColors.textSecondary, size: 16),
             const SizedBox(width: 4),
           ],
         ),

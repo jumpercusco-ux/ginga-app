@@ -127,7 +127,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
+                    icon: Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
                   ),
                   Expanded(
                     child: Text(
@@ -204,7 +204,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                                     child: DropdownButton<String>(
                                       value: _ritmoSeleccionado,
                                       isExpanded: true,
-                                      icon: const Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
+                                      icon: Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
                                       style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w700),
                                       items: _ritmos.map((ritmo) {
                                         return DropdownMenuItem<String>(
@@ -394,11 +394,11 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
       contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(GingaRadius.md),
-        borderSide: const BorderSide(color: GingaColors.borderLight),
+        borderSide: BorderSide(color: GingaColors.borderLight),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(GingaRadius.md),
-        borderSide: const BorderSide(color: GingaColors.borderLight),
+        borderSide: BorderSide(color: GingaColors.borderLight),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(GingaRadius.md),

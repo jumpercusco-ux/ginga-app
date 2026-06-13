@@ -1511,7 +1511,7 @@ class _SessionDateItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(
+            Icon(
               Icons.chevron_right,
               color: GingaColors.textSecondary,
               size: 16,
@@ -1645,7 +1645,7 @@ class _NotificationsBell extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             IconButton(
-              icon: const Icon(Icons.notifications_outlined, size: 26, color: GingaColors.textPrimary),
+              icon: Icon(Icons.notifications_outlined, size: 26, color: GingaColors.textPrimary),
               onPressed: () => _mostrarBuzonNotificaciones(context, uid),
             ),
             if (unreadCount > 0)

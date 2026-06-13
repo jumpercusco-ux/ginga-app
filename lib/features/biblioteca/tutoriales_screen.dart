@@ -32,8 +32,14 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+
     return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,7 +51,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
+                    icon: Icon(Icons.arrow_back_ios_new, size: 18, color: textColor),
                   ),
                   Expanded(
                     child: Text(
@@ -53,13 +59,13 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                       style: GoogleFonts.montserrat(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: GingaColors.textPrimary,
+                        color: textColor,
                       ),
                     ),
                   ),
                   IconButton(
                     onPressed: () {},
-                    icon: const Icon(Icons.tune_outlined, color: GingaColors.textSecondary, size: 20),
+                    icon: Icon(Icons.tune_outlined, color: subtitleColor, size: 20),
                   ),
                 ],
               ),
@@ -78,8 +84,8 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                 },
                 decoration: InputDecoration(
                   hintText: 'Buscar técnicas, movimientos...',
-                  hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary.withOpacity(0.6)),
-                  prefixIcon: const Icon(Icons.search, color: GingaColors.textSecondary),
+                  hintStyle: GoogleFonts.nunito(color: subtitleColor.withOpacity(0.6)),
+                  prefixIcon: Icon(Icons.search, color: subtitleColor),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
@@ -92,15 +98,15 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                         )
                       : null,
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: cardBg,
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
-                    borderSide: const BorderSide(color: GingaColors.borderLight),
+                    borderSide: BorderSide(color: borderColor),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
-                    borderSide: const BorderSide(color: GingaColors.borderLight),
+                    borderSide: BorderSide(color: borderColor),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -130,10 +136,10 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
-                        color: isSelected ? GingaColors.brandGreen : Colors.white,
+                        color: isSelected ? GingaColors.brandGreen : cardBg,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected ? GingaColors.brandGreen : GingaColors.borderLight,
+                          color: isSelected ? GingaColors.brandGreen : borderColor,
                         ),
                       ),
                       alignment: Alignment.center,
@@ -142,7 +148,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                         style: GoogleFonts.montserrat(
                           fontSize: 11,
                           fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                          color: isSelected ? Colors.white : GingaColors.textSecondary,
+                          color: isSelected ? Colors.white : subtitleColor,
                         ),
                       ),
                     ),
@@ -168,7 +174,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.play_circle_outline, size: 48, color: GingaColors.borderLight),
+                          Icon(Icons.play_circle_outline, size: 48, color: GingaColors.borderLight),
                           const SizedBox(height: 12),
                           Text(
                             'No hay micro-lecciones',
@@ -203,7 +209,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.search_off_rounded, size: 48, color: GingaColors.borderLight),
+                          Icon(Icons.search_off_rounded, size: 48, color: GingaColors.borderLight),
                           const SizedBox(height: 12),
                           Text(
                             'No se encontraron resultados',
@@ -246,9 +252,9 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                         child: Container(
                           margin: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: cardBg,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
-                          border: Border.all(color: GingaColors.borderLight),
+                          border: Border.all(color: borderColor),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.02),
@@ -339,7 +345,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                                               ),
                                             ),
                                             const SizedBox(width: 8),
-                                            const Icon(Icons.access_time, size: 12, color: GingaColors.textSecondary),
+                                            Icon(Icons.access_time, size: 12, color: GingaColors.textSecondary),
                                             const SizedBox(width: 3),
                                             Text(
                                               duracion,

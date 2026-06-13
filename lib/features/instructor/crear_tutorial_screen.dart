@@ -504,11 +504,11 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(GingaRadius.md),
-        borderSide: const BorderSide(color: GingaColors.borderLight),
+        borderSide: BorderSide(color: GingaColors.borderLight),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(GingaRadius.md),
-        borderSide: const BorderSide(color: GingaColors.borderLight),
+        borderSide: BorderSide(color: GingaColors.borderLight),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(GingaRadius.md),

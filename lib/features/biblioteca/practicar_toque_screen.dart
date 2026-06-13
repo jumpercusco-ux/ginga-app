@@ -402,7 +402,7 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new,
+                    icon: Icon(Icons.arrow_back_ios_new,
                         size: 18, color: GingaColors.textPrimary),
                   ),
                   Expanded(

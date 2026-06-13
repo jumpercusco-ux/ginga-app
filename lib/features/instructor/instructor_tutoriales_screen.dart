@@ -118,7 +118,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
+                    icon: Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
                   ),
                   Expanded(
                     child: Text(
@@ -132,7 +132,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                   ),
                   IconButton(
                     onPressed: () {},
-                    icon: const Icon(Icons.help_outline, color: GingaColors.textSecondary, size: 20),
+                    icon: Icon(Icons.help_outline, color: GingaColors.textSecondary, size: 20),
                   ),
                 ],
               ),
@@ -152,7 +152,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                 decoration: InputDecoration(
                   hintText: 'Buscar lección en administración...',
                   hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary.withOpacity(0.6)),
-                  prefixIcon: const Icon(Icons.search, color: GingaColors.textSecondary),
+                  prefixIcon: Icon(Icons.search, color: GingaColors.textSecondary),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
@@ -169,11 +169,11 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
-                    borderSide: const BorderSide(color: GingaColors.borderLight),
+                    borderSide: BorderSide(color: GingaColors.borderLight),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
-                    borderSide: const BorderSide(color: GingaColors.borderLight),
+                    borderSide: BorderSide(color: GingaColors.borderLight),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -203,7 +203,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.play_circle_outline, size: 56, color: GingaColors.borderLight),
+                          Icon(Icons.play_circle_outline, size: 56, color: GingaColors.borderLight),
                           const SizedBox(height: 12),
                           Text(
                             'Biblioteca sin lecciones',

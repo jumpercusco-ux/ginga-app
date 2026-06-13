@@ -281,15 +281,19 @@ class _SeccionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(GingaRadius.lg),
-          border: Border.all(color: GingaColors.borderLight),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           children: [
@@ -355,7 +359,7 @@ class _SeccionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right,
+            Icon(Icons.chevron_right,
                 color: GingaColors.textSecondary, size: 20),
           ],
         ),
@@ -385,14 +389,18 @@ class _LeccionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return GestureDetector( // 👈 Envolvemos en GestureDetector para que funcione el clic
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(GingaRadius.lg),
-          border: Border.all(color: GingaColors.borderLight),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           children: [
@@ -437,7 +445,7 @@ class _LeccionCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.access_time_outlined, size: 12, color: GingaColors.textSecondary),
+                      Icon(Icons.access_time_outlined, size: 12, color: GingaColors.textSecondary),
                       const SizedBox(width: 3),
                       Text(duracion, style: GoogleFonts.nunito(fontSize: 11, color: GingaColors.textSecondary)),
                     ],

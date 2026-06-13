@@ -4,6 +4,8 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import 'dart:ui';
+import 'theme_manager.dart';
 
 // ─────────────────────────────────────────
 //  COLOR TOKENS
@@ -17,11 +19,40 @@ class GingaColors {
   static const Color accentAmber      = Color(0xFFFBC02D); // Amarillo Dorado / Alerta
 
   // Neutros — Modo Claro
-  static const Color backgroundLight  = Color(0xFFFFFFFF); // Fondo Base
-  static const Color cardLight        = Color(0xFFE8F5E9); // Fondo Tarjeta seleccionada
-  static const Color textPrimary      = Color(0xFF000000); // Títulos principales
-  static const Color textSecondary    = Color(0xFF5F6368); // Subtextos / leyendas
-  static const Color borderLight      = Color(0xFFE0E0E0); // Bordes e inputs
+  static Color get backgroundLight {
+    final mode = ThemeManager.instance.themeMode;
+    if (mode == ThemeMode.dark) return backgroundDark;
+    if (mode == ThemeMode.light) return const Color(0xFFFFFFFF);
+    return PlatformDispatcher.instance.platformBrightness == Brightness.dark ? backgroundDark : const Color(0xFFFFFFFF);
+  }
+
+  static Color get cardLight {
+    final mode = ThemeManager.instance.themeMode;
+    if (mode == ThemeMode.dark) return surfaceDark;
+    if (mode == ThemeMode.light) return const Color(0xFFE8F5E9);
+    return PlatformDispatcher.instance.platformBrightness == Brightness.dark ? surfaceDark : const Color(0xFFE8F5E9);
+  }
+
+  static Color get textPrimary {
+    final mode = ThemeManager.instance.themeMode;
+    if (mode == ThemeMode.dark) return textWhite;
+    if (mode == ThemeMode.light) return const Color(0xFF000000);
+    return PlatformDispatcher.instance.platformBrightness == Brightness.dark ? textWhite : const Color(0xFF000000);
+  }
+
+  static Color get textSecondary {
+    final mode = ThemeManager.instance.themeMode;
+    if (mode == ThemeMode.dark) return textMuted;
+    if (mode == ThemeMode.light) return const Color(0xFF5F6368);
+    return PlatformDispatcher.instance.platformBrightness == Brightness.dark ? textMuted : const Color(0xFF5F6368);
+  }
+
+  static Color get borderLight {
+    final mode = ThemeManager.instance.themeMode;
+    if (mode == ThemeMode.dark) return surfaceDark;
+    if (mode == ThemeMode.light) return const Color(0xFFE0E0E0);
+    return PlatformDispatcher.instance.platformBrightness == Brightness.dark ? surfaceDark : const Color(0xFFE0E0E0);
+  }
 
   // Neutros — Modo Oscuro
   static const Color backgroundDark   = Color(0xFF1B1F1C); // Fondo Base Dark
@@ -41,7 +72,7 @@ class GingaTextStyles {
   // Usa 'Montserrat' para headers (añadir al pubspec.yaml)
   // Usa 'Nunito' para body (añadir al pubspec.yaml)
 
-  static const TextStyle displayLarge = TextStyle(
+  static TextStyle displayLarge = TextStyle(
     fontFamily: 'Montserrat',
     fontSize: 32,
     fontWeight: FontWeight.w800,
@@ -49,7 +80,7 @@ class GingaTextStyles {
     color: GingaColors.textPrimary,
   );
 
-  static const TextStyle headlineMedium = TextStyle(
+  static TextStyle headlineMedium = TextStyle(
     fontFamily: 'Montserrat',
     fontSize: 22,
     fontWeight: FontWeight.w700,
@@ -57,21 +88,21 @@ class GingaTextStyles {
     color: GingaColors.textPrimary,
   );
 
-  static const TextStyle titleMedium = TextStyle(
+  static TextStyle titleMedium = TextStyle(
     fontFamily: 'Montserrat',
     fontSize: 16,
     fontWeight: FontWeight.w600,
     color: GingaColors.textPrimary,
   );
 
-  static const TextStyle bodyLarge = TextStyle(
+  static TextStyle bodyLarge = TextStyle(
     fontFamily: 'Nunito',
     fontSize: 15,
     fontWeight: FontWeight.w400,
     color: GingaColors.textSecondary,
   );
 
-  static const TextStyle bodySmall = TextStyle(
+  static TextStyle bodySmall = TextStyle(
     fontFamily: 'Nunito',
     fontSize: 12,
     fontWeight: FontWeight.w400,
@@ -141,7 +172,7 @@ final ThemeData gingaLightTheme = ThemeData(
   brightness: Brightness.light,
   fontFamily: 'Nunito',
 
-  colorScheme: const ColorScheme.light(
+  colorScheme: ColorScheme.light(
     primary:        GingaColors.brandGreen,
     secondary:      GingaColors.accentAmber,
     surface:        GingaColors.backgroundLight,
@@ -153,7 +184,7 @@ final ThemeData gingaLightTheme = ThemeData(
 
   scaffoldBackgroundColor: GingaColors.backgroundLight,
 
-  appBarTheme: const AppBarTheme(
+  appBarTheme: AppBarTheme(
     backgroundColor:  GingaColors.backgroundLight,
     foregroundColor:  GingaColors.textPrimary,
     elevation:        0,
@@ -192,11 +223,11 @@ final ThemeData gingaLightTheme = ThemeData(
     contentPadding:   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     border: OutlineInputBorder(
       borderRadius:   BorderRadius.circular(GingaRadius.md),
-      borderSide:     const BorderSide(color: GingaColors.borderLight),
+      borderSide:     BorderSide(color: GingaColors.borderLight),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius:   BorderRadius.circular(GingaRadius.md),
-      borderSide:     const BorderSide(color: GingaColors.borderLight),
+      borderSide:     BorderSide(color: GingaColors.borderLight),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius:   BorderRadius.circular(GingaRadius.md),
@@ -214,7 +245,7 @@ final ThemeData gingaLightTheme = ThemeData(
     ),
   ),
 
-  bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+  bottomNavigationBarTheme: BottomNavigationBarThemeData(
     backgroundColor:      GingaColors.backgroundLight,
     selectedItemColor:    GingaColors.brandGreen,
     unselectedItemColor:  GingaColors.textSecondary,
@@ -234,7 +265,7 @@ final ThemeData gingaDarkTheme = ThemeData(
   brightness: Brightness.dark,
   fontFamily: 'Nunito',
 
-  colorScheme: const ColorScheme.dark(
+  colorScheme: ColorScheme.dark(
     primary:        GingaColors.accentGreenDark,
     secondary:      GingaColors.accentAmber,
     surface:        GingaColors.backgroundDark,

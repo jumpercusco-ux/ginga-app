@@ -821,7 +821,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: GingaColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: GingaColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(widget.claseId != null ? 'Editar clase' : 'Crear clase',
@@ -1225,7 +1225,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                     style: GoogleFonts.nunito(
                         fontSize: 13, color: GingaColors.textPrimary),
                     decoration: _inputDecoration('Parque de la roda').copyWith(
-                      suffixIcon: const Icon(Icons.location_on_outlined,
+                      suffixIcon: Icon(Icons.location_on_outlined,
                           color: GingaColors.textSecondary, size: 20),
                     ),
                   ),
@@ -1320,7 +1320,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                     value: _claseGratuita,
                     onChanged: (v) => setState(() => _claseGratuita = v),
                   ),
-                  const Divider(height: 24, color: GingaColors.borderLight),
+                  Divider(height: 24, color: GingaColors.borderLight),
                   _toggleRow(
                     title: 'Publicar inmediatamente',
                     subtitle: 'Visible para los alumnos al publicar',
@@ -1341,7 +1341,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                 children: [
                   _precioRow('Precio por clase', 'Para alumnos recurrentes',
                       'S/. 35'),
-                  const Divider(height: 24, color: GingaColors.borderLight),
+                  Divider(height: 24, color: GingaColors.borderLight),
                   _precioRow('Primera clase', 'Alumnos nuevos', 'gratis'),
                 ],
               ),
@@ -1423,11 +1423,11 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
             const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          borderSide: const BorderSide(color: GingaColors.borderLight),
+          borderSide: BorderSide(color: GingaColors.borderLight),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          borderSide: const BorderSide(color: GingaColors.borderLight),
+          borderSide: BorderSide(color: GingaColors.borderLight),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -1521,11 +1521,11 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(GingaRadius.md),
-            borderSide: const BorderSide(color: GingaColors.borderLight),
+            borderSide: BorderSide(color: GingaColors.borderLight),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(GingaRadius.md),
-            borderSide: const BorderSide(color: GingaColors.borderLight),
+            borderSide: BorderSide(color: GingaColors.borderLight),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -1559,7 +1559,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   ),
                 ),
               ),
-              const Icon(Icons.keyboard_arrow_right_rounded,
+              Icon(Icons.keyboard_arrow_right_rounded,
                   color: GingaColors.textSecondary, size: 18),
             ],
           ),
@@ -1634,7 +1634,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
         child: DropdownButton<String>(
           value: _nombreClase,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down,
+          icon: Icon(Icons.keyboard_arrow_down,
               color: GingaColors.textSecondary),
           style: GoogleFonts.nunito(
               fontSize: 14, color: GingaColors.textPrimary),
@@ -1665,7 +1665,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
         child: DropdownButton<String>(
           value: _selectedSede,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down,
+          icon: Icon(Icons.keyboard_arrow_down,
               color: GingaColors.textSecondary),
           style: GoogleFonts.nunito(
               fontSize: 14, color: GingaColors.textPrimary),
@@ -1720,7 +1720,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: GingaColors.textPrimary)),
-              const Icon(Icons.access_time,
+              Icon(Icons.access_time,
                   color: GingaColors.textSecondary, size: 18),
             ],
           ),

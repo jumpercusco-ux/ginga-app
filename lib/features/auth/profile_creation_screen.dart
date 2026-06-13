@@ -213,7 +213,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                         backgroundColor: GingaColors.cardLight,
                         backgroundImage: _imageFile != null ? FileImage(_imageFile!) : null,
                         child: _imageFile == null
-                            ? const Icon(Icons.person_outline,
+                            ? Icon(Icons.person_outline,
                                 size: 40, color: GingaColors.textSecondary)
                             : null,
                       ),
@@ -274,7 +274,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                     hintText: 'Contraseña',
                     hintStyle: GoogleFonts.nunito(
                         color: GingaColors.textSecondary, fontSize: 14),
-                    prefixIcon: const Icon(Icons.lock_outline,
+                    prefixIcon: Icon(Icons.lock_outline,
                         color: GingaColors.textSecondary, size: 20),
                     suffixIcon: GestureDetector(
                       onTap: () => setState(
@@ -294,12 +294,12 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(GingaRadius.md),
                       borderSide:
-                          const BorderSide(color: GingaColors.borderLight),
+                          BorderSide(color: GingaColors.borderLight),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(GingaRadius.md),
                       borderSide:
-                          const BorderSide(color: GingaColors.borderLight),
+                          BorderSide(color: GingaColors.borderLight),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -442,11 +442,11 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          borderSide: const BorderSide(color: GingaColors.borderLight),
+          borderSide: BorderSide(color: GingaColors.borderLight),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          borderSide: const BorderSide(color: GingaColors.borderLight),
+          borderSide: BorderSide(color: GingaColors.borderLight),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -480,7 +480,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
               style: GoogleFonts.nunito(
                   color: GingaColors.textSecondary, fontSize: 14)),
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down,
+          icon: Icon(Icons.keyboard_arrow_down,
               color: GingaColors.textSecondary),
           items: items
               .map((item) => DropdownMenuItem(

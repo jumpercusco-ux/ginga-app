@@ -311,7 +311,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28, color: GingaColors.textPrimary),
+                    icon: Icon(Icons.keyboard_arrow_down_rounded, size: 28, color: GingaColors.textPrimary),
                   ),
                   Expanded(
                     child: Column(
@@ -347,7 +347,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                         ),
                       );
                     },
-                    icon: const Icon(Icons.favorite_border_rounded, color: GingaColors.textPrimary, size: 22),
+                    icon: Icon(Icons.favorite_border_rounded, color: GingaColors.textPrimary, size: 22),
                   ),
                 ],
               ),
@@ -677,7 +677,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                                     ),
                                   ],
                                 ),
-                                const Divider(height: 24, color: GingaColors.borderLight),
+                                Divider(height: 24, color: GingaColors.borderLight),
                                 
                                 // Línea actual a sincronizar
                                 Container(
@@ -957,7 +957,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                                     ],
                                   ),
                                 ),
-                                const Divider(height: 16, color: GingaColors.borderLight),
+                                Divider(height: 16, color: GingaColors.borderLight),
                                 
                                 // Lista de Karaoke con Efecto de Fading superior e inferior
                                 SizedBox(

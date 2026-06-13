@@ -733,7 +733,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
           .snapshots(),
       builder: (builderContext, classSnapshot) {
         if (classSnapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
+          return Scaffold(
             backgroundColor: GingaColors.backgroundLight,
             body: Center(
               child: CircularProgressIndicator(color: GingaColors.brandGreen),
@@ -815,7 +815,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                 backgroundColor: GingaColors.backgroundLight,
                 elevation: 0,
                 leading: IconButton(
-                  icon: const Icon(Icons.arrow_back,
+                  icon: Icon(Icons.arrow_back,
                       color: GingaColors.textPrimary),
                   onPressed: () async {
                     if (builderContext.canPop()) {

@@ -113,7 +113,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                     Text('Alumno: $nombre',
                         style: GoogleFonts.nunito(
                             fontSize: 14, color: GingaColors.textSecondary)),
-                    const Divider(height: 24, color: GingaColors.borderLight),
+                    Divider(height: 24, color: GingaColors.borderLight),
 
                     Text('Meses a contratar:',
                         style: GoogleFonts.montserrat(
@@ -166,7 +166,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                         fillColor: const Color(0xFFF8F8F8),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GingaRadius.md),
-                          borderSide: const BorderSide(color: GingaColors.borderLight),
+                          borderSide: BorderSide(color: GingaColors.borderLight),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -201,7 +201,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                         child: DropdownButton<String>(
                           value: metodoPagoSeleccionado,
                           isExpanded: true,
-                          icon: const Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
+                          icon: Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
                           style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w700),
                           items: metodosPago.map((metodo) {
                             return DropdownMenuItem<String>(
@@ -785,7 +785,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                                       ),
                                       const SizedBox(width: 12),
                                       IconButton(
-                                        icon: const Icon(Icons.edit_outlined, size: 16, color: GingaColors.textSecondary),
+                                        icon: Icon(Icons.edit_outlined, size: 16, color: GingaColors.textSecondary),
                                         padding: EdgeInsets.zero,
                                         constraints: const BoxConstraints(),
                                         onPressed: () => _editarPagoModal(context, pagoId, data),
@@ -953,7 +953,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GingaRadius.md),
-                          borderSide: const BorderSide(color: GingaColors.borderLight),
+                          borderSide: BorderSide(color: GingaColors.borderLight),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -983,7 +983,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                         child: DropdownButton<String>(
                           value: selectedMetodo,
                           isExpanded: true,
-                          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: GingaColors.textSecondary),
+                          icon: Icon(Icons.keyboard_arrow_down_rounded, color: GingaColors.textSecondary),
                           items: ['Yape', 'Plin', 'Efectivo', 'Transferencia'].map((String val) {
                             return DropdownMenuItem<String>(
                               value: val,
@@ -1026,7 +1026,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                           builder: (context, child) {
                             return Theme(
                               data: Theme.of(context).copyWith(
-                                colorScheme: const ColorScheme.light(
+                                colorScheme: ColorScheme.light(
                                   primary: GingaColors.brandGreen,
                                   onPrimary: Colors.white,
                                   onSurface: GingaColors.textPrimary,

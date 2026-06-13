@@ -325,7 +325,7 @@ class NuestrosMestresScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: GingaColors.textPrimary, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: GingaColors.textPrimary, size: 20),
           onPressed: () => context.pop(),
         ),
       ),
@@ -493,7 +493,7 @@ class NuestrosMestresScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.arrow_forward_ios_rounded,
                   color: GingaColors.textSecondary,
                   size: 14,
@@ -575,7 +575,7 @@ class NuestrosMestresScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.arrow_forward_ios_rounded,
                   color: GingaColors.textSecondary,
                   size: 14,
