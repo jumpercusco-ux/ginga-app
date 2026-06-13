@@ -231,6 +231,10 @@ class _GlosarioScreenState extends State<GlosarioScreen> {
       return matchesSearch && matchesCategory;
     }).toList();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
@@ -294,7 +298,7 @@ class _GlosarioScreenState extends State<GlosarioScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cardBg,
                   borderRadius: BorderRadius.circular(GingaRadius.md),
                   boxShadow: [
                     BoxShadow(
@@ -367,12 +371,12 @@ class _GlosarioScreenState extends State<GlosarioScreen> {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? GingaColors.brandGreen
-                              : Colors.white,
+                              : cardBg,
                           borderRadius: BorderRadius.circular(GingaRadius.full),
                           border: Border.all(
                             color: isSelected
                                 ? GingaColors.brandGreen
-                                : GingaColors.borderLight,
+                                : borderColor,
                           ),
                         ),
                         child: Center(
@@ -455,12 +459,16 @@ class _TerminoCardState extends State<_TerminoCard> {
       categoryColor = Colors.purple.shade400;
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.01),
@@ -546,7 +554,7 @@ class _TerminoCardState extends State<_TerminoCard> {
                 children: [
                   Container(
                     height: 1,
-                    color: GingaColors.borderLight,
+                    color: borderColor,
                   ),
                   const SizedBox(height: 12),
                   Text(

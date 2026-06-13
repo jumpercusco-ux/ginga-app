@@ -320,10 +320,10 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
       // ── Botón Flotante para Practicar ──────────────
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).brightness == Brightness.dark ? GingaColors.backgroundDark : Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.black38 : Colors.black.withOpacity(0.05),
               blurRadius: 10,
               offset: const Offset(0, -5),
             )
@@ -394,16 +394,19 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
 
   Widget _buildTipBox(String title, String desc, IconData icon) {
     final isSpeakingText = TtsService.instance.isSpeaking(desc);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
         border: Border.all(
           color: isSpeakingText 
               ? GingaColors.brandGreen.withOpacity(0.4) 
-              : GingaColors.borderLight,
+              : borderColor,
           width: isSpeakingText ? 1.5 : 1,
         ),
         boxShadow: isSpeakingText ? [

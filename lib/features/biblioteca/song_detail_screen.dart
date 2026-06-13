@@ -561,7 +561,9 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                       height: 40,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: GingaColors.borderLight.withOpacity(0.5),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? GingaColors.surfaceDark
+                            : GingaColors.borderLight.withOpacity(0.5),
                         borderRadius: BorderRadius.circular(GingaRadius.md),
                       ),
                       padding: const EdgeInsets.all(3),
@@ -572,7 +574,11 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                               onTap: () => setState(() => _showPortuguese = true),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: _showPortuguese ? Colors.white : Colors.transparent,
+                                  color: _showPortuguese
+                                      ? (Theme.of(context).brightness == Brightness.dark
+                                          ? GingaColors.backgroundDark
+                                          : Colors.white)
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(GingaRadius.sm),
                                   boxShadow: _showPortuguese ? [
                                     BoxShadow(
@@ -599,7 +605,11 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                               onTap: () => setState(() => _showPortuguese = false),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: !_showPortuguese ? Colors.white : Colors.transparent,
+                                  color: !_showPortuguese
+                                      ? (Theme.of(context).brightness == Brightness.dark
+                                          ? GingaColors.backgroundDark
+                                          : Colors.white)
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(GingaRadius.sm),
                                   boxShadow: !_showPortuguese ? [
                                     BoxShadow(
@@ -636,7 +646,9 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                             width: double.infinity,
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? GingaColors.surfaceDark
+                                  : Colors.white,
                               borderRadius: BorderRadius.circular(GingaRadius.lg),
                               border: Border.all(color: GingaColors.brandGreen.withOpacity(0.5), width: 1.5),
                               boxShadow: [

@@ -59,6 +59,10 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return StreamBuilder<DocumentSnapshot>(
       stream: _productStream,
       builder: (context, snapshot) {
@@ -297,9 +301,9 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
+                            color: cardBg.withOpacity(0.9),
                             borderRadius: BorderRadius.circular(GingaRadius.md),
-                            border: Border.all(color: GingaColors.borderLight),
+                            border: Border.all(color: borderColor),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -420,10 +424,10 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
-                            color: isSelected ? GingaColors.brandGreen : Colors.white,
+                            color: isSelected ? GingaColors.brandGreen : cardBg,
                             borderRadius: BorderRadius.circular(GingaRadius.md),
                             border: Border.all(
-                              color: isSelected ? GingaColors.brandGreen : GingaColors.borderLight,
+                              color: isSelected ? GingaColors.brandGreen : borderColor,
                               width: 1.5,
                             ),
                           ),
@@ -457,7 +461,8 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                     children: [
                       Container(
                         decoration: BoxDecoration(
-                          border: Border.all(color: GingaColors.borderLight),
+                          color: cardBg,
+                          border: Border.all(color: borderColor),
                           borderRadius: BorderRadius.circular(GingaRadius.md),
                         ),
                         child: Row(

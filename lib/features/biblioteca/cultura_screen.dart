@@ -48,6 +48,10 @@ class _CulturaScreenState extends State<CulturaScreen> {
   ];
 
   void _mostrarDetalleHistoria(BuildContext context, HistoriaArticulo articulo) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -62,7 +66,7 @@ class _CulturaScreenState extends State<CulturaScreen> {
               maxHeight: MediaQuery.of(context).size.height * 0.75,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardBg,
               borderRadius: BorderRadius.circular(GingaRadius.xl),
               boxShadow: [
                 BoxShadow(
@@ -74,7 +78,7 @@ class _CulturaScreenState extends State<CulturaScreen> {
             ),
             clipBehavior: Clip.antiAlias,
             child: Scaffold(
-              backgroundColor: Colors.white,
+              backgroundColor: cardBg,
               body: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -97,7 +101,7 @@ class _CulturaScreenState extends State<CulturaScreen> {
                                 height: 52,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
-                                  border: Border.all(color: GingaColors.borderLight),
+                                  border: Border.all(color: borderColor),
                                 ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -220,6 +224,10 @@ class _CulturaScreenState extends State<CulturaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
@@ -285,9 +293,9 @@ class _CulturaScreenState extends State<CulturaScreen> {
                   return Container(
                     margin: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: cardBg,
                       borderRadius: BorderRadius.circular(GingaRadius.lg),
-                      border: Border.all(color: GingaColors.borderLight),
+                      border: Border.all(color: borderColor),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.015),
@@ -311,7 +319,7 @@ class _CulturaScreenState extends State<CulturaScreen> {
                                       height: 52,
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(GingaRadius.md),
-                                        border: Border.all(color: GingaColors.borderLight),
+                                        border: Border.all(color: borderColor),
                                       ),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(GingaRadius.md),

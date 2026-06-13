@@ -156,7 +156,9 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
         return WillPopScope(
           onWillPop: () async => false, // Bloquear botón físico de retroceso de Android
           child: AlertDialog(
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(context).brightness == Brightness.dark
+                ? GingaColors.backgroundDark
+                : Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(GingaRadius.lg),
             ),
@@ -386,6 +388,9 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
   Widget build(BuildContext context) {
     final toquesActuales = _toquesPorInstrumento[_selectedInstrumentIndex]!;
     final selectedToque = toquesActuales[_selectedToqueIndex];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
 
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
@@ -602,9 +607,9 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: cardBg,
                       borderRadius: BorderRadius.circular(GingaRadius.lg),
-                      border: Border.all(color: GingaColors.borderLight),
+                      border: Border.all(color: borderColor),
                     ),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -622,12 +627,12 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                             decoration: BoxDecoration(
                               color: isCurrent
                                   ? GingaColors.brandGreen
-                                  : (isPause ? Colors.grey.shade50 : GingaColors.cardLight),
+                                  : (isPause ? (isDark ? GingaColors.backgroundDark : Colors.grey.shade50) : GingaColors.cardLight),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: isCurrent
                                     ? GingaColors.brandGreen
-                                    : (isPause ? Colors.grey.shade200 : GingaColors.borderLight),
+                                    : (isPause ? (isDark ? Colors.transparent : Colors.grey.shade200) : borderColor),
                                 width: isCurrent ? 1.5 : 1,
                               ),
                               boxShadow: isCurrent
@@ -733,7 +738,7 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cardBg,
                   borderRadius: BorderRadius.circular(GingaRadius.md),
                   border: Border.all(color: selectedToque.tagColor.withOpacity(0.3)),
                 ),
@@ -858,6 +863,10 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
 
   Widget _buildInstrumentTab(int index, String label, IconData icon) {
     final isSelected = _selectedInstrumentIndex == index;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     Widget tabContent = Column(
       children: [
         Icon(
@@ -904,10 +913,10 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
           duration: const Duration(milliseconds: 250),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? GingaColors.brandGreen : Colors.white,
+            color: isSelected ? GingaColors.brandGreen : cardBg,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? GingaColors.brandGreen : GingaColors.borderLight,
+              color: isSelected ? GingaColors.brandGreen : borderColor,
               width: 1.5,
             ),
             boxShadow: isSelected
@@ -1043,6 +1052,10 @@ class _ToqueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -1051,10 +1064,10 @@ class _ToqueCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? GingaColors.brandGreen.withOpacity(0.06) : Colors.white,
+          color: isSelected ? GingaColors.brandGreen.withOpacity(0.06) : cardBg,
           borderRadius: BorderRadius.circular(GingaRadius.lg),
           border: Border.all(
-            color: isSelected ? GingaColors.brandGreen : GingaColors.borderLight,
+            color: isSelected ? GingaColors.brandGreen : borderColor,
             width: isSelected ? 2.5 : 1,
           ),
           boxShadow: isSelected ? [

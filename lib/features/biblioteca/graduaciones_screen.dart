@@ -252,22 +252,27 @@ class GraduacionesScreen extends StatelessWidget {
                           itemBuilder: (context, index) {
                             final corda = CuerdasFIU.lista[index];
                             final isActive = CuerdasFIU.verificarCordaActiva(userCorda, corda);
+                            final isDark = Theme.of(context).brightness == Brightness.dark;
+                            final currentCardBg = isDark
+                                ? (isActive ? const Color(0xFF1E351E) : GingaColors.surfaceDark)
+                                : (isActive ? const Color(0xFFE8F5E9) : Colors.white);
+                            final currentBorderColor = isDark
+                                ? (isActive ? GingaColors.accentGreenDark : Colors.transparent)
+                                : (isActive ? GingaColors.brandGreen : GingaColors.borderLight);
 
                             return Container(
                               margin: const EdgeInsets.only(bottom: 14),
                               decoration: BoxDecoration(
-                                color: isActive ? const Color(0xFFE8F5E9) : Colors.white,
+                                color: currentCardBg,
                                 borderRadius: BorderRadius.circular(GingaRadius.lg),
                                 border: Border.all(
-                                  color: isActive
-                                      ? GingaColors.brandGreen
-                                      : GingaColors.borderLight,
+                                  color: currentBorderColor,
                                   width: isActive ? 2.0 : 1.0,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: isActive
-                                        ? GingaColors.brandGreen.withOpacity(0.12)
+                                        ? (isDark ? GingaColors.accentGreenDark.withOpacity(0.12) : GingaColors.brandGreen.withOpacity(0.12))
                                         : Colors.black.withOpacity(0.01),
                                     blurRadius: isActive ? 12 : 10,
                                     spreadRadius: isActive ? 1 : 0,
@@ -288,7 +293,7 @@ class GraduacionesScreen extends StatelessWidget {
                                           decoration: BoxDecoration(
                                             color: isActive
                                                 ? GingaColors.brandGreen
-                                                : GingaColors.borderLight.withOpacity(0.5),
+                                                : (isDark ? GingaColors.backgroundDark : GingaColors.borderLight.withOpacity(0.5)),
                                             borderRadius: BorderRadius.circular(GingaRadius.sm),
                                           ),
                                           child: Text(

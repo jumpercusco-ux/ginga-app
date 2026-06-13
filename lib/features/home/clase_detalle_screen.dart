@@ -339,9 +339,15 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? GingaColors.backgroundDark
+                          : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(GingaRadius.md),
-                      border: Border.all(color: GingaColors.borderLight),
+                      border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.transparent
+                            : GingaColors.borderLight,
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -405,7 +411,11 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(dialogContext),
                           style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: Colors.grey.shade300),
+                            side: BorderSide(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey.shade800
+                                  : Colors.grey.shade300,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.full),
                             ),
@@ -677,14 +687,18 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
     required String title,
     required String value,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return GestureDetector(
       onTap: () => _mostrarDetalleDialog(context, title, value, icon),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          border: Border.all(color: GingaColors.borderLight),
+          border: Border.all(color: borderColor),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -725,6 +739,9 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
 
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
@@ -1191,9 +1208,9 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: cardBg,
                         borderRadius: BorderRadius.circular(GingaRadius.lg),
-                        border: Border.all(color: GingaColors.borderLight),
+                        border: Border.all(color: borderColor),
                       ),
                       child: Column(
                         children: [
@@ -1265,9 +1282,9 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                         return Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: cardBg,
                             borderRadius: BorderRadius.circular(GingaRadius.lg),
-                            border: Border.all(color: GingaColors.borderLight),
+                            border: Border.all(color: borderColor),
                           ),
                           child: Row(
                             children: [
@@ -1503,9 +1520,9 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: cardBg,
                         borderRadius: BorderRadius.circular(GingaRadius.lg),
-                        border: Border.all(color: GingaColors.borderLight),
+                        border: Border.all(color: borderColor),
                       ),
                       child: Text(
                         displayDescription.isNotEmpty
@@ -1534,9 +1551,9 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: cardBg,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
-                          border: Border.all(color: GingaColors.borderLight),
+                          border: Border.all(color: borderColor),
                         ),
                         child: Column(
                           children: List.generate(cronograma.length, (idx) {
@@ -1597,7 +1614,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                                 decoration: BoxDecoration(
-                                                  color: const Color(0xFFFFF8E1),
+                                                  color: isDark ? const Color(0xFF3E2723) : const Color(0xFFFFF8E1),
                                                   borderRadius: BorderRadius.circular(6),
                                                 ),
                                                 child: Text(
@@ -1605,7 +1622,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                                                   style: GoogleFonts.montserrat(
                                                     fontSize: 8.5,
                                                     fontWeight: FontWeight.w800,
-                                                    color: const Color(0xFFE65100),
+                                                    color: isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100),
                                                   ),
                                                 ),
                                               ),
@@ -1659,6 +1676,10 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
   }
 
   Widget _buildAlumnosInscritosSection(String claseId) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1685,9 +1706,9 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cardBg,
                   borderRadius: BorderRadius.circular(GingaRadius.lg),
-                  border: Border.all(color: GingaColors.borderLight),
+                  border: Border.all(color: borderColor),
                 ),
                 child: Text(
                   'No hay alumnos regulares inscritos en esta clase.',
@@ -1714,9 +1735,9 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cardBg,
                     borderRadius: BorderRadius.circular(GingaRadius.md),
-                    border: Border.all(color: GingaColors.borderLight),
+                    border: Border.all(color: borderColor),
                   ),
                   child: Row(
                     children: [
@@ -1794,9 +1815,9 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cardBg,
                   borderRadius: BorderRadius.circular(GingaRadius.lg),
-                  border: Border.all(color: GingaColors.borderLight),
+                  border: Border.all(color: borderColor),
                 ),
                 child: Text(
                   'No hay reservas registradas para esta clase.',
@@ -1837,9 +1858,9 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: cardBg,
                         borderRadius: BorderRadius.circular(GingaRadius.md),
-                        border: Border.all(color: GingaColors.borderLight),
+                        border: Border.all(color: borderColor),
                       ),
                       child: Row(
                         children: [

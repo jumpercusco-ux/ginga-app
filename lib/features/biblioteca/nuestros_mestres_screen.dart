@@ -73,15 +73,19 @@ class NuestrosMestresScreen extends StatelessWidget {
   }
 
   void _mostrarDetalleMestre(BuildContext context, MestreProfile mestre) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.xl)),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(GingaRadius.xl)),
           ),
           padding: EdgeInsets.fromLTRB(
             24,
@@ -101,7 +105,7 @@ class NuestrosMestresScreen extends StatelessWidget {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: GingaColors.borderLight,
+                    color: isDark ? GingaColors.backgroundDark : GingaColors.borderLight,
                     borderRadius: BorderRadius.circular(100),
                   ),
                 ),
@@ -394,15 +398,19 @@ class NuestrosMestresScreen extends StatelessWidget {
   }
 
   Widget _buildFundadorCard(BuildContext context, MestreProfile mestre) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: Colors.amber.shade400, width: 1.5),
+        border: Border.all(color: isDark ? Colors.amber.shade600 : Colors.amber.shade400, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.amber.shade100.withOpacity(0.3),
+            color: isDark ? Colors.black38 : Colors.amber.shade100.withOpacity(0.3),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -457,7 +465,7 @@ class NuestrosMestresScreen extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                             decoration: BoxDecoration(
-                              color: Colors.amber.shade50,
+                              color: isDark ? const Color(0xFF3E2723) : Colors.amber.shade50,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: Colors.amber.shade300, width: 0.5),
                             ),
@@ -507,12 +515,16 @@ class NuestrosMestresScreen extends StatelessWidget {
   }
 
   Widget _buildMestreItem(BuildContext context, MestreProfile mestre) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.015),
