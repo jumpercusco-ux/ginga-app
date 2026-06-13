@@ -22,17 +22,52 @@ int _obtenerAsistenciasObjetivo(String cordaUsuario) {
 
 
 
-class ProgresoScreen extends StatelessWidget {
+class ProgresoScreen extends StatefulWidget {
   const ProgresoScreen({super.key});
+
+  @override
+  State<ProgresoScreen> createState() => _ProgresoScreenState();
+}
+
+class _ProgresoScreenState extends State<ProgresoScreen> {
+  String? _cachedUid;
+  Stream<DocumentSnapshot>? _userStream;
+  Stream<QuerySnapshot>? _asistenciasStream;
+  Stream<QuerySnapshot>? _pagosStream;
+  Stream<QuerySnapshot>? _compensacionesStream;
 
   @override
   Widget build(BuildContext context) {
     Theme.of(context); // Suscribir al tema para regenerar la pantalla al alternar claro/oscuro
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
+    if (uid != _cachedUid) {
+      _cachedUid = uid;
+      if (uid == null) {
+        _userStream = null;
+        _asistenciasStream = null;
+        _pagosStream = null;
+        _compensacionesStream = null;
+      } else {
+        _userStream = FirebaseFirestore.instance.collection('users').doc(uid).snapshots();
+        _asistenciasStream = FirebaseFirestore.instance
+            .collection('asistencias')
+            .where('user_id', isEqualTo: uid)
+            .snapshots();
+        _pagosStream = FirebaseFirestore.instance
+            .collection('pagos')
+            .where('user_id', isEqualTo: uid)
+            .snapshots();
+        _compensacionesStream = FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('compensaciones')
+            .snapshots();
+      }
+    }
+
     return StreamBuilder<DocumentSnapshot>(
-      stream:
-          FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      stream: _userStream ?? const Stream.empty(),
       builder: (context, snapshot) {
         // Datos por defecto mientras carga
         String nombre = 'Alumno';
@@ -43,6 +78,7 @@ class ProgresoScreen extends StatelessWidget {
         String userStatus = 'nuevo';
         Timestamp? membresiaInicio;
         Timestamp? membresiaFin;
+        bool notificationsEnabled = true;
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>;
@@ -54,13 +90,11 @@ class ProgresoScreen extends StatelessWidget {
           userStatus = data['status'] ?? 'nuevo';
           membresiaInicio = data['membresia_inicio'] as Timestamp?;
           membresiaFin = data['membresia_fin'] as Timestamp?;
+          notificationsEnabled = data['notifications_enabled'] != false;
         }
 
         return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('asistencias')
-              .where('user_id', isEqualTo: uid)
-              .snapshots(),
+          stream: _asistenciasStream ?? const Stream.empty(),
           builder: (context, asistenciasSnapshot) {
             int totalAsistencias = 0;
             if (asistenciasSnapshot.hasData) {
@@ -73,14 +107,10 @@ class ProgresoScreen extends StatelessWidget {
                     .toSet()
                 : {};
 
-
-
             final int objetivo = _obtenerAsistenciasObjetivo(corda);
             final double porcentaje =
                 (totalAsistencias / objetivo).clamp(0.0, 1.0);
             final int porcentajeInt = (porcentaje * 100).toInt();
-
-
 
             final isDark = Theme.of(context).brightness == Brightness.dark;
             final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
@@ -238,6 +268,8 @@ class ProgresoScreen extends StatelessWidget {
                           userStatus: userStatus,
                           membresiaInicio: membresiaInicio,
                           membresiaFin: membresiaFin,
+                          pagosStream: _pagosStream,
+                          compensacionesStream: _compensacionesStream,
                         ),
                       ],
 
@@ -301,7 +333,10 @@ class ProgresoScreen extends StatelessWidget {
                       _SectionHeader(
                           title: 'Configuración de App', actionLabel: ''),
                       const SizedBox(height: 12),
-                      _NotificationToggleCard(uid: uid),
+                      _NotificationToggleCard(
+                        uid: uid,
+                        notificationsEnabled: notificationsEnabled,
+                      ),
                       const SizedBox(height: 12),
                       const _ThemeToggleCard(),
 
@@ -331,95 +366,84 @@ class ProgresoScreen extends StatelessWidget {
 
 class _NotificationToggleCard extends StatelessWidget {
   final String? uid;
-  const _NotificationToggleCard({required this.uid});
+  final bool notificationsEnabled;
+  const _NotificationToggleCard({
+    required this.uid,
+    required this.notificationsEnabled,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (uid == null) return const SizedBox();
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .snapshots(),
-      builder: (context, snapshot) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
-        final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
-        final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
-        final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
 
-        bool notificationsEnabled = true;
-
-        if (snapshot.hasData && snapshot.data!.exists) {
-          final data = snapshot.data!.data() as Map<String, dynamic>;
-          notificationsEnabled = data['notifications_enabled'] != false;
-        }
-
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(GingaRadius.lg),
-            border: Border.all(color: borderColor),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: GingaColors.brandGreen.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.notifications_active_outlined,
+              color: GingaColors.brandGreen,
+              size: 22,
+            ),
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: GingaColors.brandGreen.withOpacity(0.1),
-                  shape: BoxShape.circle,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Notificaciones Push',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.notifications_active_outlined,
-                  color: GingaColors.brandGreen,
-                  size: 22,
+                Text(
+                  'Recibir alertas de clases, pagos y novedades',
+                  style: GoogleFonts.nunito(
+                    fontSize: 11,
+                    color: subtitleColor,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Notificaciones Push',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: textColor,
-                      ),
-                    ),
-                    Text(
-                      'Recibir alertas de clases, pagos y novedades',
-                      style: GoogleFonts.nunito(
-                        fontSize: 11,
-                        color: subtitleColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Switch.adaptive(
-                value: notificationsEnabled,
-                activeColor: GingaColors.brandGreen,
-                activeTrackColor: GingaColors.brandGreen.withOpacity(0.3),
-                onChanged: (val) async {
-                  try {
-                    await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(uid)
-                        .update({'notifications_enabled': val});
-                  } catch (e) {
-                    debugPrint('Error actualizando notificaciones: $e');
-                  }
-                },
-              ),
-            ],
+              ],
+            ),
           ),
-        );
-      },
+          Switch.adaptive(
+            value: notificationsEnabled,
+            activeColor: GingaColors.brandGreen,
+            activeTrackColor: GingaColors.brandGreen.withOpacity(0.3),
+            onChanged: (val) async {
+              try {
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid)
+                    .update({'notifications_enabled': val});
+              } catch (e) {
+                debugPrint('Error actualizando notificaciones: $e');
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -988,12 +1012,16 @@ class _MembresiaYPagosSection extends StatelessWidget {
   final String userStatus;
   final Timestamp? membresiaInicio;
   final Timestamp? membresiaFin;
+  final Stream<QuerySnapshot>? pagosStream;
+  final Stream<QuerySnapshot>? compensacionesStream;
 
   const _MembresiaYPagosSection({
     required this.uid,
     required this.userStatus,
     required this.membresiaInicio,
     required this.membresiaFin,
+    required this.pagosStream,
+    required this.compensacionesStream,
   });
 
   String _formatFecha(DateTime? date) {
@@ -1037,7 +1065,6 @@ class _MembresiaYPagosSection extends StatelessWidget {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
-    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
     final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
     final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
 
@@ -1260,10 +1287,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
         const SizedBox(height: 12),
 
         StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('pagos')
-              .where('user_id', isEqualTo: uid)
-              .snapshots(),
+          stream: pagosStream ?? const Stream.empty(),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               debugPrint('Error al obtener historial de pagos: ${snapshot.error}');
@@ -1436,11 +1460,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
 
         // 3. Historial de Compensaciones de Membresía
         StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid)
-              .collection('compensaciones')
-              .snapshots(),
+          stream: compensacionesStream ?? const Stream.empty(),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               debugPrint('Error al obtener compensaciones: ${snapshot.error}');
