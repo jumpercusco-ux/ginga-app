@@ -27,6 +27,7 @@ class ProgresoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar la pantalla al alternar claro/oscuro
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return StreamBuilder<DocumentSnapshot>(
@@ -336,18 +337,18 @@ class _NotificationToggleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (uid == null) return const SizedBox();
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
-    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
-    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
-    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
-
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
           .snapshots(),
       builder: (context, snapshot) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+        final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+        final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+        final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+
         bool notificationsEnabled = true;
 
         if (snapshot.hasData && snapshot.data!.exists) {
@@ -428,15 +429,14 @@ class _ThemeToggleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
-    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
-    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
-    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
-
     return ListenableBuilder(
       listenable: ThemeManager.instance,
       builder: (context, _) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+        final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+        final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+        final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
         final currentMode = ThemeManager.instance.themeMode;
         
         return Container(
