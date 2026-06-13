@@ -112,6 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar la pantalla al alternar claro/oscuro
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     if (uid != _cachedUid) {
@@ -480,6 +481,7 @@ class _HomeDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar el dashboard al alternar claro/oscuro
     // Inicializar eventos mockup si la colección de Firestore está vacía
     EventosService.instance.inicializarEventosMockupSiVacia();
     // Sembrar entreno del Sábado 30 de Mayo si no existe
@@ -626,6 +628,7 @@ class _StatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar el banner
     Widget bannerWidget;
 
     if (status == UserStatus.nuevo && sede == 'U. Continental') {
@@ -826,6 +829,7 @@ class _ContentByStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar contenido
     if (sede == 'Virtual / A Distancia') {
       return _VirtualDashboard(uid: uid, reserveKey: reserveKey);
     }
@@ -2641,6 +2645,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar el header
     final inicial = nombre.isNotEmpty ? nombre[0].toUpperCase() : 'A';
 
     return Row(
@@ -4122,6 +4127,7 @@ class _StorePromoBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar la promo de tienda
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),

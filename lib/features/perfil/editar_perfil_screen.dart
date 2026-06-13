@@ -179,6 +179,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar la pantalla al alternar claro/oscuro
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       appBar: AppBar(
@@ -438,6 +439,10 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     bool requiredField = false,
     String? Function(String?)? validator,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
@@ -461,15 +466,15 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         ),
         prefixIcon: Icon(icon, color: GingaColors.textSecondary, size: 20),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: cardBg,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          borderSide: BorderSide(color: GingaColors.borderLight),
+          borderSide: BorderSide(color: borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          borderSide: BorderSide(color: GingaColors.borderLight),
+          borderSide: BorderSide(color: borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -501,11 +506,15 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     required List<String> items,
     required ValueChanged<String?> onChanged,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(GingaRadius.md),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: borderColor),
       ),
       child: DropdownButtonFormField<String>(
         value: value,
@@ -552,6 +561,10 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     DateTime? date,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     final text = date != null ? DateFormat('dd/MM/yyyy').format(date) : 'Selecciona fecha';
     return InkWell(
       onTap: onTap,
@@ -559,9 +572,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          border: Border.all(color: GingaColors.borderLight),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           children: [

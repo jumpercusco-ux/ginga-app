@@ -178,6 +178,7 @@ class _EventoDetalleScreenState extends State<EventoDetalleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar la pantalla al alternar claro/oscuro
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: StreamBuilder<DocumentSnapshot>(

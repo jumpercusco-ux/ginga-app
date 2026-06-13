@@ -52,6 +52,7 @@ class DesactivadaScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar la pantalla al alternar claro/oscuro
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
