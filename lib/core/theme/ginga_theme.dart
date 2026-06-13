@@ -167,7 +167,7 @@ class GingaRadius {
 //  LIGHT THEME
 // ─────────────────────────────────────────
 
-final ThemeData gingaLightTheme = ThemeData(
+ThemeData get gingaLightTheme => ThemeData(
   useMaterial3: true,
   brightness: Brightness.light,
   fontFamily: 'Nunito',
@@ -260,7 +260,7 @@ final ThemeData gingaLightTheme = ThemeData(
 //  DARK THEME
 // ─────────────────────────────────────────
 
-final ThemeData gingaDarkTheme = ThemeData(
+ThemeData get gingaDarkTheme => ThemeData(
   useMaterial3: true,
   brightness: Brightness.dark,
   fontFamily: 'Nunito',
