@@ -119,8 +119,11 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
     Theme.of(context); // Suscribir al tema para regenerar la pantalla al alternar claro/oscuro
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
-      body: CustomScrollView(
-        slivers: [
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: CustomScrollView(
+            slivers: [
           // ── Header con Video/Imagen ────────────────
           SliverAppBar(
             expandedHeight: 280,
@@ -317,10 +320,16 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
           ),
         ],
       ),
+      ),
+      ),
       
       // ── Botón Flotante para Practicar ──────────────
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
+      bottomNavigationBar: Center(
+        heightFactor: 1.0,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Container(
+            decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.dark ? GingaColors.backgroundDark : Colors.white,
           boxShadow: [
             BoxShadow(
@@ -371,6 +380,8 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
             ),
           ),
         ),
+      ),
+      ),
       ),
     );
   }

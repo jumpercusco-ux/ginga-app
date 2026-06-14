@@ -229,337 +229,345 @@ class _EventoDetalleScreenState extends State<EventoDetalleScreen> {
           final tagColor = isRoda ? GingaColors.brandGreen : GingaColors.accentAmber;
           final tagTextColor = isRoda ? Colors.white : const Color(0xFF412402);
 
-          return Stack(
-            children: [
-              // ── Contenido scrolleable ──────────────
-              SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Container(
+                width: double.infinity,
+                child: Stack(
                   children: [
-                    // ── Imagen hero ─────────────────
-                    _HeroImage(imagenUrl: imagenUrl, eventId: widget.eventId),
-
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                    // ── Contenido scrolleable ──────────────
+                    SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Tag
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: tagColor,
-                              borderRadius: BorderRadius.circular(GingaRadius.sm),
-                            ),
-                            child: Text(
-                              tagLabel,
-                              style: GoogleFonts.montserrat(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: tagTextColor,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
+                          // ── Imagen hero ─────────────────
+                          _HeroImage(imagenUrl: imagenUrl, eventId: widget.eventId),
 
-                          const SizedBox(height: 12),
-
-                          // Título
-                          Text(
-                            titulo,
-                            style: GoogleFonts.montserrat(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: GingaColors.textPrimary,
-                              height: 1.2,
-                            ),
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          // Info cards
-                          _InfoRow(
-                            icon: Icons.calendar_today_outlined,
-                            label: dateLabel,
-                          ),
-                          if (timeLabel.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            _InfoRow(
-                              icon: Icons.access_time_outlined,
-                              label: timeLabel,
-                            ),
-                          ],
-                          const SizedBox(height: 10),
-                          _InfoRow(
-                            icon: Icons.location_on_outlined,
-                            label: lugar,
-                          ),
-
-                          const SizedBox(height: 24),
-                          _Divider(),
-
-                          // Sobre el evento
-                          const SizedBox(height: 20),
-                          Text(
-                            'Sobre el evento',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: GingaColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            descripcion.isNotEmpty
-                                ? descripcion
-                                : 'Acompáñanos en esta actividad especial para la Familia FIU. Ven a entrenar, compartir la música y jugar en la roda. ¡Todos los niveles son bienvenidos!',
-                            style: GoogleFonts.nunito(
-                              fontSize: 14,
-                              color: GingaColors.textSecondary,
-                              height: 1.6,
-                            ),
-                          ),
-
-                          const SizedBox(height: 24),
-                          _Divider(),
-
-                          // Sobre el Mestre / Organizador
-                          const SizedBox(height: 20),
-                          Text(
-                            'Organizador / Invitado',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: GingaColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _MestreCard(organizador: organizador),
-
-                          // Cronograma de Actividades
-                          if (cronograma.isNotEmpty) ...[
-                            const SizedBox(height: 24),
-                            _Divider(),
-                            const SizedBox(height: 20),
-                            Text(
-                              'Cronograma de Actividades',
-                              style: GoogleFonts.montserrat(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: GingaColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            ...cronograma.map((act) {
-                              final String dia = act['dia'] ?? '';
-                              final String hora = act['hora'] ?? '';
-                              final String actividad = act['actividad'] ?? '';
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: GingaColors.brandGreen.withOpacity(0.08),
-                                        borderRadius: BorderRadius.circular(GingaRadius.sm),
-                                      ),
-                                      child: Text(
-                                        '$dia - $hora',
-                                        style: GoogleFonts.montserrat(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: GingaColors.brandGreen,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        actividad,
-                                        style: GoogleFonts.nunito(
-                                          fontSize: 13,
-                                          color: GingaColors.textPrimary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
-                          ],
-
-                          // Cómo llegar (Mapa)
-                          if (_lat != null && _lng != null) ...[
-                            const SizedBox(height: 24),
-                            _Divider(),
-                            const SizedBox(height: 20),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // Tag
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: tagColor,
+                                    borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                  ),
+                                  child: Text(
+                                    tagLabel,
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: tagTextColor,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                // Título
                                 Text(
-                                  'Cómo llegar',
+                                  titulo,
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: GingaColors.textPrimary,
+                                    height: 1.2,
+                                  ),
+                                ),
+
+                                const SizedBox(height: 20),
+
+                                // Info cards
+                                _InfoRow(
+                                  icon: Icons.calendar_today_outlined,
+                                  label: dateLabel,
+                                ),
+                                if (timeLabel.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  _InfoRow(
+                                    icon: Icons.access_time_outlined,
+                                    label: timeLabel,
+                                  ),
+                                ],
+                                const SizedBox(height: 10),
+                                _InfoRow(
+                                  icon: Icons.location_on_outlined,
+                                  label: lugar,
+                                ),
+
+                                const SizedBox(height: 24),
+                                _Divider(),
+
+                                // Sobre el evento
+                                const SizedBox(height: 20),
+                                Text(
+                                  'Sobre el evento',
                                   style: GoogleFonts.montserrat(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
                                     color: GingaColors.textPrimary,
                                   ),
                                 ),
-                                GestureDetector(
-                                  onTap: () async {
-                                    final Uri googleUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=$_lat,$_lng");
-                                    final Uri appleUrl = Uri.parse("https://maps.apple.com/?q=${Uri.encodeComponent(lugar)}&ll=$_lat,$_lng");
-                                    try {
-                                      if (await canLaunchUrl(googleUrl)) {
-                                        await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
-                                      } else if (await canLaunchUrl(appleUrl)) {
-                                        await launchUrl(appleUrl, mode: LaunchMode.externalApplication);
-                                      } else {
-                                        await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
-                                      }
-                                    } catch (e) {
-                                      debugPrint("Could not launch maps: $e");
-                                    }
-                                  },
-                                  child: Text(
-                                    'Abrir en Maps',
-                                    style: GoogleFonts.nunito(
-                                      fontSize: 13,
-                                      color: GingaColors.brandGreen,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  descripcion.isNotEmpty
+                                      ? descripcion
+                                      : 'Acompáñanos en esta actividad especial para la Familia FIU. Ven a entrenar, compartir la música y jugar en la roda. ¡Todos los niveles son bienvenidos!',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 14,
+                                    color: GingaColors.textSecondary,
+                                    height: 1.6,
                                   ),
                                 ),
+
+                                const SizedBox(height: 24),
+                                _Divider(),
+
+                                // Sobre el Mestre / Organizador
+                                const SizedBox(height: 20),
+                                Text(
+                                  'Organizador / Invitado',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: GingaColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                _MestreCard(organizador: organizador),
+
+                                // Cronograma de Actividades
+                                if (cronograma.isNotEmpty) ...[
+                                  const SizedBox(height: 24),
+                                  _Divider(),
+                                  const SizedBox(height: 20),
+                                  Text(
+                                    'Cronograma de Actividades',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: GingaColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ...cronograma.map((act) {
+                                    final String dia = act['dia'] ?? '';
+                                    final String hora = act['hora'] ?? '';
+                                    final String actividad = act['actividad'] ?? '';
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 12),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: GingaColors.brandGreen.withOpacity(0.08),
+                                              borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                            ),
+                                            child: Text(
+                                              '$dia - $hora',
+                                              style: GoogleFonts.montserrat(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: GingaColors.brandGreen,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              actividad,
+                                              style: GoogleFonts.nunito(
+                                                fontSize: 13,
+                                                color: GingaColors.textPrimary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+
+                                // Cómo llegar (Mapa)
+                                if (_lat != null && _lng != null) ...[
+                                  const SizedBox(height: 24),
+                                  _Divider(),
+                                  const SizedBox(height: 20),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Cómo llegar',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: GingaColors.textPrimary,
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: () async {
+                                          final Uri googleUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=$_lat,$_lng");
+                                          final Uri appleUrl = Uri.parse("https://maps.apple.com/?q=${Uri.encodeComponent(lugar)}&ll=$_lat,$_lng");
+                                          try {
+                                            if (await canLaunchUrl(googleUrl)) {
+                                              await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
+                                            } else if (await canLaunchUrl(appleUrl)) {
+                                              await launchUrl(appleUrl, mode: LaunchMode.externalApplication);
+                                            } else {
+                                              await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
+                                            }
+                                          } catch (e) {
+                                            debugPrint("Could not launch maps: $e");
+                                          }
+                                        },
+                                        child: Text(
+                                          'Abrir en Maps',
+                                          style: GoogleFonts.nunito(
+                                            fontSize: 13,
+                                            color: GingaColors.brandGreen,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _MapPlaceholder(lat: _lat!, lng: _lng!, label: lugar),
+                                ],
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            _MapPlaceholder(lat: _lat!, lng: _lng!, label: lugar),
-                          ],
+                          ),
                         ],
+                      ),
+                    ),
+
+                    // ── Botón flotante inscripción ──────────
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: EdgeInsets.fromLTRB(
+                          20,
+                          12,
+                          20,
+                          MediaQuery.of(context).padding.bottom > 0
+                              ? MediaQuery.of(context).padding.bottom + 8
+                              : 24,
+                        ),
+                        decoration: BoxDecoration(
+                          color: GingaColors.backgroundLight,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 12,
+                              offset: const Offset(0, -4),
+                            ),
+                          ],
+                        ),
+                        child: StreamBuilder<bool>(
+                          stream: EventosService.instance.estaRegistrado(widget.eventId),
+                          builder: (context, regSnapshot) {
+                            final isReg = regSnapshot.data ?? false;
+
+                            return SizedBox(
+                              height: 48,
+                              child: _isRegistering
+                                  ? const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
+                                  : (isReg
+                                      ? Row(
+                                          children: [
+                                            Expanded(
+                                              child: Container(
+                                                alignment: Alignment.center,
+                                                decoration: BoxDecoration(
+                                                  color: GingaColors.brandGreen.withOpacity(0.08),
+                                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                                  border: Border.all(color: GingaColors.brandGreen.withOpacity(0.2)),
+                                                ),
+                                                child: Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    const Icon(Icons.check_circle_rounded, color: GingaColors.brandGreen, size: 18),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      '¡Inscrito al Evento! 🎟️',
+                                                      style: GoogleFonts.montserrat(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: GingaColors.brandGreen,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            IconButton(
+                                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                                              onPressed: () => _mostrarConfirmacionCancelacion(),
+                                              style: IconButton.styleFrom(
+                                                backgroundColor: Colors.red.withOpacity(0.05),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                                  side: BorderSide(color: Colors.red.withOpacity(0.15)),
+                                                ),
+                                              ),
+                                            )
+                                          ],
+                                        )
+                                      : ElevatedButton(
+                                          onPressed: () {
+                                            if (_userStatus != 'activo' && _userStatus != 'prueba') {
+                                              _mostrarDialogoAccesoDenegado();
+                                            } else {
+                                              _inscribirUsuario();
+                                            }
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: GingaColors.brandGreen,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                                            ),
+                                            elevation: 0,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                _userStatus == 'activo' || _userStatus == 'prueba'
+                                                    ? 'Inscribirse Ahora'
+                                                    : 'Inscripción Exclusiva 🔒',
+                                                style: GoogleFonts.montserrat(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              if (_userStatus == 'activo' || _userStatus == 'prueba') ...[
+                                                const SizedBox(width: 8),
+                                                const Icon(Icons.arrow_forward, size: 16),
+                                              ],
+                                            ],
+                                          ),
+                                        )),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-
-              // ── Botón flotante inscripción ──────────
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    12,
-                    20,
-                    MediaQuery.of(context).padding.bottom > 0
-                        ? MediaQuery.of(context).padding.bottom + 8
-                        : 24,
-                  ),
-                  decoration: BoxDecoration(
-                    color: GingaColors.backgroundLight,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 12,
-                        offset: const Offset(0, -4),
-                      ),
-                    ],
-                  ),
-                  child: StreamBuilder<bool>(
-                    stream: EventosService.instance.estaRegistrado(widget.eventId),
-                    builder: (context, regSnapshot) {
-                      final isReg = regSnapshot.data ?? false;
-
-                      return SizedBox(
-                        height: 48,
-                        child: _isRegistering
-                            ? const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
-                            : (isReg
-                                ? Row(
-                                    children: [
-                                      Expanded(
-                                        child: Container(
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            color: GingaColors.brandGreen.withOpacity(0.08),
-                                            borderRadius: BorderRadius.circular(GingaRadius.md),
-                                            border: Border.all(color: GingaColors.brandGreen.withOpacity(0.2)),
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              const Icon(Icons.check_circle_rounded, color: GingaColors.brandGreen, size: 18),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                '¡Inscrito al Evento! 🎟️',
-                                                style: GoogleFonts.montserrat(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: GingaColors.brandGreen,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
-                                        onPressed: () => _mostrarConfirmacionCancelacion(),
-                                        style: IconButton.styleFrom(
-                                          backgroundColor: Colors.red.withOpacity(0.05),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(GingaRadius.md),
-                                            side: BorderSide(color: Colors.red.withOpacity(0.15)),
-                                          ),
-                                        ),
-                                      )
-                                    ],
-                                  )
-                                : ElevatedButton(
-                                    onPressed: () {
-                                      if (_userStatus != 'activo' && _userStatus != 'prueba') {
-                                        _mostrarDialogoAccesoDenegado();
-                                      } else {
-                                        _inscribirUsuario();
-                                      }
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: GingaColors.brandGreen,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(GingaRadius.md),
-                                      ),
-                                      elevation: 0,
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          _userStatus == 'activo' || _userStatus == 'prueba'
-                                              ? 'Inscribirse Ahora'
-                                              : 'Inscripción Exclusiva 🔒',
-                                          style: GoogleFonts.montserrat(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        if (_userStatus == 'activo' || _userStatus == 'prueba') ...[
-                                          const SizedBox(width: 8),
-                                          const Icon(Icons.arrow_forward, size: 16),
-                                        ],
-                                      ],
-                                    ),
-                                  )),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
+            ),
           );
         },
       ),

@@ -41,8 +41,11 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Barra Superior Personalizada (App Bar) ──────────────────────────────
             Padding(
@@ -386,7 +389,9 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                 },
               ),
             ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );

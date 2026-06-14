@@ -869,7 +869,11 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
               ),
               bottomNavigationBar: userRole == 'profesor'
                   ? null
-                  : (isEvent
+                  : Center(
+                      heightFactor: 1.0,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 800),
+                        child: (isEvent
                       ? StreamBuilder<QuerySnapshot>(
                           stream: FirebaseFirestore.instance
                               .collection('reservas')
@@ -1087,7 +1091,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                                             ),
                                           ),
                                         )
-                                  : null),
+                                  : null))),
               body: FutureBuilder<Map<String, dynamic>?>(
                 future: _buscarEventoDestacado(nombre, badge, instructorId),
                 builder: (context, eventSnapshot) {
@@ -1098,9 +1102,12 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                   final String? organizador = eventData != null ? eventData['organizador'] : null;
                   final List<dynamic> cronograma = eventData != null ? (eventData['cronograma'] ?? []) : [];
 
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
+                  return Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 800),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 10),
@@ -1665,7 +1672,9 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                       const SizedBox(height: 32),
                     ],
                   ),
-                );
+                ),
+              ),
+            );
             },
           ),
         );

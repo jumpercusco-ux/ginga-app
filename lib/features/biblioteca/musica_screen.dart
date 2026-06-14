@@ -13,7 +13,10 @@ class MusicaScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,6 +99,8 @@ class MusicaScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
             ],
+          ),
+            ),
           ),
         ),
       ),

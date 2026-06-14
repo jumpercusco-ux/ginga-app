@@ -92,8 +92,11 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Barra Superior Personalizada (App Bar) ──────────────────────────────
             Padding(
@@ -423,7 +426,9 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                 },
               ),
             ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
       floatingActionButton: _esProfesor

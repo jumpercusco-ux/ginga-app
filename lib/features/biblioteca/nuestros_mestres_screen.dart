@@ -335,8 +335,11 @@ class NuestrosMestresScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -381,9 +384,11 @@ class NuestrosMestresScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
             ],
+            ),
           ),
         ),
       ),
+    ),
     );
   }
 

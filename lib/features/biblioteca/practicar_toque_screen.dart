@@ -395,8 +395,11 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -804,6 +807,8 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
 
             const SizedBox(height: 20),
           ],
+            ),
+          ),
         ),
       ),
     ),

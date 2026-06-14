@@ -231,8 +231,11 @@ class _CulturaScreenState extends State<CulturaScreen> {
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Barra Superior Personalizada (App Bar) ──────────────────────────────
             Padding(
@@ -399,7 +402,9 @@ class _CulturaScreenState extends State<CulturaScreen> {
                 },
               ),
             ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );

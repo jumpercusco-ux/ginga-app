@@ -213,9 +213,12 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Column(
             children: [
               // ── Header ──────────────────────────────────────────────────────
               Row(
@@ -587,9 +590,11 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
               ),
               const SizedBox(height: 12),
             ],
+            ),
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -598,8 +603,11 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -692,9 +700,11 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
 
               const SizedBox(height: 32),
             ],
+            ),
           ),
         ),
       ),
+    ),
     );
   }
 

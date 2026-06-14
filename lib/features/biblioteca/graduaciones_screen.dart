@@ -108,8 +108,11 @@ class GraduacionesScreen extends StatelessWidget {
               userRol = data['rol'] ?? 'alumno';
             }
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ── Barra Superior (App Bar) ──────────────────────────────
                 Padding(
@@ -406,7 +409,9 @@ class GraduacionesScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
+                  ],
+                ),
+              ),
             );
           },
         ),

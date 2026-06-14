@@ -302,8 +302,11 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
-        child: Column(
-          children: [
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              children: [
             // ── Header Superior ──────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
@@ -1233,7 +1236,9 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                 ),
               ),
             ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );
