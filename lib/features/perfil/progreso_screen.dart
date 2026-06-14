@@ -131,13 +131,21 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
 
                       // ── Header ──────────────────────────
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Progreso y Logros',
+                          IconButton(
+                            icon: Icon(Icons.arrow_back, color: textColor),
+                            onPressed: () => context.go('/home'),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Progreso y Logros',
                               style: GoogleFonts.montserrat(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
-                                  color: textColor)),
+                                  color: textColor),
+                            ),
+                          ),
                           IconButton(
                             onPressed: () async {
                               await FirebaseAuth.instance.signOut();
