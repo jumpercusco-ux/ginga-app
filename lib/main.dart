@@ -19,24 +19,28 @@ void main() async {
   );
   await ThemeManager.instance.init();
 
-  // Inicializar Firebase App Check para bloquear accesos no autorizados y bots
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: kDebugMode 
-        ? AndroidProvider.debug 
-        : AndroidProvider.playIntegrity,
-    appleProvider: kDebugMode 
-        ? AppleProvider.debug 
-        : AppleProvider.appAttest,
-  );
+  // Inicializar Firebase App Check para bloquear accesos no autorizados y bots (solo en móviles por ahora)
+  if (!kIsWeb) {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: kDebugMode 
+          ? AndroidProvider.debug 
+          : AndroidProvider.playIntegrity,
+      appleProvider: kDebugMode 
+          ? AppleProvider.debug 
+          : AppleProvider.appAttest,
+    );
+  }
 
   // Configurar persistencia offline y límite inteligente de caché de Firestore
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
+  FirebaseFirestore.instance.settings = Settings(
+    persistenceEnabled: kIsWeb ? null : true, // La persistencia manual no se soporta de esta forma en Web
     cacheSizeBytes: 104857600, // 100 MB de límite para optimizar rendimiento de memoria
   );
 
-  // Registrar el controlador de segundo plano de FCM
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  // Registrar el controlador de segundo plano de FCM (solo en móviles)
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(

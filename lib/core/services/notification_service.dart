@@ -25,6 +25,7 @@ class NotificationService {
 
   /// Inicializa los servicios y listeners de notificaciones.
   Future<void> init() async {
+    if (kIsWeb) return;
     if (_initialized) return;
 
     // 1. Solicitar permisos de notificación (especialmente para Android 13+ e iOS)
@@ -154,6 +155,7 @@ class NotificationService {
 
   /// Recupera el Token de FCM actual y lo guarda en Firestore.
   Future<void> updateTokenInFirestore() async {
+    if (kIsWeb) return;
     try {
       final token = await _messaging.getToken();
       if (token != null) {
