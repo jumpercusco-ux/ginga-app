@@ -98,175 +98,208 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 600;
+
+    Widget bodyContent = Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(height: isDesktop ? 40 : 60),
+
+          // Logo
+          Image.asset('assets/images/logo_ginga.png', width: 140, height: 140),
+          const SizedBox(height: 20),
+
+          Text('Inicia sesión para continuar',
+              style: GoogleFonts.nunito(
+                  fontSize: 14, color: GingaColors.textSecondary)),
+
+          const SizedBox(height: 48),
+
+          // Email
+          TextFormField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            style: GoogleFonts.nunito(
+                fontSize: 14, color: GingaColors.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Correo electrónico',
+              prefixIcon: Icon(Icons.email_outlined,
+                  color: GingaColors.textSecondary, size: 20),
+            ),
+            validator: (val) {
+              if (val == null || val.isEmpty) return 'Ingresa tu correo';
+              if (!val.contains('@')) return 'Correo inválido';
+              return null;
+            },
+          ),
+
+          const SizedBox(height: 14),
+
+          // Password
+          TextFormField(
+            controller: _passwordController,
+            obscureText: _obscurePassword,
+            style: GoogleFonts.nunito(
+                fontSize: 14, color: GingaColors.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Contraseña',
+              prefixIcon: Icon(Icons.lock_outline,
+                  color: GingaColors.textSecondary, size: 20),
+              suffixIcon: GestureDetector(
+                onTap: () => setState(
+                    () => _obscurePassword = !_obscurePassword),
+                child: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  color: GingaColors.textSecondary,
+                  size: 20,
+                ),
+              ),
+            ),
+            validator: (val) {
+              if (val == null || val.isEmpty)
+                return 'Ingresa tu contraseña';
+              if (val.length < 6) return 'Mínimo 6 caracteres';
+              return null;
+            },
+          ),
+
+          const SizedBox(height: 8),
+
+          // Olvidé contraseña
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: _forgotPassword,
+              child: Text('¿Olvidaste tu contraseña?',
+                  style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      color: GingaColors.brandGreen,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ),
+
+          // Error
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline,
+                      color: Colors.red.shade600, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(_errorMessage!,
+                        style: GoogleFonts.nunito(
+                            fontSize: 13,
+                            color: Colors.red.shade700)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 32),
+
+          // Botón Login
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _login,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: GingaColors.brandGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(GingaRadius.full),
+                ),
+                elevation: 0,
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : Text('Iniciar Sesión',
+                      style: GoogleFonts.montserrat(
+                          fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Registro
+          GestureDetector(
+            onTap: () => context.go('/profile-creation'),
+            child: RichText(
+              text: TextSpan(
+                text: '¿No tienes cuenta? ',
+                style: GoogleFonts.nunito(
+                    color: GingaColors.textSecondary, fontSize: 13),
+                children: [
+                  TextSpan(
+                    text: 'Regístrate',
+                    style: GoogleFonts.nunito(
+                        color: GingaColors.brandGreen,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+
+    if (isDesktop) {
+      bodyContent = Container(
+        margin: const EdgeInsets.symmetric(vertical: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+        decoration: BoxDecoration(
+          color: GingaColors.cardLight,
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+          border: Border.all(
+            color: GingaColors.borderLight,
+            width: 1,
+          ),
+        ),
+        child: bodyContent,
+      );
+    }
+
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: 60),
-
-                // Logo
-                Image.asset('assets/images/logo_ginga.png', width: 140, height: 140),
-                const SizedBox(height: 20),
-
-                Text('Inicia sesión para continuar',
-                    style: GoogleFonts.nunito(
-                        fontSize: 14, color: GingaColors.textSecondary)),
-
-                const SizedBox(height: 48),
-
-                // Email
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  autocorrect: false,
-                  style: GoogleFonts.nunito(
-                      fontSize: 14, color: GingaColors.textPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'Correo electrónico',
-                    prefixIcon: Icon(Icons.email_outlined,
-                        color: GingaColors.textSecondary, size: 20),
-                  ),
-                  validator: (val) {
-                    if (val == null || val.isEmpty) return 'Ingresa tu correo';
-                    if (!val.contains('@')) return 'Correo inválido';
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 14),
-
-                // Password
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  style: GoogleFonts.nunito(
-                      fontSize: 14, color: GingaColors.textPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'Contraseña',
-                    prefixIcon: Icon(Icons.lock_outline,
-                        color: GingaColors.textSecondary, size: 20),
-                    suffixIcon: GestureDetector(
-                      onTap: () => setState(
-                          () => _obscurePassword = !_obscurePassword),
-                      child: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                        color: GingaColors.textSecondary,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  validator: (val) {
-                    if (val == null || val.isEmpty)
-                      return 'Ingresa tu contraseña';
-                    if (val.length < 6) return 'Mínimo 6 caracteres';
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 8),
-
-                // Olvidé contraseña
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: GestureDetector(
-                    onTap: _forgotPassword,
-                    child: Text('¿Olvidaste tu contraseña?',
-                        style: GoogleFonts.nunito(
-                            fontSize: 13,
-                            color: GingaColors.brandGreen,
-                            fontWeight: FontWeight.w600)),
-                  ),
-                ),
-
-                // Error
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(GingaRadius.md),
-                      border: Border.all(color: Colors.red.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.error_outline,
-                            color: Colors.red.shade600, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(_errorMessage!,
-                              style: GoogleFonts.nunito(
-                                  fontSize: 13,
-                                  color: Colors.red.shade700)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 32),
-
-                // Botón Login
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: GingaColors.brandGreen,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(GingaRadius.full),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2),
-                          )
-                        : Text('Iniciar Sesión',
-                            style: GoogleFonts.montserrat(
-                                fontSize: 15, fontWeight: FontWeight.w700)),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Registro
-                GestureDetector(
-                  onTap: () => context.go('/profile-creation'),
-                  child: RichText(
-                    text: TextSpan(
-                      text: '¿No tienes cuenta? ',
-                      style: GoogleFonts.nunito(
-                          color: GingaColors.textSecondary, fontSize: 13),
-                      children: [
-                        TextSpan(
-                          text: 'Regístrate',
-                          style: GoogleFonts.nunito(
-                              color: GingaColors.brandGreen,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 40),
-              ],
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: isDesktop ? 20 : 28),
+              child: bodyContent,
             ),
           ),
         ),
