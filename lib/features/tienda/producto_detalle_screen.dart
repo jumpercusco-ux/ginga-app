@@ -57,6 +57,211 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
     }
   }
 
+  Widget _buildDivider() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Divider(
+      color: isDark ? Colors.white12 : Colors.black12,
+      thickness: 1,
+    );
+  }
+
+  Widget _buildSizesWrap(List<String> tallas, Color cardBg, Color borderColor) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: tallas.map((talla) {
+        final isSelected = _tallaSeleccionada == talla;
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              _tallaSeleccionada = talla;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: isSelected ? GingaColors.brandGreen : cardBg,
+              borderRadius: BorderRadius.circular(GingaRadius.md),
+              border: Border.all(
+                color: isSelected ? GingaColors.brandGreen : borderColor,
+                width: 1.5,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: GingaColors.brandGreen.withOpacity(0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      )
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isSelected) ...[
+                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 14),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  talla,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected ? Colors.white : GingaColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildQuantityPicker(Color cardBg, Color borderColor, int stock) {
+    return Row(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: cardBg,
+            border: Border.all(color: borderColor),
+            borderRadius: BorderRadius.circular(GingaRadius.md),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove, size: 16),
+                onPressed: () {
+                  if (_cantidad > 1) {
+                    setState(() => _cantidad--);
+                  }
+                },
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Text(
+                  '$_cantidad',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add, size: 16),
+                onPressed: () {
+                  if (_cantidad < stock) {
+                    setState(() => _cantidad++);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Llegaste al límite del stock disponible'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required BuildContext context,
+    required String categoria,
+    required String nombre,
+    required double precio,
+    required String imagenUrl,
+    required int stock,
+    required bool hasSizes,
+  }) {
+    return SizedBox(
+      height: 54,
+      width: double.infinity,
+      child: categoria == 'membresias'
+          ? ElevatedButton.icon(
+              onPressed: () => _launchWhatsApp(context, nombre, precio),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF25D366), // Verde WhatsApp
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(GingaRadius.full),
+                ),
+                elevation: 0,
+              ),
+              icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+              label: Text(
+                'Adquirir por WhatsApp 🥋',
+                style: GoogleFonts.montserrat(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            )
+          : ElevatedButton(
+              onPressed: stock <= 0
+                  ? null
+                  : () {
+                      if (hasSizes && _tallaSeleccionada == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Por favor, selecciona una talla/medida antes de agregar. 🥋',
+                              style: GoogleFonts.nunito(color: Colors.white),
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      TiendaService.instance.agregarAlCarrito(
+                        id: widget.productoId,
+                        nombre: nombre,
+                        precio: precio,
+                        imagenUrl: imagenUrl,
+                        categoria: categoria,
+                        cantidad: _cantidad,
+                        talla: hasSizes ? _tallaSeleccionada : null,
+                      );
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '¡$nombre ${hasSizes ? "($_tallaSeleccionada) " : ""}añadido al carrito! 🛒',
+                            style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w600),
+                          ),
+                          backgroundColor: GingaColors.brandGreen,
+                          duration: const Duration(seconds: 2),
+                          action: SnackBarAction(
+                            label: 'VER',
+                            textColor: Colors.white,
+                            onPressed: () => context.push('/carrito'),
+                          ),
+                        ),
+                      );
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: GingaColors.brandGreen,
+                disabledBackgroundColor: Colors.grey.shade300,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(GingaRadius.full),
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                stock <= 0 ? 'Artículo Agotado' : 'Añadir al Carrito de Reservas',
+                style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -76,7 +281,9 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
         if (!snapshot.hasData || !snapshot.data!.exists) {
           return Scaffold(
             backgroundColor: GingaColors.backgroundLight,
-            appBar: AppBar(),
+            appBar: AppBar(
+              centerTitle: true,
+            ),
             body: Center(
               child: Text(
                 'El producto no se encuentra disponible.',
@@ -115,11 +322,15 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
           categoryIcon = Icons.card_membership_outlined;
         }
 
+        final double screenWidth = MediaQuery.of(context).size.width;
+        final bool isLargeScreen = screenWidth > 720;
+
         return Scaffold(
           backgroundColor: GingaColors.backgroundLight,
           appBar: AppBar(
             backgroundColor: GingaColors.backgroundLight,
             elevation: 0,
+            centerTitle: true,
             leading: IconButton(
               icon: Icon(Icons.arrow_back, color: GingaColors.textPrimary),
               onPressed: () async {
@@ -155,359 +366,440 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
               ),
             ),
           ),
-          bottomNavigationBar: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: SizedBox(
-                height: 54,
-                child: categoria == 'membresias'
-                    ? ElevatedButton.icon(
-                        onPressed: () => _launchWhatsApp(context, nombre, precio),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF25D366), // Verde WhatsApp
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(GingaRadius.full),
-                          ),
-                          elevation: 0,
+          bottomNavigationBar: isLargeScreen
+              ? null
+              : SafeArea(
+                  child: Center(
+                    heightFactor: 1.0,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 800),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        child: _buildActionButton(
+                          context: context,
+                          categoria: categoria,
+                          nombre: nombre,
+                          precio: precio,
+                          imagenUrl: imagenUrl,
+                          stock: stock,
+                          hasSizes: hasSizes,
                         ),
-                        icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-                        label: Text(
-                          'Adquirir por WhatsApp 🥋',
-                          style: GoogleFonts.montserrat(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      )
-                    : ElevatedButton(
-                        onPressed: stock <= 0
-                            ? null
-                            : () {
-                                if (hasSizes && _tallaSeleccionada == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Por favor, selecciona una talla/medida antes de agregar. 🥋',
-                                        style: GoogleFonts.nunito(color: Colors.white),
-                                      ),
-                                      backgroundColor: Colors.red,
+                      ),
+                    ),
+                  ),
+                ),
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: isLargeScreen
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── COLUMNA IZQUIERDA: Imagen ─────────────────
+                          Expanded(
+                            flex: 10,
+                            child: Column(
+                              children: [
+                                AspectRatio(
+                                  aspectRatio: 1.0,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: categoryColor.withOpacity(0.06),
+                                      borderRadius: BorderRadius.circular(GingaRadius.lg),
+                                      border: Border.all(color: borderColor),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.04),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
                                     ),
-                                  );
-                                  return;
-                                }
-
-                                TiendaService.instance.agregarAlCarrito(
-                                  id: widget.productoId,
+                                    clipBehavior: Clip.antiAlias,
+                                    child: Stack(
+                                      children: [
+                                        Center(
+                                          child: GingaCachedImage(
+                                            imageUrl: imagenUrl,
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            category: categoria,
+                                            errorWidget: Center(
+                                              child: Icon(
+                                                categoryIcon,
+                                                color: categoryColor.withOpacity(0.4),
+                                                size: 90,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        // Badge de Rating
+                                        Positioned(
+                                          top: 16,
+                                          right: 16,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              color: cardBg.withOpacity(0.92),
+                                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                                              border: Border.all(color: borderColor),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.star, color: GingaColors.accentAmber, size: 14),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  rating.toStringAsFixed(1),
+                                                  style: GoogleFonts.montserrat(
+                                                    color: GingaColors.textPrimary,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 32),
+                          // ── COLUMNA DERECHA: Detalles ─────────────────
+                          Expanded(
+                            flex: 12,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Badge de Categoría
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: categoryColor.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                    border: Border.all(color: categoryColor.withOpacity(0.2)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(categoryIcon, color: categoryColor, size: 12),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        categoria.toUpperCase(),
+                                        style: GoogleFonts.montserrat(
+                                          color: categoryColor,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // Nombre
+                                Text(
+                                  nombre,
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    color: GingaColors.textPrimary,
+                                    height: 1.25,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // Precio
+                                Text(
+                                  'S/ ${precio.toStringAsFixed(2)}',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w900,
+                                    color: GingaColors.brandGreen,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                // Stock
+                                Text(
+                                  categoria == 'membresias'
+                                      ? 'Membresía Oficial Ginga App'
+                                      : (stock <= 0
+                                          ? 'Sin unidades disponibles'
+                                          : 'Stock disponible: $stock unidades'),
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 13,
+                                    color: stock <= 0 && categoria != 'membresias'
+                                        ? Colors.red
+                                        : stock <= 5 && categoria != 'membresias'
+                                            ? GingaColors.accentAmber
+                                            : GingaColors.textSecondary,
+                                    fontWeight: stock <= 5 && categoria != 'membresias' ? FontWeight.w700 : FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                _buildDivider(),
+                                const SizedBox(height: 16),
+                                // Descripción
+                                Text(
+                                  'Descripción del producto',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: GingaColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  descripcion,
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 13.5,
+                                    color: GingaColors.textSecondary,
+                                    height: 1.6,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                // Tallas
+                                if (categoria != 'membresias' && hasSizes && stock > 0) ...[
+                                  _buildDivider(),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Selecciona variante o talla',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: GingaColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildSizesWrap(tallas, cardBg, borderColor),
+                                  const SizedBox(height: 16),
+                                ],
+                                // Cantidad
+                                if (categoria != 'membresias' && stock > 0) ...[
+                                  _buildDivider(),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Cantidad a reservar',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: GingaColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildQuantityPicker(cardBg, borderColor, stock),
+                                  const SizedBox(height: 24),
+                                ],
+                                // Botón de acción directo para pantallas grandes
+                                _buildActionButton(
+                                  context: context,
+                                  categoria: categoria,
                                   nombre: nombre,
                                   precio: precio,
                                   imagenUrl: imagenUrl,
-                                  categoria: categoria,
-                                  cantidad: _cantidad,
-                                  talla: hasSizes ? _tallaSeleccionada : null,
-                                );
-
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      '¡$nombre ${hasSizes ? "($_tallaSeleccionada) " : ""}añadido al carrito! 🛒',
-                                      style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w600),
-                                    ),
-                                    backgroundColor: GingaColors.brandGreen,
-                                    duration: const Duration(seconds: 2),
-                                    action: SnackBarAction(
-                                      label: 'VER',
-                                      textColor: Colors.white,
-                                      onPressed: () => context.push('/carrito'),
+                                  stock: stock,
+                                  hasSizes: hasSizes,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── IMAGEN MÓVIL ─────────────────────────────
+                          AspectRatio(
+                            aspectRatio: 4 / 3,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: categoryColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(GingaRadius.lg),
+                                border: Border.all(color: borderColor),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Stack(
+                                children: [
+                                  Center(
+                                    child: GingaCachedImage(
+                                      imageUrl: imagenUrl,
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      category: categoria,
+                                      errorWidget: Center(
+                                        child: Icon(
+                                          categoryIcon,
+                                          color: categoryColor.withOpacity(0.4),
+                                          size: 90,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                );
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: GingaColors.brandGreen,
-                          disabledBackgroundColor: Colors.grey.shade300,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(GingaRadius.full),
-                          ),
-                        ),
-                        child: Text(
-                          stock <= 0 ? 'Artículo Agotado' : 'Añadir al Carrito de Reservas',
-                          style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
-                        ),
-                      ),
-              ),
-            ),
-          ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 10),
-
-                // ── Gran Cabecera de Imagen ───────────────────────────
-                Container(
-                  width: double.infinity,
-                  height: 250,
-                  decoration: BoxDecoration(
-                    color: categoryColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(GingaRadius.lg),
-                    border: Border.all(color: GingaColors.borderLight),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Stack(
-                    children: [
-                      Center(
-                        child: GingaCachedImage(
-                          imageUrl: imagenUrl,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
-                          category: categoria,
-                          errorWidget: Center(
-                            child: Icon(
-                              categoryIcon,
-                              color: categoryColor.withOpacity(0.4),
-                              size: 90,
+                                  // Badge de Categoría
+                                  Positioned(
+                                    bottom: 16,
+                                    left: 16,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: categoryColor,
+                                        borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                      ),
+                                      child: Text(
+                                        categoria.toUpperCase(),
+                                        style: GoogleFonts.montserrat(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  // Badge de Rating
+                                  Positioned(
+                                    top: 16,
+                                    right: 16,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: cardBg.withOpacity(0.9),
+                                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                                        border: Border.all(color: borderColor),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.star, color: GingaColors.accentAmber, size: 14),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            rating.toStringAsFixed(1),
+                                            style: GoogleFonts.montserrat(
+                                              color: GingaColors.textPrimary,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      // Badge de Categoría
-                      Positioned(
-                        bottom: 16,
-                        left: 16,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: categoryColor,
-                            borderRadius: BorderRadius.circular(GingaRadius.sm),
-                          ),
-                          child: Text(
-                            categoria.toUpperCase(),
-                            style: GoogleFonts.montserrat(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Badge de Rating
-                      Positioned(
-                        top: 16,
-                        right: 16,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: cardBg.withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(GingaRadius.md),
-                            border: Border.all(color: borderColor),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                          const SizedBox(height: 20),
+                          // Título y Precio
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.star, color: GingaColors.accentAmber, size: 14),
-                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      nombre,
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w800,
+                                        color: GingaColors.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      categoria == 'membresias'
+                                          ? 'Membresía Oficial Ginga App'
+                                          : (stock <= 0
+                                              ? 'Sin unidades disponibles'
+                                              : 'Stock disponible: $stock unidades'),
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 13,
+                                        color: stock <= 0 && categoria != 'membresias'
+                                            ? Colors.red
+                                            : stock <= 5 && categoria != 'membresias'
+                                                ? GingaColors.accentAmber
+                                                : GingaColors.textSecondary,
+                                        fontWeight: stock <= 5 && categoria != 'membresias' ? FontWeight.w700 : FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
                               Text(
-                                rating.toStringAsFixed(1),
+                                'S/ ${precio.toStringAsFixed(2)}',
                                 style: GoogleFonts.montserrat(
-                                  color: GingaColors.textPrimary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  color: GingaColors.brandGreen,
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // ── Título y Precio ──────────────────────────────────
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                          const SizedBox(height: 20),
+                          _buildDivider(),
+                          const SizedBox(height: 20),
+                          // Descripción
                           Text(
-                            nombre,
+                            'Descripción del producto',
                             style: GoogleFonts.montserrat(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
                               color: GingaColors.textPrimary,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 8),
                           Text(
-                            categoria == 'membresias'
-                                ? 'Membresía Oficial Ginga App'
-                                : (stock <= 0
-                                    ? 'Sin unidades disponibles'
-                                    : 'Stock disponible: $stock unidades'),
+                            descripcion,
                             style: GoogleFonts.nunito(
-                              fontSize: 13,
-                              color: stock <= 0 && categoria != 'membresias'
-                                  ? Colors.red
-                                  : stock <= 5 && categoria != 'membresias'
-                                      ? GingaColors.accentAmber
-                                      : GingaColors.textSecondary,
-                              fontWeight: stock <= 5 && categoria != 'membresias' ? FontWeight.w700 : FontWeight.w500,
+                              fontSize: 13.5,
+                              color: GingaColors.textSecondary,
+                              height: 1.5,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'S/ ${precio.toStringAsFixed(2)}',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: GingaColors.brandGreen,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── Descripción del Producto ──────────────────────────
-                Text(
-                  'Descripción del producto',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  descripcion,
-                  style: GoogleFonts.nunito(
-                    fontSize: 13.5,
-                    color: GingaColors.textSecondary,
-                    height: 1.5,
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── Tallas / Medidas Disponibles ───────────────────────
-                if (categoria != 'membresias' && hasSizes && stock > 0) ...[
-                  Text(
-                    'Selecciona variante o talla',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: GingaColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: tallas.map((talla) {
-                      final isSelected = _tallaSeleccionada == talla;
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _tallaSeleccionada = talla;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: isSelected ? GingaColors.brandGreen : cardBg,
-                            borderRadius: BorderRadius.circular(GingaRadius.md),
-                            border: Border.all(
-                              color: isSelected ? GingaColors.brandGreen : borderColor,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Text(
-                            talla,
-                            style: GoogleFonts.montserrat(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: isSelected ? Colors.white : GingaColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-
-                // ── Selector de Volumen / Cantidad ───────────────────
-                if (categoria != 'membresias' && stock > 0) ...[
-                  Text(
-                    'Cantidad a reservar',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: GingaColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: cardBg,
-                          border: Border.all(color: borderColor),
-                          borderRadius: BorderRadius.circular(GingaRadius.md),
-                        ),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove, size: 18),
-                              onPressed: () {
-                                if (_cantidad > 1) {
-                                  setState(() => _cantidad--);
-                                }
-                              },
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text(
-                                '$_cantidad',
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                          const SizedBox(height: 20),
+                          // Tallas
+                          if (categoria != 'membresias' && hasSizes && stock > 0) ...[
+                            _buildDivider(),
+                            const SizedBox(height: 20),
+                            Text(
+                              'Selecciona variante o talla',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.textPrimary,
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.add, size: 18),
-                              onPressed: () {
-                                if (_cantidad < stock) {
-                                  setState(() => _cantidad++);
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Llegaste al límite del stock disponible'),
-                                      duration: Duration(seconds: 1),
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
+                            const SizedBox(height: 8),
+                            _buildSizesWrap(tallas, cardBg, borderColor),
+                            const SizedBox(height: 20),
                           ],
-                        ),
+                          // Cantidad
+                          if (categoria != 'membresias' && stock > 0) ...[
+                            _buildDivider(),
+                            const SizedBox(height: 20),
+                            Text(
+                              'Cantidad a reservar',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildQuantityPicker(cardBg, borderColor, stock),
+                            const SizedBox(height: 32),
+                          ],
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                ],
-              ],
+              ),
             ),
           ),
         );
@@ -515,3 +807,4 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
     );
   }
 }
+
