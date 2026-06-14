@@ -557,7 +557,8 @@ class _HomeDashboard extends StatelessWidget {
         final bool isVirtual = (sede == 'Virtual / A Distancia');
 
         return SafeArea(
-          child: Center(
+          child: Align(
+            alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
               child: SingleChildScrollView(
