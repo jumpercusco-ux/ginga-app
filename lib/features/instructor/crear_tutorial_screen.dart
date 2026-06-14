@@ -8,6 +8,7 @@ import 'dart:typed_data';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/services/tutoriales_service.dart';
 import '../biblioteca/widgets/tutorial_thumbnail.dart';
+import '../../core/models/cuerdas_fiu.dart';
 
 class CrearTutorialScreen extends StatefulWidget {
   final String tutorialId;
@@ -33,6 +34,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
   // Variables de selectores
   String _selectedCategory = 'Fundamentos';
   String _selectedLevel = 'Iniciante';
+  String _selectedCorda = 'Crua';
   String _existingImageUrl = '';
   String _existingVideoUrl = '';
   bool _visible = true;
@@ -84,6 +86,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
           _tipErrorController.text = data['tipError'] ?? '';
           _selectedCategory = data['categoria'] ?? 'Fundamentos';
           _selectedLevel = data['nivel'] ?? 'Iniciante';
+          _selectedCorda = data['corda'] ?? 'Crua';
           _existingImageUrl = data['imagen_url'] ?? '';
           _existingVideoUrl = data['video_url'] ?? '';
           _visible = data['visible'] ?? true;
@@ -187,6 +190,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
         titulo: _tituloController.text.trim(),
         categoria: _selectedCategory,
         nivel: _selectedLevel,
+        corda: _selectedCorda,
         duracion: _duracionController.text.trim(),
         descripcion: _descripcionController.text.trim(),
         tipMestre: _tipMestreController.text.trim(),
@@ -391,6 +395,28 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16),
+
+                    // Cuerda Requerida (Corda)
+                    _buildLabel('Cuerda Requerida (Graduación) *'),
+                    DropdownButtonFormField<String>(
+                      value: _selectedCorda,
+                      items: CuerdasFIU.lista.map((c) {
+                        return DropdownMenuItem(
+                          value: c.nombre,
+                          child: Text(
+                            '${c.nombre} (${c.rango})',
+                            style: GoogleFonts.nunito(
+                              fontSize: 13,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) => setState(() => _selectedCorda = value!),
+                      decoration: _buildInputDecoration('Selecciona la cuerda mínima'),
+                    ),
+
                     const SizedBox(height: 16),
 
                     // Duración
