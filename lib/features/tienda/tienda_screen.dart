@@ -315,10 +315,12 @@ class _ProductCard extends StatelessWidget {
             // ── Imagen / Miniatura del Producto ────────────────────────────
             Expanded(
               child: Stack(
+                fit: StackFit.expand,
                 children: [
                   // Contenedor elegante de marcador de posición (Fallback robusto)
                   Container(
                     width: double.infinity,
+                    height: double.infinity,
                     color: categoryColor.withOpacity(0.08),
                     child: Hero(
                       tag: 'product-image-$id',
