@@ -557,48 +557,53 @@ class _HomeDashboard extends StatelessWidget {
         final bool isVirtual = (sede == 'Virtual / A Distancia');
 
         return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
 
-                // Header siempre visible
-                _Header(
-                  nombre: nombre,
-                  corda: corda,
-                  uid: uid ?? '',
-                  avatarKey: profileAvatarKey,
+                    // Header siempre visible
+                    _Header(
+                      nombre: nombre,
+                      corda: corda,
+                      uid: uid ?? '',
+                      avatarKey: profileAvatarKey,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Banner según estado
+                    _StatusBanner(
+                      status: status,
+                      sede: sede,
+                      membresiaFin: membresiaFin,
+                      nombre: nombre,
+                      reserveKey: isVirtual ? null : classReserveKey,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Contenido según estado
+                    _ContentByStatus(
+                      status: status,
+                      claseId: claseId,
+                      uid: uid ?? '',
+                      sede: sede,
+                      reserveKey: isVirtual ? classReserveKey : null,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Promo de la Tienda
+                    _StorePromoBanner(onTap: onTapStore),
+                    const SizedBox(height: 20),
+
+                    const SizedBox(height: 28),
+                  ],
                 ),
-                const SizedBox(height: 20),
-
-                // Banner según estado
-                _StatusBanner(
-                  status: status,
-                  sede: sede,
-                  membresiaFin: membresiaFin,
-                  nombre: nombre,
-                  reserveKey: isVirtual ? null : classReserveKey,
-                ),
-                const SizedBox(height: 20),
-
-                // Contenido según estado
-                _ContentByStatus(
-                  status: status,
-                  claseId: claseId,
-                  uid: uid ?? '',
-                  sede: sede,
-                  reserveKey: isVirtual ? classReserveKey : null,
-                ),
-                const SizedBox(height: 20),
-
-                // Promo de la Tienda
-                _StorePromoBanner(onTap: onTapStore),
-                const SizedBox(height: 20),
-
-                const SizedBox(height: 28),
-              ],
+              ),
             ),
           ),
         );

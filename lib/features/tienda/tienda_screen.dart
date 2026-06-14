@@ -104,154 +104,170 @@ class _TiendaScreenState extends State<TiendaScreen> {
           const SizedBox(width: 12),
         ],
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Selector de Categorías (Horizontal) ────────────────────────
-          Container(
-            height: 46,
-            margin: const EdgeInsets.only(top: 8, bottom: 16),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: _categorias.length,
-              itemBuilder: (context, index) {
-                final cat = _categorias[index];
-                final isSelected = _categoriaSeleccionada == cat['id'];
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Selector de Categorías (Horizontal) ────────────────────────
+              Container(
+                height: 46,
+                margin: const EdgeInsets.only(top: 8, bottom: 16),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: _categorias.length,
+                  itemBuilder: (context, index) {
+                    final cat = _categorias[index];
+                    final isSelected = _categoriaSeleccionada == cat['id'];
 
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(
-                      cat['label']!,
-                      style: GoogleFonts.montserrat(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: isSelected
-                            ? Colors.white
-                            : GingaColors.textSecondary,
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(
+                          cat['label']!,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: isSelected
+                                ? Colors.white
+                                : GingaColors.textSecondary,
+                          ),
+                        ),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _categoriaSeleccionada = cat['id']!;
+                            });
+                          }
+                        },
+                        selectedColor: GingaColors.brandGreen,
+                        backgroundColor: cardBg,
+                        disabledColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.full),
+                          side: BorderSide(
+                            color: isSelected
+                                ? GingaColors.brandGreen
+                                : borderColor,
+                            width: 1,
+                          ),
+                        ),
+                        showCheckmark: false,
                       ),
-                    ),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      if (selected) {
-                        setState(() {
-                          _categoriaSeleccionada = cat['id']!;
-                        });
-                      }
-                    },
-                    selectedColor: GingaColors.brandGreen,
-                    backgroundColor: cardBg,
-                    disabledColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(GingaRadius.full),
-                      side: BorderSide(
-                        color: isSelected
-                            ? GingaColors.brandGreen
-                            : borderColor,
-                        width: 1,
-                      ),
-                    ),
-                    showCheckmark: false,
-                  ),
-                );
-              },
-            ),
-          ),
+                    );
+                  },
+                ),
+              ),
 
-          // ── Grid del Catálogo de Productos ──────────────────────────────
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('productos')
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                      child: CircularProgressIndicator(
-                          color: GingaColors.brandGreen));
-                }
+              // ── Grid del Catálogo de Productos ──────────────────────────────
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('productos')
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                          child: CircularProgressIndicator(
+                              color: GingaColors.brandGreen));
+                    }
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.storefront_outlined,
-                            size: 64,
-                            color: GingaColors.textSecondary.withOpacity(0.3)),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No hay productos disponibles por ahora',
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.storefront_outlined,
+                                size: 64,
+                                color: GingaColors.textSecondary.withOpacity(0.3)),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No hay productos disponibles por ahora',
+                              style: GoogleFonts.nunito(
+                                  color: GingaColors.textSecondary, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    // Filtrado por categoría en memoria
+                    final docs = snapshot.data!.docs.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      if (_categoriaSeleccionada == 'todos') return true;
+                      return (data['categoria'] ?? '') == _categoriaSeleccionada;
+                    }).toList();
+
+                    if (docs.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'No hay productos en esta categoría',
                           style: GoogleFonts.nunito(
                               color: GingaColors.textSecondary, fontSize: 14),
                         ),
-                      ],
-                    ),
-                  );
-                }
+                      );
+                    }
 
-                // Filtrado por categoría en memoria
-                final docs = snapshot.data!.docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  if (_categoriaSeleccionada == 'todos') return true;
-                  return (data['categoria'] ?? '') == _categoriaSeleccionada;
-                }).toList();
+                    final screenWidth = MediaQuery.of(context).size.width;
+                    int crossAxisCount = 2;
+                    double childAspectRatio = 0.72;
+                    if (screenWidth > 1100) {
+                      crossAxisCount = 4;
+                      childAspectRatio = 0.75;
+                    } else if (screenWidth > 750) {
+                      crossAxisCount = 3;
+                      childAspectRatio = 0.72;
+                    }
 
-                if (docs.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No hay productos en esta categoría',
-                      style: GoogleFonts.nunito(
-                          color: GingaColors.textSecondary, fontSize: 14),
-                    ),
-                  );
-                }
+                    return GridView.builder(
+                      padding: const EdgeInsets.only(
+                        left: 20,
+                        right: 20,
+                        top: 10,
+                        bottom: 150,
+                      ),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        childAspectRatio: childAspectRatio,
+                      ),
+                      itemCount: docs.length,
+                      itemBuilder: (context, index) {
+                        final doc = docs[index];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final String id = doc.id;
+                        final String nombre = data['nombre'] ?? '';
+                        final String descripcion = data['descripcion'] ?? '';
+                        final double precio =
+                            (data['precio'] as num?)?.toDouble() ?? 0.0;
+                        final String categoria = data['categoria'] ?? 'ropa';
+                        final String imagenUrl = data['imagen_url'] ?? '';
+                        final int stock = (data['stock'] as num?)?.toInt() ?? 0;
+                        final double rating =
+                            (data['rating'] as num?)?.toDouble() ?? 4.5;
 
-                return GridView.builder(
-                  padding: const EdgeInsets.only(
-                    left: 20,
-                    right: 20,
-                    top: 10,
-                    bottom: 150,
-                  ),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    childAspectRatio: 0.72,
-                  ),
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) {
-                    final doc = docs[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    final String id = doc.id;
-                    final String nombre = data['nombre'] ?? '';
-                    final String descripcion = data['descripcion'] ?? '';
-                    final double precio =
-                        (data['precio'] as num?)?.toDouble() ?? 0.0;
-                    final String categoria = data['categoria'] ?? 'ropa';
-                    final String imagenUrl = data['imagen_url'] ?? '';
-                    final int stock = (data['stock'] as num?)?.toInt() ?? 0;
-                    final double rating =
-                        (data['rating'] as num?)?.toDouble() ?? 4.5;
-
-                    return _ProductCard(
-                      id: id,
-                      nombre: nombre,
-                      descripcion: descripcion,
-                      precio: precio,
-                      categoria: categoria,
-                      imagenUrl: imagenUrl,
-                      stock: stock,
-                      rating: rating,
+                        return _ProductCard(
+                          id: id,
+                          nombre: nombre,
+                          descripcion: descripcion,
+                          precio: precio,
+                          categoria: categoria,
+                          imagenUrl: imagenUrl,
+                          stock: stock,
+                          rating: rating,
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

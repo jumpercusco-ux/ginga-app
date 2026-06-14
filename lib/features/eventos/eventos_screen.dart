@@ -126,100 +126,105 @@ class _EventosScreenState extends State<EventosScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 12),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 12),
 
-            // ── Filtros Rápidos (Categorías) ────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  _buildFilterTab(0, 'Próximos'),
-                  const SizedBox(width: 8),
-                  _buildFilterTab(1, 'Inscrito 🎟️'),
-                  const SizedBox(width: 8),
-                  _buildFilterTab(2, 'Historial'),
-                ],
-              ),
-            ),
+                // ── Filtros Rápidos (Categorías) ────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      _buildFilterTab(0, 'Próximos'),
+                      const SizedBox(width: 8),
+                      _buildFilterTab(1, 'Inscrito 🎟️'),
+                      const SizedBox(width: 8),
+                      _buildFilterTab(2, 'Historial'),
+                    ],
+                  ),
+                ),
 
-            const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-            // ── Lista de eventos ─────────────────────
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('eventos')
-                    .orderBy('fecha_inicio', descending: _selectedFilterIndex == 2)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting || _loadingRegistrations) {
-                    return const Center(
-                      child: CircularProgressIndicator(color: GingaColors.brandGreen),
-                    );
-                  }
+                // ── Lista de eventos ─────────────────────
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('eventos')
+                        .orderBy('fecha_inicio', descending: _selectedFilterIndex == 2)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting || _loadingRegistrations) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: GingaColors.brandGreen),
+                        );
+                      }
 
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return _buildEmptyState();
-                  }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return _buildEmptyState();
+                      }
 
-                  final now = DateTime.now();
-                  final allDocs = snapshot.data!.docs;
+                      final now = DateTime.now();
+                      final allDocs = snapshot.data!.docs;
 
-                  // Filtrar client-side según la pestaña seleccionada
-                  final List<QueryDocumentSnapshot> filteredDocs = allDocs.where((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final bool publicado = data['publicar_inmediatamente'] ?? true;
-                    if (!publicado) return false;
+                      // Filtrar client-side según la pestaña seleccionada
+                      final List<QueryDocumentSnapshot> filteredDocs = allDocs.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final bool publicado = data['publicar_inmediatamente'] ?? true;
+                        if (!publicado) return false;
 
-                    final Timestamp? endTs = data['fecha_fin'] as Timestamp?;
-                    final DateTime? end = endTs?.toDate();
+                        final Timestamp? endTs = data['fecha_fin'] as Timestamp?;
+                        final DateTime? end = endTs?.toDate();
 
-                    if (_selectedFilterIndex == 0) {
-                      // Próximos: que no hayan pasado
-                      return end == null || end.isAfter(now);
-                    } else if (_selectedFilterIndex == 1) {
-                      // Inscrito: que el ID esté en los registrados y que no hayan pasado
-                      final isReg = _registeredEventIds.contains(doc.id);
-                      final isFuture = end == null || end.isAfter(now);
-                      return isReg && isFuture;
-                    } else {
-                      // Pasados: que ya hayan culminado
-                      return end != null && end.isBefore(now);
-                    }
-                  }).toList();
+                        if (_selectedFilterIndex == 0) {
+                          // Próximos: que no hayan pasado
+                          return end == null || end.isAfter(now);
+                        } else if (_selectedFilterIndex == 1) {
+                          // Inscrito: que el ID esté en los registrados y que no hayan pasado
+                          final isReg = _registeredEventIds.contains(doc.id);
+                          final isFuture = end == null || end.isAfter(now);
+                          return isReg && isFuture;
+                        } else {
+                          // Pasados: que ya hayan culminado
+                          return end != null && end.isBefore(now);
+                        }
+                      }).toList();
 
-                  if (filteredDocs.isEmpty) {
-                    return _buildEmptyState();
-                  }
+                      if (filteredDocs.isEmpty) {
+                        return _buildEmptyState();
+                      }
 
-                  return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemCount: filteredDocs.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) {
-                      final doc = filteredDocs[index];
-                      final data = doc.data() as Map<String, dynamic>;
-                      final isRegistered = _registeredEventIds.contains(doc.id);
+                      return ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        itemCount: filteredDocs.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemBuilder: (context, index) {
+                          final doc = filteredDocs[index];
+                          final data = doc.data() as Map<String, dynamic>;
+                          final isRegistered = _registeredEventIds.contains(doc.id);
 
-                      return _EventoCard(
-                        eventId: doc.id,
-                        data: data,
-                        isRegistered: isRegistered,
-                        onTapDetails: () async {
-                          await context.push('/evento-detalle?eventId=${doc.id}');
-                          // Al regresar, refrescar la lista de registros
-                          _cargarRegistrosUsuario();
+                          return _EventoCard(
+                            eventId: doc.id,
+                            data: data,
+                            isRegistered: isRegistered,
+                            onTapDetails: () async {
+                              await context.push('/evento-detalle?eventId=${doc.id}');
+                              // Al regresar, refrescar la lista de registros
+                              _cargarRegistrosUsuario();
+                            },
+                          );
                         },
                       );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
