@@ -134,7 +134,13 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                         children: [
                           IconButton(
                             icon: Icon(Icons.arrow_back, color: textColor),
-                            onPressed: () => context.go('/home'),
+                            onPressed: () {
+                              if (Navigator.canPop(context)) {
+                                Navigator.pop(context);
+                              } else {
+                                context.go('/home');
+                              }
+                            },
                           ),
                           const SizedBox(width: 8),
                           Expanded(
