@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
 class TutorialesService {
@@ -28,7 +29,6 @@ class TutorialesService {
           },
           {
             'titulo': 'Au Batido',
-            'category': 'Floreos', // wait, let's keep it 'categoria' in firestore just to be standard!
             'categoria': 'Floreos',
             'nivel': 'Graduado',
             'duracion': '8 min',
@@ -122,18 +122,30 @@ class TutorialesService {
   }
 
   /// Sube la imagen seleccionada a Firebase Storage y retorna la URL pública
-  Future<String> subirPortadaTutorial(File imageFile) async {
+  Future<String> subirPortadaTutorial(XFile imageFile) async {
     final fileName = 'tutoriales_portadas/${DateTime.now().millisecondsSinceEpoch}.jpg';
     final ref = FirebaseStorage.instance.ref().child(fileName);
-    final uploadTask = await ref.putFile(imageFile);
-    return await uploadTask.ref.getDownloadURL();
+    if (kIsWeb) {
+      final bytes = await imageFile.readAsBytes();
+      final uploadTask = await ref.putData(bytes);
+      return await uploadTask.ref.getDownloadURL();
+    } else {
+      final uploadTask = await ref.putFile(File(imageFile.path));
+      return await uploadTask.ref.getDownloadURL();
+    }
   }
 
   /// Sube el video seleccionado a Firebase Storage y retorna la URL pública
-  Future<String> subirVideoTutorial(File videoFile) async {
+  Future<String> subirVideoTutorial(XFile videoFile) async {
     final fileName = 'tutoriales_videos/${DateTime.now().millisecondsSinceEpoch}.mp4';
     final ref = FirebaseStorage.instance.ref().child(fileName);
-    final uploadTask = await ref.putFile(videoFile);
-    return await uploadTask.ref.getDownloadURL();
+    if (kIsWeb) {
+      final bytes = await videoFile.readAsBytes();
+      final uploadTask = await ref.putData(bytes);
+      return await uploadTask.ref.getDownloadURL();
+    } else {
+      final uploadTask = await ref.putFile(File(videoFile.path));
+      return await uploadTask.ref.getDownloadURL();
+    }
   }
 }

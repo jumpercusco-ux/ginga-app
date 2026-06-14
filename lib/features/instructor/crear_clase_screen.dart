@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:typed_data';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -47,7 +49,8 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
     },
   ];
 
-  File? _selectedImageFile;
+  XFile? _selectedImageFile;
+  Uint8List? _webImageBytes;
   final ImagePicker _picker = ImagePicker();
   String _existingImageUrl = '';
 
@@ -192,8 +195,14 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
 
       if (pickedFile != null) {
         setState(() {
-          _selectedImageFile = File(pickedFile.path);
+          _selectedImageFile = pickedFile;
         });
+        if (kIsWeb) {
+          final bytes = await pickedFile.readAsBytes();
+          setState(() {
+            _webImageBytes = bytes;
+          });
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -624,8 +633,12 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
       if (_selectedImageFile != null) {
         final fileName = 'clases_imagenes/${DateTime.now().millisecondsSinceEpoch}.jpg';
         final ref = FirebaseStorage.instance.ref().child(fileName);
-        final uploadTask = await ref.putFile(_selectedImageFile!);
-        finalImageUrl = await uploadTask.ref.getDownloadURL();
+        if (kIsWeb && _webImageBytes != null) {
+          await ref.putData(_webImageBytes!);
+        } else {
+          await ref.putFile(File(_selectedImageFile!.path));
+        }
+        finalImageUrl = await ref.getDownloadURL();
       } else if (finalImageUrl.isEmpty || finalImageUrl.startsWith('assets/')) {
         finalImageUrl = _tipoClase == 'roda'
             ? 'assets/images/fiu_banner.png'
@@ -1057,7 +1070,9 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: _selectedImageFile != null
-                      ? Image.file(_selectedImageFile!, fit: BoxFit.cover)
+                      ? (kIsWeb
+                          ? (_webImageBytes != null ? Image.memory(_webImageBytes!, fit: BoxFit.cover) : Container())
+                          : Image.file(File(_selectedImageFile!.path), fit: BoxFit.cover))
                       : (_existingImageUrl.isNotEmpty
                           ? (_existingImageUrl.startsWith('assets/')
                               ? Image.asset(_existingImageUrl, fit: BoxFit.cover)

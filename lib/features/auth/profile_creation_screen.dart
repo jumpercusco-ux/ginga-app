@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:typed_data';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -21,7 +23,8 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  File? _imageFile;
+  XFile? _imageFile;
+  Uint8List? _webImageBytes;
   String _selectedSede = 'Virtual / A Distancia';
   String _selectedCorda = '';
   DateTime? _fechaInicio;
@@ -80,8 +83,14 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       );
       if (image != null) {
         setState(() {
-          _imageFile = File(image.path);
+          _imageFile = image;
         });
+        if (kIsWeb) {
+          final bytes = await image.readAsBytes();
+          setState(() {
+            _webImageBytes = bytes;
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error al seleccionar imagen: $e');
@@ -111,7 +120,11 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         final storageRef = FirebaseStorage.instance
             .ref()
             .child('user_avatars/$fileName');
-        await storageRef.putFile(_imageFile!);
+        if (kIsWeb && _webImageBytes != null) {
+          await storageRef.putData(_webImageBytes!);
+        } else {
+          await storageRef.putFile(File(_imageFile!.path));
+        }
         fotoUrl = await storageRef.getDownloadURL();
       }
 
@@ -211,7 +224,9 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                       CircleAvatar(
                         radius: 44,
                         backgroundColor: GingaColors.cardLight,
-                        backgroundImage: _imageFile != null ? FileImage(_imageFile!) : null,
+                        backgroundImage: (kIsWeb
+                            ? (_webImageBytes != null ? MemoryImage(_webImageBytes!) : null)
+                            : (_imageFile != null ? FileImage(File(_imageFile!.path)) : null)) as ImageProvider<Object>?,
                         child: _imageFile == null
                             ? Icon(Icons.person_outline,
                                 size: 40, color: GingaColors.textSecondary)

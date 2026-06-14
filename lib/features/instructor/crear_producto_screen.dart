@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../../core/theme/ginga_theme.dart';
@@ -28,7 +30,8 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
   bool _isLoading = false;
   bool _isEditMode = false;
 
-  File? _imageFile;
+  XFile? _imageFile;
+  Uint8List? _webImageBytes;
   String? _imagenUrlExistente;
 
   final List<Map<String, String>> _categorias = [
@@ -92,8 +95,14 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
       );
       if (image != null) {
         setState(() {
-          _imageFile = File(image.path);
+          _imageFile = image;
         });
+        if (kIsWeb) {
+          final bytes = await image.readAsBytes();
+          setState(() {
+            _webImageBytes = bytes;
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error al seleccionar imagen: $e');
@@ -121,7 +130,11 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
         final String fileName = 'prod_${DateTime.now().millisecondsSinceEpoch}.jpg';
         final storageRef = FirebaseStorage.instance.ref().child('productos_imagenes/$fileName');
         
-        await storageRef.putFile(_imageFile!);
+        if (kIsWeb && _webImageBytes != null) {
+          await storageRef.putData(_webImageBytes!);
+        } else {
+          await storageRef.putFile(File(_imageFile!.path));
+        }
         imagenUrl = await storageRef.getDownloadURL();
       }
 
@@ -224,7 +237,9 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
                           ),
                           clipBehavior: Clip.antiAlias,
                           child: _imageFile != null
-                              ? Image.file(_imageFile!, fit: BoxFit.cover)
+                              ? (kIsWeb
+                                  ? (_webImageBytes != null ? Image.memory(_webImageBytes!, fit: BoxFit.cover) : Container())
+                                  : Image.file(File(_imageFile!.path), fit: BoxFit.cover))
                               : (_imagenUrlExistente != null && (_imagenUrlExistente!.startsWith('http') || _imagenUrlExistente!.startsWith('assets/')))
                                   ? GingaCachedImage(
                                       imageUrl: _imagenUrlExistente!,

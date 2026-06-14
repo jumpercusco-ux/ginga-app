@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:typed_data';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/services/tutoriales_service.dart';
 import '../biblioteca/widgets/tutorial_thumbnail.dart';
@@ -36,8 +38,10 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
   bool _visible = true;
 
   // Selector de imagen y video
-  File? _selectedImageFile;
-  File? _selectedVideoFile;
+  XFile? _selectedImageFile;
+  XFile? _selectedVideoFile;
+  Uint8List? _webImageBytes;
+  Uint8List? _webVideoBytes;
   final ImagePicker _picker = ImagePicker();
 
   final List<String> _categorias = ['Fundamentos', 'Ataques', 'Defensas', 'Esquivas', 'Floreos'];
@@ -103,8 +107,14 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
 
       if (pickedFile != null) {
         setState(() {
-          _selectedVideoFile = File(pickedFile.path);
+          _selectedVideoFile = pickedFile;
         });
+        if (kIsWeb) {
+          final bytes = await pickedFile.readAsBytes();
+          setState(() {
+            _webVideoBytes = bytes;
+          });
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -124,8 +134,14 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
 
       if (pickedFile != null) {
         setState(() {
-          _selectedImageFile = File(pickedFile.path);
+          _selectedImageFile = pickedFile;
         });
+        if (kIsWeb) {
+          final bytes = await pickedFile.readAsBytes();
+          setState(() {
+            _webImageBytes = bytes;
+          });
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -281,7 +297,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                             const SizedBox(height: 4),
                             Text(
                               _selectedVideoFile != null
-                                  ? _selectedVideoFile!.path.split('/').last
+                                  ? _selectedVideoFile!.name
                                   : (_existingVideoUrl.isNotEmpty
                                       ? 'Toca para cambiar el video actual'
                                       : 'Sube un video en formato MP4 (máx. 10 min)'),
@@ -311,7 +327,9 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: _selectedImageFile != null
-                            ? Image.file(_selectedImageFile!, fit: BoxFit.cover)
+                            ? (kIsWeb
+                                ? (_webImageBytes != null ? Image.memory(_webImageBytes!, fit: BoxFit.cover) : Container())
+                                : Image.file(File(_selectedImageFile!.path), fit: BoxFit.cover))
                             : TutorialThumbnail(
                                 imagenUrl: _existingImageUrl,
                                 categoria: _selectedCategory,
