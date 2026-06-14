@@ -119,344 +119,702 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
             final cardThemeBg = Theme.of(context).cardTheme.color ?? GingaColors.cardLight;
             final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
 
-            return DefaultTabController(
-              length: 4,
-              child: Scaffold(
-                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                body: SafeArea(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 20),
+            final screenWidth = MediaQuery.of(context).size.width;
+            final isDesktop = screenWidth > 850;
 
-                      // ── Header ──────────────────────────
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(Icons.arrow_back, color: textColor),
-                              onPressed: () {
-                                if (Navigator.canPop(context)) {
-                                  Navigator.pop(context);
-                                } else {
-                                  context.go('/home');
-                                }
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Progreso y Logros',
-                                style: GoogleFonts.montserrat(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w800,
-                                    color: textColor),
+            if (isDesktop) {
+              return DefaultTabController(
+                length: 3,
+                child: Scaffold(
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  body: SafeArea(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Columna Izquierda (Sidebar)
+                        Container(
+                          width: 320,
+                          height: double.infinity,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              right: BorderSide(
+                                color: isDark ? Colors.white.withOpacity(0.08) : GingaColors.borderLight,
                               ),
                             ),
-                            IconButton(
-                              onPressed: () async {
-                                await FirebaseAuth.instance.signOut();
-                                if (context.mounted) context.go('/splash');
-                              },
-                              icon: Icon(Icons.logout,
-                                  color: subtitleColor, size: 22),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Tarjeta de perfil
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: cardThemeBg,
-                            borderRadius: BorderRadius.circular(GingaRadius.lg),
-                            border: Border.all(
-                                color: GingaColors.brandGreen.withOpacity(isDark ? 0.15 : 0.3)),
                           ),
-                          child: Stack(
-                            children: [
-                              Row(
-                                children: [
-                                  // Avatar con inicial
-                                  CircleAvatar(
-                                    radius: 32,
-                                    backgroundColor: GingaColors.brandGreen,
-                                    backgroundImage: fotoUrl != null && fotoUrl.isNotEmpty
-                                        ? NetworkImage(fotoUrl)
-                                        : null,
-                                    child: fotoUrl != null && fotoUrl.isNotEmpty
-                                        ? null
-                                        : Text(
-                                            inicial,
-                                            style: GoogleFonts.montserrat(
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.w800,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          nombre,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.montserrat(
-                                            fontSize: 18,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      icon: Icon(Icons.arrow_back, color: textColor),
+                                      onPressed: () {
+                                        if (Navigator.canPop(context)) {
+                                          Navigator.pop(context);
+                                        } else {
+                                          context.go('/home');
+                                        }
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Perfil',
+                                        style: GoogleFonts.montserrat(
+                                            fontSize: 20,
                                             fontWeight: FontWeight.w800,
-                                            color: textColor,
+                                            color: textColor),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () async {
+                                        await FirebaseAuth.instance.signOut();
+                                        if (context.mounted) context.go('/splash');
+                                      },
+                                      icon: Icon(Icons.logout,
+                                          color: subtitleColor, size: 22),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 20),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: cardThemeBg,
+                                    borderRadius: BorderRadius.circular(GingaRadius.lg),
+                                    border: Border.all(
+                                        color: GingaColors.brandGreen.withOpacity(isDark ? 0.15 : 0.3)),
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 28,
+                                            backgroundColor: GingaColors.brandGreen,
+                                            backgroundImage: fotoUrl != null && fotoUrl.isNotEmpty
+                                                ? NetworkImage(fotoUrl)
+                                                : null,
+                                            child: fotoUrl != null && fotoUrl.isNotEmpty
+                                                ? null
+                                                : Text(
+                                                    inicial,
+                                                    style: GoogleFonts.montserrat(
+                                                      fontSize: 20,
+                                                      fontWeight: FontWeight.w800,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Container(
-                                              width: 8,
-                                              height: 8,
-                                              decoration: const BoxDecoration(
-                                                color: GingaColors.brandGreen,
-                                                shape: BoxShape.circle,
-                                              ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  nombre,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: GoogleFonts.montserrat(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: textColor,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Row(
+                                                  children: [
+                                                    Container(
+                                                      width: 8,
+                                                      height: 8,
+                                                      decoration: const BoxDecoration(
+                                                        color: GingaColors.brandGreen,
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      corda,
+                                                      style: GoogleFonts.nunito(
+                                                        fontSize: 12,
+                                                        color: GingaColors.brandGreen,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Row(
+                                                  children: [
+                                                    Icon(Icons.location_on_outlined,
+                                                        size: 12,
+                                                        color: subtitleColor),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      sede,
+                                                      style: GoogleFonts.nunito(
+                                                        fontSize: 11,
+                                                        color: subtitleColor,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
                                             ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              corda,
-                                              style: GoogleFonts.nunito(
-                                                fontSize: 13,
-                                                color: GingaColors.brandGreen,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
+                                          ),
+                                        ],
+                                      ),
+                                      Positioned(
+                                        top: -6,
+                                        right: -6,
+                                        child: IconButton(
+                                          constraints: const BoxConstraints(),
+                                          padding: EdgeInsets.zero,
+                                          icon: const Icon(
+                                            Icons.edit_note_rounded,
+                                            color: GingaColors.brandGreen,
+                                            size: 24,
+                                          ),
+                                          onPressed: () => context.push('/editar-perfil'),
                                         ),
-                                        const SizedBox(height: 2),
-                                        Row(
-                                          children: [
-                                            Icon(Icons.location_on_outlined,
-                                                size: 13,
-                                                color: subtitleColor),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              sede,
-                                              style: GoogleFonts.nunito(
-                                                fontSize: 12,
-                                                color: subtitleColor,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                _SectionHeader(title: 'Ajustes de la App', actionLabel: ''),
+                                const SizedBox(height: 12),
+                                _NotificationToggleCard(
+                                  uid: uid,
+                                  notificationsEnabled: notificationsEnabled,
+                                ),
+                                const SizedBox(height: 12),
+                                const _ThemeToggleCard(),
+                                const SizedBox(height: 32),
+                                Center(
+                                  child: Text(
+                                    'Versión 1.0.131 (v131)',
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 11,
+                                      color: subtitleColor,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                ],
-                              ),
-                              Positioned(
-                                top: 0,
-                                right: 0,
-                                child: IconButton(
-                                  constraints: const BoxConstraints(),
-                                  padding: EdgeInsets.zero,
-                                  icon: const Icon(
-                                    Icons.edit_note_rounded,
-                                    color: GingaColors.brandGreen,
-                                    size: 26,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // Columna Derecha (Contenido de Pestañas: Progreso, Logros, Membresía)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 20),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                child: Container(
+                                  height: 38,
+                                  constraints: const BoxConstraints(maxWidth: 500),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? GingaColors.surfaceDark.withOpacity(0.5) : GingaColors.borderLight.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(24),
                                   ),
-                                  onPressed: () => context.push('/editar-perfil'),
+                                  padding: const EdgeInsets.all(3),
+                                  child: TabBar(
+                                    dividerColor: Colors.transparent,
+                                    indicatorSize: TabBarIndicatorSize.tab,
+                                    indicator: BoxDecoration(
+                                      color: GingaColors.brandGreen,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    labelColor: Colors.white,
+                                    unselectedLabelColor: GingaColors.textSecondary,
+                                    labelStyle: GoogleFonts.montserrat(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                    unselectedLabelStyle: GoogleFonts.montserrat(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    tabs: const [
+                                      Tab(text: 'Progreso'),
+                                      Tab(text: 'Logros'),
+                                      Tab(text: 'Membresía'),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Expanded(
+                                child: TabBarView(
+                                  children: [
+                                    // Pestaña 1: Progreso (Desktop)
+                                    SingleChildScrollView(
+                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              _ProgressCircle(
+                                                inicial: inicial,
+                                                porcentaje: porcentaje,
+                                                porcentajeInt: porcentajeInt,
+                                                fotoUrl: fotoUrl,
+                                              ),
+                                              const SizedBox(width: 32),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text('Progreso de Graduación',
+                                                        style: GoogleFonts.montserrat(
+                                                            fontSize: 18,
+                                                            fontWeight: FontWeight.w700,
+                                                            color: textColor)),
+                                                    const SizedBox(height: 6),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                          horizontal: 12, vertical: 4),
+                                                      decoration: BoxDecoration(
+                                                        color: GingaColors.brandGreen.withOpacity(0.15),
+                                                        borderRadius:
+                                                            BorderRadius.circular(GingaRadius.full),
+                                                      ),
+                                                      child: Text('Grado: $corda',
+                                                          style: GoogleFonts.nunito(
+                                                              fontSize: 13,
+                                                              color: GingaColors.brandGreen,
+                                                              fontWeight: FontWeight.w600)),
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    _XpBar(
+                                                      total: totalAsistencias,
+                                                      objetivo: objetivo,
+                                                      porcentaje: porcentaje,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 36),
+                                          _SectionHeader(
+                                              title: 'Asistencia del Mes', actionLabel: ''),
+                                          const SizedBox(height: 12),
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(maxWidth: 600),
+                                            child: _AsistenciaMensual(asistenciasFechas: asistenciasFechas),
+                                          ),
+                                          const SizedBox(height: 24),
+                                        ],
+                                      ),
+                                    ),
+
+                                    // Pestaña 2: Logros (Desktop)
+                                    SingleChildScrollView(
+                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          _SectionHeader(title: 'Tus Logros', actionLabel: ''),
+                                          const SizedBox(height: 16),
+                                          _LogrosRow(totalAsistencias: totalAsistencias),
+                                          const SizedBox(height: 24),
+                                        ],
+                                      ),
+                                    ),
+
+                                    // Pestaña 3: Membresía (Desktop)
+                                    SingleChildScrollView(
+                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (uid != null) ...[
+                                            _SectionHeader(
+                                                title: 'Mi Membresía y Pagos', actionLabel: ''),
+                                            const SizedBox(height: 12),
+                                            ConstrainedBox(
+                                              constraints: const BoxConstraints(maxWidth: 700),
+                                              child: _MembresiaYPagosSection(
+                                                uid: uid,
+                                                userStatus: userStatus,
+                                                membresiaInicio: membresiaInicio,
+                                                membresiaFin: membresiaFin,
+                                                pagosStream: _pagosStream,
+                                                compensacionesStream: _compensacionesStream,
+                                              ),
+                                            ),
+                                          ],
+                                          const SizedBox(height: 24),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
 
-                      const SizedBox(height: 16),
+            // Vista Móvil / Tablet Vertical (ancho <= 850)
+            return DefaultTabController(
+              length: 4,
+              child: Scaffold(
+                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                body: SafeArea(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 600),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 20),
 
-                      // ── TabBar (Pill/Chips Style) ───────
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Container(
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: isDark ? GingaColors.surfaceDark.withOpacity(0.5) : GingaColors.borderLight.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(24),
+                          // ── Header ──────────────────────────
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.arrow_back, color: textColor),
+                                  onPressed: () {
+                                    if (Navigator.canPop(context)) {
+                                      Navigator.pop(context);
+                                    } else {
+                                      context.go('/home');
+                                    }
+                                  },
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Progreso y Logros',
+                                    style: GoogleFonts.montserrat(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w800,
+                                        color: textColor),
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () async {
+                                    await FirebaseAuth.instance.signOut();
+                                    if (context.mounted) context.go('/splash');
+                                  },
+                                  icon: Icon(Icons.logout,
+                                      color: subtitleColor, size: 22),
+                                ),
+                              ],
+                            ),
                           ),
-                          padding: const EdgeInsets.all(3),
-                          child: TabBar(
-                            dividerColor: Colors.transparent,
-                            indicatorSize: TabBarIndicatorSize.tab,
-                            indicator: BoxDecoration(
-                              color: GingaColors.brandGreen,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            labelColor: Colors.white,
-                            unselectedLabelColor: GingaColors.textSecondary,
-                            labelStyle: GoogleFonts.montserrat(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                            ),
-                            unselectedLabelStyle: GoogleFonts.montserrat(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            tabs: const [
-                              Tab(text: 'Progreso'),
-                              Tab(text: 'Logros'),
-                              Tab(text: 'Membresía'),
-                              Tab(text: 'Ajustes'),
-                            ],
-                          ),
-                        ),
-                      ),
 
-                      const SizedBox(height: 12),
+                          const SizedBox(height: 16),
 
-                      // ── TabBarView ──────────────────────
-                      Expanded(
-                        child: TabBarView(
-                          children: [
-                            // Pestaña 1: Progreso
-                            SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                          // Tarjeta de perfil
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: cardThemeBg,
+                                borderRadius: BorderRadius.circular(GingaRadius.lg),
+                                border: Border.all(
+                                    color: GingaColors.brandGreen.withOpacity(isDark ? 0.15 : 0.3)),
+                              ),
+                              child: Stack(
                                 children: [
-                                  const SizedBox(height: 12),
-                                  Center(
-                                    child: _ProgressCircle(
-                                      inicial: inicial,
-                                      porcentaje: porcentaje,
-                                      porcentajeInt: porcentajeInt,
-                                      fotoUrl: fotoUrl,
+                                  Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 32,
+                                        backgroundColor: GingaColors.brandGreen,
+                                        backgroundImage: fotoUrl != null && fotoUrl.isNotEmpty
+                                            ? NetworkImage(fotoUrl)
+                                            : null,
+                                        child: fotoUrl != null && fotoUrl.isNotEmpty
+                                            ? null
+                                            : Text(
+                                                inicial,
+                                                style: GoogleFonts.montserrat(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              nombre,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.montserrat(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w800,
+                                                color: textColor,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 8,
+                                                  height: 8,
+                                                  decoration: const BoxDecoration(
+                                                    color: GingaColors.brandGreen,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  corda,
+                                                  style: GoogleFonts.nunito(
+                                                    fontSize: 13,
+                                                    color: GingaColors.brandGreen,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.location_on_outlined,
+                                                    size: 13,
+                                                    color: subtitleColor),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  sede,
+                                                  style: GoogleFonts.nunito(
+                                                    fontSize: 12,
+                                                    color: subtitleColor,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Positioned(
+                                    top: 0,
+                                    right: 0,
+                                    child: IconButton(
+                                      constraints: const BoxConstraints(),
+                                      padding: EdgeInsets.zero,
+                                      icon: const Icon(
+                                        Icons.edit_note_rounded,
+                                        color: GingaColors.brandGreen,
+                                        size: 26,
+                                      ),
+                                      onPressed: () => context.push('/editar-perfil'),
                                     ),
                                   ),
-                                  const SizedBox(height: 20),
-                                  Center(
-                                    child: Column(
-                                      children: [
-                                        Text('Progreso de Graduación',
-                                            style: GoogleFonts.montserrat(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w700,
-                                                color: textColor)),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: GingaColors.brandGreen.withOpacity(0.15),
-                                            borderRadius:
-                                                BorderRadius.circular(GingaRadius.full),
-                                          ),
-                                          child: Text('Grado: $corda',
-                                              style: GoogleFonts.nunito(
-                                                  fontSize: 13,
-                                                  color: GingaColors.brandGreen,
-                                                  fontWeight: FontWeight.w600)),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        _XpBar(
-                                          total: totalAsistencias,
-                                          objetivo: objetivo,
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // ── TabBar (Pill/Chips Style) ───────
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Container(
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: isDark ? GingaColors.surfaceDark.withOpacity(0.5) : GingaColors.borderLight.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              padding: const EdgeInsets.all(3),
+                              child: TabBar(
+                                dividerColor: Colors.transparent,
+                                indicatorSize: TabBarIndicatorSize.tab,
+                                indicator: BoxDecoration(
+                                  color: GingaColors.brandGreen,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                labelColor: Colors.white,
+                                unselectedLabelColor: GingaColors.textSecondary,
+                                labelStyle: GoogleFonts.montserrat(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                                unselectedLabelStyle: GoogleFonts.montserrat(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                tabs: const [
+                                  Tab(text: 'Progreso'),
+                                  Tab(text: 'Logros'),
+                                  Tab(text: 'Membresía'),
+                                  Tab(text: 'Ajustes'),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // ── TabBarView ──────────────────────
+                          Expanded(
+                            child: TabBarView(
+                              children: [
+                                // Pestaña 1: Progreso
+                                SingleChildScrollView(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 12),
+                                      Center(
+                                        child: _ProgressCircle(
+                                          inicial: inicial,
                                           porcentaje: porcentaje,
+                                          porcentajeInt: porcentajeInt,
+                                          fotoUrl: fotoUrl,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 20),
+                                      Center(
+                                        child: Column(
+                                          children: [
+                                            Text('Progreso de Graduación',
+                                                style: GoogleFonts.montserrat(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: textColor)),
+                                            const SizedBox(height: 4),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 12, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: GingaColors.brandGreen.withOpacity(0.15),
+                                                borderRadius:
+                                                    BorderRadius.circular(GingaRadius.full),
+                                              ),
+                                              child: Text('Grado: $corda',
+                                                  style: GoogleFonts.nunito(
+                                                      fontSize: 13,
+                                                      color: GingaColors.brandGreen,
+                                                      fontWeight: FontWeight.w600)),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            _XpBar(
+                                              total: totalAsistencias,
+                                              objetivo: objetivo,
+                                              porcentaje: porcentaje,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 28),
+                                      _SectionHeader(
+                                          title: 'Asistencia del Mes', actionLabel: ''),
+                                      const SizedBox(height: 12),
+                                      _AsistenciaMensual(asistenciasFechas: asistenciasFechas),
+                                      const SizedBox(height: 24),
+                                    ],
+                                  ),
+                                ),
+
+                                // Pestaña 2: Logros
+                                SingleChildScrollView(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 12),
+                                      _SectionHeader(title: 'Tus Logros', actionLabel: ''),
+                                      const SizedBox(height: 16),
+                                      _LogrosRow(totalAsistencias: totalAsistencias),
+                                      const SizedBox(height: 24),
+                                    ],
+                                  ),
+                                ),
+
+                                // Pestaña 3: Membresía
+                                SingleChildScrollView(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 12),
+                                      if (uid != null) ...[
+                                        _SectionHeader(
+                                            title: 'Mi Membresía y Pagos', actionLabel: ''),
+                                        const SizedBox(height: 12),
+                                        _MembresiaYPagosSection(
+                                          uid: uid,
+                                          userStatus: userStatus,
+                                          membresiaInicio: membresiaInicio,
+                                          membresiaFin: membresiaFin,
+                                          pagosStream: _pagosStream,
+                                          compensacionesStream: _compensacionesStream,
                                         ),
                                       ],
-                                    ),
+                                      const SizedBox(height: 24),
+                                    ],
                                   ),
-                                  const SizedBox(height: 28),
-                                  _SectionHeader(
-                                      title: 'Asistencia del Mes', actionLabel: ''),
-                                  const SizedBox(height: 12),
-                                  _AsistenciaMensual(asistenciasFechas: asistenciasFechas),
-                                  const SizedBox(height: 24),
-                                ],
-                              ),
-                            ),
+                                ),
 
-                            // Pestaña 2: Logros
-                            SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 12),
-                                  _SectionHeader(title: 'Tus Logros', actionLabel: ''),
-                                  const SizedBox(height: 16),
-                                  _LogrosRow(totalAsistencias: totalAsistencias),
-                                  const SizedBox(height: 24),
-                                ],
-                              ),
-                            ),
-
-                            // Pestaña 3: Membresía
-                            SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 12),
-                                  if (uid != null) ...[
-                                    _SectionHeader(
-                                        title: 'Mi Membresía y Pagos', actionLabel: ''),
-                                    const SizedBox(height: 12),
-                                    _MembresiaYPagosSection(
-                                      uid: uid,
-                                      userStatus: userStatus,
-                                      membresiaInicio: membresiaInicio,
-                                      membresiaFin: membresiaFin,
-                                      pagosStream: _pagosStream,
-                                      compensacionesStream: _compensacionesStream,
-                                    ),
-                                  ],
-                                  const SizedBox(height: 24),
-                                ],
-                              ),
-                            ),
-
-                            // Pestaña 4: Ajustes
-                            SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 12),
-                                  _SectionHeader(
-                                      title: 'Configuración de App', actionLabel: ''),
-                                  const SizedBox(height: 12),
-                                  _NotificationToggleCard(
-                                    uid: uid,
-                                    notificationsEnabled: notificationsEnabled,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  const _ThemeToggleCard(),
-                                  const SizedBox(height: 32),
-                                  Center(
-                                    child: Text(
-                                      'Versión 1.0.131 (v131)',
-                                      style: GoogleFonts.nunito(
-                                        fontSize: 12,
-                                        color: subtitleColor,
-                                        fontWeight: FontWeight.w500,
+                                // Pestaña 4: Ajustes
+                                SingleChildScrollView(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 12),
+                                      _SectionHeader(
+                                          title: 'Configuración de App', actionLabel: ''),
+                                      const SizedBox(height: 12),
+                                      _NotificationToggleCard(
+                                        uid: uid,
+                                        notificationsEnabled: notificationsEnabled,
                                       ),
-                                    ),
+                                      const SizedBox(height: 12),
+                                      const _ThemeToggleCard(),
+                                      const SizedBox(height: 32),
+                                      Center(
+                                        child: Text(
+                                          'Versión 1.0.131 (v131)',
+                                          style: GoogleFonts.nunito(
+                                            fontSize: 12,
+                                            color: subtitleColor,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 24),
+                                    ],
                                   ),
-                                  const SizedBox(height: 24),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -882,13 +1240,25 @@ class _LogrosRow extends StatelessWidget {
         unlocked: totalAsistencias >= 100,
       ),
     ];
+    final screenWidth = MediaQuery.of(context).size.width;
+    int crossAxisCount = 3;
+    double childAspectRatio = 0.82;
+
+    if (screenWidth > 950) {
+      crossAxisCount = 6;
+      childAspectRatio = 0.95;
+    } else if (screenWidth > 600) {
+      crossAxisCount = 4;
+      childAspectRatio = 0.9;
+    }
+
     return GridView.count(
-      crossAxisCount: 3,
+      crossAxisCount: crossAxisCount,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 10,
       mainAxisSpacing: 16,
-      childAspectRatio: 0.82,
+      childAspectRatio: childAspectRatio,
       children: logros.map((l) => _LogroBadge(logro: l)).toList(),
     );
   }
