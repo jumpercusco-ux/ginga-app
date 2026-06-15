@@ -333,6 +333,44 @@ class _EventosScreenState extends State<EventosScreen> {
 //  EVENTO CARD (DINÁMICO)
 // ─────────────────────────────────────────
 
+// ─────────────────────────────────────────
+//  TICKET DASHED DIVIDER (Línea prepicada)
+// ─────────────────────────────────────────
+
+class _TicketDashedDivider extends StatelessWidget {
+  final Color color;
+  const _TicketDashedDivider({this.color = const Color(0xFFE0E0E0)});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final boxWidth = constraints.constrainWidth();
+        const dashWidth = 5.0;
+        const dashHeight = 1.5;
+        final dashCount = (boxWidth / (2 * dashWidth)).floor();
+        return Flex(
+          direction: Axis.horizontal,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(dashCount, (_) {
+            return SizedBox(
+              width: dashWidth,
+              height: dashHeight,
+              child: DecoratedBox(
+                decoration: BoxDecoration(color: color),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+//  EVENTO CARD (DISEÑO TICKET MODERNIZADO)
+// ─────────────────────────────────────────
+
 class _EventoCard extends StatelessWidget {
   final String eventId;
   final Map<String, dynamic> data;
@@ -358,171 +396,270 @@ class _EventoCard extends StatelessWidget {
     final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
     final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
     final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+    final notchColor = GingaColors.backgroundLight;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: borderColor),
-        boxShadow: isDark ? [] : [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Imagen ──────────────────────────────
-          Stack(
+    return Stack(
+      children: [
+        // Cuerpo principal del Ticket
+        Container(
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor),
+            boxShadow: isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 6),
+                    )
+                  ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(GingaRadius.lg),
-                  topRight: Radius.circular(GingaRadius.lg),
-                ),
-                child: Container(
-                  height: 150,
-                  width: double.infinity,
-                  color: GingaColors.backgroundDark,
-                  child: GingaCachedImage(
-                    imageUrl: imagenUrl,
-                    fit: BoxFit.cover,
-                    category: 'evento',
-                    errorWidget: const Center(
-                      child: Icon(
-                        Icons.sports_martial_arts,
-                        color: GingaColors.brandGreen,
-                        size: 50,
+              // ── Imagen y Tags del Evento ──────────────────────────────
+              SizedBox(
+                height: 150,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    GingaCachedImage(
+                      imageUrl: imagenUrl,
+                      fit: BoxFit.cover,
+                      category: 'evento',
+                      errorWidget: const Center(
+                        child: Icon(
+                          Icons.sports_martial_arts,
+                          color: GingaColors.brandGreen,
+                          size: 50,
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ),
-              // Badge de Inscrito
-              if (isRegistered)
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: GingaColors.brandGreen,
-                      borderRadius: BorderRadius.circular(GingaRadius.sm),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        )
-                      ],
+                    // Gradiente oscuro en la base de la imagen para legibilidad
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withOpacity(0.35),
+                            Colors.transparent,
+                          ],
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                        ),
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.check, size: 12, color: Colors.white),
-                        const SizedBox(width: 4),
-                        Text(
-                          'INSCRITO',
+                    // Badge del Estado del Ticket en esquina superior
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isRegistered
+                              ? GingaColors.brandGreen
+                              : const Color(0xFFFBC02D), // Gold
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            )
+                          ],
+                        ),
+                        child: Text(
+                          isRegistered ? 'TICKET ADMITIDO 🎟️' : 'TALLER DISPONIBLE ⚡',
                           style: GoogleFonts.montserrat(
                             fontSize: 9,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w900,
                             color: Colors.white,
                             letterSpacing: 0.5,
                           ),
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Línea Prepicada / División del Ticket ────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _TicketDashedDivider(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                ),
+              ),
+
+              // ── Detalles y Controles del Ticket ──────────────────────────────
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: textColor,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today_outlined, size: 14, color: subtitleColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            fechaTexto,
+                            style: GoogleFonts.nunito(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: subtitleColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.location_on_outlined, size: 14, color: subtitleColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            lugar,
+                            style: GoogleFonts.nunito(
+                              fontSize: 13,
+                              color: subtitleColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Simulación de Código de Barras / Ticket para inscritos
+                    if (isRegistered) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF9F9F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.qr_code_2, size: 24, color: GingaColors.brandGreen),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'ACCESO AUTORIZADO',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w900,
+                                    color: GingaColors.brandGreen,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'FIU-TKT-${eventId.toUpperCase().substring(0, 5)}',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: subtitleColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            // Simulación del código de barras
+                            Row(
+                              children: List.generate(12, (index) => Container(
+                                width: index % 3 == 0 ? 3.0 : (index % 2 == 0 ? 1.0 : 2.0),
+                                height: 22,
+                                color: isDark ? Colors.white54 : Colors.black54,
+                                margin: const EdgeInsets.only(right: 1.5),
+                              )),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    // Botón de Detalles o Acción
+                    SizedBox(
+                      width: double.infinity,
+                      height: 42,
+                      child: ElevatedButton(
+                        onPressed: onTapDetails,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: GingaColors.brandGreen,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          isRegistered ? 'Ver Detalles de Reserva' : 'Adquirir Ticket / Detalles',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
             ],
           ),
+        ),
 
-          // ── Info ────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  titulo,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: textColor,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.calendar_today_outlined, size: 13, color: subtitleColor),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        fechaTexto,
-                        style: GoogleFonts.nunito(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: subtitleColor,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Icon(Icons.location_on_outlined, size: 13, color: subtitleColor),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        lugar,
-                        style: GoogleFonts.nunito(
-                          fontSize: 12,
-                          color: subtitleColor,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                // Botón Ver Detalles
-                SizedBox(
-                  width: double.infinity,
-                  height: 40,
-                  child: ElevatedButton(
-                    onPressed: onTapDetails,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: GingaColors.brandGreen,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(GingaRadius.md),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      'Ver Detalles',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+        // Muesca / Corte lateral izquierdo del Ticket
+        Positioned(
+          left: -8,
+          top: 142, // Centrado exactamente en la división de 150px
+          child: Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: notchColor,
+              shape: BoxShape.circle,
             ),
           ),
-        ],
-      ),
+        ),
+
+        // Muesca / Corte lateral derecho del Ticket
+        Positioned(
+          right: -8,
+          top: 142,
+          child: Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: notchColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

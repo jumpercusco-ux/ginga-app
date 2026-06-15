@@ -329,7 +329,8 @@ class _ProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Imagen / Miniatura del Producto ────────────────────────────
-            Expanded(
+            AspectRatio(
+              aspectRatio: 1.15,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
