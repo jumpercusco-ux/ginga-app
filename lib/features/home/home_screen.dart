@@ -4270,59 +4270,152 @@ class _StorePromoBanner extends StatelessWidget {
     Theme.of(context); // Suscribir al tema para regenerar la promo de tienda
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: GingaColors.brandGreen.withOpacity(0.06),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF1B5E20), // Jungle Green
+            Color(0xFF388E3C), // Ginga Brand Green
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.brandGreen.withOpacity(0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
       ),
-      child: Row(
+      child: Stack(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.storefront,
-                        color: GingaColors.brandGreen, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Ginga Store 🥋',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: GingaColors.brandGreen,
-                      ),
-                    ),
-                  ],
+          // Fondo geométrico - rombo amarillo tipo bandera de Brasil
+          Positioned(
+            right: -35,
+            top: -35,
+            child: Transform.rotate(
+              angle: 0.785, // 45 grados
+              child: Container(
+                width: 130,
+                height: 130,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBC02D).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Consigue abadás, camisetas e instrumentos oficiales de la academia. Reserva tu pedido y recógelo en clase.',
-                  style: GoogleFonts.nunito(
-                    fontSize: 12,
-                    color: GingaColors.textSecondary,
-                    height: 1.4,
+              ),
+            ),
+          ),
+          // Fondo geométrico - círculo azul
+          Positioned(
+            right: 15,
+            bottom: -25,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1565C0).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          // Contenido principal
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Tag de Categoría
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFBC02D), // Amarillo bandera
+                          borderRadius: BorderRadius.circular(GingaRadius.sm),
+                        ),
+                        child: Text(
+                          'GINGA STORE 🇧🇷',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF1B5E20),
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '¡Equípate para la Roda! 🥋',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Consigue abadás, camisetas e instrumentos oficiales de la academia. Reserva tu pedido y recógelo en clase.',
+                        style: GoogleFonts.nunito(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withOpacity(0.9),
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: onTap,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(GingaRadius.full),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              )
+                            ],
+                          ),
+                          child: Text(
+                            'Explorar Catálogo 🛍️',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF1B5E20),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 14),
-                GestureDetector(
-                  onTap: onTap,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: GingaColors.brandGreen,
-                      borderRadius: BorderRadius.circular(GingaRadius.full),
-                    ),
-                    child: Text(
-                      'Explorar Catálogo',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
+                const SizedBox(width: 14),
+                // Emblema visual de la tienda
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1565C0), // Azul Bandera
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFFBC02D), width: 3), // Borde amarillo
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      )
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.storefront_rounded,
+                      color: Colors.white,
+                      size: 36,
                     ),
                   ),
                 ),
