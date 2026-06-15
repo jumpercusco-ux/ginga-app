@@ -1644,6 +1644,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 initialDate: fechaReferencia,
                                 firstDate: DateTime.now().subtract(const Duration(days: 60)),
                                 lastDate: DateTime.now().add(const Duration(days: 60)),
+                                builder: buildGingaDatePickerTheme,
                               );
                               if (selected != null) {
                                 setStateModal(() {
@@ -1716,6 +1717,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 initialDate: fechaReferencia,
                                 firstDate: DateTime.now().subtract(const Duration(days: 30)),
                                 lastDate: DateTime.now(),
+                                builder: buildGingaDatePickerTheme,
                               );
                               if (selected != null) {
                                 setStateModal(() {
@@ -1875,18 +1877,13 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                               label: const Text('Fecha Libre 📅'),
                               selected: isCustomDate,
                               onSelected: (val) async {
-                                final selected = await showDatePicker(
-                                  context: contextModal,
-                                  initialDate: nuevaFechaVencimiento,
-                                  firstDate: DateTime.now().subtract(const Duration(days: 30)),
-                                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                                  builder: (context, child) => Theme(
-                                    data: Theme.of(context).copyWith(
-                                      colorScheme: const ColorScheme.light(primary: GingaColors.brandGreen),
-                                    ),
-                                    child: child!,
-                                  ),
-                                );
+                                  final selected = await showDatePicker(
+                                    context: contextModal,
+                                    initialDate: nuevaFechaVencimiento,
+                                    firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                    builder: buildGingaDatePickerTheme,
+                                  );
                                 if (selected != null) {
                                   setStateModal(() {
                                     nuevaFechaVencimiento = selected;
@@ -2314,12 +2311,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                               initialDate: fechaInicioMembresia,
                               firstDate: DateTime.now().subtract(const Duration(days: 365)), // hasta 1 año en el pasado
                               lastDate: DateTime.now().add(const Duration(days: 365)), // hasta 1 año en el futuro
-                              builder: (context, child) => Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: const ColorScheme.light(primary: GingaColors.brandGreen),
-                                ),
-                                child: child!,
-                              ),
+                              builder: buildGingaDatePickerTheme,
                             );
                             if (selected != null) {
                               setStateModal(() {
@@ -3235,18 +3227,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
       initialDate: DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: GingaColors.brandGreen,
-              onPrimary: Colors.white,
-              onSurface: GingaColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: buildGingaDatePickerTheme,
     );
 
     if (fechaSeleccionada == null) return;

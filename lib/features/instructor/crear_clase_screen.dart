@@ -549,12 +549,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
     final picked = await showTimePicker(
       context: context,
       initialTime: esInicio ? _horaInicio : _horaFin,
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: GingaColors.brandGreen),
-        ),
-        child: child!,
-      ),
+      builder: buildGingaTimePickerTheme,
     );
     if (picked != null) {
       setState(() => esInicio ? _horaInicio = picked : _horaFin = picked);
@@ -1587,12 +1582,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
       initialDate: DateTime.now().add(const Duration(days: 1)),
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: GingaColors.brandGreen),
-        ),
-        child: child!,
-      ),
+      builder: buildGingaDatePickerTheme,
     );
     if (picked != null) {
       setState(() {

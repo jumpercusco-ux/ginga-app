@@ -58,16 +58,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       initialDate: DateTime(2020),
       firstDate: DateTime(2000),
       lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: GingaColors.brandGreen,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: buildGingaDatePickerTheme,
     );
     if (picked != null) setState(() => _fechaInicio = picked);
   }
@@ -175,258 +166,280 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 600;
+
+    Widget bodyContent = Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(height: 32),
+
+          // Logo
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset('assets/images/logo_ginga.png', width: 100, height: 100),
+            ],
+          ),
+
+          const SizedBox(height: 28),
+
+          Text('Tu Identidad',
+              style: GoogleFonts.montserrat(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: GingaColors.textPrimary)),
+          const SizedBox(height: 6),
+          Text('Completa tu perfil de capoeira',
+              style: GoogleFonts.nunito(
+                  fontSize: 14, color: GingaColors.textSecondary)),
+
+          const SizedBox(height: 28),
+
+          // Avatar
+          GestureDetector(
+            onTap: _seleccionarImagen,
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 44,
+                  backgroundColor: GingaColors.cardLight,
+                  backgroundImage: (kIsWeb
+                      ? (_webImageBytes != null ? MemoryImage(_webImageBytes!) : null)
+                      : (_imageFile != null ? FileImage(File(_imageFile!.path)) : null)) as ImageProvider<Object>?,
+                  child: _imageFile == null
+                      ? Icon(Icons.person_outline,
+                          size: 40, color: GingaColors.textSecondary)
+                      : null,
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: const BoxDecoration(
+                      color: GingaColors.brandGreen,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _imageFile != null ? Icons.edit : Icons.add,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          // Nombre
+          _buildTextField(
+            controller: _nombreController,
+            hint: 'Nombre Completo',
+            icon: Icons.person_outline,
+          ),
+
+          const SizedBox(height: 14),
+
+          // Email
+          _buildTextField(
+            controller: _emailController,
+            hint: 'Correo electrónico',
+            icon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+            validator: (val) {
+              if (val == null || val.isEmpty) return 'Ingresa tu email';
+              if (!val.contains('@')) return 'Email inválido';
+              return null;
+            },
+          ),
+
+          const SizedBox(height: 14),
+
+          // Password
+          TextFormField(
+            controller: _passwordController,
+            obscureText: _obscurePassword,
+            style: GoogleFonts.nunito(
+                fontSize: 14, color: GingaColors.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Contraseña',
+              hintStyle: GoogleFonts.nunito(
+                  color: GingaColors.textSecondary, fontSize: 14),
+              prefixIcon: Icon(Icons.lock_outline,
+                  color: GingaColors.textSecondary, size: 20),
+              suffixIcon: GestureDetector(
+                onTap: () => setState(
+                    () => _obscurePassword = !_obscurePassword),
+                child: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  color: GingaColors.textSecondary,
+                  size: 20,
+                ),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+                borderSide:
+                    BorderSide(color: GingaColors.borderLight),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+                borderSide:
+                    BorderSide(color: GingaColors.borderLight),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+                borderSide: const BorderSide(
+                    color: GingaColors.brandGreen, width: 2),
+              ),
+            ),
+            validator: (val) {
+              if (val == null || val.isEmpty)
+                return 'Ingresa una contraseña';
+              if (val.length < 6) return 'Mínimo 6 caracteres';
+              return null;
+            },
+          ),
+
+          const SizedBox(height: 14),
+
+          // Error
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline,
+                      color: Colors.red.shade600, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(_errorMessage!,
+                        style: GoogleFonts.nunito(
+                            fontSize: 13,
+                            color: Colors.red.shade700)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 32),
+
+          // Botón Crear Perfil
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _crearPerfil,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: GingaColors.brandGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                elevation: 0,
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Crear Perfil',
+                            style: GoogleFonts.montserrat(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15)),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.arrow_forward, size: 18),
+                      ],
+                    ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          GestureDetector(
+            onTap: () => context.go('/login'),
+            child: Text(
+              '¿Ya tienes cuenta? Inicia sesión',
+              style: GoogleFonts.nunito(
+                fontSize: 13,
+                color: GingaColors.brandGreen,
+                fontWeight: FontWeight.w700,
+                decoration: TextDecoration.underline,
+                decorationColor: GingaColors.brandGreen,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          Text('GINGA APP • COMUNIDAD GLOBAL',
+              style: GoogleFonts.montserrat(
+                  fontSize: 10,
+                  color: GingaColors.borderLight,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.w600)),
+
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+
+    if (isDesktop) {
+      bodyContent = Container(
+        margin: const EdgeInsets.symmetric(vertical: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+        decoration: BoxDecoration(
+          color: GingaColors.cardLight,
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+          border: Border.all(
+            color: GingaColors.borderLight,
+            width: 1,
+          ),
+        ),
+        child: bodyContent,
+      );
+    }
+
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: 32),
-
-                // Logo
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset('assets/images/logo_ginga.png', width: 100, height: 100),
-
-                    // const SizedBox(width: 8),
-                    // Text('Ginga App',
-                    //     style: GoogleFonts.montserrat(
-                    //         color: GingaColors.textPrimary,
-                    //         fontWeight: FontWeight.w700,
-                    //         fontSize: 15)),
-                  ],
-                ),
-
-                const SizedBox(height: 28),
-
-                Text('Tu Identidad',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: GingaColors.textPrimary)),
-                const SizedBox(height: 6),
-                Text('Completa tu perfil de capoeira',
-                    style: GoogleFonts.nunito(
-                        fontSize: 14, color: GingaColors.textSecondary)),
-
-                const SizedBox(height: 28),
-
-                // Avatar
-                GestureDetector(
-                  onTap: _seleccionarImagen,
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 44,
-                        backgroundColor: GingaColors.cardLight,
-                        backgroundImage: (kIsWeb
-                            ? (_webImageBytes != null ? MemoryImage(_webImageBytes!) : null)
-                            : (_imageFile != null ? FileImage(File(_imageFile!.path)) : null)) as ImageProvider<Object>?,
-                        child: _imageFile == null
-                            ? Icon(Icons.person_outline,
-                                size: 40, color: GingaColors.textSecondary)
-                            : null,
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: const BoxDecoration(
-                            color: GingaColors.brandGreen,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            _imageFile != null ? Icons.edit : Icons.add,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 28),
-
-                // Nombre
-                _buildTextField(
-                  controller: _nombreController,
-                  hint: 'Nombre Completo',
-                  icon: Icons.person_outline,
-                ),
-
-                const SizedBox(height: 14),
-
-                // Email
-                _buildTextField(
-                  controller: _emailController,
-                  hint: 'Correo electrónico',
-                  icon: Icons.email_outlined,
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (val) {
-                    if (val == null || val.isEmpty) return 'Ingresa tu email';
-                    if (!val.contains('@')) return 'Email inválido';
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 14),
-
-                // Password
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  style: GoogleFonts.nunito(
-                      fontSize: 14, color: GingaColors.textPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'Contraseña',
-                    hintStyle: GoogleFonts.nunito(
-                        color: GingaColors.textSecondary, fontSize: 14),
-                    prefixIcon: Icon(Icons.lock_outline,
-                        color: GingaColors.textSecondary, size: 20),
-                    suffixIcon: GestureDetector(
-                      onTap: () => setState(
-                          () => _obscurePassword = !_obscurePassword),
-                      child: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                        color: GingaColors.textSecondary,
-                        size: 20,
-                      ),
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(GingaRadius.md),
-                      borderSide:
-                          BorderSide(color: GingaColors.borderLight),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(GingaRadius.md),
-                      borderSide:
-                          BorderSide(color: GingaColors.borderLight),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(GingaRadius.md),
-                      borderSide: const BorderSide(
-                          color: GingaColors.brandGreen, width: 2),
-                    ),
-                  ),
-                  validator: (val) {
-                    if (val == null || val.isEmpty)
-                      return 'Ingresa una contraseña';
-                    if (val.length < 6) return 'Mínimo 6 caracteres';
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 14),
-
-                const SizedBox(height: 14),
-
-
-
-                // Error
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(GingaRadius.md),
-                      border: Border.all(color: Colors.red.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.error_outline,
-                            color: Colors.red.shade600, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(_errorMessage!,
-                              style: GoogleFonts.nunito(
-                                  fontSize: 13,
-                                  color: Colors.red.shade700)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 32),
-
-                // Botón Crear Perfil
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _crearPerfil,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: GingaColors.brandGreen,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text('Crear Perfil',
-                                  style: GoogleFonts.montserrat(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15)),
-                              const SizedBox(width: 6),
-                              const Icon(Icons.arrow_forward, size: 18),
-                            ],
-                          ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                GestureDetector(
-                  onTap: () => context.go('/login'),
-                  child: Text(
-                    '¿Ya tienes cuenta? Inicia sesión',
-                    style: GoogleFonts.nunito(
-                      fontSize: 13,
-                      color: GingaColors.brandGreen,
-                      fontWeight: FontWeight.w700,
-                      decoration: TextDecoration.underline,
-                      decorationColor: GingaColors.brandGreen,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                Text('GINGA APP • COMUNIDAD GLOBAL',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 10,
-                        color: GingaColors.borderLight,
-                        letterSpacing: 1.5,
-                        fontWeight: FontWeight.w600)),
-
-                const SizedBox(height: 32),
-              ],
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: isDesktop ? 20 : 24),
+              child: bodyContent,
             ),
           ),
         ),

@@ -1023,24 +1023,14 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                           initialDate: selectedDate,
                           firstDate: DateTime(2020),
                           lastDate: DateTime.now().add(const Duration(days: 1)),
-                          builder: (context, child) {
-                            return Theme(
-                              data: Theme.of(context).copyWith(
-                                colorScheme: ColorScheme.light(
-                                  primary: GingaColors.brandGreen,
-                                  onPrimary: Colors.white,
-                                  onSurface: GingaColors.textPrimary,
-                                ),
-                              ),
-                              child: child!,
-                            );
-                          },
+                          builder: buildGingaDatePickerTheme,
                         );
                         if (pickedDate != null) {
                           if (!context.mounted) return;
                           final TimeOfDay? pickedTime = await showTimePicker(
                             context: context,
                             initialTime: TimeOfDay.fromDateTime(selectedDate),
+                            builder: buildGingaTimePickerTheme,
                           );
                           if (pickedTime != null) {
                             setModalState(() {

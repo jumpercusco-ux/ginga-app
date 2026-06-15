@@ -245,6 +245,36 @@ ThemeData get gingaLightTheme => ThemeData(
     ),
   ),
 
+  canvasColor: GingaColors.backgroundLight,
+  dialogBackgroundColor: GingaColors.backgroundLight,
+
+  dialogTheme: const DialogThemeData(
+    backgroundColor: Colors.white,
+    surfaceTintColor: Colors.transparent,
+  ),
+
+  datePickerTheme: DatePickerThemeData(
+    backgroundColor: Colors.white,
+    headerBackgroundColor: GingaColors.brandGreen,
+    headerForegroundColor: Colors.white,
+    surfaceTintColor: Colors.transparent,
+    dayForegroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.selected)) {
+        return Colors.white;
+      }
+      return GingaColors.textPrimary;
+    }),
+    dayBackgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.selected)) {
+        return GingaColors.brandGreen;
+      }
+      return null;
+    }),
+    todayForegroundColor: WidgetStateProperty.all(GingaColors.brandGreen),
+    todayBackgroundColor: WidgetStateProperty.all(Colors.transparent),
+    yearForegroundColor: WidgetStateProperty.all(GingaColors.textPrimary),
+  ),
+
   bottomNavigationBarTheme: BottomNavigationBarThemeData(
     backgroundColor:      GingaColors.backgroundLight,
     selectedItemColor:    GingaColors.brandGreen,
@@ -311,6 +341,57 @@ ThemeData get gingaDarkTheme => ThemeData(
     ),
   ),
 
+  canvasColor: GingaColors.backgroundDark,
+  dialogBackgroundColor: GingaColors.backgroundDark,
+
+  dialogTheme: const DialogThemeData(
+    backgroundColor: GingaColors.backgroundDark,
+    surfaceTintColor: Colors.transparent,
+  ),
+
+  datePickerTheme: DatePickerThemeData(
+    backgroundColor: GingaColors.backgroundDark,
+    headerBackgroundColor: GingaColors.surfaceDark,
+    headerForegroundColor: GingaColors.textWhite,
+    surfaceTintColor: Colors.transparent,
+    dayForegroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.selected)) {
+        return GingaColors.textWhite;
+      }
+      return GingaColors.textWhite;
+    }),
+    dayBackgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.selected)) {
+        return GingaColors.accentGreenDark;
+      }
+      return null;
+    }),
+    todayForegroundColor: WidgetStateProperty.all(GingaColors.accentGreenDark),
+    todayBackgroundColor: WidgetStateProperty.all(Colors.transparent),
+    yearForegroundColor: WidgetStateProperty.all(GingaColors.textWhite),
+  ),
+
+  inputDecorationTheme: InputDecorationTheme(
+    filled:           true,
+    fillColor:        GingaColors.surfaceDark,
+    contentPadding:   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius:   BorderRadius.circular(GingaRadius.md),
+      borderSide:     const BorderSide(color: Colors.transparent),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius:   BorderRadius.circular(GingaRadius.md),
+      borderSide:     const BorderSide(color: Colors.transparent),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius:   BorderRadius.circular(GingaRadius.md),
+      borderSide:     const BorderSide(color: GingaColors.accentGreenDark, width: 2),
+    ),
+    hintStyle:        const TextStyle(color: GingaColors.textMuted),
+    labelStyle:       const TextStyle(color: GingaColors.textMuted),
+    floatingLabelStyle: const TextStyle(color: GingaColors.accentGreenDark),
+  ),
+
   bottomNavigationBarTheme: const BottomNavigationBarThemeData(
     backgroundColor:      GingaColors.backgroundDark,
     selectedItemColor:    GingaColors.accentGreenDark,
@@ -321,3 +402,88 @@ ThemeData get gingaDarkTheme => ThemeData(
     unselectedLabelStyle: TextStyle(fontFamily: 'Montserrat', fontSize: 11),
   ),
 );
+
+// ─────────────────────────────────────────
+//  COMMON PICKER THEME BUILDERS
+// ─────────────────────────────────────────
+
+Widget buildGingaDatePickerTheme(BuildContext context, Widget? child) {
+  final isDark = ThemeManager.instance.themeMode == ThemeMode.dark ||
+      (ThemeManager.instance.themeMode == ThemeMode.system &&
+          MediaQuery.of(context).platformBrightness == Brightness.dark);
+
+  final baseTheme = isDark ? gingaDarkTheme : gingaLightTheme;
+
+  return Theme(
+    data: baseTheme.copyWith(
+      dialogBackgroundColor: isDark ? GingaColors.backgroundDark : Colors.white,
+      colorScheme: baseTheme.colorScheme.copyWith(
+        surface: isDark ? GingaColors.backgroundDark : Colors.white,
+        onSurface: isDark ? Colors.white : GingaColors.textPrimary,
+        surfaceContainerHigh: isDark ? GingaColors.surfaceDark : Colors.white,
+        surfaceContainerHighest: isDark ? GingaColors.surfaceDark : Colors.white,
+      ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: isDark ? GingaColors.backgroundDark : Colors.white,
+        headerBackgroundColor: isDark ? GingaColors.surfaceDark : GingaColors.brandGreen,
+        headerForegroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        dayForegroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          if (states.contains(WidgetState.selected)) {
+            return Colors.white;
+          }
+          return isDark ? Colors.white : GingaColors.textPrimary;
+        }),
+        dayBackgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          if (states.contains(WidgetState.selected)) {
+            return isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen;
+          }
+          return null;
+        }),
+        todayForegroundColor: WidgetStateProperty.all(isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen),
+        todayBackgroundColor: WidgetStateProperty.all(Colors.transparent),
+        yearForegroundColor: WidgetStateProperty.all(isDark ? Colors.white : GingaColors.textPrimary),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+        ),
+      ),
+    ),
+    child: child!,
+  );
+}
+
+Widget buildGingaTimePickerTheme(BuildContext context, Widget? child) {
+  final isDark = ThemeManager.instance.themeMode == ThemeMode.dark ||
+      (ThemeManager.instance.themeMode == ThemeMode.system &&
+          MediaQuery.of(context).platformBrightness == Brightness.dark);
+
+  final baseTheme = isDark ? gingaDarkTheme : gingaLightTheme;
+
+  return Theme(
+    data: baseTheme.copyWith(
+      dialogBackgroundColor: isDark ? GingaColors.backgroundDark : Colors.white,
+      colorScheme: baseTheme.colorScheme.copyWith(
+        surface: isDark ? GingaColors.backgroundDark : Colors.white,
+        onSurface: isDark ? Colors.white : GingaColors.textPrimary,
+        surfaceContainerHigh: isDark ? GingaColors.surfaceDark : Colors.white,
+        surfaceContainerHighest: isDark ? GingaColors.surfaceDark : Colors.white,
+      ),
+      timePickerTheme: TimePickerThemeData(
+        backgroundColor: isDark ? GingaColors.backgroundDark : Colors.white,
+        hourMinuteTextColor: isDark ? Colors.white : GingaColors.textPrimary,
+        dayPeriodTextColor: isDark ? Colors.white : GingaColors.textPrimary,
+        dialHandColor: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+        dialTextColor: isDark ? Colors.white : GingaColors.textPrimary,
+        dialBackgroundColor: isDark ? GingaColors.surfaceDark : const Color(0xFFF0F0F0),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+        ),
+      ),
+    ),
+    child: child!,
+  );
+}

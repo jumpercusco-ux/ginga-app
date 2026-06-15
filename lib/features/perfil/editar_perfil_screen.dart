@@ -111,18 +111,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       initialDate: _fechaNacimiento ?? DateTime(2000),
       firstDate: DateTime(1930),
       lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: GingaColors.brandGreen,
-              onPrimary: Colors.white,
-              onSurface: GingaColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: buildGingaDatePickerTheme,
     );
     if (picked != null) {
       setState(() => _fechaNacimiento = picked);
@@ -204,171 +193,176 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
               child: CircularProgressIndicator(color: GingaColors.brandGreen),
             )
           : SafeArea(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // SECCIÓN 1: Cuenta y Academia
-                      _buildSeccionHeader('Datos de Cuenta y Academia 🥋'),
-                      _buildDisabledField(
-                        controller: _nombreController,
-                        label: 'Nombre Completo',
-                        icon: Icons.person_outline_rounded,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildDisabledField(
-                        controller: _emailController,
-                        label: 'Correo Electrónico',
-                        icon: Icons.email_outlined,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildDisabledField(
-                        controller: _cordaController,
-                        label: 'Graduación / Corda',
-                        icon: Icons.shield_outlined,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildDisabledField(
-                        controller: _sedeController,
-                        label: 'Sede de Entrenamiento',
-                        icon: Icons.location_on_outlined,
-                      ),
-
-                      const SizedBox(height: 28),
-
-                      // SECCIÓN 2: Información Personal
-                      _buildSeccionHeader('Información Personal 📋'),
-                      _buildTextField(
-                        controller: _telefonoController,
-                        label: 'Número de Teléfono',
-                        hint: 'Ej: 987654321',
-                        icon: Icons.phone_android_rounded,
-                        keyboardType: TextInputType.phone,
-                        validator: (val) {
-                          if (val != null && val.isNotEmpty) {
-                            if (!RegExp(r'^[0-9+\s-]{7,15}$').hasMatch(val)) {
-                              return 'Número de teléfono inválido';
-                            }
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        controller: _dniController,
-                        label: 'DNI / Documento de Identidad',
-                        hint: 'Ej: 77665544',
-                        icon: Icons.badge_outlined,
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildDatePickerField(
-                        label: 'Fecha de Nacimiento',
-                        icon: Icons.cake_outlined,
-                        date: _fechaNacimiento,
-                        onTap: _seleccionarFechaNacimiento,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildDropdownField(
-                        value: _selectedGenero,
-                        label: 'Género',
-                        hint: 'Selecciona tu género',
-                        icon: Icons.face_outlined,
-                        items: _generos,
-                        onChanged: (val) {
-                          setState(() => _selectedGenero = val);
-                        },
-                      ),
-
-                      const SizedBox(height: 28),
-
-                      // SECCIÓN 3: Salud y Emergencias
-                      _buildSeccionHeader('Salud y Emergencias 🚨'),
-                      _buildTextField(
-                        controller: _contactoNombreController,
-                        label: 'Contacto de Emergencia (Nombre)',
-                        hint: 'Ej: María Gómez (Mamá)',
-                        icon: Icons.contact_emergency_outlined,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        controller: _contactoTelefonoController,
-                        label: 'Contacto de Emergencia (Teléfono)',
-                        hint: 'Ej: 999888777',
-                        icon: Icons.phone_outlined,
-                        keyboardType: TextInputType.phone,
-                        validator: (val) {
-                          if (val != null && val.isNotEmpty) {
-                            if (!RegExp(r'^[0-9+\s-]{7,15}$').hasMatch(val)) {
-                              return 'Número de teléfono inválido';
-                            }
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      _buildDropdownField(
-                        value: _selectedGrupoSanguineo,
-                        label: 'Grupo Sanguíneo',
-                        hint: 'Selecciona tu tipo de sangre',
-                        icon: Icons.bloodtype_outlined,
-                        items: _gruposSanguineos,
-                        onChanged: (val) {
-                          setState(() => _selectedGrupoSanguineo = val);
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        controller: _observacionesController,
-                        label: 'Observaciones Médicas / Alergias',
-                        hint: 'Ingresa asma, lesiones previas, alergias a medicamentos, etc.',
-                        icon: Icons.medical_services_outlined,
-                        maxLines: 3,
-                        requiredField: false,
-                      ),
-
-                      const SizedBox(height: 36),
-
-                      // Botón Guardar
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: _isSaving ? null : _guardarPerfil,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: GingaColors.brandGreen,
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: GingaColors.brandGreen.withOpacity(0.5),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(GingaRadius.md),
-                            ),
-                            elevation: 0,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // SECCIÓN 1: Cuenta y Academia
+                          _buildSeccionHeader('Datos de Cuenta y Academia 🥋'),
+                          _buildDisabledField(
+                            controller: _nombreController,
+                            label: 'Nombre Completo',
+                            icon: Icons.person_outline_rounded,
                           ),
-                          child: _isSaving
-                              ? const SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2.5,
-                                  ),
-                                )
-                              : Text(
-                                  'Guardar Cambios',
-                                  style: GoogleFonts.montserrat(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.5,
-                                  ),
+                          const SizedBox(height: 12),
+                          _buildDisabledField(
+                            controller: _emailController,
+                            label: 'Correo Electrónico',
+                            icon: Icons.email_outlined,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildDisabledField(
+                            controller: _cordaController,
+                            label: 'Graduación / Corda',
+                            icon: Icons.shield_outlined,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildDisabledField(
+                            controller: _sedeController,
+                            label: 'Sede de Entrenamiento',
+                            icon: Icons.location_on_outlined,
+                          ),
+
+                          const SizedBox(height: 28),
+
+                          // SECCIÓN 2: Información Personal
+                          _buildSeccionHeader('Información Personal 📋'),
+                          _buildTextField(
+                            controller: _telefonoController,
+                            label: 'Número de Teléfono',
+                            hint: 'Ej: 987654321',
+                            icon: Icons.phone_android_rounded,
+                            keyboardType: TextInputType.phone,
+                            validator: (val) {
+                              if (val != null && val.isNotEmpty) {
+                                if (!RegExp(r'^[0-9+\s-]{7,15}$').hasMatch(val)) {
+                                  return 'Número de teléfono inválido';
+                                }
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                            controller: _dniController,
+                            label: 'DNI / Documento de Identidad',
+                            hint: 'Ej: 77665544',
+                            icon: Icons.badge_outlined,
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildDatePickerField(
+                            label: 'Fecha de Nacimiento',
+                            icon: Icons.cake_outlined,
+                            date: _fechaNacimiento,
+                            onTap: _seleccionarFechaNacimiento,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildDropdownField(
+                            value: _selectedGenero,
+                            label: 'Género',
+                            hint: 'Selecciona tu género',
+                            icon: Icons.face_outlined,
+                            items: _generos,
+                            onChanged: (val) {
+                              setState(() => _selectedGenero = val);
+                            },
+                          ),
+
+                          const SizedBox(height: 28),
+
+                          // SECCIÓN 3: Salud y Emergencias
+                          _buildSeccionHeader('Salud y Emergencias 🚨'),
+                          _buildTextField(
+                            controller: _contactoNombreController,
+                            label: 'Contacto de Emergencia (Nombre)',
+                            hint: 'Ej: María Gómez (Mamá)',
+                            icon: Icons.contact_emergency_outlined,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                            controller: _contactoTelefonoController,
+                            label: 'Contacto de Emergencia (Teléfono)',
+                            hint: 'Ej: 999888777',
+                            icon: Icons.phone_outlined,
+                            keyboardType: TextInputType.phone,
+                            validator: (val) {
+                              if (val != null && val.isNotEmpty) {
+                                  if (!RegExp(r'^[0-9+\s-]{7,15}$').hasMatch(val)) {
+                                    return 'Número de teléfono inválido';
+                                  }
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _buildDropdownField(
+                            value: _selectedGrupoSanguineo,
+                            label: 'Grupo Sanguíneo',
+                            hint: 'Selecciona tu tipo de sangre',
+                            icon: Icons.bloodtype_outlined,
+                            items: _gruposSanguineos,
+                            onChanged: (val) {
+                              setState(() => _selectedGrupoSanguineo = val);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                            controller: _observacionesController,
+                            label: 'Observaciones Médicas / Alergias',
+                            hint: 'Ingresa asma, lesiones previas, alergias a medicamentos, etc.',
+                            icon: Icons.medical_services_outlined,
+                            maxLines: 3,
+                            requiredField: false,
+                          ),
+
+                          const SizedBox(height: 36),
+
+                          // Botón Guardar
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: _isSaving ? null : _guardarPerfil,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: GingaColors.brandGreen,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor: GingaColors.brandGreen.withOpacity(0.5),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
                                 ),
-                        ),
+                                elevation: 0,
+                              ),
+                              child: _isSaving
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : Text(
+                                      'Guardar Cambios',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                        ],
                       ),
-                      const SizedBox(height: 32),
-                    ],
+                    ),
                   ),
                 ),
               ),
