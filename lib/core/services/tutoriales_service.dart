@@ -11,18 +11,19 @@ class TutorialesService {
   /// Carga datos mockup a Firestore de forma automática si la colección /tutoriales está vacía
   Future<void> inicializarTutorialesMockupSiVacia() async {
     try {
-      final query = await FirebaseFirestore.instance.collection('tutoriales').limit(30).get();
-      // Si la colección está vacía o tiene menos de 10 tutoriales (los 5 antiguos),
-      // limpiamos la colección y sembramos los 23 movimientos oficiales de la Apostila de FIU.
-      if (query.docs.length < 10) {
-        debugPrint('Inicializando colección /tutoriales con 23 movimientos oficiales de la Apostila de FIU...');
-        final batch = FirebaseFirestore.instance.batch();
+      // Obtenemos los tutoriales existentes para evitar duplicados
+      final query = await FirebaseFirestore.instance.collection('tutoriales').get();
+      
+      final existingTitlesNormalized = query.docs.map((doc) {
+        final data = doc.data();
+        final titulo = (data['titulo'] ?? '').toString();
+        return _normalizarTexto(titulo);
+      }).toSet();
 
-        for (var doc in query.docs) {
-          batch.delete(doc.reference);
-        }
+      final batch = FirebaseFirestore.instance.batch();
+      int addedCount = 0;
 
-        final mockTutorials = [
+      final mockTutorials = [
           {
             'titulo': 'Passape',
             'categoria': 'Ataques',
@@ -278,13 +279,32 @@ class TutorialesService {
           }
         ];
 
-        for (var tutorial in mockTutorials) {
-          final docRef = FirebaseFirestore.instance.collection('tutoriales').doc();
-          batch.set(docRef, tutorial);
+      for (var tutorial in mockTutorials) {
+        final titulo = tutorial['titulo'] as String;
+        final tituloNorm = _normalizarTexto(titulo);
+
+        bool alreadyExists = false;
+        for (var existing in existingTitlesNormalized) {
+          if (existing == tituloNorm ||
+              existing.contains(tituloNorm) ||
+              tituloNorm.contains(existing)) {
+            alreadyExists = true;
+            break;
+          }
         }
 
+        if (!alreadyExists) {
+          final docRef = FirebaseFirestore.instance.collection('tutoriales').doc();
+          batch.set(docRef, tutorial);
+          addedCount++;
+        }
+      }
+
+      if (addedCount > 0) {
         await batch.commit();
-        debugPrint('Se crearon ${mockTutorials.length} tutoriales de prueba con éxito.');
+        debugPrint('Se agregaron $addedCount nuevos tutoriales oficiales a la base de datos.');
+      } else {
+        debugPrint('No se agregaron nuevos tutoriales (todos ya existen o están relacionados).');
       }
     } catch (e) {
       debugPrint('Error al inicializar tutoriales mockup: $e');
@@ -358,5 +378,19 @@ class TutorialesService {
       final uploadTask = await ref.putFile(File(videoFile.path));
       return await uploadTask.ref.getDownloadURL();
     }
+  }
+
+  static String _normalizarTexto(String texto) {
+    return texto
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ñ', 'n')
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 }
