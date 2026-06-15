@@ -2283,6 +2283,62 @@ class _ReservaPendiente extends StatelessWidget {
 //  CLASE ACTIVO (su clase matriculada)
 // ─────────────────────────────────────────
 
+class _PulseIndicator extends StatefulWidget {
+  const _PulseIndicator();
+
+  @override
+  State<_PulseIndicator> createState() => _PulseIndicatorState();
+}
+
+class _PulseIndicatorState extends State<_PulseIndicator> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen;
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withOpacity(_animation.value),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.4 * _animation.value),
+                blurRadius: 5,
+                spreadRadius: 1.5,
+              )
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _ClaseActivo extends StatelessWidget {
   final String claseId;
   const _ClaseActivo({required this.claseId});
@@ -2290,26 +2346,24 @@ class _ClaseActivo extends StatelessWidget {
   Widget _buildInfoBadge(BuildContext context, IconData icon, String text) {
     if (text.isEmpty) return const SizedBox.shrink();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final badgeBg = isDark ? GingaColors.backgroundDark : GingaColors.backgroundLight;
-    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final badgeBg = isDark ? GingaColors.backgroundDark : const Color(0xFFF1F8E9);
     final textColor = isDark ? GingaColors.textWhite : GingaColors.textSecondary;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: badgeBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(GingaRadius.sm),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: GingaColors.brandGreen),
+          Icon(icon, size: 14, color: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen),
           const SizedBox(width: 6),
           Text(
             text,
             style: GoogleFonts.nunito(
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
               color: textColor,
             ),
@@ -2360,83 +2414,162 @@ class _ClaseActivo extends StatelessWidget {
 
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
-        final borderColor = isDark ? GingaColors.brandGreen.withOpacity(0.15) : GingaColors.brandGreen.withOpacity(0.2);
+        final borderColor = isDark ? GingaColors.accentGreenDark.withOpacity(0.3) : GingaColors.brandGreen.withOpacity(0.2);
 
         return GestureDetector(
           onTap: () => context.push('/clase-detalle?claseId=$claseId'),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: cardBg,
               borderRadius: BorderRadius.circular(GingaRadius.lg),
-              border:
-                  Border.all(color: borderColor),
+              border: Border.all(color: borderColor, width: 1.5),
               boxShadow: isDark ? [] : [
                 BoxShadow(
-                  color: GingaColors.brandGreen.withOpacity(0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: GingaColors.brandGreen.withOpacity(0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                // Fila superior: Nivel + Badge de Activo
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        data['nivel'] ?? '',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: GingaColors.textPrimary,
-                        ),
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 6,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+                          GingaColors.accentAmber,
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: GingaColors.brandGreen.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(GingaRadius.full),
-                      ),
-                      child: Text(
-                        'ACTIVO',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w800,
-                          color: GingaColors.brandGreen,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-
-                // Divisor sutil
-                Container(
-                  height: 1,
-                  color: GingaColors.borderLight,
-                ),
-                const SizedBox(height: 12),
-
-                // Detalles inferiores adaptables
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildInfoBadge(
-                        context, Icons.access_time_rounded, data['hora'] ?? ''),
-                    _buildInfoBadge(context, Icons.calendar_today_outlined,
-                        _interpretarDiasDeSemana(data['dias'] ?? '')),
-                    _buildInfoBadge(
-                        context, Icons.person_outline_rounded, data['instructor'] ?? ''),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.stars_rounded,
+                                size: 14,
+                                color: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'TU CLASE PROGRAMADA 🥋',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                  color: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: (isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(GingaRadius.full),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const _PulseIndicator(),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'ACTIVO',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: (isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen).withOpacity(0.08),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.sports_martial_arts_rounded,
+                              size: 26,
+                              color: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  data['nivel'] ?? '',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? Colors.white : GingaColors.textPrimary,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Sesión de entrenamiento recurrente',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 12,
+                                    color: isDark ? GingaColors.textMuted : GingaColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 16,
+                            color: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        height: 1,
+                        color: isDark ? Colors.white.withOpacity(0.06) : GingaColors.borderLight.withOpacity(0.6),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildInfoBadge(context, Icons.access_time_filled_rounded, data['hora'] ?? ''),
+                          _buildInfoBadge(context, Icons.calendar_month_rounded, _interpretarDiasDeSemana(data['dias'] ?? '')),
+                          _buildInfoBadge(context, Icons.account_circle_rounded, data['instructor'] ?? ''),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
