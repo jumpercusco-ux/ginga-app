@@ -213,13 +213,13 @@ class _TiendaScreenState extends State<TiendaScreen> {
 
                     final screenWidth = MediaQuery.of(context).size.width;
                     int crossAxisCount = 2;
-                    double childAspectRatio = 0.72;
+                    double childAspectRatio = 0.67;
                     if (screenWidth > 1100) {
                       crossAxisCount = 4;
-                      childAspectRatio = 0.75;
+                      childAspectRatio = 0.72;
                     } else if (screenWidth > 750) {
                       crossAxisCount = 3;
-                      childAspectRatio = 0.72;
+                      childAspectRatio = 0.67;
                     }
 
                     return GridView.builder(
@@ -459,7 +459,7 @@ class _ProductCard extends StatelessWidget {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
