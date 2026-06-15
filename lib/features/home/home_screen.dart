@@ -24,6 +24,7 @@ import '../tienda/tienda_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'qr_scanner_screen.dart';
 import '../../core/services/eventos_service.dart';
+import '../../core/services/tutoriales_service.dart';
 import '../biblioteca/tutoriales_screen.dart';
 import '../biblioteca/musica_screen.dart';
 import '../biblioteca/cultura_screen.dart';
@@ -486,6 +487,8 @@ class _HomeDashboard extends StatelessWidget {
     EventosService.instance.inicializarEventosMockupSiVacia();
     // Sembrar entreno del Sábado 30 de Mayo si no existe
     EventosService.instance.inicializarEntreno30Mayo();
+    // Inicializar tutoriales mockup si la colección de Firestore está vacía
+    TutorialesService.instance.inicializarTutorialesMockupSiVacia();
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
 

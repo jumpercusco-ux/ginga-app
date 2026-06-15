@@ -344,9 +344,24 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                       fontWeight: FontWeight.w600,
                                     ),
                                     tabs: const [
-                                      Tab(text: 'Progreso'),
-                                      Tab(text: 'Logros'),
-                                      Tab(text: 'Membresía'),
+                                      Tab(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text('Progreso'),
+                                        ),
+                                      ),
+                                      Tab(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text('Logros'),
+                                        ),
+                                      ),
+                                      Tab(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text('Membresía'),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -639,7 +654,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
 
                           // ── TabBar (Pill/Chips Style) ───────
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
                             child: Container(
                               height: 38,
                               decoration: BoxDecoration(
@@ -656,6 +671,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                 ),
                                 labelColor: Colors.white,
                                 unselectedLabelColor: GingaColors.textSecondary,
+                                labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                                 labelStyle: GoogleFonts.montserrat(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
@@ -665,10 +681,30 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                   fontWeight: FontWeight.w600,
                                 ),
                                 tabs: const [
-                                  Tab(text: 'Progreso'),
-                                  Tab(text: 'Logros'),
-                                  Tab(text: 'Membresía'),
-                                  Tab(text: 'Ajustes'),
+                                  Tab(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text('Progreso'),
+                                    ),
+                                  ),
+                                  Tab(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text('Logros'),
+                                    ),
+                                  ),
+                                  Tab(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text('Membresía'),
+                                    ),
+                                  ),
+                                  Tab(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text('Ajustes'),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),

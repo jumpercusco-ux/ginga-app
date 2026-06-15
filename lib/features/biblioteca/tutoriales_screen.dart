@@ -468,6 +468,25 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                             return matchesSearch && matchesCategory && visible;
                           }).toList();
 
+                          // Ordenar localmente: primero los niveles más básicos (menor índice de cuerda)
+                          docs.sort((a, b) {
+                            final dataA = a.data() as Map<String, dynamic>;
+                            final dataB = b.data() as Map<String, dynamic>;
+                            final cordaNameA = dataA['corda'] ?? 'Crua';
+                            final cordaNameB = dataB['corda'] ?? 'Crua';
+                            final cordaA = CuerdasFIU.encontrarCordaFIU(cordaNameA) ?? CuerdasFIU.lista.first;
+                            final cordaB = CuerdasFIU.encontrarCordaFIU(cordaNameB) ?? CuerdasFIU.lista.first;
+                            
+                            // Orden ascendente por el índice de la cuerda (menor index = más básico/arriba)
+                            final cmp = cordaA.index.compareTo(cordaB.index);
+                            if (cmp != 0) return cmp;
+                            
+                            // Si son de la misma cuerda, ordenar alfabéticamente por título
+                            final tituloA = (dataA['titulo'] ?? '').toString();
+                            final tituloB = (dataB['titulo'] ?? '').toString();
+                            return tituloA.compareTo(tituloB);
+                          });
+
                           if (docs.isEmpty) {
                             return Center(
                               child: Column(
@@ -651,38 +670,44 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                                                         ),
                                                       ),
                                                       const SizedBox(width: 8),
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                        decoration: BoxDecoration(
-                                                          color: isLocked
-                                                              ? Colors.orange.withOpacity(0.08)
-                                                              : GingaColors.brandGreen.withOpacity(0.08),
-                                                          borderRadius: BorderRadius.circular(4),
-                                                          border: Border.all(
+                                                      Flexible(
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                          decoration: BoxDecoration(
                                                             color: isLocked
-                                                                ? Colors.orange.withOpacity(0.3)
-                                                                : GingaColors.brandGreen.withOpacity(0.3),
-                                                            width: 0.5,
-                                                          ),
-                                                        ),
-                                                        child: Row(
-                                                          mainAxisSize: MainAxisSize.min,
-                                                          children: [
-                                                            Icon(
-                                                              isLocked ? Icons.lock_rounded : Icons.check_circle_outline_rounded,
-                                                              size: 8,
-                                                              color: isLocked ? Colors.orange : GingaColors.brandGreen,
+                                                                ? Colors.orange.withOpacity(0.08)
+                                                                : GingaColors.brandGreen.withOpacity(0.08),
+                                                            borderRadius: BorderRadius.circular(4),
+                                                            border: Border.all(
+                                                              color: isLocked
+                                                                  ? Colors.orange.withOpacity(0.3)
+                                                                  : GingaColors.brandGreen.withOpacity(0.3),
+                                                              width: 0.5,
                                                             ),
-                                                            const SizedBox(width: 3),
-                                                            Text(
-                                                              isLocked ? 'Cuerda: $tutorialCordaName' : 'Acceso Libre',
-                                                              style: GoogleFonts.montserrat(
-                                                                fontSize: 8,
-                                                                fontWeight: FontWeight.w800,
+                                                          ),
+                                                          child: Row(
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              Icon(
+                                                                isLocked ? Icons.lock_rounded : Icons.check_circle_outline_rounded,
+                                                                size: 8,
                                                                 color: isLocked ? Colors.orange : GingaColors.brandGreen,
                                                               ),
-                                                            ),
-                                                          ],
+                                                              const SizedBox(width: 3),
+                                                              Flexible(
+                                                                child: Text(
+                                                                  isLocked ? 'Cuerda: $tutorialCordaName' : 'Acceso Libre',
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                  maxLines: 1,
+                                                                  style: GoogleFonts.montserrat(
+                                                                    fontSize: 8,
+                                                                    fontWeight: FontWeight.w800,
+                                                                    color: isLocked ? Colors.orange : GingaColors.brandGreen,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
                                                         ),
                                                       ),
                                                     ],
