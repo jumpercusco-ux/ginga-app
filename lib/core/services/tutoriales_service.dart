@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
@@ -11,6 +12,25 @@ class TutorialesService {
   /// Carga datos mockup a Firestore de forma automática si la colección /tutoriales está vacía
   Future<void> inicializarTutorialesMockupSiVacia() async {
     try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) {
+        debugPrint('Sembrado omitido: No hay usuario autenticado.');
+        return;
+      }
+
+      // Validar rol del usuario en Firestore para evitar escrituras no autorizadas
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (!userDoc.exists) {
+        debugPrint('Sembrado omitido: El documento de usuario no existe.');
+        return;
+      }
+      final userData = userDoc.data();
+      final rol = userData != null ? userData['rol'] : 'alumno';
+      if (rol != 'profesor') {
+        debugPrint('Sembrado de tutoriales omitido: El usuario actual no tiene rol de profesor ($rol).');
+        return;
+      }
+
       // Obtenemos los tutoriales existentes para evitar duplicados
       final query = await FirebaseFirestore.instance.collection('tutoriales').get();
       

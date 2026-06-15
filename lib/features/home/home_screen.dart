@@ -483,12 +483,6 @@ class _HomeDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Theme.of(context); // Suscribir al tema para regenerar el dashboard al alternar claro/oscuro
-    // Inicializar eventos mockup si la colección de Firestore está vacía
-    EventosService.instance.inicializarEventosMockupSiVacia();
-    // Sembrar entreno del Sábado 30 de Mayo si no existe
-    EventosService.instance.inicializarEntreno30Mayo();
-    // Inicializar tutoriales mockup si la colección de Firestore está vacía
-    TutorialesService.instance.inicializarTutorialesMockupSiVacia();
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
 

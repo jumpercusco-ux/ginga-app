@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/services/notification_service.dart';
+import '../../core/services/eventos_service.dart';
+import '../../core/services/tutoriales_service.dart';
 import '../perfil/progreso_screen.dart';
 import 'qr_generator_screen.dart';
 import 'instructor_alumnos_screen.dart';
@@ -201,6 +203,11 @@ class _InstructorDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Inicializar eventos y tutoriales mockup si la colección está vacía (solo permitido para rol profesor)
+    EventosService.instance.inicializarEventosMockupSiVacia();
+    EventosService.instance.inicializarEntreno30Mayo();
+    TutorialesService.instance.inicializarTutorialesMockupSiVacia();
+
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return SafeArea(

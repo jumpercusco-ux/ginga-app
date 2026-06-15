@@ -14,6 +14,19 @@ class EventosService {
         debugPrint('Se pospone la inicialización de eventos mockup (sin sesión activa).');
         return;
       }
+
+      // Validar rol del usuario en Firestore para evitar escrituras no autorizadas
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) {
+        debugPrint('Sembrado omitido: El documento de usuario no existe.');
+        return;
+      }
+      final userData = userDoc.data();
+      final rol = userData != null ? userData['rol'] : 'alumno';
+      if (rol != 'profesor') {
+        debugPrint('Sembrado de eventos mockup omitido: El usuario actual no tiene rol de profesor ($rol).');
+        return;
+      }
       
       final query = await FirebaseFirestore.instance.collection('eventos').limit(1).get();
       if (query.docs.isEmpty) {
@@ -64,6 +77,16 @@ class EventosService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
+
+      // Validar rol del usuario en Firestore para evitar escrituras no autorizadas
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) return;
+      final userData = userDoc.data();
+      final rol = userData != null ? userData['rol'] : 'alumno';
+      if (rol != 'profesor') {
+        debugPrint('Sembrado de entreno 30 de Mayo omitido: El usuario actual no tiene rol de profesor ($rol).');
+        return;
+      }
 
       // 1. Sembrar en la colección /clases
       final queryClase = await FirebaseFirestore.instance
