@@ -770,35 +770,38 @@ class _Banner extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(icono, color: Colors.white, size: 18),
+                    Icon(icono, color: Colors.white, size: 20),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(titulo,
                           style: GoogleFonts.montserrat(
-                              fontSize: 15,
+                              fontSize: 16,
                               fontWeight: FontWeight.w800,
                               color: Colors.white)),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(subtitulo,
                     style: GoogleFonts.nunito(
-                        fontSize: 12, color: Colors.white70, height: 1.4)),
-                const SizedBox(height: 12),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        height: 1.4)),
+                const SizedBox(height: 14),
                 GestureDetector(
                   onTap: onTap,
                   child: Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(GingaRadius.full),
                     ),
                     child: Text(accion,
                         style: GoogleFonts.montserrat(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
                             color: color)),
                   ),
                 ),
