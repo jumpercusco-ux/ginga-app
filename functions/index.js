@@ -644,9 +644,15 @@ exports.whatsappWebhook = functions
 
       const telefono = message.from;
       const waMessageId = message.id;
-      const texto = message.text.body;
+      const texto = message.text?.body;
       const referral = message.referral || null;
       const nombreContacto = change.contacts?.[0]?.profile?.name || 'Lead';
+
+      if (!telefono || !waMessageId || !texto) {
+        console.error('[WhatsApp Webhook] Mensaje entrante con campos faltantes, se descarta:', JSON.stringify(req.body));
+        res.sendStatus(200);
+        return;
+      }
 
       const leadRef = admin.firestore().collection('whatsapp_leads').doc(telefono);
       const dedupRef = leadRef.collection('mensajes').doc(waMessageId);
@@ -723,7 +729,7 @@ exports.whatsappWebhook = functions
 
       res.sendStatus(200);
     } catch (error) {
-      console.error('[WhatsApp Webhook] Error procesando el mensaje entrante:', error);
+      console.error('[WhatsApp Webhook] Error procesando el mensaje entrante:', error, JSON.stringify(req.body));
       res.sendStatus(200); // Evita que Meta reintente indefinidamente un evento que ya falló.
     }
   });
