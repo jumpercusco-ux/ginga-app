@@ -203,6 +203,61 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
 
                 Divider(height: 32, color: GingaColors.borderLight),
 
+                // Notas del Instructor
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Notas del Instructor 📝',
+                        style: GoogleFonts.montserrat(
+                            fontSize: 13, 
+                            fontWeight: FontWeight.w700, 
+                            color: GingaColors.textSecondary)),
+                    GestureDetector(
+                      onTap: () {
+                        _editarNotasAlumno(context, ctx, data);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: GingaColors.brandGreen.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.edit_rounded,
+                          size: 14,
+                          color: GingaColors.brandGreen,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9F9F9),
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                    border: Border.all(color: GingaColors.borderLight),
+                  ),
+                  child: Text(
+                    data['notas']?.toString().trim().isNotEmpty == true
+                        ? data['notas']
+                        : 'Sin notas u observaciones para este alumno.',
+                    style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      color: data['notas']?.toString().trim().isNotEmpty == true
+                          ? GingaColors.textPrimary
+                          : GingaColors.textSecondary,
+                      fontStyle: data['notas']?.toString().trim().isNotEmpty == true
+                          ? FontStyle.normal
+                          : FontStyle.italic,
+                    ),
+                  ),
+                ),
+
+                Divider(height: 32, color: GingaColors.borderLight),
+
                 // Detalles de Membresía
                 Text('Detalles de Membresía',
                     style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: GingaColors.textSecondary)),
@@ -2849,26 +2904,54 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () => _mostrarModalComunicado(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: GingaColors.brandGreen,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    minimumSize: const Size(0, 40),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => _mostrarModalAgregarAlumno(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: GingaColors.brandGreen,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        minimumSize: const Size(0, 36),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                        ),
+                      ),
+                      icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                      label: Text(
+                        'Agregar Alumno 👤',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                  ),
-                  icon: const Icon(Icons.campaign, size: 18),
-                  label: Text(
-                    'Comunicado 📢',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(height: 6),
+                    ElevatedButton.icon(
+                      onPressed: () => _mostrarModalComunicado(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: GingaColors.brandGreen,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        minimumSize: const Size(0, 36),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                        ),
+                      ),
+                      icon: const Icon(Icons.campaign, size: 16),
+                      label: Text(
+                        'Comunicado 📢',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -3090,6 +3173,8 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     final userSede = data['sede'] ?? 'Sin sede';
                     final String? fotoUrl = data['foto_url'];
                     final String corda = data['corda'] ?? 'Crua';
+                    final finTime = data['membresia_fin'] as Timestamp?;
+                    final DateTime? finDate = finTime?.toDate();
 
                     return GestureDetector(
                       onTap: () {
@@ -3143,7 +3228,10 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                           fontWeight: FontWeight.w700,
                                           color: GingaColors.textPrimary)),
                                   const SizedBox(height: 2),
-                                  Row(
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -3169,18 +3257,45 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                                             ? Colors.blue
                                                             : Colors.red)),
                                       ),
-                                      const SizedBox(width: 6),
-                                      Flexible(
-                                        child: Text(
-                                          '•  $userSede • $corda',
-                                          style: GoogleFonts.nunito(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: GingaColors.textSecondary),
-                                          overflow: TextOverflow.ellipsis,
+                                      if (data['is_offline'] == true)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange.withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            'SIN APP 📴',
+                                            style: GoogleFonts.nunito(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.orange[800],
+                                            ),
+                                          ),
                                         ),
+                                      Text(
+                                        '•  $userSede • $corda',
+                                        style: GoogleFonts.nunito(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: GingaColors.textSecondary),
                                       ),
                                       _StudentProgressText(uid: doc.id, corda: corda),
+                                      if (finDate != null) ...[
+                                        Icon(
+                                          Icons.event_outlined,
+                                          size: 13,
+                                          color: finDate.isBefore(DateTime.now()) ? Colors.redAccent : GingaColors.textSecondary,
+                                        ),
+                                        Text(
+                                          'Vence: ${finDate.day}/${finDate.month}/${finDate.year}',
+                                          style: GoogleFonts.nunito(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: finDate.isBefore(DateTime.now()) ? Colors.redAccent : GingaColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ],
@@ -3312,6 +3427,471 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
         );
       }
     }
+  }
+
+  void _mostrarModalAgregarAlumno(BuildContext context) {
+    final formKey = GlobalKey<FormState>();
+    final nombreController = TextEditingController();
+    final emailController = TextEditingController();
+    
+    final List<String> sedesDisponibles = _sedes.where((s) => s != 'Todos').toList();
+    String selectedSede = sedesDisponibles.first;
+    
+    String selectedCorda = 'Crua';
+    String selectedStatus = 'activo';
+    bool isOffline = true;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.xl)),
+      ),
+      builder: (BuildContext sheetCtx) {
+        return StatefulBuilder(
+          builder: (BuildContext modalCtx, StateSetter modalSetState) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(modalCtx).size.height * 0.85,
+              ),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(modalCtx).viewInsets.bottom +
+                    (MediaQuery.of(modalCtx).padding.bottom > 0
+                        ? MediaQuery.of(modalCtx).padding.bottom + 12
+                        : 20),
+                left: 24,
+                right: 24,
+                top: 24,
+              ),
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Agregar Alumno Manual 👤',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: GingaColors.textPrimary,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(sheetCtx),
+                            icon: const Icon(Icons.close, size: 20),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Crea un nuevo alumno para monitorear sus mensualidades, asistencias y notas.',
+                        style: GoogleFonts.nunito(
+                          fontSize: 13,
+                          color: GingaColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Nombre
+                      Text(
+                        'Nombre Completo *',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: GingaColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: nombreController,
+                        decoration: InputDecoration(
+                          hintText: 'Ej. Amaru Valenzuela',
+                          hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: BorderSide(color: GingaColors.borderLight),
+                          ),
+                        ),
+                        style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'El nombre es obligatorio';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Sede Dropdown
+                      Text(
+                        'Sede Asignada *',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: GingaColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        value: selectedSede,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: BorderSide(color: GingaColors.borderLight),
+                          ),
+                        ),
+                        style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                        items: sedesDisponibles.map((s) {
+                          return DropdownMenuItem<String>(
+                            value: s,
+                            child: Text(s, style: GoogleFonts.nunito(color: GingaColors.textPrimary)),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            modalSetState(() {
+                              selectedSede = val;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Corda Dropdown
+                      Text(
+                        'Cuerda / Graduación Inicial *',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: GingaColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        value: selectedCorda,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: BorderSide(color: GingaColors.borderLight),
+                          ),
+                        ),
+                        style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                        items: CuerdasFIU.lista.map((c) {
+                          return DropdownMenuItem<String>(
+                            value: c.nombre,
+                            child: Text(c.nombre, style: GoogleFonts.nunito(color: GingaColors.textPrimary)),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            modalSetState(() {
+                              selectedCorda = val;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Estado Dropdown
+                      Text(
+                        'Estado *',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: GingaColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        value: selectedStatus,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: BorderSide(color: GingaColors.borderLight),
+                          ),
+                        ),
+                        style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                        items: const [
+                          DropdownMenuItem(value: 'activo', child: Text('Activo')),
+                          DropdownMenuItem(value: 'prueba', child: Text('Periodo de Prueba')),
+                          DropdownMenuItem(value: 'nuevo', child: Text('Nuevo')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            modalSetState(() {
+                              selectedStatus = val;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Correo
+                      Text(
+                        'Correo Electrónico (Opcional)',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: GingaColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(
+                          hintText: isOffline ? 'Ficticio (Ej. amaru_offline@ginga.app)' : 'Ej. amaru@gmail.com',
+                          hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: BorderSide(color: GingaColors.borderLight),
+                          ),
+                        ),
+                        style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                        enabled: !isOffline,
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Switch Alumno sin aplicación (Offline)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Alumno sin Aplicación (Offline)',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: GingaColors.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  'Activa esta opción si el alumno no usará la app. Se generará un correo único de respaldo.',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 11,
+                                    color: GingaColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: isOffline,
+                            activeColor: GingaColors.brandGreen,
+                            onChanged: (val) {
+                              modalSetState(() {
+                                isOffline = val;
+                                if (isOffline) {
+                                  emailController.clear();
+                                }
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Guardar Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            if (!formKey.currentState!.validate()) return;
+                            
+                            final name = nombreController.text.trim();
+                            String email = emailController.text.trim();
+                            
+                            if (isOffline) {
+                              email = 'sin_app_${DateTime.now().millisecondsSinceEpoch}@ginga.app';
+                            } else if (email.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Por favor, ingresa un correo o activa el modo sin aplicación.'),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                              return;
+                            }
+
+                            // Mostrar cargando usando el contexto de la pantalla
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (BuildContext loaderCtx) => const Center(
+                                child: CircularProgressIndicator(color: GingaColors.brandGreen),
+                              ),
+                            );
+
+                            try {
+                              final newUserRef = FirebaseFirestore.instance.collection('users').doc();
+                              final Map<String, dynamic> userData = {
+                                'uid': newUserRef.id,
+                                'nombre': name,
+                                'email': email,
+                                'sede': selectedSede,
+                                'corda': selectedCorda,
+                                'rol': 'alumno',
+                                'status': selectedStatus,
+                                'is_offline': isOffline,
+                                'created_at': FieldValue.serverTimestamp(),
+                                'notas': '',
+                              };
+
+                              await newUserRef.set(userData);
+
+                              if (mounted) {
+                                Navigator.pop(context); // Cierra cargando
+                                Navigator.pop(sheetCtx); // Cierra la hoja inferior de registro
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Alumno "$name" registrado con éxito 🎉'),
+                                    backgroundColor: GingaColors.brandGreen,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                Navigator.pop(context); // Cierra cargando
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error al registrar alumno: $e'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: GingaColors.brandGreen,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                            ),
+                          ),
+                          icon: const Icon(Icons.check_rounded, size: 18),
+                          label: Text(
+                            'Registrar Alumno',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _editarNotasAlumno(BuildContext context, BuildContext sheetCtx, Map<String, dynamic> userData) async {
+    final String userUid = userData['uid'] ?? '';
+    if (userUid.isEmpty) return;
+
+    final controller = TextEditingController(text: userData['notas'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogCtx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.lg)),
+          title: Text(
+            'Notas del Instructor 📝',
+            style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, color: GingaColors.textPrimary),
+          ),
+          content: TextField(
+            controller: controller,
+            maxLines: 5,
+            decoration: InputDecoration(
+              hintText: 'Escribe aquí observaciones, lesiones, comportamiento...',
+              hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+                borderSide: BorderSide(color: GingaColors.borderLight),
+              ),
+            ),
+            style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: Text(
+                'Cancelar',
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: GingaColors.textSecondary),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final newNotas = controller.text.trim();
+                Navigator.of(dialogCtx).pop();
+
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (BuildContext loaderCtx) => const Center(
+                    child: CircularProgressIndicator(color: GingaColors.brandGreen),
+                  ),
+                );
+
+                try {
+                  await FirebaseFirestore.instance.collection('users').doc(userUid).update({
+                    'notas': newNotas,
+                  });
+
+                  if (mounted) {
+                    Navigator.pop(context); // Cierra cargando
+                    Navigator.pop(sheetCtx); // Cierra la ficha del alumno para recargar los datos
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Notas actualizadas correctamente 📝'),
+                        backgroundColor: GingaColors.brandGreen,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    Navigator.pop(context); // Cierra cargando
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error al guardar notas: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: GingaColors.brandGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.md)),
+              ),
+              child: Text(
+                'Guardar',
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -3650,4 +4230,5 @@ class _FichaProgresoCard extends StatelessWidget {
       },
     );
   }
+
 }

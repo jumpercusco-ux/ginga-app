@@ -14,6 +14,7 @@ import 'package:ginga_app/features/home/home_screen.dart';
 import 'package:ginga_app/features/home/clase_detalle_screen.dart';
 import 'package:ginga_app/features/instructor/instructor_clase_screen.dart';
 import 'package:ginga_app/features/instructor/crear_clase_screen.dart';
+import 'package:ginga_app/features/instructor/instructor_leads_screen.dart';
 import 'package:ginga_app/features/biblioteca/practicar_toque_screen.dart';
 import 'package:ginga_app/features/tienda/tienda_screen.dart';
 import 'package:ginga_app/features/tienda/producto_detalle_screen.dart';
@@ -95,6 +96,10 @@ final appRouter = GoRouter(
         final claseId = state.uri.queryParameters['claseId'];
         return CrearClaseScreen(claseId: claseId);
       },
+    ),
+    GoRoute(
+      path: '/instructor-leads',
+      builder: (context, state) => const InstructorLeadsScreen(),
     ),
     GoRoute(
       path: '/tutorial-detail',

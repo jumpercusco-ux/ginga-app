@@ -258,6 +258,63 @@ class _InstructorDashboard extends StatelessWidget {
 
             const SizedBox(height: 24),
 
+            // ── Acceso rápido: Leads de WhatsApp ──────────────────────
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('whatsapp_leads')
+                  .where('status', isEqualTo: 'nuevo')
+                  .snapshots(),
+              builder: (context, leadsSnapshot) {
+                final nuevos = leadsSnapshot.data?.docs.length ?? 0;
+                return InkWell(
+                  borderRadius: BorderRadius.circular(GingaRadius.lg),
+                  onTap: () => context.push('/instructor-leads'),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: GingaColors.cardLight,
+                      borderRadius: BorderRadius.circular(GingaRadius.lg),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor: GingaColors.brandGreen.withOpacity(0.15),
+                          child: const Icon(Icons.chat_bubble_outline, color: GingaColors.brandGreen),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Leads de WhatsApp',
+                                  style: GoogleFonts.montserrat(
+                                      fontSize: 15, fontWeight: FontWeight.w700, color: GingaColors.textPrimary)),
+                              Text('Conversaciones capturadas desde anuncios',
+                                  style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary)),
+                            ],
+                          ),
+                        ),
+                        if (nuevos > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: GingaColors.accentAmber,
+                              borderRadius: BorderRadius.circular(GingaRadius.full),
+                            ),
+                            child: Text('$nuevos nuevo${nuevos == 1 ? '' : 's'}',
+                                style: GoogleFonts.nunito(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black87)),
+                          )
+                        else
+                          Icon(Icons.chevron_right, color: GingaColors.textSecondary),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('clases')
