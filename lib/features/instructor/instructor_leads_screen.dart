@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../../core/theme/ginga_theme.dart';
+import 'agent_prompt_screen.dart';
 
 /// Pipeline de leads capturados por WhatsApp (anuncios "Click to WhatsApp").
 /// La IA responde automáticamente vía la Cloud Function `whatsappWebhook`;
@@ -16,7 +17,15 @@ class InstructorLeadsScreen extends StatefulWidget {
 
 class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
   String _selectedStatusFilter = 'Todos';
-  final List<String> _statuses = ['Todos', 'Nuevo', 'Conversando', 'Reservado', 'Matriculado', 'Perdido'];
+  final List<String> _statuses = [
+    'Todos', 'Nuevo', 'Conversando', 'Requiere atención', 'Reservado', 'Matriculado', 'Perdido'
+  ];
+
+  /// Convierte la etiqueta visible del filtro al valor real guardado en `status`.
+  String _statusValueForLabel(String label) {
+    if (label == 'Requiere atención') return 'requiere_atencion';
+    return label.toLowerCase();
+  }
 
   Color _colorForStatus(String status) {
     switch (status) {
@@ -26,6 +35,8 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
         return GingaColors.brandGreen;
       case 'conversando':
         return Colors.blue;
+      case 'requiere_atencion':
+        return Colors.deepOrange;
       case 'perdido':
         return Colors.red;
       case 'nuevo':
@@ -52,6 +63,15 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
       appBar: AppBar(
         title: Text('Leads de WhatsApp',
             style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: GingaColors.textPrimary)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Configurar Agente IA',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AgentPromptScreen()),
+            ),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -96,7 +116,7 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                   if (_selectedStatusFilter == 'Todos') return true;
                   final data = doc.data() as Map<String, dynamic>;
                   final status = (data['status'] ?? 'nuevo') as String;
-                  return status.toLowerCase() == _selectedStatusFilter.toLowerCase();
+                  return status == _statusValueForLabel(_selectedStatusFilter);
                 }).toList();
 
                 if (docs.isEmpty) {
