@@ -95,3 +95,4 @@ No Firestore security rules or indexes are stored in this repo (managed via Fire
 - `eventos` screen uses hardcoded static data, not Firestore
 - No test coverage (placeholder test only)
 - `/tutorial-detail` route defined twice in router (duplicate)
+- QR scanner is non-functional: `flutter_barcode_scanner` is commented out in `pubspec.yaml` and `_scanQr()` always returns `null` — the scan button shows an error message on simulator and fails silently on device

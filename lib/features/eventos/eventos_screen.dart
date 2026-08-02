@@ -1,178 +1,327 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/widgets/ginga_cached_image.dart';
 import 'evento_detalle_screen.dart';
 
 class EventosScreen extends StatefulWidget {
-  const EventosScreen({super.key});
+  final bool isTab;
+  const EventosScreen({super.key, this.isTab = false});
 
   @override
   State<EventosScreen> createState() => _EventosScreenState();
 }
 
 class _EventosScreenState extends State<EventosScreen> {
-  int _selectedDayIndex = 3; // día 16 seleccionado por defecto
+  int _selectedFilterIndex = 0; // 0 = Próximos, 1 = Mis Inscripciones, 2 = Pasados
+  String _userSede = 'Cusco';
+  Set<String> _registeredEventIds = {};
+  bool _loadingRegistrations = true;
 
-  final List<_DayData> _days = [
-    _DayData(dia: 'LUN', numero: '12'),
-    _DayData(dia: 'MAR', numero: '13'),
-    _DayData(dia: 'MIÉ', numero: '14'),
-    _DayData(dia: 'JUE', numero: '15'),
-    _DayData(dia: 'VIE', numero: '16'),
-    _DayData(dia: 'SÁB', numero: '17'),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
 
-  final List<_EventoData> _eventos = [
-    _EventoData(
-      titulo: 'Workshop de Capoeira Regional',
-      fecha: '15 de Octubre · 18:00 hrs',
-      lugar: 'Centro Cultural Mira, Miraflores',
-      tag: 'CUPOS LIMITADOS',
-      tagColor: GingaColors.accentAmber,
-    ),
-    _EventoData(
-      titulo: 'Batizado e Troca de Cordas',
-      fecha: '22 de Octubre · 10:00 hrs',
-      lugar: 'Coliseo Manuel Bonilla',
-      tag: null,
-      tagColor: null,
-    ),
-    _EventoData(
-      titulo: 'Roda Aberta con Mestre Sidney',
-      fecha: '29 de Octubre · 16:00 hrs',
-      lugar: 'Parque de la Roda, Cusco',
-      tag: 'EVENTO DESTACADO',
-      tagColor: GingaColors.brandGreen,
-    ),
-  ];
+  Future<void> _loadUserData() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      // 1. Cargar sede del alumno
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (userDoc.exists && mounted) {
+        setState(() {
+          _userSede = userDoc.data()?['sede'] ?? 'Cusco';
+        });
+      }
+
+      // 2. Cargar eventos a los que se inscribió
+      await _cargarRegistrosUsuario();
+    } catch (e) {
+      debugPrint('Error cargando datos de usuario: $e');
+    }
+  }
+
+  Future<void> _cargarRegistrosUsuario() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    if (mounted) {
+      setState(() => _loadingRegistrations = true);
+    }
+    try {
+      final query = await FirebaseFirestore.instance.collection('eventos').get();
+      final Set<String> registered = {};
+      final futures = query.docs.map((doc) async {
+        final regDoc = await doc.reference.collection('registros').doc(uid).get();
+        if (regDoc.exists) {
+          registered.add(doc.id);
+        }
+      });
+      await Future.wait(futures);
+      if (mounted) {
+        setState(() {
+          _registeredEventIds = registered;
+          _loadingRegistrations = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error cargando registros de eventos: $e');
+      if (mounted) {
+        setState(() => _loadingRegistrations = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        elevation: 0,
+        leading: widget.isTab
+            ? null
+            : IconButton(
+                icon: Icon(Icons.arrow_back_ios_new, color: GingaColors.textPrimary, size: 18),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/home');
+                  }
+                },
+              ),
+        title: Text(
+          'Eventos y Talleres',
+          style: GoogleFonts.montserrat(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: GingaColors.textPrimary,
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Row(
+              children: [
+                const Icon(Icons.location_on_outlined, size: 14, color: GingaColors.brandGreen),
+                const SizedBox(width: 4),
+                Text(
+                  _userSede,
+                  style: GoogleFonts.nunito(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          )
+        ],
+      ),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header ──────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 12),
+
+                // ── Filtros Rápidos (Categorías) ────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
                     children: [
-                      Text(
-                        'Eventos y Talleres',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: GingaColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on_outlined,
-                              size: 13, color: GingaColors.textSecondary),
-                          const SizedBox(width: 3),
-                          Text(
-                            'Lima, Perú',
-                            style: GoogleFonts.nunito(
-                              fontSize: 13,
-                              color: GingaColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+                      _buildFilterTab(0, 'Próximos'),
+                      const SizedBox(width: 8),
+                      _buildFilterTab(1, 'Inscrito 🎟️'),
+                      const SizedBox(width: 8),
+                      _buildFilterTab(2, 'Historial'),
                     ],
                   ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.search,
-                        color: GingaColors.textPrimary, size: 22),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Lista de eventos ─────────────────────
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('eventos')
+                        .orderBy('fecha_inicio', descending: _selectedFilterIndex == 2)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting || _loadingRegistrations) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: GingaColors.brandGreen),
+                        );
+                      }
+
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return _buildEmptyState();
+                      }
+
+                      final now = DateTime.now();
+                      final allDocs = snapshot.data!.docs;
+
+                      // Filtrar client-side según la pestaña seleccionada
+                      final List<QueryDocumentSnapshot> filteredDocs = allDocs.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final bool publicado = data['publicar_inmediatamente'] ?? true;
+                        if (!publicado) return false;
+
+                        final Timestamp? endTs = data['fecha_fin'] as Timestamp?;
+                        final DateTime? end = endTs?.toDate();
+
+                        if (_selectedFilterIndex == 0) {
+                          // Próximos: que no hayan pasado
+                          return end == null || end.isAfter(now);
+                        } else if (_selectedFilterIndex == 1) {
+                          // Inscrito: que el ID esté en los registrados y que no hayan pasado
+                          final isReg = _registeredEventIds.contains(doc.id);
+                          final isFuture = end == null || end.isAfter(now);
+                          return isReg && isFuture;
+                        } else {
+                          // Pasados: que ya hayan culminado
+                          return end != null && end.isBefore(now);
+                        }
+                      }).toList();
+
+                      if (filteredDocs.isEmpty) {
+                        return _buildEmptyState();
+                      }
+
+                      return ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        itemCount: filteredDocs.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemBuilder: (context, index) {
+                          final doc = filteredDocs[index];
+                          final data = doc.data() as Map<String, dynamic>;
+                          final isRegistered = _registeredEventIds.contains(doc.id);
+
+                          return _EventoCard(
+                            eventId: doc.id,
+                            data: data,
+                            isRegistered: isRegistered,
+                            onTapDetails: () async {
+                              await context.push('/evento-detalle?eventId=${doc.id}');
+                              // Al regresar, refrescar la lista de registros
+                              _cargarRegistrosUsuario();
+                            },
+                          );
+                        },
+                      );
+                    },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
 
+  Widget _buildFilterTab(int index, String label) {
+    final isSelected = _selectedFilterIndex == index;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final unselectedBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final unselectedTextColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedFilterIndex = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? GingaColors.brandGreen : unselectedBg,
+            borderRadius: BorderRadius.circular(GingaRadius.md),
+            border: Border.all(
+              color: isSelected ? GingaColors.brandGreen : borderColor,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: GingaColors.brandGreen.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    )
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            style: GoogleFonts.montserrat(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: isSelected ? Colors.white : unselectedTextColor,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    String title = 'No hay eventos programados';
+    String desc = 'Vuelve a revisar pronto para conocer los talleres y rodas especiales.';
+    IconData icon = Icons.event_busy_rounded;
+
+    if (_selectedFilterIndex == 1) {
+      title = 'Aún no estás inscrito';
+      desc = 'Explora la pestaña "Próximos" e inscríbete a los talleres para ver tus tickets aquí.';
+      icon = Icons.confirmation_number_outlined;
+    } else if (_selectedFilterIndex == 2) {
+      title = 'No hay eventos pasados';
+      desc = 'Los eventos que finalicen aparecerán aquí en tu historial.';
+      icon = Icons.history_rounded;
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: GingaColors.cardLight,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: GingaColors.brandGreen.withOpacity(0.6), size: 40),
+            ),
             const SizedBox(height: 16),
-
-            // ── Calendario horizontal ────────────────
-            SizedBox(
-              height: 68,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _days.length,
-                itemBuilder: (context, index) {
-                  final day = _days[index];
-                  final isSelected = _selectedDayIndex == index;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedDayIndex = index),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 52,
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? GingaColors.brandGreen
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(GingaRadius.md),
-                        border: Border.all(
-                          color: isSelected
-                              ? GingaColors.brandGreen
-                              : GingaColors.borderLight,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            day.dia,
-                            style: GoogleFonts.montserrat(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: isSelected
-                                  ? Colors.white70
-                                  : GingaColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            day.numero,
-                            style: GoogleFonts.montserrat(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: isSelected
-                                  ? Colors.white
-                                  : GingaColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.montserrat(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: GingaColors.textPrimary,
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // ── Lista de eventos ─────────────────────
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: _eventos.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  return _EventoCard(evento: _eventos[index]);
-                },
-              ),
-            ),
-
             const SizedBox(height: 8),
+            Text(
+              desc,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.nunito(
+                fontSize: 13,
+                color: GingaColors.textSecondary,
+                height: 1.4,
+              ),
+            ),
           ],
         ),
       ),
@@ -181,197 +330,336 @@ class _EventosScreenState extends State<EventosScreen> {
 }
 
 // ─────────────────────────────────────────
-//  EVENTO CARD
+//  EVENTO CARD (DINÁMICO)
 // ─────────────────────────────────────────
 
-class _EventoCard extends StatelessWidget {
-  final _EventoData evento;
-  const _EventoCard({required this.evento});
+// ─────────────────────────────────────────
+//  TICKET DASHED DIVIDER (Línea prepicada)
+// ─────────────────────────────────────────
+
+class _TicketDashedDivider extends StatelessWidget {
+  final Color color;
+  const _TicketDashedDivider({this.color = const Color(0xFFE0E0E0)});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Imagen ──────────────────────────────
-          Stack(
-            children: [
-              Container(
-                height: 160,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: GingaColors.backgroundDark,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(GingaRadius.lg),
-                    topRight: Radius.circular(GingaRadius.lg),
-                  ),
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.sports_martial_arts,
-                    color: GingaColors.brandGreen,
-                    size: 56,
-                  ),
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final boxWidth = constraints.constrainWidth();
+        const dashWidth = 5.0;
+        const dashHeight = 1.5;
+        final dashCount = (boxWidth / (2 * dashWidth)).floor();
+        return Flex(
+          direction: Axis.horizontal,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(dashCount, (_) {
+            return SizedBox(
+              width: dashWidth,
+              height: dashHeight,
+              child: DecoratedBox(
+                decoration: BoxDecoration(color: color),
               ),
-              // Tag (si existe)
-              if (evento.tag != null)
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: evento.tagColor,
-                      borderRadius: BorderRadius.circular(GingaRadius.sm),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          evento.tagColor == GingaColors.accentAmber
-                              ? Icons.warning_amber_rounded
-                              : Icons.star_rounded,
-                          size: 12,
-                          color: evento.tagColor == GingaColors.accentAmber
-                              ? const Color(0xFF412402)
-                              : Colors.white,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          evento.tag!,
-                          style: GoogleFonts.montserrat(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: evento.tagColor == GingaColors.accentAmber
-                                ? const Color(0xFF412402)
-                                : Colors.white,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-
-          // ── Info ────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  evento.titulo,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today_outlined,
-                        size: 13, color: GingaColors.textSecondary),
-                    const SizedBox(width: 5),
-                    Text(
-                      evento.fecha,
-                      style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        color: GingaColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined,
-                        size: 13, color: GingaColors.textSecondary),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        evento.lugar,
-                        style: GoogleFonts.nunito(
-                          fontSize: 12,
-                          color: GingaColors.textSecondary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                // Botón Ver Detalles
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: ElevatedButton(
-onPressed: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const EventoDetalleScreen(),
-    ),
-  );
-},                    style: ElevatedButton.styleFrom(
-                      backgroundColor: GingaColors.brandGreen,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(GingaRadius.full),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      'Ver Detalles',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+            );
+          }),
+        );
+      },
     );
   }
 }
 
 // ─────────────────────────────────────────
-//  MODELOS
+//  EVENTO CARD (DISEÑO TICKET MODERNIZADO)
 // ─────────────────────────────────────────
 
-class _DayData {
-  final String dia;
-  final String numero;
-  _DayData({required this.dia, required this.numero});
-}
+class _EventoCard extends StatelessWidget {
+  final String eventId;
+  final Map<String, dynamic> data;
+  final bool isRegistered;
+  final VoidCallback onTapDetails;
 
-class _EventoData {
-  final String titulo;
-  final String fecha;
-  final String lugar;
-  final String? tag;
-  final Color? tagColor;
-
-  _EventoData({
-    required this.titulo,
-    required this.fecha,
-    required this.lugar,
-    required this.tag,
-    required this.tagColor,
+  const _EventoCard({
+    required this.eventId,
+    required this.data,
+    required this.isRegistered,
+    required this.onTapDetails,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    final titulo = data['titulo'] ?? 'Taller Especial';
+    final fechaTexto = data['fecha_texto'] ?? 'Fecha por confirmar';
+    final lugar = data['lugar'] ?? 'Por definir';
+    final imagenUrl = data['imagen_url'] ?? '';
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+    final notchColor = GingaColors.backgroundLight;
+
+    return Stack(
+      children: [
+        // Cuerpo principal del Ticket
+        Container(
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor),
+            boxShadow: isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 6),
+                    )
+                  ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Imagen y Tags del Evento ──────────────────────────────
+              SizedBox(
+                height: 150,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    GingaCachedImage(
+                      imageUrl: imagenUrl,
+                      fit: BoxFit.cover,
+                      category: 'evento',
+                      errorWidget: const Center(
+                        child: Icon(
+                          Icons.sports_martial_arts,
+                          color: GingaColors.brandGreen,
+                          size: 50,
+                        ),
+                      ),
+                    ),
+                    // Gradiente oscuro en la base de la imagen para legibilidad
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withOpacity(0.35),
+                            Colors.transparent,
+                          ],
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                        ),
+                      ),
+                    ),
+                    // Badge del Estado del Ticket en esquina superior
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isRegistered
+                              ? GingaColors.brandGreen
+                              : const Color(0xFFFBC02D), // Gold
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            )
+                          ],
+                        ),
+                        child: Text(
+                          isRegistered ? 'TICKET ADMITIDO 🎟️' : 'TALLER DISPONIBLE ⚡',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Línea Prepicada / División del Ticket ────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _TicketDashedDivider(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                ),
+              ),
+
+              // ── Detalles y Controles del Ticket ──────────────────────────────
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: textColor,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today_outlined, size: 14, color: subtitleColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            fechaTexto,
+                            style: GoogleFonts.nunito(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: subtitleColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.location_on_outlined, size: 14, color: subtitleColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            lugar,
+                            style: GoogleFonts.nunito(
+                              fontSize: 13,
+                              color: subtitleColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Simulación de Código de Barras / Ticket para inscritos
+                    if (isRegistered) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF9F9F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade100),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.qr_code_2, size: 24, color: GingaColors.brandGreen),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'ACCESO AUTORIZADO',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w900,
+                                    color: GingaColors.brandGreen,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'FIU-TKT-${eventId.toUpperCase().substring(0, 5)}',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: subtitleColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            // Simulación del código de barras
+                            Row(
+                              children: List.generate(12, (index) => Container(
+                                width: index % 3 == 0 ? 3.0 : (index % 2 == 0 ? 1.0 : 2.0),
+                                height: 22,
+                                color: isDark ? Colors.white54 : Colors.black54,
+                                margin: const EdgeInsets.only(right: 1.5),
+                              )),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    // Botón de Detalles o Acción
+                    SizedBox(
+                      width: double.infinity,
+                      height: 42,
+                      child: ElevatedButton(
+                        onPressed: onTapDetails,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: GingaColors.brandGreen,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          isRegistered ? 'Ver Detalles de Reserva' : 'Adquirir Ticket / Detalles',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Muesca / Corte lateral izquierdo del Ticket
+        Positioned(
+          left: -8,
+          top: 142, // Centrado exactamente en la división de 150px
+          child: Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: notchColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+
+        // Muesca / Corte lateral derecho del Ticket
+        Positioned(
+          right: -8,
+          top: 142,
+          child: Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: notchColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/theme/ginga_theme.dart';
 
 class QrScannerScreen extends StatefulWidget {
@@ -13,57 +13,21 @@ class QrScannerScreen extends StatefulWidget {
 }
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
+  final MobileScannerController _controller = MobileScannerController();
   bool _isLoading = false;
   String? _mensaje;
   bool _exito = false;
   bool _scanned = false;
 
-  Future<void> _escanear() async {
-    // En simulador no hay cámara — mostrar mensaje
-    if (defaultTargetPlatform == TargetPlatform.iOS && !kReleaseMode) {
-      setState(() {
-        _mensaje = 'Cámara no disponible en simulador.\nUsa un iPhone físico.';
-        _exito = false;
-        _scanned = true;
-      });
-      return;
-    }
-
-    try {
-      // ignore: depend_on_referenced_packages
-      final dynamic scanner =
-          await _scanQr();
-
-      if (scanner == null || scanner == '-1') {
-        if (mounted) Navigator.pop(context);
-        return;
-      }
-
-      await _procesarQR(scanner);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _mensaje = 'Error al escanear. Usa un dispositivo físico.';
-          _exito = false;
-          _scanned = true;
-        });
-      }
-    }
-  }
-
-  Future<String?> _scanQr() async {
-    try {
-      // ignore: avoid_dynamic_calls
-      final flutter_barcode_scanner =
-          // ignore: unnecessary_import
-          await Future.value(null);
-      return flutter_barcode_scanner as String?;
-    } catch (_) {
-      return null;
-    }
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   Future<void> _procesarQR(String sesionId) async {
+    if (_isLoading) return;
+
     setState(() {
       _isLoading = true;
       _scanned = true;
@@ -80,11 +44,41 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       if (!sesionDoc.exists || sesionDoc['activa'] != true) {
         setState(() {
-          _mensaje = 'QR inválido o sesión cerrada.';
+          _mensaje = 'Código QR inválido o la sesión ya fue cerrada.';
           _exito = false;
           _isLoading = false;
         });
         return;
+      }
+
+      // Obtener el estado del usuario
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final String userStatus = userDoc.exists ? (userDoc.data()?['status'] ?? 'nuevo') : 'nuevo';
+
+      String? reservaDocId;
+
+      if (userStatus != 'activo') {
+        // Validar si el alumno tiene una reservación activa para esta clase
+        final String claseId = sesionDoc['clase_id'] ?? '';
+        final reservaSnapshot = await FirebaseFirestore.instance
+            .collection('reservas')
+            .where('user_id', isEqualTo: uid)
+            .where('clase_id', isEqualTo: claseId)
+            .where('status', isEqualTo: 'confirmado')
+            .get();
+
+        if (reservaSnapshot.docs.isEmpty) {
+          setState(() {
+            _mensaje = 'No tienes una reservación activa para esta clase. Reserva tu lugar primero.';
+            _exito = false;
+            _isLoading = false;
+          });
+          return;
+        }
+        reservaDocId = reservaSnapshot.docs.first.id;
       }
 
       final asistenciaExiste = await FirebaseFirestore.instance
@@ -95,16 +89,21 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       if (asistenciaExiste.docs.isNotEmpty) {
         setState(() {
-          _mensaje = '¡Ya registraste tu asistencia hoy!';
+          _mensaje = '¡Ya registraste tu asistencia en esta sesión hoy!';
           _exito = true;
           _isLoading = false;
         });
         return;
       }
 
+      final String userName = userDoc.exists ? (userDoc.data()?['nombre'] ?? 'Sin nombre') : 'Sin nombre';
+      final String userEmail = userDoc.exists ? (userDoc.data()?['email'] ?? '') : '';
+
       await FirebaseFirestore.instance.collection('asistencias').add({
         'sesion_id': sesionId,
         'user_id': uid,
+        'user_name': userName,
+        'user_email': userEmail,
         'clase_id': sesionDoc['clase_id'],
         'nivel': sesionDoc['nivel'],
         'hora': sesionDoc['hora'],
@@ -112,36 +111,136 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         'created_at': FieldValue.serverTimestamp(),
       });
 
+      // Si tenía una reserva activa (era alumno de prueba/nuevo), marcar la reserva como asistida
+      if (reservaDocId != null) {
+        await FirebaseFirestore.instance
+            .collection('reservas')
+            .doc(reservaDocId)
+            .update({'status': 'asistido'});
+      }
+
+      // Generar notificación en el buzón del usuario para activar el push real vía Cloud Function
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('notificaciones')
+            .add({
+          'titulo': '¡Check-in exitoso! 🎉',
+          'mensaje': 'Registraste tu asistencia a la clase de ${sesionDoc['nivel']} hoy a las ${sesionDoc['hora']}.',
+          'fecha': FieldValue.serverTimestamp(),
+          'leido': false,
+          'tipo': 'asistencia',
+        });
+      } catch (notiError) {
+        debugPrint('Error al guardar notificación en subcolección: $notiError');
+      }
+
       setState(() {
-        _mensaje = '¡Asistencia registrada! 🎉';
+        _mensaje = '¡Asistencia registrada con éxito! 🎉';
         _exito = true;
         _isLoading = false;
       });
     } catch (e) {
+      debugPrint('Error al registrar asistencia: $e');
       setState(() {
-        _mensaje = 'Error al registrar. Intenta de nuevo.';
+        _mensaje = 'Error al registrar asistencia. Intenta de nuevo.';
         _exito = false;
         _isLoading = false;
       });
     }
   }
 
+  void _reiniciarEscaneo() {
+    _controller.start();
+    setState(() {
+      _scanned = false;
+      _mensaje = null;
+      _isLoading = false;
+    });
+  }
+
+  Widget _buildViewfinderOverlay() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          children: [
+            // Pintor de la máscara oscura con recorte en el centro
+            CustomPaint(
+              size: Size(constraints.maxWidth, constraints.maxHeight),
+              painter: ScannerOverlayPainter(),
+            ),
+            // Indicaciones y botones de control
+            Positioned(
+              top: 40,
+              left: 20,
+              right: 20,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  Text(
+                    'Escanear QR',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  // Botón de Linterna (Flash)
+                  IconButton(
+                    icon: const Icon(Icons.flashlight_on, color: Colors.white),
+                    onPressed: () => _controller.toggleTorch(),
+                  ),
+                ],
+              ),
+            ),
+            // Instrucción de uso debajo del recuadro
+            Positioned(
+              bottom: 120,
+              left: 30,
+              right: 30,
+              child: Column(
+                children: [
+                  Text(
+                    'Apunta al código QR del instructor',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Mantén el código dentro del recuadro verde para escanear',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: Text('Check-in QR',
-            style: GoogleFonts.montserrat(
-                fontWeight: FontWeight.w700, color: Colors.white)),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
       body: _isLoading
           ? const Center(
-              child:
-                  CircularProgressIndicator(color: GingaColors.brandGreen))
+              child: CircularProgressIndicator(color: GingaColors.brandGreen),
+            )
           : _scanned
               ? Container(
                   color: Colors.black87,
@@ -152,11 +251,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            _exito
-                                ? Icons.check_circle
-                                : Icons.error_outline,
-                            color:
-                                _exito ? GingaColors.brandGreen : Colors.red,
+                            _exito ? Icons.check_circle : Icons.error_outline,
+                            color: _exito ? GingaColors.brandGreen : Colors.red,
                             size: 80,
                           ),
                           const SizedBox(height: 24),
@@ -164,9 +260,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                             _mensaje ?? '',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.montserrat(
-                                fontSize: 20,
+                                fontSize: 18,
                                 fontWeight: FontWeight.w800,
-                                color: Colors.white),
+                                color: Colors.white,
+                                height: 1.4),
                           ),
                           const SizedBox(height: 40),
                           SizedBox(
@@ -177,63 +274,108 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: GingaColors.brandGreen,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                      GingaRadius.full),
+                                  borderRadius: BorderRadius.circular(GingaRadius.full),
                                 ),
                               ),
-                              child: Text('Volver al Home',
-                                  style: GoogleFonts.montserrat(
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white)),
+                              child: Text(
+                                'Volver al Home',
+                                style: GoogleFonts.montserrat(
+                                    fontWeight: FontWeight.w700, color: Colors.white),
+                              ),
                             ),
                           ),
+                          if (!_exito) ...[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: OutlinedButton(
+                                onPressed: _reiniciarEscaneo,
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.white70, width: 1.5),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(GingaRadius.full),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Volver a intentar',
+                                  style: GoogleFonts.montserrat(
+                                      fontWeight: FontWeight.w700, color: Colors.white),
+                                ),
+                              ),
+                            ),
+
+                          ],
                         ],
                       ),
                     ),
                   ),
                 )
-              : Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+              : SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: Stack(
                     children: [
-                      const Icon(Icons.qr_code_scanner,
-                          color: GingaColors.brandGreen, size: 80),
-                      const SizedBox(height: 24),
-                      Text('Check-in de clase',
-                          style: GoogleFonts.montserrat(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white)),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Escanea el QR del instructor\npara registrar tu asistencia',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.nunito(
-                            fontSize: 14, color: Colors.white60),
+                      // Componente de cámara viva de Mobile Scanner
+                      MobileScanner(
+                        controller: _controller,
+                        onDetect: (capture) {
+                          final List<Barcode> barcodes = capture.barcodes;
+                          for (final barcode in barcodes) {
+                            final String? code = barcode.rawValue;
+                            if (code != null) {
+                              _controller.stop();
+                              _procesarQR(code);
+                              break;
+                            }
+                          }
+                        },
                       ),
-                      const SizedBox(height: 32),
-                      ElevatedButton.icon(
-                        onPressed: _escanear,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: GingaColors.brandGreen,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 32, vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(GingaRadius.full),
-                          ),
-                        ),
-                        icon: const Icon(Icons.camera_alt,
-                            color: Colors.white),
-                        label: Text('Escanear QR',
-                            style: GoogleFonts.montserrat(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                                color: Colors.white)),
-                      ),
+                      // Máscara recortada y elementos interactivos por encima
+                      _buildViewfinderOverlay(),
                     ],
                   ),
                 ),
     );
   }
+}
+
+// Pintor personalizado para crear la mira de escaneo semitransparente
+class ScannerOverlayPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.65)
+      ..style = PaintingStyle.fill;
+
+    // Tamaño del cuadro del visor
+    final cutoutSize = size.width * 0.62;
+    final left = (size.width - cutoutSize) / 2;
+    final top = (size.height - cutoutSize) / 2.3; // Ligeramente elevado para dar espacio al texto
+
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final cutoutRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(left, top, cutoutSize, cutoutSize),
+      const Radius.circular(20),
+    );
+
+    // Dibuja la máscara con el recorte en forma de RRect en el medio
+    final path = Path()
+      ..addRect(rect)
+      ..addRRect(cutoutRect)
+      ..fillType = PathFillType.evenOdd;
+
+    canvas.drawPath(path, paint);
+
+    // Pintar los bordes de la mira de escaneo
+    final borderPaint = Paint()
+      ..color = GingaColors.brandGreen
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+
+    canvas.drawRRect(cutoutRect, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

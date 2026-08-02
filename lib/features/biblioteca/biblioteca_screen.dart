@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/theme/ginga_theme.dart';
-import 'practicar_toque_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/theme/ginga_theme.dart';
+import 'musica_screen.dart';
 import 'tutor_detail_screen.dart';
+import 'cultura_screen.dart';
+import 'tutoriales_screen.dart';
+import 'glosario_screen.dart';
+import 'graduaciones_screen.dart';
 
 
 class BibliotecaScreen extends StatelessWidget {
@@ -11,14 +16,18 @@ class BibliotecaScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar la pantalla al alternar claro/oscuro
     return Scaffold(
       backgroundColor: GingaColors.backgroundLight,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               const SizedBox(height: 20),
 
               // ── Header ──────────────────────────────
@@ -43,16 +52,16 @@ class BibliotecaScreen extends StatelessWidget {
 
               // ── Sección principal ────────────────────
               _SeccionCard(
-                titulo: 'Practicar Toque',
-                subtitulo: 'Identifica ritmos con IA en tiempo real',
+                titulo: 'Música',
+                subtitulo: 'Toques de berimbau y cantigas tradicionales',
                 icono: Icons.music_note,
-                tag: 'IA',
+                tag: 'RITMO',
                 tagColor: GingaColors.brandGreen,
                 color: GingaColors.brandGreen,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const PracticarToqueScreen(),
+                    builder: (_) => const MusicaScreen(),
                   ),
                 ),
               ),
@@ -60,25 +69,25 @@ class BibliotecaScreen extends StatelessWidget {
               const SizedBox(height: 14),
 
               _SeccionCard(
-                titulo: 'Tutoriales On-Demand',
+                titulo: 'Tutoriales',
                 subtitulo: 'Micro-lecciones de técnica para practicar en casa',
                 icono: Icons.play_circle_outline,
                 tag: 'NUEVO',
                 tagColor: GingaColors.accentAmber,
                 color: GingaColors.accentAmber,
-              // Busca la _SeccionCard de Tutoriales y cambia su onTap:
-onTap: () => Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (_) => const TutorialDetailScreen(),
-  ),
-),              ),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TutorialesScreen(),
+                  ),
+                ),
+              ),
 
               const SizedBox(height: 14),
 
               _SeccionCard(
-                titulo: 'Cultura Capoeira',
-                subtitulo: 'Cantigas, historia y enciclopedia de mestres',
+                titulo: 'Cultura',
+                subtitulo: 'Historia de la capoeira y enciclopedia de mestres',
                 icono: Icons.menu_book_outlined,
                 tag: 'CULTURA',
                 tagColor: GingaColors.textSecondary,
@@ -91,9 +100,56 @@ onTap: () => Navigator.push(
                 ),
               ),
 
+              const SizedBox(height: 14),
+
+              _SeccionCard(
+                titulo: 'Glosario de Capoeira',
+                subtitulo: 'Diccionario oficial y términos clave del grupo FIU',
+                icono: Icons.translate_rounded,
+                tag: 'GLOSARIO',
+                tagColor: GingaColors.accentAmber,
+                color: GingaColors.accentAmber,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const GlosarioScreen(),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              _SeccionCard(
+                titulo: 'Sistema de Graduaciones',
+                subtitulo: 'Camino oficial de cuerdas de FIU y tu rango actual',
+                icono: Icons.military_tech_rounded,
+                tag: 'CUERDAS',
+                tagColor: Colors.blue,
+                color: Colors.blue,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const GraduacionesScreen(),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              _SeccionCard(
+                titulo: 'Nuestros Mestres',
+                subtitulo: 'Conoce a los líderes y fundadores de la Família Irmãos Unidos',
+                icono: Icons.diversity_3_rounded,
+                tag: 'LINAJE',
+                tagColor: Colors.deepPurple,
+                color: Colors.deepPurple,
+                onTap: () => context.push('/nuestros-mestres'),
+              ),
+
               const SizedBox(height: 28),
 
-              // ── Últimas lecciones ────────────────────
+              // ── Últimas lecciones (Ocultado temporalmente) ────────────────────
+              /*
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -118,41 +174,91 @@ onTap: () => Navigator.push(
 
               const SizedBox(height: 12),
 
-              // Lista de lecciones
-             // Busca donde llamas a _LeccionCard y añade el parámetro onTap:
-_LeccionCard(
-  titulo: 'Passape',
-  nivel: 'Iniciante',
-  duracion: '6 min',
-  icono: Icons.sports_martial_arts,
-  onTap: () => Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const TutorialDetailScreen(),
-    ),
-  ),
-),
-              const SizedBox(height: 10),
-              _LeccionCard(
-                titulo: 'Au Batido',
-                nivel: 'Graduado',
-                duracion: '8 min',
-                icono: Icons.accessibility_new,
+              // Lista de lecciones desde Firestore en tiempo real
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('tutoriales')
+                    .limit(3)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: GingaColors.brandGreen),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: GingaColors.cardLight,
+                        borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'No hay lecciones en la biblioteca aún',
+                          style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: snapshot.data!.docs.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final titulo = data['titulo'] ?? '';
+                      final nivel = data['nivel'] ?? 'Iniciante';
+                      final duracion = data['duracion'] ?? '6 min';
+                      final categoria = data['categoria'] ?? 'Ataques';
+                      final descripcion = data['descripcion'] ?? '';
+                      final tipMestre = data['tipMestre'] ?? '';
+                      final tipError = data['tipError'] ?? '';
+                      final imagenUrl = data['imagen_url'] ?? '';
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _LeccionCard(
+                          titulo: titulo,
+                          nivel: nivel,
+                          duracion: duracion,
+                          icono: categoria == 'Fundamentos'
+                              ? Icons.school_rounded
+                              : categoria == 'Floreos'
+                                  ? Icons.accessibility_new
+                                  : Icons.sports_martial_arts,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TutorialDetailScreen(
+                                title: titulo,
+                                category: categoria,
+                                level: nivel,
+                                description: descripcion,
+                                tipMestre: tipMestre,
+                                tipError: tipError,
+                                imageUrl: imagenUrl,
+                                videoUrl: data['video_url'] ?? '',
+                                duracion: duracion,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
               ),
-              const SizedBox(height: 10),
-              _LeccionCard(
-                titulo: 'Meia Lua de Frente',
-                nivel: 'Iniciante',
-                duracion: '6 min',
-                icono: Icons.sports_martial_arts,
-              ),
+              */
 
               const SizedBox(height: 32),
             ],
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
 
@@ -181,15 +287,19 @@ class _SeccionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(GingaRadius.lg),
-          border: Border.all(color: GingaColors.borderLight),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           children: [
@@ -255,7 +365,7 @@ class _SeccionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right,
+            Icon(Icons.chevron_right,
                 color: GingaColors.textSecondary, size: 20),
           ],
         ),
@@ -285,14 +395,18 @@ class _LeccionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+
     return GestureDetector( // 👈 Envolvemos en GestureDetector para que funcione el clic
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(GingaRadius.lg),
-          border: Border.all(color: GingaColors.borderLight),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           children: [
@@ -337,7 +451,7 @@ class _LeccionCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.access_time_outlined, size: 12, color: GingaColors.textSecondary),
+                      Icon(Icons.access_time_outlined, size: 12, color: GingaColors.textSecondary),
                       const SizedBox(width: 3),
                       Text(duracion, style: GoogleFonts.nunito(fontSize: 11, color: GingaColors.textSecondary)),
                     ],
@@ -360,84 +474,4 @@ class _LeccionCard extends StatelessWidget {
     );
   }
 }
-// ─────────────────────────────────────────
-//  TUTORIALES SCREEN (placeholder)
-// ─────────────────────────────────────────
 
-class TutorialesScreen extends StatelessWidget {
-  const TutorialesScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
-      appBar: AppBar(
-        title: Text('Tutoriales',
-            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
-        backgroundColor: GingaColors.backgroundLight,
-        elevation: 0,
-        foregroundColor: GingaColors.textPrimary,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.play_circle_outline,
-                color: GingaColors.brandGreen, size: 64),
-            const SizedBox(height: 16),
-            Text('Tutoriales On-Demand',
-                style: GoogleFonts.montserrat(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary)),
-            const SizedBox(height: 8),
-            Text('Próximamente — Sprint 8',
-                style: GoogleFonts.nunito(
-                    fontSize: 14, color: GingaColors.textSecondary)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────
-//  CULTURA SCREEN (placeholder)
-// ─────────────────────────────────────────
-
-class CulturaScreen extends StatelessWidget {
-  const CulturaScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
-      appBar: AppBar(
-        title: Text('Cultura Capoeira',
-            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
-        backgroundColor: GingaColors.backgroundLight,
-        elevation: 0,
-        foregroundColor: GingaColors.textPrimary,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.menu_book_outlined,
-                color: GingaColors.brandGreen, size: 64),
-            const SizedBox(height: 16),
-            Text('Cultura & Historia',
-                style: GoogleFonts.montserrat(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary)),
-            const SizedBox(height: 8),
-            Text('Próximamente — Sprint 8',
-                style: GoogleFonts.nunito(
-                    fontSize: 14, color: GingaColors.textSecondary)),
-          ],
-        ),
-      ),
-    );
-  }
-}

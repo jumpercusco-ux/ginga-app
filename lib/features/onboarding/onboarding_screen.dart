@@ -88,131 +88,136 @@ context.go('/login');
             left: 0,
             right: 0,
             child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Logo
-                    // Row(
-                    //   children: [
-                    //     Container(
-                    //       width: 32,
-                    //       height: 32,
-                    //       decoration: BoxDecoration(
-                    //         color: GingaColors.brandGreen,
-                    //         borderRadius: BorderRadius.circular(8),
-                    //       ),
-                    //       child: const Icon(Icons.sports_martial_arts,
-                    //           color: Colors.white, size: 18),
-                    //     ),
-                    //     const SizedBox(width: 8),
-                    //     // Text(
-                    //     //   'Ginga App',
-                    //     //   style: GoogleFonts.montserrat(
-                    //     //     color: Colors.white,
-                    //     //     fontWeight: FontWeight.w700,
-                    //     //     fontSize: 15,
-                    //     //   ),
-                    //     // ),
-                    //   ],
-                    // ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 500),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Logo
+                        // Row(
+                        //   children: [
+                        //     Container(
+                        //       width: 32,
+                        //       height: 32,
+                        //       decoration: BoxDecoration(
+                        //         color: GingaColors.brandGreen,
+                        //         borderRadius: BorderRadius.circular(8),
+                        //       ),
+                        //       child: const Icon(Icons.sports_martial_arts,
+                        //           color: Colors.white, size: 18),
+                        //     ),
+                        //     const SizedBox(width: 8),
+                        //     // Text(
+                        //     //   'Ginga App',
+                        //     //   style: GoogleFonts.montserrat(
+                        //     //     color: Colors.white,
+                        //     //     fontWeight: FontWeight.w700,
+                        //     //     fontSize: 15,
+                        //     //   ),
+                        //     // ),
+                        //   ],
+                        // ),
 
-                    const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                    // Título
-                    Text(
-                      _pages[_currentPage].title,
-                      style: GoogleFonts.montserrat(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Subtítulo
-                    Text(
-                      _pages[_currentPage].subtitle,
-                      style: GoogleFonts.nunito(
-                        color: Colors.white70,
-                        fontSize: 15,
-                        height: 1.5,
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Dots indicadores
-                    Row(
-                      children: List.generate(_pages.length, (index) {
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.only(right: 6),
-                          width: _currentPage == index ? 20 : 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: _currentPage == index
-                                ? GingaColors.brandGreen
-                                : Colors.white30,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        );
-                      }),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Botón Siguiente / Empezar
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: _nextPage,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: GingaColors.brandGreen,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: Text(
-                          _currentPage == _pages.length - 1
-                              ? 'Empezar'
-                              : 'Siguiente',
+                        // Título
+                        Text(
+                          _pages[_currentPage].title,
                           style: GoogleFonts.montserrat(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            letterSpacing: 0.5,
+                            color: Colors.white,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            height: 1.2,
                           ),
                         ),
-                      ),
-                    ),
 
-                    const SizedBox(height: 12),
+                        const SizedBox(height: 12),
 
-                    // Saltar introducción
-                    Center(
-                      child: GestureDetector(
-onTap: () => context.go('/login'),
-                        child: Text(
-                          'Saltar introducción',
+                        // Subtítulo
+                        Text(
+                          _pages[_currentPage].subtitle,
                           style: GoogleFonts.nunito(
-                            color: Colors.white54,
-                            fontSize: 13,
-                            decoration: TextDecoration.underline,
-                            decorationColor: Colors.white54,
+                            color: Colors.white70,
+                            fontSize: 15,
+                            height: 1.5,
                           ),
                         ),
-                      ),
-                    ),
 
-                    const SizedBox(height: 8),
-                  ],
+                        const SizedBox(height: 32),
+
+                        // Dots indicadores
+                        Row(
+                          children: List.generate(_pages.length, (index) {
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              margin: const EdgeInsets.only(right: 6),
+                              width: _currentPage == index ? 20 : 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: _currentPage == index
+                                    ? GingaColors.brandGreen
+                                    : Colors.white30,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            );
+                          }),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Botón Siguiente / Empezar
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: _nextPage,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: GingaColors.brandGreen,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              _currentPage == _pages.length - 1
+                                  ? 'Empezar'
+                                  : 'Siguiente',
+                              style: GoogleFonts.montserrat(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Saltar introducción
+                        Center(
+                          child: GestureDetector(
+                            onTap: () => context.go('/login'),
+                            child: Text(
+                              'Saltar introducción',
+                              style: GoogleFonts.nunito(
+                                color: Colors.white54,
+                                fontSize: 13,
+                                decoration: TextDecoration.underline,
+                                decorationColor: Colors.white54,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),

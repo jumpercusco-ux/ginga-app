@@ -1,18 +1,43 @@
+
+
+
+
+
+
+
+
+
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:math';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/services/notification_service.dart';
+import '../../core/widgets/ginga_cached_image.dart';
 import '../eventos/eventos_screen.dart';
 import '../perfil/progreso_screen.dart';
+import '../perfil/widgets/achievement_celebration_trigger.dart';
 import '../biblioteca/biblioteca_screen.dart';
+import '../tienda/tienda_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'qr_scanner_screen.dart';
+import '../../core/services/eventos_service.dart';
+import '../../core/services/tutoriales_service.dart';
+import '../biblioteca/tutoriales_screen.dart';
+import '../biblioteca/musica_screen.dart';
+import '../biblioteca/cultura_screen.dart';
+import '../biblioteca/practicar_toque_screen.dart';
+import '../biblioteca/tutor_detail_screen.dart';
+import '../biblioteca/cancionero_screen.dart';
+import '../biblioteca/widgets/tutorial_thumbnail.dart';
 
 // Constantes de estado
 class UserStatus {
-  static const nuevo    = 'nuevo';
-  static const prueba   = 'prueba';
-  static const activo   = 'activo';
+  static const nuevo = 'nuevo';
+  static const prueba = 'prueba';
+  static const activo = 'activo';
   static const inactivo = 'inactivo';
 }
 
@@ -33,43 +58,437 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
 
+  // Llaves de referencia para el Walkthrough
+  final GlobalKey _profileAvatarKey = GlobalKey();
+  final GlobalKey _classReserveKey = GlobalKey();
+  final GlobalKey _bibliotecaTabKey = GlobalKey();
+
+  // Estado del Walkthrough
+  int _onboardingStep = 0; // 0 = inactivo/completado, 1 = Biblioteca, 2 = Reserva, 3 = Perfil
+  bool _localDismissed = false;
+  bool? _prevHasSeenWalkthrough;
+
+  // Variables de caché para evitar recrear la suscripción del stream reactivo
+  Stream<DocumentSnapshot>? _userStream;
+  String? _cachedUid;
+
+  @override
+  void initState() {
+    super.initState();
+    // Resguardo: inicializar/refrescar notificaciones y token FCM al cargar el Home
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.init();
+      NotificationService.instance.updateTokenInFirestore();
+    });
+  }
+
+  void _nextStep() {
+    setState(() {
+      if (_onboardingStep < 3) {
+        _onboardingStep++;
+      } else {
+        _dismissWalkthrough();
+      }
+    });
+  }
+
+  void _dismissWalkthrough() async {
+    setState(() {
+      _onboardingStep = 0;
+      _localDismissed = true;
+    });
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .update({'hasSeenWalkthrough': true});
+        debugPrint('GINGA_DEBUG: Bandera hasSeenWalkthrough guardada en Firestore para usuario $uid');
+      } catch (e) {
+        debugPrint('Error guardando walkthrough en Firestore: $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
-      body: IndexedStack(
-        index: _selectedTab,
-        children: const [
-          _HomeDashboard(),
-          EventosScreen(),
-          BibliotecaScreen(),
-          ProgresoScreen(),
-        ],
+    Theme.of(context); // Suscribir al tema para regenerar la pantalla al alternar claro/oscuro
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    if (uid != _cachedUid) {
+      _cachedUid = uid;
+      _userStream = uid == null
+          ? null
+          : FirebaseFirestore.instance.collection('users').doc(uid).snapshots();
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _userStream ?? const Stream.empty(),
+      builder: (context, snapshot) {
+        String status = UserStatus.nuevo;
+        bool hasSeenWalkthrough = false;
+
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+          status = data['status'] ?? UserStatus.nuevo;
+
+          final rol = data['rol'] ?? 'alumno';
+          if (rol == 'profesor') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                context.go('/instructor-clase');
+              }
+            });
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(color: GingaColors.brandGreen),
+              ),
+            );
+          }
+          
+          if (status == 'eliminado') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                context.go('/cuenta-desactivada');
+              }
+            });
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(color: GingaColors.brandGreen),
+              ),
+            );
+          }
+
+          hasSeenWalkthrough = data['hasSeenWalkthrough'] ?? false;
+
+          // Si en Firestore se reinicia el tour (pasa de true a false), reactivamos localmente la bandera de descarte
+          if (_prevHasSeenWalkthrough == true && !hasSeenWalkthrough) {
+            _localDismissed = false;
+          }
+          _prevHasSeenWalkthrough = hasSeenWalkthrough;
+
+          // Gatillar walkthrough si califica (nuevo, no lo ha visto, no descartado y está en pestaña Home)
+          if (status == UserStatus.nuevo && !hasSeenWalkthrough && _onboardingStep == 0 && !_localDismissed && _selectedTab == 0) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _onboardingStep = 1;
+                });
+              }
+            });
+          }
+
+          // Chequeo de expiración de membresía a nivel de shell
+          if (status == UserStatus.activo && data['membresia_fin'] != null) {
+            final Timestamp finTimestamp = data['membresia_fin'];
+            if (DateTime.now().isAfter(finTimestamp.toDate())) {
+              status = UserStatus.inactivo;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid)
+                    .update({'status': UserStatus.inactivo});
+              });
+            }
+          }
+        }
+
+        // Obtener la llave activa para el walkthrough
+        GlobalKey? activeKey;
+        String title = '';
+        String description = '';
+        bool showHeartbeat = false;
+
+        if (_onboardingStep == 1) {
+          activeKey = _bibliotecaTabKey;
+          title = 'Mira los Tutoriales 📺';
+          description = 'Presiona aquí para acceder a la Biblioteca, donde podrás aprender tutoriales interactivos de capoeira, repasar letras de canciones en el karaoke y practicar toques.';
+        } else if (_onboardingStep == 2) {
+          activeKey = _classReserveKey;
+          title = 'Reserva tus Entrenamientos 🥋';
+          description = '¡Tu primera clase es totalmente GRATIS! Presiona sobre el banner de reserva o la clase de tu sede para agendar tu entrenamiento.';
+          showHeartbeat = true;
+        } else if (_onboardingStep == 3) {
+          activeKey = _profileAvatarKey;
+          title = 'Tu Control Personal y Pagos 👤';
+          description = 'Presiona sobre tu avatar de perfil para consultar tu registro de asistencias por QR, tu rango de graduación tradicional (corda) y controlar el vencimiento de tus cuotas.';
+        }
+
+        return Stack(
+          children: [
+            Scaffold(
+              backgroundColor: GingaColors.backgroundLight,
+              body: IndexedStack(
+                index: _selectedTab,
+                children: [
+                  _HomeDashboard(
+                    profileAvatarKey: _profileAvatarKey,
+                    classReserveKey: _classReserveKey,
+                    onTapStore: () {
+                      setState(() {
+                        _selectedTab = 3;
+                      });
+                    },
+                  ),
+                  const EventosScreen(isTab: true),
+                  const BibliotecaScreen(),
+                  const TiendaScreen(isTab: true),
+                ],
+              ),
+              extendBody: true,
+              floatingActionButton: Container(
+                height: 64,
+                width: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [
+                      GingaColors.brandGreen,
+                      Color(0xFF2E7D32),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: GingaColors.brandGreen.withOpacity(0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: FloatingActionButton(
+                  onPressed: () => _handleQrScannerTap(context, status),
+                  elevation: 0,
+                  backgroundColor: Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: const Icon(
+                    Icons.qr_code_scanner_rounded,
+                    size: 30,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              floatingActionButtonLocation:
+                  FloatingActionButtonLocation.centerDocked,
+              bottomNavigationBar: _GingaBottomNav(
+                currentIndex: _selectedTab,
+                onTap: (i) => setState(() => _selectedTab = i),
+                bibliotecaTabKey: _bibliotecaTabKey,
+              ),
+            ),
+            if (uid != null)
+              AchievementCelebrationTrigger(uid: uid),
+            if (_onboardingStep > 0 && activeKey != null)
+              WalkthroughOverlay(
+                targetKey: activeKey,
+                title: title,
+                description: description,
+                onNext: _nextStep,
+                isLastStep: _onboardingStep == 3,
+                showHeartbeat: showHeartbeat,
+                onDismiss: _dismissWalkthrough,
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _handleQrScannerTap(BuildContext context, String status) {
+    if (status == UserStatus.activo || status == UserStatus.prueba) {
+      _navigateToQrScanner(context);
+    } else if (status == UserStatus.nuevo) {
+      _showNuevoBottomSheet(context);
+    } else if (status == UserStatus.inactivo) {
+      _showInactivoBottomSheet(context);
+    }
+  }
+
+  void _showNuevoBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _buildModernBottomSheet(
+        context: ctx,
+        title: '¡Reserva tu Clase de Prueba! 🥋',
+        message:
+            'Bienvenido a Ginga. Para poder registrar tus asistencias mediante QR, primero debes agendar tu clase de prueba gratuita y experimentar la energía de la capoeira.',
+        buttonLabel: 'Ver Clases Disponibles',
+        icon: Icons.celebration_rounded,
+        iconColor: GingaColors.brandGreen,
+        onAction: () {
+          Navigator.pop(ctx);
+          setState(() {
+            _selectedTab = 0;
+          });
+        },
       ),
-      bottomNavigationBar: _GingaBottomNav(
-        currentIndex: _selectedTab,
-        onTap: (i) => setState(() => _selectedTab = i),
+    );
+  }
+
+  void _showInactivoBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _buildModernBottomSheet(
+        context: ctx,
+        title: 'Membresía Expirada ⚠️',
+        message:
+            'Tu acceso a las clases ha expirado. Por favor, renueva tu membresía o adquiere un pase de clases en nuestra tienda oficial para continuar escaneando y asistiendo.',
+        buttonLabel: 'Ir a la Tienda Ginga',
+        icon: Icons.lock_clock_rounded,
+        iconColor: GingaColors.accentAmber,
+        onAction: () {
+          Navigator.pop(ctx);
+          setState(() {
+            _selectedTab = 3;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildModernBottomSheet({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required String buttonLabel,
+    required IconData icon,
+    required Color iconColor,
+    required VoidCallback onAction,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bottomSheetBg = isDark ? GingaColors.backgroundDark : Colors.white;
+    final handleColor = isDark ? Colors.grey[700] : Colors.grey[300];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bottomSheetBg,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(32),
+          topRight: Radius.circular(32),
+        ),
+      ),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 12,
+        bottom: MediaQuery.of(context).padding.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 5,
+            decoration: BoxDecoration(
+              color: handleColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 40,
+              color: iconColor,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.montserrat(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: GingaColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.nunito(
+              fontSize: 14,
+              color: GingaColors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 28),
+          ElevatedButton(
+            onPressed: onAction,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: GingaColors.brandGreen,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              minimumSize: const Size(double.infinity, 54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100),
+              ),
+              elevation: 0,
+            ),
+            child: Text(
+              buttonLabel,
+              style: GoogleFonts.montserrat(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(double.infinity, 44),
+            ),
+            child: Text(
+              'Quizás más tarde',
+              style: GoogleFonts.montserrat(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: GingaColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
-
 // ─────────────────────────────────────────
 //  DASHBOARD PRINCIPAL
 // ─────────────────────────────────────────
 
 class _HomeDashboard extends StatelessWidget {
-  const _HomeDashboard();
+  final GlobalKey profileAvatarKey;
+  final GlobalKey classReserveKey;
+  final VoidCallback onTapStore;
+
+  const _HomeDashboard({
+    required this.profileAvatarKey,
+    required this.classReserveKey,
+    required this.onTapStore,
+  });
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar el dashboard al alternar claro/oscuro
+
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .snapshots(),
+      stream:
+          FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(
@@ -78,43 +497,111 @@ class _HomeDashboard extends StatelessWidget {
         }
 
         final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-        final status = data['status'] ?? UserStatus.nuevo;
+        String status = data['status'] ?? UserStatus.nuevo;
         final nombre = data['nombre'] ?? 'Alumno';
-        final corda = data['corda'] ?? 'Iniciación';
+        final corda = data['corda'] ?? 'Crua';
         final claseId = data['clase_id'] ?? '';
+        final sede = data['sede'] ?? '';
+        debugPrint('GINGA_DEBUG: Usuario "$nombre" tiene Sede "$sede" | Status: "$status" | UID: "$uid"');
+        final Timestamp? membresiaFin = data['membresia_fin'];
+
+        // Chequeo de expiración de membresía
+        if (status == UserStatus.activo && data['membresia_fin'] != null) {
+          final Timestamp finTimestamp = data['membresia_fin'];
+          if (DateTime.now().isAfter(finTimestamp.toDate())) {
+            status = UserStatus.inactivo; // Para la UI inmediata
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(uid)
+                  .update({'status': UserStatus.inactivo});
+            });
+          }
+        }
+
+        // Auto-curación de sede incorrecta (si la sede es un nombre de clase o está vacía/inválida y tiene clase asignada)
+        if (uid != null &&
+            claseId.isNotEmpty &&
+            (sede == 'Kids' ||
+             sede == 'Adultos' ||
+             sede == 'Todos los niveles' ||
+             sede == '')) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            try {
+              final claseDoc = await FirebaseFirestore.instance
+                  .collection('clases')
+                  .doc(claseId)
+                  .get();
+              if (claseDoc.exists) {
+                final claseData = claseDoc.data() ?? {};
+                final claseSede = claseData['sede']; // ej: "Cusco", "Lima"
+                if (claseSede != null &&
+                    claseSede.toString().isNotEmpty &&
+                    claseSede.toString() != sede) {
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(uid)
+                      .update({'sede': claseSede.toString()});
+                  debugPrint('GINGA_DEBUG: Auto-corregida la sede del usuario a "${claseSede.toString()}" basada en su clase.');
+                }
+              }
+            } catch (e) {
+              debugPrint('Error en auto-curación de sede: $e');
+            }
+          });
+        }
+
+        final bool isVirtual = (sede == 'Virtual / A Distancia');
 
         return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
 
-                // Header siempre visible
-                _Header(nombre: nombre, corda: corda),
-                const SizedBox(height: 20),
+                    // Header siempre visible
+                    _Header(
+                      nombre: nombre,
+                      corda: corda,
+                      uid: uid ?? '',
+                      avatarKey: profileAvatarKey,
+                    ),
+                    const SizedBox(height: 20),
 
-                // Banner según estado
-                _StatusBanner(status: status),
-                const SizedBox(height: 20),
+                    // Banner según estado
+                    _StatusBanner(
+                      status: status,
+                      sede: sede,
+                      membresiaFin: membresiaFin,
+                      nombre: nombre,
+                      reserveKey: isVirtual ? null : classReserveKey,
+                    ),
+                    const SizedBox(height: 20),
 
-                // Contenido según estado
-                _ContentByStatus(
-                  status: status,
-                  claseId: claseId,
-                  uid: uid ?? '',
+                    // Contenido según estado
+                    _ContentByStatus(
+                      status: status,
+                      claseId: claseId,
+                      uid: uid ?? '',
+                      sede: sede,
+                      reserveKey: isVirtual ? classReserveKey : null,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Promo de la Tienda
+                    _StorePromoBanner(onTap: onTapStore),
+                    const SizedBox(height: 20),
+
+                    const SizedBox(height: 28),
+                  ],
                 ),
-
-                const SizedBox(height: 20),
-
-                // Noticias — siempre visible
-                _SectionTitle(
-                    title: 'Últimas noticias', actionLabel: 'Ver todas'),
-                const SizedBox(height: 12),
-                _NoticiasRow(),
-                const SizedBox(height: 28),
-              ],
+              ),
             ),
           ),
         );
@@ -129,12 +616,93 @@ class _HomeDashboard extends StatelessWidget {
 
 class _StatusBanner extends StatelessWidget {
   final String status;
-  const _StatusBanner({required this.status});
+  final String sede;
+  final Timestamp? membresiaFin;
+  final String nombre;
+  final Key? reserveKey;
+
+  const _StatusBanner({
+    required this.status,
+    required this.sede,
+    this.membresiaFin,
+    required this.nombre,
+    this.reserveKey,
+  });
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar el banner
+    Widget bannerWidget;
+
+    if (status == UserStatus.nuevo && sede == 'U. Continental') {
+      bannerWidget = _Banner(
+        color: GingaColors.accentAmber,
+        icono: Icons.school_outlined,
+        titulo: 'Registro en revisión 🎓',
+        subtitulo:
+            'Hola $nombre, tu cuenta de la U. Continental está pendiente de aprobación por el instructor Luis Enrique.',
+        accion: 'Pendiente',
+        onTap: () {},
+      );
+    } else if (status == UserStatus.activo && membresiaFin != null) {
+      final ahora = DateTime.now();
+      final fin = DateTime(membresiaFin!.toDate().year,
+          membresiaFin!.toDate().month, membresiaFin!.toDate().day);
+      final hoy = DateTime(ahora.year, ahora.month, ahora.day);
+      final diasRestantes = fin.difference(hoy).inDays;
+
+      if (diasRestantes >= 0 && diasRestantes <= 5) {
+        final String fechaFormateada =
+            '${fin.day.toString().padLeft(2, '0')}/${fin.month.toString().padLeft(2, '0')}';
+        final String mensajeDias = diasRestantes == 0
+            ? 'vence HOY ⚠️'
+            : diasRestantes == 1
+                ? 'vence MAÑANA ⚠️'
+                : 'vence en $diasRestantes días ⚠️';
+
+        bannerWidget = _Banner(
+          color: const Color(0xFFFF9800), // Ámbar / Naranja de advertencia
+          icono: Icons.lock_clock,
+          titulo: 'Alerta de membresía',
+          subtitulo:
+              'Tu membresía $mensajeDias ($fechaFormateada). Evita la suspensión de tu acceso coordinando tu pago con el profesor.',
+          accion: 'Ver pago',
+          onTap: () {},
+        );
+      } else {
+        bannerWidget = _buildBannerFromStatus(context);
+      }
+    } else {
+      bannerWidget = _buildBannerFromStatus(context);
+    }
+
+    return Container(
+      key: reserveKey,
+      child: bannerWidget,
+    );
+  }
+
+  Widget _buildBannerFromStatus(BuildContext context) {
     switch (status) {
       case UserStatus.nuevo:
+        if (sede == 'Virtual / A Distancia') {
+          return _Banner(
+            color: GingaColors.brandGreen,
+            icono: Icons.sports_kabaddi_outlined,
+            titulo: '¡Aprende Capoeira en Casa! 🏠🥋',
+            subtitulo:
+                '¡Bienvenido a tu entrenamiento! Explora tutoriales paso a paso de técnicas, movimientos, toques e historia.',
+            accion: 'Ver tutoriales',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TutorialesScreen(),
+                ),
+              );
+            },
+          );
+        }
         return _Banner(
           color: GingaColors.brandGreen,
           icono: Icons.celebration_outlined,
@@ -163,7 +731,7 @@ class _StatusBanner extends StatelessWidget {
         );
       default:
         // Activo — banner del workshop
-        return _WorkshopBanner();
+        return _WorkshopBanner(userNombre: nombre);
     }
   }
 }
@@ -202,37 +770,38 @@ class _Banner extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(icono, color: Colors.white, size: 18),
+                    Icon(icono, color: Colors.white, size: 20),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(titulo,
                           style: GoogleFonts.montserrat(
-                              fontSize: 15,
+                              fontSize: 16,
                               fontWeight: FontWeight.w800,
                               color: Colors.white)),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(subtitulo,
                     style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
                         height: 1.4)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 GestureDetector(
                   onTap: onTap,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(GingaRadius.full),
                     ),
                     child: Text(accion,
                         style: GoogleFonts.montserrat(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
                             color: color)),
                   ),
                 ),
@@ -253,56 +822,97 @@ class _ContentByStatus extends StatelessWidget {
   final String status;
   final String claseId;
   final String uid;
+  final String sede;
+  final Key? reserveKey;
 
   const _ContentByStatus({
     required this.status,
     required this.claseId,
     required this.uid,
+    required this.sede,
+    this.reserveKey,
   });
 
   @override
   Widget build(BuildContext context) {
-    switch (status) {
+    Theme.of(context); // Suscribir al tema para regenerar contenido
+    if (sede == 'Virtual / A Distancia') {
+      return _VirtualDashboard(uid: uid, reserveKey: reserveKey);
+    }
 
+    Widget content;
+
+    switch (status) {
       // NUEVO — ve todas las clases para elegir la de prueba
       case UserStatus.nuevo:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionTitle(
-                title: 'Clases disponibles', actionLabel: ''),
-            const SizedBox(height: 12),
-            _ClasesNuevo(uid: uid),
-          ],
-        );
+        if (sede == 'U. Continental') {
+          content = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(title: 'Tu clase asignada', actionLabel: ''),
+              SizedBox(height: 12),
+              _ClasePendiente(claseId: claseId),
+            ],
+          );
+        } else {
+          content = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitle(title: 'Clases disponibles', actionLabel: ''),
+              SizedBox(height: 4),
+              Text(
+                'Elige una clase y toma una sesión gratuita para empezar tu camino 🥋✨',
+                style: GoogleFonts.nunito(
+                  fontSize: 12.5,
+                  color: GingaColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+              SizedBox(height: 12),
+              _ClasesNuevo(uid: uid, sede: sede, soloRegulares: true),
+            ],
+          );
+        }
+        break;
 
       // PRUEBA — ve su reserva pendiente
       case UserStatus.prueba:
-        return Column(
+        content = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionTitle(title: 'Tu reserva', actionLabel: ''),
-            const SizedBox(height: 12),
+            SizedBox(height: 4),
+            Text(
+              'Este es el grupo en el que realizaste tu reserva 🥋✨',
+              style: GoogleFonts.nunito(
+                fontSize: 12.5,
+                color: GingaColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+            ),
+            SizedBox(height: 12),
             _ReservaPendiente(uid: uid),
           ],
         );
+        break;
 
-      // ACTIVO — ve su clase + check-in QR
+      // ACTIVO — ve su clase
       case UserStatus.activo:
-        return Column(
+        content = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionTitle(title: 'Tu clase', actionLabel: ''),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _ClaseActivo(claseId: claseId),
-            const SizedBox(height: 16),
-            _CheckInCard(),
           ],
         );
+        break;
 
       // INACTIVO — ve su clase bloqueada
       case UserStatus.inactivo:
-        return Column(
+        content = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionTitle(title: 'Tu clase', actionLabel: ''),
@@ -310,10 +920,774 @@ class _ContentByStatus extends StatelessWidget {
             _ClaseInactivo(claseId: claseId),
           ],
         );
+        break;
 
       default:
-        return const SizedBox();
+        content = const SizedBox();
     }
+
+    return content;
+  }
+}
+
+// ─────────────────────────────────────────
+//  VIRTUAL LEARNER DASHBOARD (DOCK & RODA)
+// ─────────────────────────────────────────
+
+void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: isDark ? GingaColors.backgroundDark : Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.xl)),
+    ),
+    builder: (BuildContext ctx) {
+      final List<Map<String, String>> sedesFisicas = [
+        {
+          'id': 'Cusco',
+          'label': 'Sede Cusco ☀️',
+          'desc':
+              'Clases presenciales en Cusco (incluye Universidad Continental y Magisterio).'
+        },
+        {
+          'id': 'Lima',
+          'label': 'Sede Lima 🌊',
+          'desc': 'Clases presenciales grupales en la capital.'
+        },
+        {
+          'id': 'Chimbote',
+          'label': 'Sede Chimbote ⚓',
+          'desc': 'Entrenamientos presenciales en la sede del norte.'
+        },
+      ];
+
+      return Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.8,
+        ),
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 24,
+          bottom: MediaQuery.of(ctx).padding.bottom + 20,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: GingaColors.borderLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Elige tu Sede Física 🏢',
+                style: GoogleFonts.montserrat(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: GingaColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Selecciona la academia donde te gustaría asistir a entrenar de forma presencial:',
+                style: GoogleFonts.nunito(
+                  fontSize: 13,
+                  color: GingaColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Column(
+                children: sedesFisicas.map((sedeMap) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: InkWell(
+                      onTap: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        try {
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(uid)
+                              .update({'sede': sedeMap['id']});
+
+                          if (ctx.mounted) {
+                            Navigator.pop(ctx);
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    '¡Sede cambiada a ${sedeMap['id']}! Ahora puedes reservar tu clase regular 🥋'),
+                                backgroundColor: GingaColors.brandGreen,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text('Error al cambiar sede: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark ? GingaColors.surfaceDark : const Color(0xFFF9F9F9),
+                          borderRadius: BorderRadius.circular(GingaRadius.lg),
+                          border: Border.all(color: isDark ? Colors.transparent : GingaColors.borderLight),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: isDark ? GingaColors.backgroundDark : Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.storefront_outlined,
+                                  color: GingaColors.brandGreen, size: 20),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    sedeMap['label']!,
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: GingaColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    sedeMap['desc']!,
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 11,
+                                      color: GingaColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(Icons.chevron_right,
+                                color: GingaColors.textSecondary, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _VirtualDashboard extends StatelessWidget {
+  final String uid;
+  final Key? reserveKey;
+  _VirtualDashboard({required this.uid, this.reserveKey});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── BANNER DE CONVERSIÓN FÍSICA A SEDE LOCAL ───────────────────────
+        Container(
+          key: reserveKey,
+          width: double.infinity,
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFFE8F5E9), // verde menta muy claro
+                Color(0xFFC8E6C9), // verde claro
+              ],
+            ),
+            borderRadius: BorderRadius.circular(GingaRadius.lg),
+            border: Border.all(color: GingaColors.brandGreen.withOpacity(0.18)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: GingaColors.brandGreen.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.location_on_outlined,
+                    color: GingaColors.brandGreen, size: 24),
+              ),
+              SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '¿Entrenas en nuestras sedes? 🏢',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: GingaColors.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Visita nuestras academias presenciales en Cusco, Lima o Chimbote y reserva tu primera clase GRATIS.',
+                      style: GoogleFonts.nunito(
+                        fontSize: 11,
+                        color: GingaColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () => _mostrarSelectorSedeFisica(context, uid),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: GingaColors.brandGreen,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  minimumSize: Size(0, 36),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                  ),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+                child: Text(
+                  'Reservar',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 24),
+
+        // ── PRÁCTICA DEL DÍA (RODA & INSTRUMENTO) ───────────────────────
+        _SectionTitle(title: 'Práctica del Día 🪘🎵', actionLabel: ''),
+        SizedBox(height: 12),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Toque del Día
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => PracticarToqueScreen()),
+                  ),
+                  child: Container(
+                    height: 168,
+                    padding: EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      border: Border.all(color: GingaColors.borderLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.music_note_outlined,
+                              color: Colors.blue, size: 20),
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'Toque de Angola',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'El toque tradicional para el juego bajo y táctico.',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.nunito(
+                            fontSize: 10,
+                            color: GingaColors.textSecondary,
+                            height: 1.3,
+                          ),
+                        ),
+                        Spacer(),
+                        SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Practicar',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.blue,
+                              ),
+                            ),
+                            Icon(Icons.arrow_forward_rounded,
+                                color: Colors.blue, size: 12),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 12),
+              // Canción del Día
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => CancioneroScreen()),
+                  ),
+                  child: Container(
+                    height: 168,
+                    padding: EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      border: Border.all(color: GingaColors.borderLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: GingaColors.brandGreen.withOpacity(0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.menu_book_outlined,
+                              color: GingaColors.brandGreen, size: 20),
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'Canta con el Karaoke',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Aprende las cantigas de capoeira más populares y practica con sus letras.',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.nunito(
+                            fontSize: 10,
+                            color: GingaColors.textSecondary,
+                            height: 1.3,
+                          ),
+                        ),
+                        Spacer(),
+                        SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Ver Letras',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.brandGreen,
+                              ),
+                            ),
+                            Icon(Icons.arrow_forward_rounded,
+                                color: GingaColors.brandGreen, size: 12),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 28),
+
+        // ── RECOMENDADO PARA TI (TUTORIALES EN VIDEO) ───────────────────────
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _SectionTitle(title: 'Técnicas recomendadas 🥋', actionLabel: ''),
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TutorialesScreen()),
+              ),
+              child: Text(
+                'Ver todos',
+                style: GoogleFonts.nunito(
+                  fontSize: 12,
+                  color: GingaColors.brandGreen,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('tutoriales')
+              .limit(10)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child:
+                      CircularProgressIndicator(color: GingaColors.brandGreen),
+                ),
+              );
+            }
+
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: GingaColors.cardLight,
+                  borderRadius: BorderRadius.circular(GingaRadius.lg),
+                  border: Border.all(color: GingaColors.borderLight),
+                ),
+                child: Center(
+                  child: Text(
+                    'Pronto subiremos nuevas lecciones virtuales 🥋',
+                    style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                  ),
+                ),
+              );
+            }
+
+            final docs = snapshot.data!.docs.where((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return data['visible'] != false;
+            }).take(3).toList();
+
+            if (docs.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: GingaColors.cardLight,
+                  borderRadius: BorderRadius.circular(GingaRadius.lg),
+                  border: Border.all(color: GingaColors.borderLight),
+                ),
+                child: Center(
+                  child: Text(
+                    'Pronto subiremos nuevas lecciones virtuales 🥋',
+                    style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final titulo = data['titulo'] ?? '';
+                final nivel = data['nivel'] ?? 'Iniciante';
+                final duracion = data['duracion'] ?? '6 min';
+                final categoria = data['categoria'] ?? 'Fundamentos';
+                final descripcion = data['descripcion'] ?? '';
+                final tipMestre = data['tipMestre'] ?? '';
+                final tipError = data['tipError'] ?? '';
+                final imagenUrl = data['imagen_url'] ?? '';
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _FeaturedLessonCard(
+                    titulo: titulo,
+                    nivel: nivel,
+                    duracion: duracion,
+                    categoria: categoria,
+                    imagenUrl: imagenUrl,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TutorialDetailScreen(
+                          title: titulo,
+                          category: categoria,
+                          level: nivel,
+                          description: descripcion,
+                          tipMestre: tipMestre,
+                          tipError: tipError,
+                          imageUrl: imagenUrl,
+                          videoUrl: data['video_url'] ?? '',
+                          duracion: duracion,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _FeaturedLessonCard extends StatelessWidget {
+  final String titulo;
+  final String nivel;
+  final String duracion;
+  final String categoria;
+  final String imagenUrl;
+  final VoidCallback onTap;
+
+  const _FeaturedLessonCard({
+    required this.titulo,
+    required this.nivel,
+    required this.duracion,
+    required this.categoria,
+    required this.imagenUrl,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          border: Border.all(color: GingaColors.borderLight),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: GingaColors.brandGreen.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: TutorialThumbnail(
+                imagenUrl: imagenUrl,
+                categoria: categoria,
+                titulo: titulo,
+                iconSize: 16,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    titulo,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: GingaColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: GingaColors.cardLight,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          nivel,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w700,
+                            color: GingaColors.brandGreen,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.access_time_outlined,
+                          size: 10, color: GingaColors.textSecondary),
+                      const SizedBox(width: 2),
+                      Text(
+                        duracion,
+                        style: GoogleFonts.nunito(
+                          fontSize: 10,
+                          color: GingaColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: GingaColors.brandGreen,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.play_arrow_rounded,
+                  color: Colors.white, size: 18),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+DateTime? _tryParseEventDate(String diasStr) {
+  try {
+    final String cleaned = diasStr.toLowerCase().trim();
+    final RegExp regExp = RegExp(r'(\d+)\s+de\s+([a-z]+)');
+    final Match? match = regExp.firstMatch(cleaned);
+    if (match == null) return null;
+    
+    final int day = int.parse(match.group(1)!);
+    final String monthName = match.group(2)!;
+    
+    final Map<String, int> months = {
+      'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4, 'mayo': 5, 'junio': 6,
+      'julio': 7, 'agosto': 8, 'septiembre': 9, 'setiembre': 9, 'octubre': 10,
+      'noviembre': 11, 'diciembre': 12
+    };
+    
+    final int? month = months[monthName];
+    if (month == null) return null;
+    
+    final int year = DateTime.now().year;
+    return DateTime(year, month, day, 23, 59, 59);
+  } catch (_) {
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────
+//  EVENTOS Y RODAS DE LA SEDE (siempre visibles)
+// ─────────────────────────────────────────
+
+class _EventosSede extends StatelessWidget {
+  final String uid;
+  final String sede;
+
+  const _EventosSede({required this.uid, required this.sede});
+
+  @override
+  Widget build(BuildContext context) {
+    // Si la sede es 'U. Continental', lo mapeamos a 'Cusco' para ver los eventos regionales de Cusco
+    final String querySede = (sede == 'U. Continental') ? 'Cusco' : sede;
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('clases')
+          .where('sede', isEqualTo: querySede)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox.shrink();
+
+        final docs = snapshot.data!.docs;
+
+        // Filtrar client-side para obtener solo tipo == 'especial' o 'roda', que estén publicados y que no hayan pasado
+        final DateTime now = DateTime.now();
+        final eventos = docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final String tipo = data['tipo'] ?? 'regular';
+          final bool publicado = data['publicar_inmediatamente'] ?? true;
+          if ((tipo == 'especial' || tipo == 'roda') && publicado) {
+            final Timestamp? fechaFinTs = data['fecha_fin'] as Timestamp?;
+            DateTime? fechaFin = fechaFinTs?.toDate();
+            if (fechaFin == null) {
+              final String dias = data['dias'] ?? '';
+              fechaFin = _tryParseEventDate(dias);
+            }
+            if (fechaFin != null) {
+              return fechaFin.isAfter(now);
+            }
+            return true;
+          }
+          return false;
+        }).toList();
+
+        if (eventos.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            _SectionTitle(
+              title: 'Eventos y Rodas Especiales',
+              actionLabel: 'Ver todos',
+              onTapAction: () => context.push('/eventos'),
+            ),
+            const SizedBox(height: 12),
+            Column(
+              children: eventos.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ClaseCardNuevo(
+                    claseId: doc.id,
+                    hora: data['hora'] ?? '',
+                    nivel: data['nivel'] ?? '',
+                    badge: data['badge'] ?? '',
+                    dias: data['dias'] ?? '',
+                    instructor: data['instructor'] ?? '',
+                    cuposDisponibles: data['cupos_disponibles'] ?? 0,
+                    tipo: data['tipo'] ?? 'regular',
+                    uid: uid,
+                    lugar: data['lugar'] ?? '',
+                    ubicacion: data['ubicacion'] ?? '',
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -323,13 +1697,17 @@ class _ContentByStatus extends StatelessWidget {
 
 class _ClasesNuevo extends StatelessWidget {
   final String uid;
-  const _ClasesNuevo({required this.uid});
+  final String sede;
+  final bool soloRegulares;
+  const _ClasesNuevo(
+      {required this.uid, required this.sede, this.soloRegulares = false});
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('clases')
+          .where('sede', isEqualTo: sede)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -339,13 +1717,89 @@ class _ClasesNuevo extends StatelessWidget {
           );
         }
 
-        final clases = snapshot.data!.docs;
+        // Filtrar solo clases publicadas y eventos que no hayan vencido
+        final DateTime now = DateTime.now();
+        final docs = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final bool publicado = data['publicar_inmediatamente'] != false;
+          if (!publicado) return false;
+
+          final String tipo = data['tipo'] ?? 'regular';
+          if (tipo != 'regular') {
+            final Timestamp? fechaFinTs = data['fecha_fin'] as Timestamp?;
+            DateTime? fechaFin = fechaFinTs?.toDate();
+            if (fechaFin == null) {
+              final String dias = data['dias'] ?? '';
+              fechaFin = _tryParseEventDate(dias);
+            }
+            if (fechaFin != null) {
+              return fechaFin.isAfter(now);
+            }
+          }
+          return true;
+        }).toList();
+
+        final clases = soloRegulares
+            ? docs.where((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return (data['tipo'] ?? 'regular') == 'regular';
+              }).toList()
+            : docs;
+
+        if (clases.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(GingaRadius.lg),
+              border: Border.all(color: GingaColors.borderLight),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: GingaColors.brandGreen.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.calendar_today_outlined,
+                    color: GingaColors.brandGreen,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Pronto programaremos clases presenciales',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Actualmente no hay horarios disponibles para la sede de $sede. ¡Mantente atento o coordina con el instructor!',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.nunito(
+                    fontSize: 11,
+                    color: GingaColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
 
         return Column(
           children: clases.map((doc) {
             final data = doc.data() as Map<String, dynamic>;
             return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: 12),
               child: _ClaseCardNuevo(
                 claseId: doc.id,
                 hora: data['hora'] ?? '',
@@ -356,6 +1810,8 @@ class _ClasesNuevo extends StatelessWidget {
                 cuposDisponibles: data['cupos_disponibles'] ?? 0,
                 tipo: data['tipo'] ?? 'regular',
                 uid: uid,
+                lugar: data['lugar'] ?? '',
+                ubicacion: data['ubicacion'] ?? '',
               ),
             );
           }).toList(),
@@ -365,7 +1821,87 @@ class _ClasesNuevo extends StatelessWidget {
   }
 }
 
-class _ClaseCardNuevo extends StatefulWidget {
+String _interpretarDiasDeSemana(String diasRaw) {
+  if (diasRaw.isEmpty) return '';
+  final Map<String, String> mapaDias = {
+    'L': 'Lunes',
+    'M': 'Martes',
+    'X': 'Miércoles',
+    'J': 'Jueves',
+    'V': 'Viernes',
+    'S': 'Sábado',
+    'D': 'Domingo',
+  };
+  return diasRaw.split(',').map((p) {
+    final trimmed = p.trim();
+    return mapaDias[trimmed] ?? trimmed;
+  }).join(', ');
+}
+
+class LevelColorPalette {
+  final Color badgeBg;
+  final Color badgeText;
+  final Color accent;
+  final IconData icon;
+  final String label;
+
+  const LevelColorPalette({
+    required this.badgeBg,
+    required this.badgeText,
+    required this.accent,
+    required this.icon,
+    required this.label,
+  });
+
+  static LevelColorPalette getPalette(String nivel, String badge, bool isEventOrRoda, String tipo) {
+    if (isEventOrRoda) {
+      return LevelColorPalette(
+        badgeBg: const Color(0xFFFFF8E1),
+        badgeText: const Color(0xFFE65100),
+        accent: GingaColors.accentAmber,
+        icon: tipo == 'roda' ? Icons.local_fire_department_rounded : Icons.star_rounded,
+        label: tipo == 'roda' ? 'RODA 🔥' : 'EVENTO 🌟',
+      );
+    }
+    
+    final textToCheck = '${nivel.toLowerCase()} ${badge.toLowerCase()}';
+    if (textToCheck.contains('kids') || textToCheck.contains('niño') || textToCheck.contains('infantil')) {
+      return const LevelColorPalette(
+        badgeBg: Color(0xFFE0F7FA), // Cyan suave
+        badgeText: Color(0xFF006064), // Cyan oscuro
+        accent: Color(0xFF00ACC1), // Cyan vibrante
+        icon: Icons.child_care_rounded,
+        label: 'KIDS 👶',
+      );
+    } else if (textToCheck.contains('adulto') || textToCheck.contains('iniciante') || textToCheck.contains('avanzado') || textToCheck.contains('básico') || textToCheck.contains('medio') || textToCheck.contains('principiante')) {
+      return const LevelColorPalette(
+        badgeBg: Color(0xFFE8EAF6), // Indigo suave
+        badgeText: Color(0xFF1A237E), // Indigo oscuro
+        accent: Color(0xFF3F51B5), // Indigo vibrante
+        icon: Icons.fitness_center_rounded,
+        label: 'ADULTOS 🏋️',
+      );
+    } else if (textToCheck.contains('todo') || textToCheck.contains('mixto') || textToCheck.contains('general')) {
+      return const LevelColorPalette(
+        badgeBg: Color(0xFFF3E5F5), // Púrpura suave
+        badgeText: Color(0xFF4A148C), // Púrpura oscuro
+        accent: Color(0xFF9C27B0), // Púrpura vibrante
+        icon: Icons.groups_rounded,
+        label: 'MIXTO 👥',
+      );
+    } else {
+      return const LevelColorPalette(
+        badgeBg: Color(0xFFE8F5E9), // Verde suave
+        badgeText: Color(0xFF2E7D32), // Verde oscuro
+        accent: GingaColors.brandGreen, // Verde vibrante
+        icon: Icons.sports_martial_arts_rounded,
+        label: 'CLASE 🥋',
+      );
+    }
+  }
+}
+
+class _ClaseCardNuevo extends StatelessWidget {
   final String claseId;
   final String hora;
   final String nivel;
@@ -375,6 +1911,8 @@ class _ClaseCardNuevo extends StatefulWidget {
   final int cuposDisponibles;
   final String tipo;
   final String uid;
+  final String lugar;
+  final String ubicacion;
 
   const _ClaseCardNuevo({
     required this.claseId,
@@ -386,186 +1924,259 @@ class _ClaseCardNuevo extends StatefulWidget {
     required this.cuposDisponibles,
     required this.tipo,
     required this.uid,
+    required this.lugar,
+    required this.ubicacion,
   });
 
   @override
-  State<_ClaseCardNuevo> createState() => _ClaseCardNuevoState();
-}
-
-class _ClaseCardNuevoState extends State<_ClaseCardNuevo> {
-  bool _isLoading = false;
-  bool _isReservado = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkReserva();
-  }
-
-  Future<void> _checkReserva() async {
-    final reserva = await FirebaseFirestore.instance
-        .collection('reservas')
-        .where('user_id', isEqualTo: widget.uid)
-        .where('clase_id', isEqualTo: widget.claseId)
-        .get();
-    if (mounted && reserva.docs.isNotEmpty) {
-      setState(() => _isReservado = true);
-    }
-  }
-
-  Future<void> _reservarPrueba() async {
-    setState(() => _isLoading = true);
-
-    try {
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        final claseRef = FirebaseFirestore.instance
-            .collection('clases')
-            .doc(widget.claseId);
-        final claseDoc = await transaction.get(claseRef);
-        final cupos = claseDoc['cupos_disponibles'] as int;
-        if (cupos <= 0) throw Exception('Sin cupos');
-
-        transaction.update(claseRef, {'cupos_disponibles': cupos - 1});
-
-        final reservaRef =
-            FirebaseFirestore.instance.collection('reservas').doc();
-        transaction.set(reservaRef, {
-          'user_id': widget.uid,
-          'clase_id': widget.claseId,
-          'nivel': widget.nivel,
-          'hora': widget.hora,
-          'dias': widget.dias,
-          'status': 'confirmado',
-          'tipo': 'prueba',
-          'created_at': FieldValue.serverTimestamp(),
-        });
-
-        // Cambia status del usuario a "prueba"
-        final userRef = FirebaseFirestore.instance
-            .collection('users')
-            .doc(widget.uid);
-        transaction.update(userRef, {'status': UserStatus.prueba});
-      });
-
-      if (mounted) {
-        setState(() => _isReservado = true);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('¡Clase de prueba reservada! 🎉',
-              style: GoogleFonts.nunito(color: Colors.white)),
-          backgroundColor: GingaColors.brandGreen,
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error al reservar. Intenta de nuevo.',
-              style: GoogleFonts.nunito(color: Colors.white)),
-          backgroundColor: Colors.red,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final badgeColor = widget.tipo == 'roda'
-        ? GingaColors.accentAmber
-        : GingaColors.brandGreen;
+    // Determinar esquema de colores basado en el tipo de clase y nivel
+    final bool isEvent = tipo == 'especial' || tipo == 'roda';
+    final palette = LevelColorPalette.getPalette(nivel, badge, isEvent, tipo);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(
-          color: _isReservado
-              ? GingaColors.brandGreen.withOpacity(0.4)
-              : GingaColors.borderLight,
-        ),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 44,
-            child: Text(widget.hora,
-                style: GoogleFonts.montserrat(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary)),
-          ),
-          const SizedBox(width: 10),
-          Container(width: 1, height: 40, color: GingaColors.borderLight),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    final Color accentColor = palette.accent;
+    final Color badgeBgColor = palette.badgeBg;
+    final Color badgeTextColor = palette.badgeText;
+    final IconData badgeIcon = palette.icon;
+    final String typeLabel = palette.label;
+
+    // Determinar texto de ubicación
+    final String locationText = lugar.isNotEmpty
+        ? lugar
+        : (ubicacion.isNotEmpty ? ubicacion : 'Sede Física');
+
+    return GestureDetector(
+      onTap: () {
+        if (isEvent) {
+          context.push('/evento-detalle?eventId=$claseId');
+        } else {
+          context.push('/clase-detalle?claseId=$claseId');
+        }
+      },
+      child: Hero(
+        tag: 'class-card-$claseId',
+        child: Material(
+          type: MaterialType.transparency,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(GingaRadius.lg),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+              border: Border.all(
+                color: isEvent
+                    ? GingaColors.accentAmber.withOpacity(0.3)
+                    : GingaColors.borderLight.withOpacity(0.7),
+                width: isEvent ? 1.5 : 1.0,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(GingaRadius.lg),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(widget.nivel,
-                        style: GoogleFonts.montserrat(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary)),
-                    const SizedBox(width: 6),
+                    // 1. Banda de acento vertical izquierda
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: badgeColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(4),
+                      width: 5,
+                      color: accentColor,
+                    ),
+
+                    // 2. Información Central
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Fila de Insignia de Categoría e Insignia Específica
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: badgeBgColor,
+                                    borderRadius:
+                                        BorderRadius.circular(GingaRadius.sm),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(badgeIcon,
+                                          size: 12, color: badgeTextColor),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        typeLabel,
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          color: badgeTextColor,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                // Insignia específica de la clase (ej. U. Continental 🎓)
+                                if (nivel.isNotEmpty && nivel != badge)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: palette.badgeBg,
+                                      border: Border.all(
+                                          color: palette.accent.withOpacity(0.3)),
+                                      borderRadius:
+                                          BorderRadius.circular(GingaRadius.sm),
+                                    ),
+                                    child: Text(
+                                      nivel,
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: palette.badgeText,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Título de la clase/nivel
+                            Text(
+                              badge.isNotEmpty ? badge : nivel,
+                              style: GoogleFonts.montserrat(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: GingaColors.textPrimary,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Fila de Horario y Días
+                            Row(
+                              children: [
+                                Icon(Icons.access_time_rounded,
+                                    size: 14, color: accentColor),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '$hora${dias.isNotEmpty ? " • ${_interpretarDiasDeSemana(dias)}" : ""}',
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: GingaColors.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+
+                            // Fila de Instructor
+                            if (instructor.isNotEmpty) ...[
+                              Row(
+                                children: [
+                                  Icon(Icons.person_outline_rounded,
+                                      size: 14, color: GingaColors.textSecondary),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Instructor: $instructor',
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 12,
+                                        color: GingaColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                            ],
+
+                            // Fila de Lugar/Ubicación (📍 Crucial para saber a dónde ir)
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.location_on_outlined,
+                                    size: 14, color: Colors.redAccent),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    locationText,
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: GingaColors.textSecondary,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Text(widget.badge,
-                          style: GoogleFonts.montserrat(
+                    ),
+
+                    // 3. Panel de Acción Derecho
+                    Container(
+                      width: 56,
+                      decoration: BoxDecoration(
+                        color: isEvent
+                            ? GingaColors.accentAmber.withOpacity(0.06)
+                            : GingaColors.brandGreen.withOpacity(0.04),
+                        border: Border(
+                          left: BorderSide(
+                              color: GingaColors.borderLight.withOpacity(0.5)),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: accentColor.withOpacity(0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 16,
+                              color: accentColor,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Gratis',
+                            style: GoogleFonts.montserrat(
                               fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: badgeColor)),
+                              fontWeight: FontWeight.w800,
+                              color: accentColor,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                if (widget.dias.isNotEmpty)
-                  Text(widget.dias,
-                      style: GoogleFonts.montserrat(
-                          fontSize: 10,
-                          color: GingaColors.textSecondary)),
-                Text(widget.instructor,
-                    style: GoogleFonts.nunito(
-                        fontSize: 11, color: GingaColors.textSecondary)),
-              ],
+              ),
             ),
           ),
-          _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      color: GingaColors.brandGreen, strokeWidth: 2))
-              : GestureDetector(
-                  onTap: _isReservado ? null : _reservarPrueba,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: _isReservado
-                          ? GingaColors.cardLight
-                          : GingaColors.brandGreen,
-                      borderRadius:
-                          BorderRadius.circular(GingaRadius.full),
-                    ),
-                    child: Text(
-                      _isReservado ? '✓ Reservado' : 'Gratis',
-                      style: GoogleFonts.montserrat(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: _isReservado
-                              ? GingaColors.brandGreen
-                              : Colors.white),
-                    ),
-                  ),
-                ),
-        ],
+        ),
       ),
     );
   }
@@ -596,66 +2207,71 @@ class _ReservaPendiente extends StatelessWidget {
               borderRadius: BorderRadius.circular(GingaRadius.lg),
             ),
             child: Text('No se encontró tu reserva.',
-                style: GoogleFonts.nunito(
-                    color: GingaColors.textSecondary)),
+                style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
           );
         }
 
         final reserva =
             snapshot.data!.docs.first.data() as Map<String, dynamic>;
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(GingaRadius.lg),
-            border: Border.all(
-                color: GingaColors.accentAmber.withOpacity(0.4)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: GingaColors.accentAmber.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(GingaRadius.md),
+        final String claseId = reserva['clase_id'] ?? '';
+
+        return GestureDetector(
+          onTap: claseId.isNotEmpty
+              ? () => context.push('/clase-detalle?claseId=$claseId')
+              : null,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(GingaRadius.lg),
+              border:
+                  Border.all(color: GingaColors.accentAmber.withOpacity(0.4)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: GingaColors.accentAmber.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                  ),
+                  child: const Icon(Icons.event_available,
+                      color: GingaColors.accentAmber, size: 28),
                 ),
-                child: const Icon(Icons.event_available,
-                    color: GingaColors.accentAmber, size: 28),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(reserva['nivel'] ?? '',
-                        style: GoogleFonts.montserrat(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary)),
-                    Text('${reserva['hora']} — ${reserva['dias']}',
-                        style: GoogleFonts.nunito(
-                            fontSize: 13,
-                            color: GingaColors.textSecondary)),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: GingaColors.accentAmber.withOpacity(0.1),
-                        borderRadius:
-                            BorderRadius.circular(GingaRadius.full),
-                      ),
-                      child: Text('CLASE DE PRUEBA',
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(reserva['nivel'] ?? '',
                           style: GoogleFonts.montserrat(
-                              fontSize: 9,
+                              fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: GingaColors.accentAmber)),
-                    ),
-                  ],
+                              color: GingaColors.textPrimary)),
+                      Text(
+                          '${reserva['hora']} — ${_interpretarDiasDeSemana(reserva['dias'] ?? "")}',
+                          style: GoogleFonts.nunito(
+                              fontSize: 13, color: GingaColors.textSecondary)),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: GingaColors.accentAmber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(GingaRadius.full),
+                        ),
+                        child: Text('CLASE DE PRUEBA',
+                            style: GoogleFonts.montserrat(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: GingaColors.accentAmber)),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -667,9 +2283,95 @@ class _ReservaPendiente extends StatelessWidget {
 //  CLASE ACTIVO (su clase matriculada)
 // ─────────────────────────────────────────
 
+class _PulseIndicator extends StatefulWidget {
+  const _PulseIndicator();
+
+  @override
+  State<_PulseIndicator> createState() => _PulseIndicatorState();
+}
+
+class _PulseIndicatorState extends State<_PulseIndicator> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen;
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withOpacity(_animation.value),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.4 * _animation.value),
+                blurRadius: 5,
+                spreadRadius: 1.5,
+              )
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _ClaseActivo extends StatelessWidget {
   final String claseId;
   const _ClaseActivo({required this.claseId});
+
+  Widget _buildInfoBadge(BuildContext context, IconData icon, String text) {
+    if (text.isEmpty) return const SizedBox.shrink();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final badgeBg = isDark ? GingaColors.backgroundDark : const Color(0xFFF1F8E9);
+    final textColor = isDark ? GingaColors.textWhite : GingaColors.textSecondary;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: badgeBg,
+        borderRadius: BorderRadius.circular(GingaRadius.sm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: GoogleFonts.nunito(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -681,8 +2383,7 @@ class _ClaseActivo extends StatelessWidget {
           borderRadius: BorderRadius.circular(GingaRadius.lg),
         ),
         child: Text('Contacta al instructor para asignarte una clase.',
-            style: GoogleFonts.nunito(
-                color: GingaColors.textSecondary)),
+            style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
       );
     }
 
@@ -693,70 +2394,185 @@ class _ClaseActivo extends StatelessWidget {
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const CircularProgressIndicator(
-              color: GingaColors.brandGreen);
+          return const Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                color: GingaColors.brandGreen,
+                strokeWidth: 2,
+              ),
+            ),
+          );
+        }
+
+        if (!snapshot.data!.exists) {
+          return const SizedBox();
         }
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(GingaRadius.lg),
-            border: Border.all(
-                color: GingaColors.brandGreen.withOpacity(0.3)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 14),
-                decoration: BoxDecoration(
-                  color: GingaColors.brandGreen,
-                  borderRadius: BorderRadius.circular(GingaRadius.sm),
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+        final borderColor = isDark ? GingaColors.accentGreenDark.withOpacity(0.3) : GingaColors.brandGreen.withOpacity(0.2);
+
+        return GestureDetector(
+          onTap: () => context.push('/clase-detalle?claseId=$claseId'),
+          child: Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(GingaRadius.lg),
+              border: Border.all(color: borderColor, width: 1.5),
+              boxShadow: isDark ? [] : [
+                BoxShadow(
+                  color: GingaColors.brandGreen.withOpacity(0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 ),
-                child: Text(data['hora'] ?? '',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white)),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(data['nivel'] ?? '',
-                        style: GoogleFonts.montserrat(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary)),
-                    Text(data['dias'] ?? '',
-                        style: GoogleFonts.nunito(
-                            fontSize: 12,
-                            color: GingaColors.textSecondary)),
-                    Text(data['instructor'] ?? '',
-                        style: GoogleFonts.nunito(
-                            fontSize: 12,
-                            color: GingaColors.textSecondary)),
-                  ],
+              ],
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 6,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+                          GingaColors.accentAmber,
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: GingaColors.brandGreen.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(GingaRadius.full),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.stars_rounded,
+                                size: 14,
+                                color: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'TU CLASE PROGRAMADA 🥋',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                  color: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: (isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(GingaRadius.full),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const _PulseIndicator(),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'ACTIVO',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: (isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen).withOpacity(0.08),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.sports_martial_arts_rounded,
+                              size: 26,
+                              color: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  data['nivel'] ?? '',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? Colors.white : GingaColors.textPrimary,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Sesión de entrenamiento recurrente',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 12,
+                                    color: isDark ? GingaColors.textMuted : GingaColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 16,
+                            color: isDark ? GingaColors.accentGreenDark : GingaColors.brandGreen,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        height: 1,
+                        color: isDark ? Colors.white.withOpacity(0.06) : GingaColors.borderLight.withOpacity(0.6),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildInfoBadge(context, Icons.access_time_filled_rounded, data['hora'] ?? ''),
+                          _buildInfoBadge(context, Icons.calendar_month_rounded, _interpretarDiasDeSemana(data['dias'] ?? '')),
+                          _buildInfoBadge(context, Icons.account_circle_rounded, data['instructor'] ?? ''),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-                child: Text('ACTIVO',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: GingaColors.brandGreen)),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -774,12 +2590,19 @@ class _ClaseInactivo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+    final textAccent = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    final textMuted = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+    final iconBg = isDark ? GingaColors.backgroundDark : GingaColors.borderLight;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
@@ -787,11 +2610,11 @@ class _ClaseInactivo extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: GingaColors.borderLight,
+              color: iconBg,
               borderRadius: BorderRadius.circular(GingaRadius.sm),
             ),
-            child: const Icon(Icons.lock_outline,
-                color: GingaColors.textSecondary, size: 24),
+            child: Icon(Icons.lock_outline,
+                color: textMuted, size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -802,16 +2625,142 @@ class _ClaseInactivo extends StatelessWidget {
                     style: GoogleFonts.montserrat(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textSecondary)),
+                        color: textAccent)),
                 Text('Renueva tu mensualidad para continuar',
                     style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        color: GingaColors.textSecondary)),
+                        fontSize: 12, color: textMuted)),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+//  CLASE PENDIENTE (U. Continental en revisión)
+// ─────────────────────────────────────────
+
+class _ClasePendiente extends StatelessWidget {
+  final String claseId;
+  const _ClasePendiente({required this.claseId});
+
+  @override
+  Widget build(BuildContext context) {
+    if (claseId.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: GingaColors.cardLight,
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+        ),
+        child: Text('Cargando información de tu clase...',
+            style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('clases')
+          .doc(claseId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            alignment: Alignment.center,
+            child: const CircularProgressIndicator(
+                color: GingaColors.brandGreen, strokeWidth: 2),
+          );
+        }
+
+        final data = snapshot.data!.data() as Map<String, dynamic>;
+
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final cardBg = isDark ? GingaColors.surfaceDark : Colors.white;
+        final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+        final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+        final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+        final hourBg = isDark ? GingaColors.backgroundDark : Colors.grey.shade200;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(GingaRadius.lg),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                decoration: BoxDecoration(
+                  color: hourBg,
+                  borderRadius: BorderRadius.circular(GingaRadius.sm),
+                ),
+                child: Text(
+                  data['hora'] ?? '',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: subtitleColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data['nivel'] ?? '',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: textColor,
+                      ),
+                    ),
+                    Text(
+                      _interpretarDiasDeSemana(data['dias'] ?? ''),
+                      style: GoogleFonts.nunito(
+                        fontSize: 11,
+                        color: subtitleColor,
+                      ),
+                    ),
+                    Text(
+                      'Instructor: ${data['instructor'] ?? ""}',
+                      style: GoogleFonts.nunito(
+                        fontSize: 11,
+                        color: subtitleColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.amber.shade900.withOpacity(0.3) : Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(GingaRadius.full),
+                  border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade200),
+                ),
+                child: Text(
+                  'PENDIENTE',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.amber.shade200 : Colors.amber.shade700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -823,15 +2772,24 @@ class _ClaseInactivo extends StatelessWidget {
 class _Header extends StatelessWidget {
   final String nombre;
   final String corda;
-  const _Header({required this.nombre, required this.corda});
+  final String uid;
+  final GlobalKey avatarKey;
+  
+  const _Header({
+    required this.nombre,
+    required this.corda,
+    required this.uid,
+    required this.avatarKey,
+  });
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar el header
     final inicial = nombre.isNotEmpty ? nombre[0].toUpperCase() : 'A';
 
     return Row(
       children: [
-        Flexible(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -840,11 +2798,15 @@ class _Header extends StatelessWidget {
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: GingaColors.textSecondary)),
-              Text(nombre,
-                  style: GoogleFonts.montserrat(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: GingaColors.textPrimary)),
+              Text(
+                nombre,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.montserrat(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: GingaColors.textPrimary),
+              ),
               const SizedBox(height: 4),
               Row(
                 children: [
@@ -867,19 +2829,351 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        const Spacer(),
-        CircleAvatar(
-          radius: 20,
-          backgroundColor: GingaColors.cardLight,
-          child: Text(inicial,
-              style: GoogleFonts.montserrat(
-                  fontWeight: FontWeight.w700,
-                  color: GingaColors.brandGreen,
-                  fontSize: 16)),
+        const SizedBox(width: 16),
+        if (uid.isNotEmpty) ...[
+          _NotificationsBell(uid: uid),
+          const SizedBox(width: 8),
+        ],
+        GestureDetector(
+          key: avatarKey,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ProgresoScreen(),
+              ),
+            );
+          },
+          child: CircleAvatar(
+            radius: 20,
+            backgroundColor: GingaColors.cardLight,
+            child: Text(inicial,
+                style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.brandGreen,
+                    fontSize: 16)),
+          ),
         ),
       ],
     );
   }
+}
+
+class _NotificationsBell extends StatelessWidget {
+  final String uid;
+  const _NotificationsBell({required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('notificaciones')
+          .where('leido', isEqualTo: false)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final unreadCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              icon: Icon(Icons.notifications_outlined,
+                  size: 26, color: GingaColors.textPrimary),
+              onPressed: () => _mostrarBuzonNotificaciones(context, uid),
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: GingaColors.backgroundLight,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.lg)),
+    ),
+    builder: (BuildContext sheetContext) {
+      return Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        padding: EdgeInsets.fromLTRB(
+          20,
+          24,
+          20,
+          MediaQuery.of(sheetContext).padding.bottom > 0
+              ? MediaQuery.of(sheetContext).padding.bottom + 12
+              : 24,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.notifications,
+                        color: GingaColors.brandGreen, size: 24),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Notificaciones',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: GingaColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final unreadDocs = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(uid)
+                        .collection('notificaciones')
+                        .where('leido', isEqualTo: false)
+                        .get();
+
+                    final batch = FirebaseFirestore.instance.batch();
+                    for (var doc in unreadDocs.docs) {
+                      batch.update(doc.reference, {'leido': true});
+                    }
+                    await batch.commit();
+                  },
+                  child: Text(
+                    'Marcar leídas',
+                    style: GoogleFonts.nunito(
+                      color: GingaColors.brandGreen,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid)
+                    .collection('notificaciones')
+                    .orderBy('fecha', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                        child: CircularProgressIndicator(
+                            color: GingaColors.brandGreen));
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.notifications_none,
+                              size: 60,
+                              color:
+                                  GingaColors.textSecondary.withOpacity(0.3)),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No tienes notificaciones aún',
+                            style: GoogleFonts.nunito(
+                                color: GingaColors.textSecondary, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final notifs = snapshot.data!.docs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return data['leido'] != true;
+                  }).toList();
+
+                  if (notifs.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.notifications_none,
+                              size: 60,
+                              color:
+                                  GingaColors.textSecondary.withOpacity(0.3)),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No tienes notificaciones aún',
+                            style: GoogleFonts.nunito(
+                                color: GingaColors.textSecondary, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: notifs.length,
+                    itemBuilder: (itemContext, index) {
+                      final notifDoc = notifs[index];
+                      final data = notifDoc.data() as Map<String, dynamic>;
+                      final String titulo = data['titulo'] ?? 'Alerta';
+                      final String mensaje = data['mensaje'] ?? '';
+                      final String tipo = data['tipo'] ?? 'sistema';
+                      final bool leido = data['leido'] ?? false;
+
+                      IconData itemIcon = Icons.notifications_none;
+                      Color itemColor = GingaColors.brandGreen;
+
+                      if (tipo == 'asistencia') {
+                        itemIcon = Icons.check_circle_outline;
+                        itemColor = GingaColors.brandGreen;
+                      } else if (tipo == 'membresia') {
+                        itemIcon = Icons.lock_clock;
+                        itemColor = GingaColors.accentAmber;
+                      } else if (tipo == 'bienvenida') {
+                        itemIcon = Icons.star_border;
+                        itemColor = Colors.blue;
+                      } else if (tipo == 'evento' || tipo == 'clase' || tipo == 'clase_detalle') {
+                        itemIcon = Icons.calendar_today_outlined;
+                        itemColor = GingaColors.brandGreen;
+                      }
+
+                      return GestureDetector(
+                        onTap: () async {
+                          // 1. Marcar como leída de forma asíncrona al tocarla si no estaba leída
+                          if (!leido) {
+                            try {
+                              await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(uid)
+                                  .collection('notificaciones')
+                                  .doc(notifDoc.id)
+                                  .update({'leido': true});
+                            } catch (e) {
+                              debugPrint("Error al marcar notificación como leída: $e");
+                            }
+                          }
+                          // 2. Cerrar el buzón de notificaciones usando el context del bottom sheet
+                          if (sheetContext.mounted) {
+                            Navigator.pop(sheetContext);
+                          }
+                          // 3. Ejecutar la redirección dinámica idéntica a la de la Push!
+                          NotificationService.instance.handleRawNotificationRouting(data);
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: leido
+                                ? Colors.transparent
+                                : itemColor.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            border: Border.all(
+                              color: leido
+                                  ? GingaColors.borderLight
+                                  : itemColor.withOpacity(0.3),
+                              width: leido ? 1 : 1.5,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: itemColor.withOpacity(0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(itemIcon, color: itemColor, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          titulo,
+                                          style: GoogleFonts.montserrat(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: GingaColors.textPrimary,
+                                          ),
+                                        ),
+                                        if (!leido)
+                                          Container(
+                                            width: 6,
+                                            height: 6,
+                                            decoration: const BoxDecoration(
+                                              color: Colors.red,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      mensaje,
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 12,
+                                        color: GingaColors.textSecondary,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 // ─────────────────────────────────────────
@@ -887,14 +3181,98 @@ class _Header extends StatelessWidget {
 // ─────────────────────────────────────────
 
 class _WorkshopBanner extends StatelessWidget {
+  final String userNombre;
+
+  const _WorkshopBanner({required this.userNombre});
+
   @override
   Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('eventos')
+          .orderBy('fecha_inicio', descending: false)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: double.infinity,
+            height: 120,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: GingaColors.cardLight,
+              borderRadius: BorderRadius.circular(GingaRadius.lg),
+            ),
+            child:
+                const CircularProgressIndicator(color: GingaColors.brandGreen),
+          );
+        }
+
+        Map<String, dynamic>? eventData;
+        String? eventId;
+        final now = DateTime.now();
+
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          for (var doc in snapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            final Timestamp? dateEnd = data['fecha_fin'] as Timestamp?;
+            final bool publicado = data['publicar_inmediatamente'] ?? true;
+
+            // Si el evento está publicado y no ha culminado aún, es el evento a mostrar
+            if (publicado && dateEnd != null && dateEnd.toDate().isAfter(now)) {
+              eventData = data;
+              eventId = doc.id;
+              break;
+            }
+          }
+        }
+
+        // ── Estado C: Modo Comunidad (No hay eventos programados) ──────────
+        if (eventData == null || eventId == null) {
+          return _buildCommunityBanner(context);
+        }
+
+        final Timestamp dateStartTs = eventData['fecha_inicio'] as Timestamp;
+        final Timestamp dateEndTs = eventData['fecha_fin'] as Timestamp;
+        final DateTime dateStart = dateStartTs.toDate();
+        final DateTime dateEnd = dateEndTs.toDate();
+
+        // Determinar si hoy está dentro del rango del evento
+        final bool isTodayEvent =
+            now.isAfter(dateStart.subtract(const Duration(hours: 12))) &&
+                now.isBefore(dateEnd.add(const Duration(hours: 12)));
+
+        if (isTodayEvent) {
+          // ── Estado B: Evento en Curso ────────────────────────────────────
+          return _buildActiveTodayBanner(context, eventId, eventData);
+        } else {
+          // ── Estado A: Próximo Evento ─────────────────────────────────────
+          return _buildUpcomingEventBanner(context, eventId, eventData);
+        }
+      },
+    );
+  }
+
+  // ── ESTADO A: Banner de Próximo Taller ─────────────────────────────────────
+  Widget _buildUpcomingEventBanner(
+      BuildContext context, String eventId, Map<String, dynamic> data) {
+    final titulo = data['titulo'] ?? 'Taller Especial';
+    final organizador = data['organizador'] ?? 'Mestre Invitado';
+    final fechaTexto = data['fecha_texto'] ?? 'Próximamente';
+    final imagenUrl = data['imagen_url'] ?? 'assets/images/roda.jpg';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: GingaColors.accentAmber,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
       ),
       child: Row(
         children: [
@@ -902,29 +3280,259 @@ class _WorkshopBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Taller Intensivo con Prof.',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF412402))),
-                Text('Daniel Vereau\n13 al 28 Abril',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF412402))),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF412402),
-                    borderRadius: BorderRadius.circular(GingaRadius.full),
+                Text(
+                  'PRÓXIMO TALLER GINGA',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF5D3D03),
+                    letterSpacing: 1,
                   ),
-                  child: Text('Reservar',
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$titulo\ncon $organizador',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF4A2F02),
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  fechaTexto,
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF5D3D03),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () => _navegarADetalleEventoOModal(context, eventId, data),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4A2F02),
+                      borderRadius: BorderRadius.circular(GingaRadius.full),
+                    ),
+                    child: Text(
+                      'Ver Detalles y Reservar',
                       style: GoogleFonts.montserrat(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white)),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Hero(
+            tag: 'event-image-$eventId',
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(GingaRadius.md),
+              child: SizedBox(
+                width: 110,
+                height: 110,
+                child: imagenUrl.startsWith('assets/')
+                    ? Image.asset(
+                        imagenUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Image.asset('assets/images/roda.jpg', fit: BoxFit.cover);
+                        },
+                      )
+                    : GingaCachedImage(
+                        imageUrl: imagenUrl,
+                        fit: BoxFit.cover,
+                        category: 'evento',
+                        errorWidget: Image.asset('assets/images/roda.jpg', fit: BoxFit.cover),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── ESTADO B: Banner de ¡Hoy es el Evento! (Glow verde intenso) ──────────────
+  Widget _buildActiveTodayBanner(
+      BuildContext context, String eventId, Map<String, dynamic> data) {
+    final titulo = data['titulo'] ?? 'Taller Especial';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            GingaColors.brandGreen,
+            Colors.green.shade800,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        boxShadow: [
+          BoxShadow(
+            color: GingaColors.brandGreen.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.flash_on,
+                        color: GingaColors.accentAmber, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      '¡EVENTO EN CURSO HOY!',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white.withOpacity(0.9),
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '¡$titulo ya empezó!',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Revisa los horarios de los talleres y las rodas del día.',
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.85),
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () => _navegarADetalleEventoOModal(context, eventId, data),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: GingaColors.accentAmber,
+                      borderRadius: BorderRadius.circular(GingaRadius.full),
+                    ),
+                    child: Text(
+                      'Ver Actividades Hoy ➡️',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF4A2F02),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Icon(
+            Icons.celebration_rounded,
+            color: GingaColors.accentAmber,
+            size: 80,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── ESTADO C: Modo Comunidad (Acceso Rápido a Entrenamiento) ─────────────────
+  Widget _buildCommunityBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: GingaColors.cardLight,
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        border: Border.all(color: GingaColors.brandGreen.withOpacity(0.15)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ENTRENAMIENTO DIARIO',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: GingaColors.brandGreen,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '¡Suda la camiseta en casa!',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: GingaColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Repasa tu Ginga y tus patadas en nuestra Biblioteca Digital.',
+                  style: GoogleFonts.nunito(
+                    fontSize: 11,
+                    color: GingaColors.textSecondary,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () {
+                    // Pasa directamente a los tutoriales de la biblioteca
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const TutorialesScreen()),
+                    );
+                  },
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: GingaColors.brandGreen,
+                      borderRadius: BorderRadius.circular(GingaRadius.full),
+                    ),
+                    child: Text(
+                      'Ver Tutoriales On-Demand',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -932,62 +3540,331 @@ class _WorkshopBanner extends StatelessWidget {
           const SizedBox(width: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(GingaRadius.md),
-            child: Image.asset('assets/images/dani.jpg',
-                width: 120, height: 120, fit: BoxFit.cover),
+            child: Image.asset(
+              'assets/images/moves.jpg',
+              width: 105,
+              height: 105,
+              fit: BoxFit.cover,
+            ),
           ),
         ],
       ),
     );
   }
-}
 
-// ─────────────────────────────────────────
-//  CHECK-IN RÁPIDO
-// ─────────────────────────────────────────
+  void _navegarADetalleEventoOModal(
+      BuildContext context, String eventId, Map<String, dynamic> data) {
+    context.push('/evento-detalle?eventId=$eventId');
+  }
 
-class _CheckInCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
+  // ── Bottom Sheet de Detalles e Inscripción Interactiva ────────────────────
+  void _mostrarDetallesEvento(
+      BuildContext context, String eventId, Map<String, dynamic> data) {
+    final titulo = data['titulo'] ?? 'Taller Especial';
+    final organizador = data['organizador'] ?? 'Mestre Invitado';
+    final fechaTexto = data['fecha_texto'] ?? 'Próximamente';
+    final lugar = data['lugar'] ?? 'Academia Ginga';
+    final descripcion = data['descripcion'] ?? '';
+    final List<dynamic> cronograma = data['cronograma'] ?? [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+          ),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            16,
+            24,
+            MediaQuery.of(ctx).padding.bottom > 0
+                ? MediaQuery.of(ctx).padding.bottom + 16
+                : 24,
+          ),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Barra de arrastre
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: GingaColors.borderLight,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Título
+                Text(
+                  titulo,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: GingaColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Organizado por: $organizador',
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.brandGreen,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Fila de Info (Fecha & Lugar)
+                _buildInfoCard(
+                    Icons.calendar_today_rounded, 'FECHA', fechaTexto),
+                const SizedBox(height: 10),
+                _buildInfoCard(Icons.location_on_rounded, 'LUGAR', lugar),
+                const SizedBox(height: 20),
+
+                // Descripción
+                Text(
+                  'Acerca del Evento',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: GingaColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  descripcion,
+                  style: GoogleFonts.nunito(
+                    fontSize: 13,
+                    color: GingaColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Cronograma de actividades
+                if (cronograma.isNotEmpty) ...[
+                  Text(
+                    'Cronograma de Actividades',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: GingaColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...cronograma.map((item) {
+                    final dia = item['dia'] ?? '';
+                    final hora = item['hora'] ?? '';
+                    final act = item['actividad'] ?? '';
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: GingaColors.cardLight,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              dia,
+                              style: GoogleFonts.montserrat(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: GingaColors.brandGreen,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  act,
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: GingaColors.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  hora,
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 11,
+                                    color: GingaColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  const SizedBox(height: 24),
+                ],
+
+                // ── Registro e Inscripción Dinámica ────────────────────────
+                StreamBuilder<bool>(
+                  stream: EventosService.instance.estaRegistrado(eventId),
+                  builder: (context, snapshot) {
+                    final registrado = snapshot.data ?? false;
+
+                    if (registrado) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: GingaColors.cardLight,
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                          border: Border.all(
+                              color: GingaColors.brandGreen.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check_circle_rounded,
+                                color: GingaColors.brandGreen, size: 28),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '¡Tu cupo está reservado! ✅',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: GingaColors.brandGreen,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Te esperamos con toda la energía. ¡No olvides traer tu uniforme oficial!',
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 11,
+                                      color: GingaColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ElevatedButton(
+                      onPressed: () async {
+                        try {
+                          await EventosService.instance
+                              .registrarAsistencia(eventId, userNombre);
+                          if (ctx.mounted) {
+                            Navigator.pop(ctx);
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    '¡Reserva confirmada con éxito, $userNombre! 🎉 Nos vemos en la Roda.'),
+                                backgroundColor: GingaColors.brandGreen,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error al reservar: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: GingaColors.brandGreen,
+                        minimumSize: const Size(double.infinity, 54),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'CONFIRMAR MI ASISTENCIA 🙋‍♂️',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoCard(IconData icon, String label, String value) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: GingaColors.borderLight),
       ),
       child: Row(
         children: [
+          Icon(icon, color: GingaColors.brandGreen, size: 20),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Check-in rápido',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary)),
-                const SizedBox(height: 4),
-                Text('Escanea el código al llegar a la academia',
-                    style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        color: GingaColors.textSecondary,
-                        height: 1.4)),
+                Text(
+                  label,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                    color: GingaColors.textSecondary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: GingaColors.textPrimary,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          GestureDetector(
-            onTap: () => _navigateToQrScanner(context),
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: GingaColors.cardLight,
-                borderRadius: BorderRadius.circular(GingaRadius.md),
-              ),
-              child: const Icon(Icons.qr_code_scanner,
-                  size: 30, color: GingaColors.brandGreen),
             ),
           ),
         ],
@@ -1003,7 +3880,12 @@ class _CheckInCard extends StatelessWidget {
 class _SectionTitle extends StatelessWidget {
   final String title;
   final String actionLabel;
-  const _SectionTitle({required this.title, required this.actionLabel});
+  final VoidCallback? onTapAction;
+  const _SectionTitle({
+    required this.title,
+    required this.actionLabel,
+    this.onTapAction,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1016,11 +3898,14 @@ class _SectionTitle extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 color: GingaColors.textPrimary)),
         if (actionLabel.isNotEmpty)
-          Text(actionLabel,
-              style: GoogleFonts.nunito(
-                  fontSize: 12,
-                  color: GingaColors.brandGreen,
-                  fontWeight: FontWeight.w600)),
+          GestureDetector(
+            onTap: onTapAction,
+            child: Text(actionLabel,
+                style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    color: GingaColors.brandGreen,
+                    fontWeight: FontWeight.w600)),
+          ),
       ],
     );
   }
@@ -1042,7 +3927,7 @@ class _NoticiasRow extends StatelessWidget {
             imagePath: 'assets/images/roda.jpg',
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         Expanded(
           child: _NoticiaCard(
             titulo: 'Tips: Movimientos',
@@ -1084,9 +3969,7 @@ class _NoticiaCard extends StatelessWidget {
             ),
             child: imagePath != null
                 ? Image.asset(imagePath!,
-                    height: 90,
-                    width: double.infinity,
-                    fit: BoxFit.cover)
+                    height: 90, width: double.infinity, fit: BoxFit.cover)
                 : Container(
                     height: 90,
                     color: GingaColors.backgroundDark,
@@ -1127,46 +4010,822 @@ class _NoticiaCard extends StatelessWidget {
 //  BOTTOM NAV
 // ─────────────────────────────────────────
 
-class _GingaBottomNav extends StatelessWidget {
+class _GingaBottomNav extends StatefulWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final GlobalKey bibliotecaTabKey;
 
   const _GingaBottomNav({
     required this.currentIndex,
     required this.onTap,
+    required this.bibliotecaTabKey,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: currentIndex,
-      onTap: onTap,
-      type: BottomNavigationBarType.fixed,
-      backgroundColor: Colors.white,
-      selectedItemColor: GingaColors.brandGreen,
-      unselectedItemColor: GingaColors.textSecondary,
-      selectedLabelStyle:
-          GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600),
-      unselectedLabelStyle: GoogleFonts.montserrat(fontSize: 11),
-      elevation: 12,
-      items: const [
-        BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.groups_outlined),
-            activeIcon: Icon(Icons.groups),
-            label: 'A Roda'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book_outlined),
-            activeIcon: Icon(Icons.menu_book),
-            label: 'Biblioteca'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Perfil'),
-      ],
+  State<_GingaBottomNav> createState() => _GingaBottomNavState();
+}
+
+class _GingaBottomNavState extends State<_GingaBottomNav>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late int _prevIndex;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _prevIndex = widget.currentIndex;
+    _currentIndex = widget.currentIndex;
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
     );
+    // Empezamos al final de la animación para pintar la gota en la posición inicial
+    _controller.value = 1.0;
+  }
+
+  @override
+  void didUpdateWidget(covariant _GingaBottomNav oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentIndex != widget.currentIndex) {
+      setState(() {
+        _prevIndex = _currentIndex;
+        _currentIndex = widget.currentIndex;
+      });
+      _controller.reset();
+      _controller.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  double _getX(int index, double totalWidth) {
+    const double g = 64.0;
+    final double w = (totalWidth - g) / 4;
+    switch (index) {
+      case 0:
+        return w * 0.5;
+      case 1:
+        return w * 1.5;
+      case 2:
+        return w * 2.5 + g;
+      case 3:
+        return w * 3.5 + g;
+      default:
+        return 0.0;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final bool isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+    final adjustedPadding = isIOS ? bottomPadding : (bottomPadding > 0 ? 12.0 : 0.0);
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return BottomAppBar(
+      shape: const CircularNotchedRectangle(),
+      notchMargin: 8.0,
+      color: isDark ? GingaColors.backgroundDark : Colors.white,
+      elevation: 12,
+      shadowColor: Colors.black.withValues(alpha: 0.3),
+      padding: EdgeInsets.zero,
+      height: 56 + adjustedPadding,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: adjustedPadding),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final double width = constraints.maxWidth;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // 1 — Ítems de navegación de fondo
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Expanded(
+                      child: _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
+                    ),
+                    Expanded(
+                      child: _buildNavItem(
+                        1,
+                        Icons.event_note_outlined,
+                        Icons.event_note,
+                        'Eventos',
+                      ),
+                    ),
+                    const SizedBox(width: 64), // Espacio central para el FAB con notch
+                    Expanded(
+                      child: _buildNavItem(
+                        2,
+                        Icons.menu_book_outlined,
+                        Icons.menu_book,
+                        'Biblioteca',
+                        navKey: widget.bibliotecaTabKey,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildNavItem(
+                        3,
+                        Icons.storefront_outlined,
+                        Icons.storefront,
+                        'Tienda',
+                      ),
+                    ),
+                  ],
+                ),
+
+                // 2 — La gota animada saltarina (Jumping Droplet)
+                AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) {
+                    final t = _controller.value;
+                    
+                    // Curva para el desplazamiento X (suave al inicio y al final)
+                    final curveX = Curves.easeInOutCubic.transform(t);
+                    
+                    // Curva para la altura del salto Y (parábola)
+                    final double jumpHeight = _prevIndex == _currentIndex ? 0.0 : 22.0;
+                    final double heightMultiplier = sin(t * pi);
+                    
+                    final double startX = _getX(_prevIndex, width);
+                    final double endX = _getX(_currentIndex, width);
+                    final double currentX = startX + (endX - startX) * curveX;
+                    
+                    // Altura base donde descansa la gota (debajo del icono)
+                    double baseY = 27.0; 
+                    final double currentY = baseY - (jumpHeight * heightMultiplier);
+
+                    // Estiramiento (squash & stretch) de la gota de agua
+                    final double baseSize = 6.0;
+                    final double stretchWidth = _prevIndex == _currentIndex ? 0.0 : 8.0; 
+                    final double stretchHeight = _prevIndex == _currentIndex ? 0.0 : 2.5;
+
+                    final double dropletW = baseSize + (stretchWidth * heightMultiplier);
+                    final double dropletH = baseSize - (stretchHeight * heightMultiplier);
+
+                    return Positioned(
+                      left: currentX - (dropletW / 2),
+                      top: currentY - (dropletH / 2),
+                      child: Container(
+                        width: dropletW,
+                        height: dropletH,
+                        decoration: BoxDecoration(
+                          color: GingaColors.brandGreen,
+                          borderRadius: BorderRadius.all(
+                            Radius.circular(baseSize),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: GingaColors.brandGreen.withValues(alpha: 0.5),
+                              blurRadius: 4,
+                              spreadRadius: 1,
+                              offset: Offset(0, 1 + (jumpHeight * heightMultiplier * 0.1)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(
+      int index, IconData icon, IconData activeIcon, String label, {Key? navKey}) {
+    final isSelected = _currentIndex == index;
+    return InkWell(
+      key: navKey,
+      onTap: () => widget.onTap(index),
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          double scale = 1.0;
+          
+          if (_currentIndex == index) {
+            // El tab seleccionado se agranda con bounce al final
+            if (_controller.value > 0.7) {
+              final val = (_controller.value - 0.7) / 0.3;
+              scale = 1.0 + sin(val * pi) * 0.18;
+            }
+          } else if (_prevIndex == index && _controller.value < 0.3) {
+            // El tab anterior se contrae brevemente
+            final val = _controller.value / 0.3;
+            scale = 1.0 - sin(val * pi) * 0.1;
+          }
+
+          // Pintar verde sólo cuando la gota haya aterrizado o esté muy cerca
+          final bool isGreenColor = _currentIndex == index && _controller.value > 0.6;
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Transform.scale(
+                scale: scale,
+                child: Icon(
+                  isSelected ? activeIcon : icon,
+                  color: isGreenColor
+                      ? GingaColors.brandGreen
+                      : GingaColors.textSecondary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 5), // Espacio para que la gota descanse sin colisionar
+              Text(
+                label,
+                style: GoogleFonts.montserrat(
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isGreenColor
+                      ? GingaColors.brandGreen
+                      : GingaColors.textSecondary,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _StorePromoBanner extends StatelessWidget {
+  final VoidCallback onTap;
+  const _StorePromoBanner({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    Theme.of(context); // Suscribir al tema para regenerar la promo de tienda
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF1B5E20), // Jungle Green
+            Color(0xFF388E3C), // Ginga Brand Green
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Fondo geométrico - rombo amarillo tipo bandera de Brasil
+          Positioned(
+            right: -35,
+            top: -35,
+            child: Transform.rotate(
+              angle: 0.785, // 45 grados
+              child: Container(
+                width: 130,
+                height: 130,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBC02D).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            ),
+          ),
+          // Fondo geométrico - círculo azul
+          Positioned(
+            right: 15,
+            bottom: -25,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1565C0).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          // Contenido principal
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Tag de Categoría
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFBC02D), // Amarillo bandera
+                          borderRadius: BorderRadius.circular(GingaRadius.sm),
+                        ),
+                        child: Text(
+                          'GINGA STORE 🇧🇷',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF1B5E20),
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '¡Equípate para la Roda! 🥋',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Consigue abadás, camisetas e instrumentos oficiales de la academia. Reserva tu pedido y recógelo en clase.',
+                        style: GoogleFonts.nunito(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withOpacity(0.9),
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: onTap,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(GingaRadius.full),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              )
+                            ],
+                          ),
+                          child: Text(
+                            'Explorar Catálogo 🛍️',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF1B5E20),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                // Emblema visual de la tienda
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1565C0), // Azul Bandera
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFFBC02D), width: 3), // Borde amarillo
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      )
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.storefront_rounded,
+                      color: Colors.white,
+                      size: 36,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class WalkthroughOverlay extends StatefulWidget {
+  final GlobalKey targetKey;
+  final String title;
+  final String description;
+  final VoidCallback onNext;
+  final bool isLastStep;
+  final bool showHeartbeat;
+  final VoidCallback onDismiss;
+
+  const WalkthroughOverlay({
+    super.key,
+    required this.targetKey,
+    required this.title,
+    required this.description,
+    required this.onNext,
+    required this.isLastStep,
+    required this.onDismiss,
+    this.showHeartbeat = false,
+  });
+
+  @override
+  State<WalkthroughOverlay> createState() => _WalkthroughOverlayState();
+}
+
+class _WalkthroughOverlayState extends State<WalkthroughOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  Timer? _retryTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    _startRetryTimer();
+  }
+
+  @override
+  void didUpdateWidget(WalkthroughOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.targetKey != widget.targetKey) {
+      _retryTimer?.cancel();
+      _startRetryTimer();
+    }
+  }
+
+  void _startRetryTimer() {
+    int retryCount = 0;
+    _retryTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      retryCount++;
+      final renderBox = widget.targetKey.currentContext?.findRenderObject() as RenderBox?;
+      if (renderBox != null || retryCount > 40) {
+        timer.cancel();
+        if (mounted) {
+          setState(() {});
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Encontrar posición del widget objetivo en la pantalla
+        final renderBox = widget.targetKey.currentContext?.findRenderObject() as RenderBox?;
+        if (renderBox == null) {
+          // Render a simple full screen dark overlay while waiting for target to mount
+          // Block touches (mandatory interaction)
+          return GestureDetector(
+            onTap: () {},
+            child: Container(
+              color: Colors.black.withOpacity(0.78),
+              width: double.infinity,
+              height: double.infinity,
+            ),
+          );
+        }
+
+        final position = renderBox.localToGlobal(Offset.zero);
+        final size = renderBox.size;
+
+        return Stack(
+          children: [
+            // Fondo oscuro atenuado que bloquea toques fortuitos
+            GestureDetector(
+              onTap: () {}, // No hace nada al tocar fuera (interacción obligatoria)
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: _HighlightPainter(
+                  rect: Rect.fromLTWH(position.dx, position.dy, size.width, size.height),
+                ),
+              ),
+            ),
+
+            // Área interactiva del Spotlight (tocar el elemento destacado avanza al siguiente paso)
+            Positioned(
+              left: position.dx,
+              top: position.dy,
+              width: size.width,
+              height: size.height,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: widget.onNext,
+                child: Container(
+                  color: Colors.transparent,
+                ),
+              ),
+            ),
+
+            // Borde brillante pulsante (heartbeat effect)
+            Positioned(
+              left: position.dx - 6,
+              top: position.dy - 6,
+              width: size.width + 12,
+              height: size.height + 12,
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, child) {
+                    final double scale = widget.showHeartbeat
+                        ? 1.0 + (_pulseController.value * 0.04)
+                        : 1.0;
+                    final double opacity = 0.5 + (1.0 - _pulseController.value) * 0.5;
+                    return Transform.scale(
+                      scale: scale,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: GingaColors.brandGreen.withOpacity(opacity),
+                            width: 3.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: GingaColors.brandGreen.withOpacity(0.35 * opacity),
+                              blurRadius: 12,
+                              spreadRadius: 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+            // Burbuja de información
+            _buildTooltipBubble(position, size, constraints),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTooltipBubble(Offset position, Size size, BoxConstraints constraints) {
+    final bool isTopHalf = position.dy < (constraints.maxHeight / 2);
+    
+    double? top;
+    double? bottom;
+    
+    if (isTopHalf) {
+      top = position.dy + size.height + 16;
+    } else {
+      bottom = constraints.maxHeight - position.dy + 16;
+    }
+
+    final double screenWidth = constraints.maxWidth;
+    const double bubbleWidth = 290.0;
+    
+    final double targetCenterX = position.dx + size.width / 2;
+    
+    // Centrar la burbuja sobre el centro del target
+    double bubbleLeft = targetCenterX - (bubbleWidth / 2);
+    // Limitar para que no se salga de los márgenes de seguridad de la pantalla (mínimo 16px)
+    bubbleLeft = bubbleLeft.clamp(16.0, screenWidth - bubbleWidth - 16.0);
+    
+    // Posicionar el triángulo horizontalmente alineado con el centro del target relativo a la burbuja
+    double arrowLeft = targetCenterX - bubbleLeft - 9.0; // 9.0 es la mitad del ancho del triángulo (18)
+    // Evitar que el triángulo se salga de los bordes redondeados de la burbuja (radio 20)
+    arrowLeft = arrowLeft.clamp(20.0, bubbleWidth - 18.0 - 20.0);
+
+    return Positioned(
+      top: top,
+      bottom: bottom,
+      left: bubbleLeft,
+      width: bubbleWidth,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isTopHalf)
+            Padding(
+              padding: EdgeInsets.only(left: arrowLeft),
+              child: CustomPaint(
+                size: const Size(18, 10),
+                painter: _TrianglePainter(isUp: true, color: Colors.white),
+              ),
+            ),
+          
+          Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.24),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+                border: Border.all(
+                  color: GingaColors.brandGreen.withOpacity(0.22),
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: GingaColors.brandGreen.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.tips_and_updates,
+                          color: GingaColors.brandGreen,
+                          size: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          widget.title,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: GingaColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.description,
+                    style: GoogleFonts.nunito(
+                      fontSize: 12.5,
+                      color: GingaColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: widget.onDismiss,
+                        style: TextButton.styleFrom(
+                          foregroundColor: GingaColors.textSecondary,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(60, 36),
+                        ),
+                        child: Text(
+                          'Omitir',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: widget.onNext,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: GingaColors.brandGreen,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          minimumSize: const Size(90, 36),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.isLastStep ? '¡Empezar!' : 'Siguiente',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              widget.isLastStep ? Icons.check : Icons.arrow_forward,
+                              size: 13,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          if (!isTopHalf)
+            Padding(
+              padding: EdgeInsets.only(left: arrowLeft, top: 4),
+              child: CustomPaint(
+                size: const Size(18, 10),
+                painter: _TrianglePainter(isUp: false, color: Colors.white),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HighlightPainter extends CustomPainter {
+  final Rect rect;
+
+  _HighlightPainter({required this.rect});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), Paint());
+
+    final backgroundPaint = Paint()..color = Colors.black.withOpacity(0.78);
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), backgroundPaint);
+
+    final holePaint = Paint()
+      ..blendMode = BlendMode.clear
+      ..isAntiAlias = true;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect.inflate(4), const Radius.circular(16)),
+      holePaint,
+    );
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_HighlightPainter oldDelegate) {
+    return oldDelegate.rect != rect;
+  }
+}
+
+class _TrianglePainter extends CustomPainter {
+  final bool isUp;
+  final Color color;
+
+  _TrianglePainter({required this.isUp, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    if (isUp) {
+      path.moveTo(size.width / 2, 0);
+      path.lineTo(size.width, size.height);
+      path.lineTo(0, size.height);
+    } else {
+      path.moveTo(size.width / 2, size.height);
+      path.lineTo(size.width, 0);
+      path.lineTo(0, 0);
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_TrianglePainter oldDelegate) {
+    return oldDelegate.isUp != isUp || oldDelegate.color != color;
   }
 }

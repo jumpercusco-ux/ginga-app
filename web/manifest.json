@@ -1,11 +1,11 @@
 {
-    "name": "ginga_app",
-    "short_name": "ginga_app",
+    "name": "Ginga Capoeira",
+    "short_name": "Ginga",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#388E3C",
+    "description": "Aplicación oficial de Ginga Capoeira - Cusco & U. Continental.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
