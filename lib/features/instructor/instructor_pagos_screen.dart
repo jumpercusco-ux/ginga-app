@@ -72,7 +72,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
     int mesesSeleccionados = 1;
     String metodoPagoSeleccionado = 'Yape';
     final List<String> metodosPago = ['Yape', 'Plin', 'Efectivo', 'Transferencia'];
-    double montoCobrado = 120.0;
+    double montoCobrado = 140.0;
     
     DateTime fechaInicioMembresia = DateTime.now();
 
@@ -127,7 +127,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                           onTap: () {
                             setStateModal(() {
                               mesesSeleccionados = mes;
-                              montoCobrado = mes * 120.0; // Pre-sugerir monto
+                              montoCobrado = mes * 140.0; // Pre-sugerir monto
                             });
                           },
                           child: Container(
@@ -635,7 +635,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                                   final fechaTextoForm = finDate != null 
                                       ? '${finDate.day}/${finDate.month}/${finDate.year}'
                                       : 'su fecha programada';
-                                  _enviarRecordatorioWhatsApp(context, nombre, telefono, fechaTextoForm, 120.0);
+                                  _enviarRecordatorioWhatsApp(context, nombre, telefono, fechaTextoForm, 140.0);
                                 },
                               ),
                               // Botón de Cobrar
@@ -949,7 +949,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                       controller: montoController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        hintText: 'Ej. 120.00',
+                        hintText: 'Ej. 140.00',
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GingaRadius.md),

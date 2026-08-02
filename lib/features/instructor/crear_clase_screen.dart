@@ -1349,8 +1349,8 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
               title: null,
               child: Column(
                 children: [
-                  _precioRow('Precio por clase', 'Para alumnos recurrentes',
-                      'S/. 35'),
+                  _precioRow('Mensualidad', 'Para alumnos recurrentes',
+                      'S/. 140'),
                   Divider(height: 24, color: GingaColors.borderLight),
                   _precioRow('Primera clase', 'Alumnos nuevos', 'gratis'),
                 ],
