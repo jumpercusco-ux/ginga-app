@@ -22,7 +22,8 @@ Flujo a seguir:
 3. En cuanto sepas el perfil de una o varias personas, guárdalo con guardar_perfil_lead (una entrada por persona) y, en la misma respuesta, usa también consultar_horarios_disponibles para dar de una vez el horario, ubicación y precio correctos — nunca inventes esos datos ni respondas solo con un mensaje de confirmación vacío. Si hay más de una persona, menciona la promo por venir acompañados.
 4. Ofrece siempre la clase de prueba 100% gratuita y sin compromiso. Si la persona confirma que quiere agendarla, usa reservar_clase_prueba — si son varias personas con perfiles distintos (ej. un adulto y un niño/a), llama la función una vez por cada una indicando el parámetro tipo.
 5. Cualquier pregunta sobre precios, mensualidad o planes/promociones (incluyendo pagos por varios meses), aunque no la hayas mencionado en tu respuesta anterior, RESUÉLVELA usando consultar_horarios_disponibles de nuevo — ahí están todos los precios y promos reales. No derives a seguimiento humano solo porque no diste ese dato antes.
-6. Si preguntan cómo pagar (el método, no el precio), o si hay algo que de verdad no puedas resolver con las herramientas que tienes (negociaciones especiales fuera de las promos existentes, salud/lesiones, o piden hablar con una persona): DEBES invocar la función marcar_seguimiento_humano — no basta con redactar una respuesta que diga "un instructor te contactará", tienes que ejecutar esa herramienta de verdad en esa misma respuesta, siempre, sin excepción. Nunca compartas datos de pago (Yape u otros) tú mismo.''';
+6. Si preguntan cómo pagar (el método), usa consultar_horarios_disponibles para obtener el número de Yape y da ese dato junto con el monto exacto que corresponda (mensualidad, promo por acompañados, o el plan multi-mes que hayan elegido). SIEMPRE, en esa misma respuesta y sin excepción, DEBES invocar también marcar_seguimiento_humano (motivo: "Va a pagar por Yape") — esto es obligatorio incluso si en la misma respuesta también reservas la clase de prueba u otra acción; no basta con redactar el dato del Yape, tienes que ejecutar marcar_seguimiento_humano de verdad para avisar que este lead está por pagar (es solo aviso interno, no se lo digas a él).
+7. Si hay algo que de verdad no puedas resolver con las herramientas que tienes (negociaciones especiales fuera de las promos existentes, salud/lesiones, o piden hablar con una persona): DEBES invocar la función marcar_seguimiento_humano — no basta con redactar una respuesta que lo diga, tienes que ejecutar esa herramienta de verdad en esa misma respuesta, siempre, sin excepción.''';
 
 class AgentPromptScreen extends StatefulWidget {
   const AgentPromptScreen({super.key});
@@ -215,6 +216,7 @@ class _NegocioTabState extends State<_NegocioTab> {
   final TextEditingController _mensualidadController = TextEditingController();
   final TextEditingController _promo2xController = TextEditingController();
   final TextEditingController _telefonoInstructorController = TextEditingController();
+  final TextEditingController _yapeNumeroController = TextEditingController();
   final Map<String, TextEditingController> _multimesControllers = {
     '1': TextEditingController(),
     '2': TextEditingController(),
@@ -236,6 +238,7 @@ class _NegocioTabState extends State<_NegocioTab> {
     _mensualidadController.dispose();
     _promo2xController.dispose();
     _telefonoInstructorController.dispose();
+    _yapeNumeroController.dispose();
     for (final c in _multimesControllers.values) {
       c.dispose();
     }
@@ -249,6 +252,7 @@ class _NegocioTabState extends State<_NegocioTab> {
       _mensualidadController.text = (data?['mensualidad'] ?? '').toString();
       _promo2xController.text = (data?['promo_2x'] ?? '').toString();
       _telefonoInstructorController.text = data?['telefono_instructor'] ?? '';
+      _yapeNumeroController.text = data?['yape_numero'] ?? '';
       final multimes = data?['promos_multimes'] as Map<String, dynamic>?;
       if (multimes != null) {
         for (final key in _multimesControllers.keys) {
@@ -273,12 +277,14 @@ class _NegocioTabState extends State<_NegocioTab> {
       });
 
       final telefonoLimpio = _telefonoInstructorController.text.replaceAll(RegExp(r'[^0-9]'), '');
+      final yapeLimpio = _yapeNumeroController.text.replaceAll(RegExp(r'[^0-9]'), '');
 
       await _negocioRef.set({
         'mensualidad': num.tryParse(_mensualidadController.text.trim()) ?? 0,
         'promo_2x': num.tryParse(_promo2xController.text.trim()) ?? 0,
         'promos_multimes': promosMultimes,
         'telefono_instructor': telefonoLimpio,
+        'yape_numero': yapeLimpio,
         'actualizado': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
@@ -339,6 +345,16 @@ class _NegocioTabState extends State<_NegocioTab> {
           _campo('2 meses', _multimesControllers['2']!, esNumero: true),
           _campo('3 meses', _multimesControllers['3']!, esNumero: true),
           _campo('6 meses', _multimesControllers['6']!, esNumero: true),
+          const SizedBox(height: GingaSpacing.sm),
+          Text('Pago',
+              style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: GingaColors.textPrimary)),
+          const SizedBox(height: GingaSpacing.xs),
+          Text(
+            'Cuando un lead pregunte cómo pagar, la IA le da directo este número de Yape junto con el monto que corresponda.',
+            style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary),
+          ),
+          const SizedBox(height: GingaSpacing.sm),
+          _campo('Número de Yape (con código de país, ej. 51900075008)', _yapeNumeroController),
           const SizedBox(height: GingaSpacing.sm),
           Text('Alertas',
               style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: GingaColors.textPrimary)),

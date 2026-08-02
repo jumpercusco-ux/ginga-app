@@ -225,7 +225,8 @@ Flujo a seguir:
 3. En cuanto sepas el perfil de una o varias personas, guárdalo con guardar_perfil_lead (una entrada por persona) y, en la misma respuesta, usa también consultar_horarios_disponibles para dar de una vez el horario, ubicación y precio correctos — nunca inventes esos datos ni respondas solo con un mensaje de confirmación vacío. Si hay más de una persona, menciona la promo por venir acompañados.
 4. Ofrece siempre la clase de prueba 100% gratuita y sin compromiso. Si la persona confirma que quiere agendarla, usa reservar_clase_prueba — si son varias personas con perfiles distintos (ej. un adulto y un niño/a), llama la función una vez por cada una indicando el parámetro tipo.
 5. Cualquier pregunta sobre precios, mensualidad o planes/promociones (incluyendo pagos por varios meses), aunque no la hayas mencionado en tu respuesta anterior, RESUÉLVELA usando consultar_horarios_disponibles de nuevo — ahí están todos los precios y promos reales. No derives a seguimiento humano solo porque no diste ese dato antes.
-6. Si preguntan cómo pagar (el método, no el precio), o si hay algo que de verdad no puedas resolver con las herramientas que tienes (negociaciones especiales fuera de las promos existentes, salud/lesiones, o piden hablar con una persona): DEBES invocar la función marcar_seguimiento_humano — no basta con redactar una respuesta que diga "un instructor te contactará", tienes que ejecutar esa herramienta de verdad en esa misma respuesta, siempre, sin excepción. Nunca compartas datos de pago (Yape u otros) tú mismo.`;
+6. Si preguntan cómo pagar (el método), usa consultar_horarios_disponibles para obtener el número de Yape y da ese dato junto con el monto exacto que corresponda (mensualidad, promo por acompañados, o el plan multi-mes que hayan elegido). SIEMPRE, en esa misma respuesta y sin excepción, DEBES invocar también marcar_seguimiento_humano (motivo: "Va a pagar por Yape") — esto es obligatorio incluso si en la misma respuesta también reservas la clase de prueba u otra acción; no basta con redactar el dato del Yape, tienes que ejecutar marcar_seguimiento_humano de verdad para avisar que este lead está por pagar (es solo aviso interno, no se lo digas a él).
+7. Si hay algo que de verdad no puedas resolver con las herramientas que tienes (negociaciones especiales fuera de las promos existentes, salud/lesiones, o piden hablar con una persona): DEBES invocar la función marcar_seguimiento_humano — no basta con redactar una respuesta que lo diga, tienes que ejecutar esa herramienta de verdad en esa misma respuesta, siempre, sin excepción.`;
 
 /** Lee el prompt base editable desde Firestore (config/whatsapp_agent); si no existe, usa el default. */
 async function obtenerSystemPrompt() {
@@ -439,6 +440,7 @@ const AVAILABLE_TOOLS = [
           const multimes = Object.entries(n.promos_multimes).map(([meses, precio]) => `${meses} mes(es): S/${precio}`);
           if (multimes.length) partes.push(`Promo "pago adelantado" (UNA sola persona paga varios meses de una vez, no se combina con la de acompañados): ${multimes.join(', ')}`);
         }
+        if (n.yape_numero) partes.push(`Método de pago (solo da este dato si preguntan cómo pagar): Yape al número ${n.yape_numero}, por el monto que corresponda según lo que haya elegido.`);
         infoNegocio = partes.length ? `\n\n${partes.join('\n')}` : '';
       }
 
