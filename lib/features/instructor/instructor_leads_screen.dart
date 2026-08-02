@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/models/cuerdas_fiu.dart';
 import 'agent_prompt_screen.dart';
 
 /// Pipeline de leads capturados por WhatsApp (anuncios "Click to WhatsApp").
@@ -228,6 +229,107 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
     super.dispose();
   }
 
+  Future<void> _convertirEnAlumno(BuildContext context, DocumentReference leadRef) async {
+    final nombreController = TextEditingController(text: widget.leadData['nombre'] ?? '');
+    final sedesDisponibles = ['Cusco', 'Lima', 'Virtual / A Distancia', 'U. Continental', 'Chimbote'];
+    String selectedSede = sedesDisponibles.first;
+    String selectedCorda = CuerdasFIU.lista.first.nombre;
+    String selectedStatus = 'activo';
+
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text('Convertir en alumno', style: GoogleFonts.montserrat(fontWeight: FontWeight.w800)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Se crea un alumno "sin aplicación" (offline) para tu control interno, sin que necesite instalar la app.',
+                  style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary),
+                ),
+                const SizedBox(height: GingaSpacing.md),
+                TextField(
+                  controller: nombreController,
+                  decoration: const InputDecoration(labelText: 'Nombre completo'),
+                ),
+                const SizedBox(height: GingaSpacing.sm),
+                DropdownButtonFormField<String>(
+                  value: selectedSede,
+                  decoration: const InputDecoration(labelText: 'Sede'),
+                  items: sedesDisponibles.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                  onChanged: (val) => setDialogState(() => selectedSede = val ?? selectedSede),
+                ),
+                const SizedBox(height: GingaSpacing.sm),
+                DropdownButtonFormField<String>(
+                  value: selectedCorda,
+                  decoration: const InputDecoration(labelText: 'Cuerda / Graduación inicial'),
+                  items: CuerdasFIU.lista.map((c) => DropdownMenuItem(value: c.nombre, child: Text(c.nombre))).toList(),
+                  onChanged: (val) => setDialogState(() => selectedCorda = val ?? selectedCorda),
+                ),
+                const SizedBox(height: GingaSpacing.sm),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Estado'),
+                  items: const [
+                    DropdownMenuItem(value: 'activo', child: Text('Activo')),
+                    DropdownMenuItem(value: 'prueba', child: Text('Periodo de Prueba')),
+                    DropdownMenuItem(value: 'nuevo', child: Text('Nuevo')),
+                  ],
+                  onChanged: (val) => setDialogState(() => selectedStatus = val ?? selectedStatus),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(backgroundColor: GingaColors.brandGreen, foregroundColor: Colors.white),
+              child: const Text('Crear alumno'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmado != true || !context.mounted) return;
+
+    final nombre = nombreController.text.trim();
+    if (nombre.isEmpty) return;
+
+    try {
+      final newUserRef = FirebaseFirestore.instance.collection('users').doc();
+      await newUserRef.set({
+        'uid': newUserRef.id,
+        'nombre': nombre,
+        'email': 'sin_app_${DateTime.now().millisecondsSinceEpoch}@ginga.app',
+        'sede': selectedSede,
+        'corda': selectedCorda,
+        'rol': 'alumno',
+        'status': selectedStatus,
+        'is_offline': true,
+        'created_at': FieldValue.serverTimestamp(),
+        'notas': 'Convertido desde lead de WhatsApp (${widget.leadData['telefono'] ?? widget.leadId}).',
+      });
+      await leadRef.update({'convertido_uid': newUserRef.id});
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Alumno "$nombre" creado con éxito.', style: GoogleFonts.nunito(color: Colors.white)),
+        backgroundColor: GingaColors.brandGreen,
+      ));
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error al crear alumno: $e', style: GoogleFonts.nunito(color: Colors.white)),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
+
   Future<void> _enviarMensajeManual() async {
     final texto = _mensajeController.text.trim();
     if (texto.isEmpty || _enviando) return;
@@ -290,6 +392,37 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                 },
               ),
             ],
+          ),
+          StreamBuilder<DocumentSnapshot>(
+            stream: leadRef.snapshots(),
+            builder: (context, snapshot) {
+              final data = snapshot.data?.data() as Map<String, dynamic>?;
+              final convertidoUid = data?['convertido_uid'] as String?;
+              if (convertidoUid != null) {
+                return Padding(
+                  padding: const EdgeInsets.only(top: GingaSpacing.xs),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle, size: 16, color: GingaColors.brandGreen),
+                      const SizedBox(width: 4),
+                      Text('Ya convertido en alumno', style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary)),
+                    ],
+                  ),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.only(top: GingaSpacing.xs),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _convertirEnAlumno(context, leadRef),
+                    icon: const Icon(Icons.school_outlined, size: 16, color: GingaColors.brandGreen),
+                    label: Text('Convertir en alumno', style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.brandGreen)),
+                    style: OutlinedButton.styleFrom(side: const BorderSide(color: GingaColors.brandGreen)),
+                  ),
+                ),
+              );
+            },
           ),
           Divider(color: GingaColors.borderLight),
           Flexible(
