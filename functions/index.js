@@ -492,10 +492,13 @@ const AVAILABLE_TOOLS = [
     },
     handler: async (leadId, args) => {
       const motivo = args?.motivo || 'No especificado';
-      await admin.firestore().collection('whatsapp_leads').doc(leadId).update({
-        status: 'requiere_atencion',
-        motivo_seguimiento: motivo,
-      });
+      const leadRef = admin.firestore().collection('whatsapp_leads').doc(leadId);
+      const [leadDoc] = await Promise.all([
+        leadRef.get(),
+        leadRef.update({ status: 'requiere_atencion', motivo_seguimiento: motivo }),
+      ]);
+      const nombreLead = leadDoc.data()?.nombre || leadId;
+
       const profesoresSnap = await admin.firestore().collection('users').where('rol', '==', 'profesor').get();
       const batch = admin.firestore().batch();
       profesoresSnap.docs.forEach((profDoc) => {
@@ -503,13 +506,29 @@ const AVAILABLE_TOOLS = [
           .collection('notificaciones').doc();
         batch.set(notifRef, {
           titulo: 'Un lead de WhatsApp necesita atención humana 🙋',
-          mensaje: `Motivo: ${motivo}`,
+          mensaje: `${nombreLead} (${leadId}) — Motivo: ${motivo}`,
           fecha: admin.firestore.FieldValue.serverTimestamp(),
           leido: false,
           tipo: 'bienvenida',
         });
       });
       await batch.commit();
+
+      // Alerta directa por WhatsApp al instructor, además de la notificación in-app,
+      // usando el número configurado en config/negocio.telefono_instructor.
+      try {
+        const negocioDoc = await admin.firestore().collection('config').doc('negocio').get();
+        const telefonoInstructor = negocioDoc.data()?.telefono_instructor;
+        if (telefonoInstructor) {
+          await enviarMensajeWhatsApp(
+            telefonoInstructor,
+            `🙋 *Lead necesita atención*\n${nombreLead} (${leadId})\nMotivo: ${motivo}\n\nEntra a la app para responder o toma la conversación tú mismo.`
+          );
+        }
+      } catch (e) {
+        console.error('[marcar_seguimiento_humano] Error avisando por WhatsApp al instructor:', e.message);
+      }
+
       return 'Se notificó a un instructor, que se comunicará pronto. Informa esto al lead de forma tranquila y cordial.';
     },
   },

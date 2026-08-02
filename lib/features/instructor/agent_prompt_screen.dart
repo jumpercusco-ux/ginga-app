@@ -214,6 +214,7 @@ class _NegocioTabState extends State<_NegocioTab> {
 
   final TextEditingController _mensualidadController = TextEditingController();
   final TextEditingController _promo2xController = TextEditingController();
+  final TextEditingController _telefonoInstructorController = TextEditingController();
   final Map<String, TextEditingController> _multimesControllers = {
     '1': TextEditingController(),
     '2': TextEditingController(),
@@ -234,6 +235,7 @@ class _NegocioTabState extends State<_NegocioTab> {
   void dispose() {
     _mensualidadController.dispose();
     _promo2xController.dispose();
+    _telefonoInstructorController.dispose();
     for (final c in _multimesControllers.values) {
       c.dispose();
     }
@@ -246,6 +248,7 @@ class _NegocioTabState extends State<_NegocioTab> {
       final data = doc.data() as Map<String, dynamic>?;
       _mensualidadController.text = (data?['mensualidad'] ?? '').toString();
       _promo2xController.text = (data?['promo_2x'] ?? '').toString();
+      _telefonoInstructorController.text = data?['telefono_instructor'] ?? '';
       final multimes = data?['promos_multimes'] as Map<String, dynamic>?;
       if (multimes != null) {
         for (final key in _multimesControllers.keys) {
@@ -269,10 +272,13 @@ class _NegocioTabState extends State<_NegocioTab> {
         if (valor != null) promosMultimes[meses] = valor;
       });
 
+      final telefonoLimpio = _telefonoInstructorController.text.replaceAll(RegExp(r'[^0-9]'), '');
+
       await _negocioRef.set({
         'mensualidad': num.tryParse(_mensualidadController.text.trim()) ?? 0,
         'promo_2x': num.tryParse(_promo2xController.text.trim()) ?? 0,
         'promos_multimes': promosMultimes,
+        'telefono_instructor': telefonoLimpio,
         'actualizado': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
@@ -333,6 +339,16 @@ class _NegocioTabState extends State<_NegocioTab> {
           _campo('2 meses', _multimesControllers['2']!, esNumero: true),
           _campo('3 meses', _multimesControllers['3']!, esNumero: true),
           _campo('6 meses', _multimesControllers['6']!, esNumero: true),
+          const SizedBox(height: GingaSpacing.sm),
+          Text('Alertas',
+              style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: GingaColors.textPrimary)),
+          const SizedBox(height: GingaSpacing.xs),
+          Text(
+            'Cuando la IA no pueda resolver algo, además de la notificación in-app te manda un WhatsApp a este número.',
+            style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary),
+          ),
+          const SizedBox(height: GingaSpacing.sm),
+          _campo('Tu WhatsApp (con código de país, ej. 51987654321)', _telefonoInstructorController),
           const SizedBox(height: GingaSpacing.sm),
           SizedBox(
             width: double.infinity,
