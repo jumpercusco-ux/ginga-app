@@ -772,8 +772,10 @@ exports.whatsappWebhook = functions
       // cada uno dispara su propia invocación. En vez de responder a cada uno por
       // separado (respuestas duplicadas/pisadas), se espera un momento y solo la
       // invocación del ÚLTIMO mensaje responde — con el historial completo ya incluido.
+      // 5s (no 2.5s) para cubrir arranques en frío de una instancia nueva de la función,
+      // que en pruebas reales tomaron hasta ~5.4s en guardar su mensaje en Firestore.
       await marcarLeidoYEscribiendo(waMessageId);
-      await new Promise((resolve) => setTimeout(resolve, 2500));
+      await new Promise((resolve) => setTimeout(resolve, 5000));
       const ultimoMensajeSnapshot = await leadRef.collection('mensajes')
         .orderBy('timestamp', 'desc').limit(1).get();
       const ultimoEsEsteMensaje = ultimoMensajeSnapshot.docs[0]?.id === waMessageId;
