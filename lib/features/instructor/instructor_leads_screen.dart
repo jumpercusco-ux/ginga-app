@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import '../../core/theme/ginga_theme.dart';
 import '../../core/models/cuerdas_fiu.dart';
 import 'agent_prompt_screen.dart';
@@ -344,10 +346,26 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
 
     setState(() => _enviando = true);
     try {
-      await FirebaseFunctions.instance.httpsCallable('sendManualWhatsAppMessage').call({
-        'leadId': widget.leadId,
-        'texto': texto,
-      });
+      // No se usa cloud_functions/httpsCallable a propósito: en builds web release
+      // (dart2js) tiene un bug conocido del plugin ("Unsupported operation: Int64
+      // accessor not supported by dart2js") que rompe toda llamada callable con
+      // parámetros. Se llama al endpoint HTTP directo con el mismo protocolo que
+      // usa una callable function, para evitar esa serialización rota.
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      final resp = await http.post(
+        Uri.parse('https://us-central1-capoeirafiu-ea8ljo.cloudfunctions.net/sendManualWhatsAppMessage'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (idToken != null) 'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({
+          'data': {'leadId': widget.leadId, 'texto': texto},
+        }),
+      );
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      if (body['error'] != null) {
+        throw Exception(body['error']['message'] ?? 'Error desconocido');
+      }
       _mensajeController.clear();
     } catch (e) {
       if (!mounted) return;
