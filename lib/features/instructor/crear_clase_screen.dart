@@ -97,6 +97,9 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           _maxAlumnos = data['cupos_max'] ?? 12;
           _modalidad = data['modalidad'] ?? 'Presencial';
           _ubicacionController.text = data['ubicacion'] ?? '';
+          _publicoSeleccionado = data['publico'];
+          _edadMinController.text = data['edad_min']?.toString() ?? '';
+          _edadMaxController.text = data['edad_max']?.toString() ?? '';
           _claseGratuita = data['clase_gratuita'] ?? true;
           _publicarInmediatamente = data['publicar_inmediatamente'] ?? true;
           _existingImageUrl = data['imagen_url'] ?? '';
@@ -221,6 +224,16 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
   final _ubicacionController = TextEditingController();
   bool _claseGratuita = true;
   bool _publicarInmediatamente = true;
+
+  // Público objetivo por edad — lo usa el agente de WhatsApp para saber a qué
+  // clase dirigir a un lead según la edad de la persona interesada.
+  String? _publicoSeleccionado;
+  final _edadMinController = TextEditingController();
+  final _edadMaxController = TextEditingController();
+  final List<Map<String, String>> _publicos = [
+    {'value': 'niños', 'label': 'Niños'},
+    {'value': 'jovenes_adultos', 'label': 'Jóvenes y adultos'},
+  ];
 
   bool _isLoading = false;
 
@@ -533,6 +546,8 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
     _ubicacionController.dispose();
     _nombreCustomController.dispose();
     _organizadorController.dispose();
+    _edadMinController.dispose();
+    _edadMaxController.dispose();
     super.dispose();
   }
 
@@ -653,6 +668,9 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
         'cupos_disponibles': _maxAlumnos,
         'modalidad': _modalidad,
         'ubicacion': _ubicacionController.text.trim(),
+        'publico': _publicoSeleccionado,
+        'edad_min': int.tryParse(_edadMinController.text.trim()),
+        'edad_max': int.tryParse(_edadMaxController.text.trim()),
         'lat': _selectedLocation?.latitude,
         'lng': _selectedLocation?.longitude,
         'clase_gratuita': _claseGratuita,
@@ -1323,6 +1341,55 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                       ),
                     ),
                   ],
+                  const SizedBox(height: 16),
+                  _label('Público objetivo (para el agente de WhatsApp)'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: _publicos
+                        .map((p) => _chip(
+                              label: p['label']!,
+                              selected: _publicoSeleccionado == p['value'],
+                              onTap: () => setState(() => _publicoSeleccionado = p['value']),
+                            ))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _label('Edad mínima'),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _edadMinController,
+                              keyboardType: TextInputType.number,
+                              style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary),
+                              decoration: _inputDecoration('Ej. 5'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _label('Edad máxima'),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _edadMaxController,
+                              keyboardType: TextInputType.number,
+                              style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary),
+                              decoration: _inputDecoration('Ej. 12'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                   _toggleRow(
                     title: 'Clase de prueba gratuita',
