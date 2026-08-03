@@ -352,6 +352,29 @@ async function enviarMensajeWhatsApp(to, texto) {
 }
 
 /**
+ * Marca el mensaje entrante como leído y muestra "escribiendo…" en WhatsApp mientras
+ * se genera la respuesta — desaparece solo a los 25s o al enviar la respuesta real.
+ */
+async function marcarLeidoYEscribiendo(waMessageId) {
+  const phoneNumberId = process.env.META_PHONE_NUMBER_ID;
+  const token = process.env.META_WHATSAPP_TOKEN;
+  try {
+    await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        status: 'read',
+        message_id: waMessageId,
+        typing_indicator: { type: 'text' },
+      }),
+    });
+  } catch (e) {
+    console.error('[WhatsApp] Error marcando leído/escribiendo:', e.message);
+  }
+}
+
+/**
  * Registro de herramientas reales que la IA puede invocar (function-calling de OpenAI).
  * Cada handler ejecuta la acción de verdad en Firestore y devuelve un texto que el
  * modelo usa para redactar la respuesta final al lead.
@@ -395,6 +418,17 @@ const AVAILABLE_TOOLS = [
           .update({ status: 'conversando' });
         return 'No hay cupos disponibles para la clase de prueba que le corresponde a este lead en este momento. Informa al lead que un instructor lo contactará pronto para coordinar.';
       }
+
+      // Evita reservas duplicadas si el lead insiste varias veces por la misma clase.
+      const existente = await admin.firestore().collection('reservas')
+        .where('lead_id', '==', leadId)
+        .where('clase_id', '==', clase.id)
+        .limit(1)
+        .get();
+      if (!existente.empty) {
+        return `Ya existe una reserva para esta persona en esa clase (nivel ${clase.nivel}, días ${clase.dias}, hora ${clase.hora}). Confírmaselo al lead, no la dupliques.`;
+      }
+
       await reservarClasePruebaLead(leadId, clase.id);
       return `Reserva confirmada. Detalles: nivel ${clase.nivel}, días ${clase.dias}, hora ${clase.hora}. Confirma esto al lead con entusiasmo.`;
     },
@@ -642,7 +676,7 @@ exports.whatsappWebhook = functions
     try {
       const change = req.body.entry?.[0]?.changes?.[0]?.value;
       const message = change?.messages?.[0];
-      if (!message || message.type !== 'text') {
+      if (!message) {
         res.sendStatus(200);
         return;
       }
@@ -652,13 +686,12 @@ exports.whatsappWebhook = functions
       // manda `from_user_id` (ej. "PE.1058687349840150") como identificador en su lugar.
       const telefono = message.from || message.from_user_id;
       const waMessageId = message.id;
-      const texto = message.text?.body;
       const referral = message.referral || null;
       const nombreContacto = change.contacts?.[0]?.profile?.name
         || change.contacts?.[0]?.profile?.username
         || 'Lead';
 
-      if (!telefono || !waMessageId || !texto) {
+      if (!telefono || !waMessageId) {
         console.error('[WhatsApp Webhook] Mensaje entrante con campos faltantes, se descarta:', JSON.stringify(req.body));
         res.sendStatus(200);
         return;
@@ -689,6 +722,37 @@ exports.whatsappWebhook = functions
         created_at: esLeadNuevo ? admin.firestore.FieldValue.serverTimestamp() : leadDoc.data().created_at,
       }, { merge: true });
 
+      // Los mensajes que no son de texto (audio, foto, sticker) no los puede leer el
+      // modelo — antes se ignoraban en silencio y el lead quedaba sin ninguna respuesta.
+      // Ahora se guarda el intento y se le pide que lo escriba, para no perder el lead.
+      if (message.type !== 'text') {
+        await dedupRef.set({
+          from: 'lead',
+          texto: `[mensaje de tipo "${message.type}" no soportado]`,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          wa_message_id: waMessageId,
+        });
+        const leadDataActual = (await leadRef.get()).data();
+        if (leadDataActual.ai_habilitada !== false) {
+          const respuesta = 'Por ahora solo puedo leer mensajes de texto. ¿Me escribes tu consulta, por favor?';
+          await marcarLeidoYEscribiendo(waMessageId);
+          await enviarMensajeWhatsApp(telefono, respuesta);
+          await leadRef.collection('mensajes').add({
+            from: 'ai',
+            texto: respuesta,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        res.sendStatus(200);
+        return;
+      }
+
+      const texto = message.text?.body;
+      if (!texto) {
+        res.sendStatus(200);
+        return;
+      }
+
       await dedupRef.set({
         from: 'lead',
         texto,
@@ -700,6 +764,21 @@ exports.whatsappWebhook = functions
 
       if (leadDataActual.ai_habilitada === false) {
         console.log(`[WhatsApp Webhook] IA desactivada para ${telefono}, responde el profesor.`);
+        res.sendStatus(200);
+        return;
+      }
+
+      // Debounce: si el lead escribe varios mensajes seguidos (muy común en WhatsApp),
+      // cada uno dispara su propia invocación. En vez de responder a cada uno por
+      // separado (respuestas duplicadas/pisadas), se espera un momento y solo la
+      // invocación del ÚLTIMO mensaje responde — con el historial completo ya incluido.
+      await marcarLeidoYEscribiendo(waMessageId);
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      const ultimoMensajeSnapshot = await leadRef.collection('mensajes')
+        .orderBy('timestamp', 'desc').limit(1).get();
+      const ultimoEsEsteMensaje = ultimoMensajeSnapshot.docs[0]?.id === waMessageId;
+      if (!ultimoEsEsteMensaje) {
+        console.log(`[WhatsApp Webhook] Llegó un mensaje más nuevo mientras se esperaba, se cede el turno.`);
         res.sendStatus(200);
         return;
       }
