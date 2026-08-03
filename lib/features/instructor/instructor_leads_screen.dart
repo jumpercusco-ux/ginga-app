@@ -301,6 +301,11 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
     if (nombre.isEmpty) return;
 
     try {
+      final whatsappId = (widget.leadData['telefono'] as String?) ?? widget.leadId;
+      // Un BSUID (username de WhatsApp en vez de número compartido) tiene forma
+      // "PE.123..." — si no calza con ese patrón, es un número real marcable.
+      final esTelefonoReal = !RegExp(r'^[A-Z]{2}\.\d+$').hasMatch(whatsappId);
+
       final newUserRef = FirebaseFirestore.instance.collection('users').doc();
       await newUserRef.set({
         'uid': newUserRef.id,
@@ -312,7 +317,10 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
         'status': selectedStatus,
         'is_offline': true,
         'created_at': FieldValue.serverTimestamp(),
-        'notas': 'Convertido desde lead de WhatsApp (${widget.leadData['telefono'] ?? widget.leadId}).',
+        'whatsapp_id': whatsappId,
+        'whatsapp_id_es_telefono': esTelefonoReal,
+        'whatsapp_lead_id': widget.leadId,
+        'notas': 'Convertido desde lead de WhatsApp ($whatsappId).',
       });
       await leadRef.update({'convertido_uid': newUserRef.id});
 
