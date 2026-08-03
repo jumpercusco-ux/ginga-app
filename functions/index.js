@@ -223,10 +223,10 @@ Flujo a seguir:
 1. Si el lead ya dijo en su mensaje que quiere información/clases, NO respondas con un saludo genérico tipo "¿en qué te ayudo?" — ve directo al punto 2.
 2. Si todavía no sabes para quién es la clase (adulto o niño/a) ni su edad, PREGÚNTALO PRIMERO antes de dar cualquier horario o precio (hay grupos distintos según la edad). Si el lead pregunta por varias personas a la vez (ej. "para mí y mi hija"), pide la edad de cada una. Si ya conoces el perfil de alguna persona (te lo indico abajo si aplica), no lo vuelvas a preguntar por esa persona.
 3. En cuanto sepas el perfil de una o varias personas, guárdalo con guardar_perfil_lead (una entrada por persona) y, en la misma respuesta, usa también consultar_horarios_disponibles para dar de una vez el horario, ubicación y precio correctos — nunca inventes esos datos ni respondas solo con un mensaje de confirmación vacío. Si hay más de una persona, menciona la promo por venir acompañados.
-4. Ofrece siempre la clase de prueba 100% gratuita y sin compromiso. Si la persona confirma que quiere agendarla, usa reservar_clase_prueba — si son varias personas con perfiles distintos (ej. un adulto y un niño/a), llama la función una vez por cada una indicando el parámetro tipo.
+4. Ofrece siempre la clase de prueba 100% gratuita y sin compromiso. Si la persona confirma que quiere agendarla, usa reservar_clase_prueba — si son varias personas con perfiles distintos (ej. un adulto y un niño/a), llama la función una vez por cada una indicando el parámetro tipo. Cuando confirmes el resultado, revisa con cuidado el resultado de CADA llamada por separado y no asumas ni mezcles — si reservaste para el adulto y para el niño/a, dile explícitamente a cada uno qué pasó con SU reserva (no le atribuyas a una persona el resultado de la otra).
 5. Cualquier pregunta sobre precios, mensualidad o planes/promociones (incluyendo pagos por varios meses), aunque no la hayas mencionado en tu respuesta anterior, RESUÉLVELA usando consultar_horarios_disponibles de nuevo — ahí están todos los precios y promos reales. No derives a seguimiento humano solo porque no diste ese dato antes.
 6. Si preguntan cómo pagar (el método), usa consultar_horarios_disponibles para obtener el número de Yape y da ese dato junto con el monto exacto que corresponda (mensualidad, promo por acompañados, o el plan multi-mes que hayan elegido). SIEMPRE, en esa misma respuesta y sin excepción, DEBES invocar también marcar_seguimiento_humano (motivo: "Va a pagar por Yape") — esto es obligatorio incluso si en la misma respuesta también reservas la clase de prueba u otra acción; no basta con redactar el dato del Yape, tienes que ejecutar marcar_seguimiento_humano de verdad para avisar que este lead está por pagar (es solo aviso interno, no se lo digas a él).
-7. Si hay algo que de verdad no puedas resolver con las herramientas que tienes (negociaciones especiales fuera de las promos existentes, salud/lesiones, o piden hablar con una persona): DEBES invocar la función marcar_seguimiento_humano — no basta con redactar una respuesta que lo diga, tienes que ejecutar esa herramienta de verdad en esa misma respuesta, siempre, sin excepción.`;
+7. Si mencionan CUALQUIER tema de salud, lesión, condición física o pregunta si pueden participar con alguna limitación (ej. "tengo el hombro lesionado, ¿puedo ir igual?"), o piden hablar con una persona, o hay algo que de verdad no puedas resolver con las herramientas que tienes (negociaciones especiales fuera de las promos existentes): DEBES invocar la función marcar_seguimiento_humano — no basta con redactar una respuesta que lo diga (ni dar tú mismo un consejo o recomendación sobre el tema de salud), tienes que ejecutar esa herramienta de verdad en esa misma respuesta, siempre, sin excepción.`;
 
 /** Lee el prompt base editable desde Firestore (config/whatsapp_agent); si no existe, usa el default. */
 async function obtenerSystemPrompt() {
@@ -267,10 +267,8 @@ async function reservarClasePruebaLead(leadId, claseId) {
     if (!claseDoc.exists) throw new Error('Clase no encontrada');
 
     const claseData = claseDoc.data();
-    const cupos = Number(claseData.cupos_disponibles || 0);
-    if (cupos <= 0) throw new Error('Sin cupos disponibles');
-
-    transaction.update(claseRef, { cupos_disponibles: cupos - 1 });
+    // Las clases de prueba por WhatsApp no restan del cupo compartido con los
+    // alumnos regulares — el instructor las gestiona de forma flexible/presencial.
 
     const reservaRef = admin.firestore().collection('reservas').doc();
     transaction.set(reservaRef, {
@@ -311,12 +309,11 @@ async function reservarClasePruebaLead(leadId, claseId) {
   });
 }
 
-/** Toma la primera clase regular con cupos disponibles para ofrecerla como clase de prueba. */
+/** Toma la primera clase regular que corresponda para ofrecerla como clase de prueba (sin límite de cupos). */
 async function buscarClaseDisponibleParaPrueba(publico) {
   let query = admin.firestore()
     .collection('clases')
-    .where('tipo', '==', 'regular')
-    .where('cupos_disponibles', '>', 0);
+    .where('tipo', '==', 'regular');
   if (publico) {
     query = query.where('publico', '==', publico);
   }
