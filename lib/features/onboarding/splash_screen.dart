@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -97,7 +98,9 @@ class _SplashScreenState extends State<SplashScreen>
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
-      context.go('/onboarding');
+      // En web (Google/Instagram/bio-link) mostramos la landing de marketing;
+      // en la app móvil se mantiene el carrusel de bienvenida de siempre.
+      context.go(kIsWeb ? '/landing' : '/onboarding');
       return;
     }
 
