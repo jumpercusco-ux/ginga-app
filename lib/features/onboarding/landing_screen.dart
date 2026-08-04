@@ -13,6 +13,14 @@ import '../../core/theme/ginga_theme.dart';
 /// Estilo visual: negro como color de acción principal (botones), verde de
 /// marca como acento — inspirado en la referencia que compartió el cliente,
 /// adaptado a los dos colores reales del manual de marca.
+///
+/// Colores fijos (no los tokens adaptativos de GingaColors): esta landing
+/// pública debe verse siempre igual, sin importar si el visitante tiene su
+/// sistema en modo oscuro — usar _kFondoClaro/textSecondary aquí
+/// hacía que secciones enteras se pusieran casi negras en modo oscuro.
+const Color _kFondoClaro = Color(0xFFE8F5E9);
+const Color _kTextoSecundario = Color(0xFF5F6368);
+
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
 
@@ -182,39 +190,34 @@ class _TopBar extends StatelessWidget {
       height: kTopBarHeight,
       color: solid ? Colors.white : Colors.transparent,
       padding: const EdgeInsets.symmetric(horizontal: GingaSpacing.lg, vertical: GingaSpacing.sm),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1040),
-          child: Row(
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: solid
-                    ? Image.asset('assets/images/logo_ginga.png', key: const ValueKey('logo-color'), height: 46)
-                    : ColorFiltered(
-                        key: const ValueKey('logo-white'),
-                        colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                        child: Image.asset('assets/images/logo_ginga.png', height: 46),
-                      ),
-              ),
-              const Spacer(),
-              SizedBox(
-                height: 40,
-                child: ElevatedButton(
-                  onPressed: onWhatsApp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: solid ? Colors.black : Colors.white,
-                    foregroundColor: solid ? Colors.white : Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.full)),
-                    elevation: 0,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: solid
+                ? Image.asset('assets/images/logo_ginga.png', key: const ValueKey('logo-color'), height: 46)
+                : ColorFiltered(
+                    key: const ValueKey('logo-white'),
+                    colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                    child: Image.asset('assets/images/logo_ginga.png', height: 46),
                   ),
-                  child: Text('Reservar Clase', style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
           ),
-        ),
+          SizedBox(
+            height: 40,
+            child: ElevatedButton(
+              onPressed: onWhatsApp,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: solid ? Colors.black : Colors.white,
+                foregroundColor: solid ? Colors.white : Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.full)),
+                elevation: 0,
+              ),
+              child: Text('Reservar Clase', style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -296,7 +299,7 @@ class _SobreGinga extends StatelessWidget {
           const SizedBox(height: GingaSpacing.md),
           Text(
             'Hay disciplinas que solo te cansan el cuerpo, y hay otras que te despiertan el alma. Esto es Capoeira en Cusco: un espacio donde el movimiento, la música y la agilidad se unen para romper tus propios límites, ganar confianza y encontrar comunidad.',
-            style: GoogleFonts.montserrat(fontSize: 15, color: GingaColors.textSecondary, height: 1.6),
+            style: GoogleFonts.montserrat(fontSize: 15, color: _kTextoSecundario, height: 1.6),
           ),
         ],
       ),
@@ -323,7 +326,7 @@ class _Disciplinas extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Section(
-      background: GingaColors.cardLight,
+      background: _kFondoClaro,
       child: Column(
         children: [
           Text('Nuestras disciplinas',
@@ -415,7 +418,7 @@ class _DisciplinaCard extends StatelessWidget {
               children: [
                 Text(titulo, style: GoogleFonts.montserrat(fontSize: 19, fontWeight: FontWeight.w800, color: Colors.black)),
                 const SizedBox(height: 6),
-                Text(descripcion, style: GoogleFonts.montserrat(fontSize: 13.5, color: GingaColors.textSecondary, height: 1.5)),
+                Text(descripcion, style: GoogleFonts.montserrat(fontSize: 13.5, color: _kTextoSecundario, height: 1.5)),
               ],
             ),
           ),
@@ -437,7 +440,7 @@ class _HorariosYPrecios extends StatelessWidget {
           const SizedBox(height: GingaSpacing.sm),
           Text('Sin matrícula, sin letra chica. Primera clase de prueba 100% gratis.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textSecondary)),
+              style: GoogleFonts.montserrat(fontSize: 14, color: _kTextoSecundario)),
           const SizedBox(height: GingaSpacing.xl),
           Wrap(
             spacing: GingaSpacing.lg,
@@ -495,9 +498,9 @@ class _PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = destacado ? Colors.black : GingaColors.cardLight;
+    final bg = destacado ? Colors.black : _kFondoClaro;
     final fg = destacado ? Colors.white : Colors.black;
-    final fgSecundario = destacado ? Colors.white70 : GingaColors.textSecondary;
+    final fgSecundario = destacado ? Colors.white70 : _kTextoSecundario;
 
     return Container(
       width: 280,
@@ -599,7 +602,7 @@ class _Ubicacion extends StatelessWidget {
                 Text('Urb. Magisterio, Av. de la Cultura E-4',
                     style: GoogleFonts.montserrat(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.black)),
                 Text('3er piso, Edificio Divergym — al costado de la Caja Arequipa',
-                    style: GoogleFonts.montserrat(fontSize: 13.5, color: GingaColors.textSecondary)),
+                    style: GoogleFonts.montserrat(fontSize: 13.5, color: _kTextoSecundario)),
               ],
             ),
           ),
@@ -616,7 +619,7 @@ class _CtaFinal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Section(
-      background: GingaColors.cardLight,
+      background: _kFondoClaro,
       child: Column(
         children: [
           Text('¿Lista/o para tu primera clase?',
@@ -625,7 +628,7 @@ class _CtaFinal extends StatelessWidget {
           const SizedBox(height: GingaSpacing.sm),
           Text('Escríbenos y te ayudamos a encontrar el horario ideal para ti.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textSecondary)),
+              style: GoogleFonts.montserrat(fontSize: 14, color: _kTextoSecundario)),
           const SizedBox(height: GingaSpacing.lg),
           _PillButton(label: 'Escríbenos por WhatsApp', onTap: onWhatsApp, icon: Icons.chat_bubble_outline),
         ],
