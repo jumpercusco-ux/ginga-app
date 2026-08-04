@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:ginga_app/features/onboarding/splash_screen.dart';
 import 'package:ginga_app/features/onboarding/onboarding_screen.dart';
+import 'package:ginga_app/features/onboarding/landing_screen.dart';
 import 'package:ginga_app/features/auth/profile_creation_screen.dart';
 import 'package:ginga_app/features/auth/login_screen.dart';
 import 'package:ginga_app/features/home/home_screen.dart';
@@ -36,6 +37,7 @@ final appRouter = GoRouter(
     final publicRoutes = [
       '/login',
       '/onboarding',
+      '/landing',
       '/profile-creation',
       '/splash',
       '/cuenta-desactivada'
@@ -58,6 +60,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/onboarding',
       builder: (context, state) => const OnboardingScreen(),
+    ),
+    GoRoute(
+      path: '/landing',
+      builder: (context, state) => const LandingScreen(),
     ),
     GoRoute(
       path: '/profile-creation',

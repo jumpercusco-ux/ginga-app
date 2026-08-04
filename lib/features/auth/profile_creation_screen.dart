@@ -25,14 +25,11 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
 
   XFile? _imageFile;
   Uint8List? _webImageBytes;
-  String _selectedSede = 'Virtual / A Distancia';
   String _selectedCorda = '';
   DateTime? _fechaInicio;
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
-
-  final List<String> _sedes = ['Virtual / A Distancia', 'Lima', 'Cusco', 'Chimbote'];
   final List<String> _cordas = [
     'Iniciante',
     'Corda Amarela',
@@ -120,11 +117,14 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       }
 
       // 2 — Guardar perfil en Firestore
+      // Sede fija en Cusco: quien se registra libremente siempre es de Cusco.
+      // "U. Continental" es un taller cerrado que el instructor matricula a
+      // mano (alumno "sin aplicación"), nunca fue parte del auto-registro.
       final Map<String, dynamic> userData = {
         'uid': credential.user!.uid,
         'nombre': _nombreController.text.trim(),
         'email': _emailController.text.trim(),
-        'sede': _selectedSede,
+        'sede': 'Cusco',
         'corda': 'Crua',
         'fecha_inicio': null,
         'rol': 'alumno',
@@ -132,10 +132,6 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         'created_at': FieldValue.serverTimestamp(),
         'status': 'nuevo',//los estados son con minuscula nuevo, prueba, activo, inactivo
       };
-
-      if (_selectedSede == 'U. Continental') {
-        userData['clase_id'] = 'iY6t5VpENijlWdzrHWWS';
-      }
 
       await FirebaseFirestore.instance
           .collection('users')
@@ -487,40 +483,4 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     );
   }
 
-  Widget _buildDropdown({
-    required String? value,
-    required String hint,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(GingaRadius.md),
-        border: Border.all(color: GingaColors.borderLight),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          hint: Text(hint,
-              style: GoogleFonts.nunito(
-                  color: GingaColors.textSecondary, fontSize: 14)),
-          isExpanded: true,
-          icon: Icon(Icons.keyboard_arrow_down,
-              color: GingaColors.textSecondary),
-          items: items
-              .map((item) => DropdownMenuItem(
-                    value: item,
-                    child: Text(item,
-                        style: GoogleFonts.nunito(
-                            fontSize: 14, color: GingaColors.textPrimary)),
-                  ))
-              .toList(),
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
 }
