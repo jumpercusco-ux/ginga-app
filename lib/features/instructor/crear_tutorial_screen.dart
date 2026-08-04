@@ -305,7 +305,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                                   : (_existingVideoUrl.isNotEmpty
                                       ? 'Toca para cambiar el video actual'
                                       : 'Sube un video en formato MP4 (máx. 10 min)'),
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                 fontSize: 11,
                                 color: GingaColors.textSecondary,
                               ),
@@ -348,7 +348,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                     _buildLabel('Título del movimiento / lección *'),
                     TextFormField(
                       controller: _tituloController,
-                      style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
                       decoration: _buildInputDecoration('Ej: Queixada, Armada, Cocorinha...'),
                       validator: (value) =>
                           value == null || value.trim().isEmpty ? 'Ingresa el nombre de la lección' : null,
@@ -367,7 +367,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                               DropdownButtonFormField<String>(
                                 value: _selectedCategory,
                                 items: _categorias.map((cat) {
-                                  return DropdownMenuItem(value: cat, child: Text(cat, style: GoogleFonts.nunito()));
+                                  return DropdownMenuItem(value: cat, child: Text(cat, style: GoogleFonts.montserrat()));
                                 }).toList(),
                                 onChanged: (value) => setState(() => _selectedCategory = value!),
                                 decoration: _buildInputDecoration(''),
@@ -385,7 +385,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                               DropdownButtonFormField<String>(
                                 value: _selectedLevel,
                                 items: _niveles.map((niv) {
-                                  return DropdownMenuItem(value: niv, child: Text(niv, style: GoogleFonts.nunito()));
+                                  return DropdownMenuItem(value: niv, child: Text(niv, style: GoogleFonts.montserrat()));
                                 }).toList(),
                                 onChanged: (value) => setState(() => _selectedLevel = value!),
                                 decoration: _buildInputDecoration(''),
@@ -406,7 +406,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                           value: c.nombre,
                           child: Text(
                             '${c.nombre} (${c.rango})',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 13,
                               color: GingaColors.textPrimary,
                             ),
@@ -423,7 +423,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                     _buildLabel('Duración estimada de la práctica *'),
                     TextFormField(
                       controller: _duracionController,
-                      style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
                       decoration: _buildInputDecoration('Ej: 6 min, 10 min, 15 min...'),
                       validator: (value) =>
                           value == null || value.trim().isEmpty ? 'Ingresa la duración estimada' : null,
@@ -435,7 +435,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                     TextFormField(
                       controller: _descripcionController,
                       maxLines: 4,
-                      style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
                       decoration: _buildInputDecoration(
                           'Explica paso a paso cómo posicionar los pies, balancear el tronco, elevar la cadera y rotar...'),
                       validator: (value) =>
@@ -448,7 +448,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                     TextFormField(
                       controller: _tipMestreController,
                       maxLines: 2,
-                      style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
                       decoration: _buildInputDecoration('Ej: No quites la vista de tu oponente al girar...'),
                     ),
                     const SizedBox(height: 16),
@@ -458,7 +458,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                     TextFormField(
                       controller: _tipErrorController,
                       maxLines: 2,
-                      style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
                       decoration: _buildInputDecoration('Ej: Apoyar el talón completo frena tu velocidad de escape...'),
                     ),
                     // Visibilidad / Borrador Switch
@@ -484,7 +484,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                           _visible
                               ? 'Visible para todos los alumnos en su biblioteca.'
                               : 'Guardado como borrador (oculto para alumnos).',
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                             fontSize: 12,
                             color: GingaColors.textSecondary,
                           ),
@@ -542,7 +542,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
   InputDecoration _buildInputDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary.withOpacity(0.5)),
+      hintStyle: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textSecondary.withOpacity(0.5)),
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

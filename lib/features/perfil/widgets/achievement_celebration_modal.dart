@@ -276,7 +276,7 @@ class _AchievementCelebrationModalState extends State<AchievementCelebrationModa
                       child: Text(
                         widget.description,
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: GingaColors.textSecondary,

@@ -441,7 +441,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                           ? 'Mestre/Cantor: ${widget.cantiga.autor} • Ritmo: ${widget.cantiga.ritmo}'
                           : 'Compositor: ${widget.cantiga.autor} • Cantor: ${widget.cantiga.interprete} • Ritmo: ${widget.cantiga.ritmo}',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: GingaColors.textSecondary,
@@ -494,7 +494,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                         children: [
                           Text(
                             _formatDuration(_currentProgress),
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 11,
                               color: GingaColors.textSecondary,
                               fontWeight: FontWeight.w700,
@@ -502,7 +502,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                           ),
                           Text(
                             _formatDuration(_totalSeconds.toDouble()),
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 11,
                               color: GingaColors.textSecondary,
                               fontWeight: FontWeight.w700,
@@ -685,7 +685,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                                     ),
                                     Text(
                                       '$_currentSyncIndex / ${_linesToSync.length}',
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w800,
                                         color: GingaColors.textSecondary,
@@ -720,7 +720,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                                         _currentSyncIndex < _linesToSync.length
                                             ? _linesToSync[_currentSyncIndex]
                                             : '¡Fin de la letra! Pulsa guardar.',
-                                        style: GoogleFonts.nunito(
+                                        style: GoogleFonts.montserrat(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w800,
                                           color: GingaColors.textPrimary,
@@ -740,7 +740,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                                         const SizedBox(height: 2),
                                         Text(
                                           _linesToSync[_currentSyncIndex + 1],
-                                          style: GoogleFonts.nunito(
+                                          style: GoogleFonts.montserrat(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
                                             color: GingaColors.textSecondary.withOpacity(0.6),
@@ -830,7 +830,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                                                 ),
                                                 child: Text(
                                                   _formatDuration(line['segundo']),
-                                                  style: GoogleFonts.nunito(
+                                                  style: GoogleFonts.montserrat(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.w800,
                                                     color: GingaColors.brandGreen,
@@ -843,7 +843,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                                                   line['texto'],
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
-                                                  style: GoogleFonts.nunito(
+                                                  style: GoogleFonts.montserrat(
                                                     fontSize: 11,
                                                     color: GingaColors.textPrimary,
                                                     fontWeight: FontWeight.w600,
@@ -1030,7 +1030,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                                           child: Text(
                                             lineText,
                                             textAlign: TextAlign.center,
-                                            style: GoogleFonts.nunito(
+                                            style: GoogleFonts.montserrat(
                                               fontSize: fontSize,
                                               color: textColor,
                                               fontWeight: fontWeight,
@@ -1137,7 +1137,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                                             ? 'Usa el Sincronizador de abajo para registrar los tiempos en tiempo real.'
                                             : 'Tu instructor sincronizará esta letra muy pronto en la roda. ¡Sigue entrenando!',
                                         textAlign: TextAlign.center,
-                                        style: GoogleFonts.nunito(
+                                        style: GoogleFonts.montserrat(
                                           fontSize: 10,
                                           fontWeight: FontWeight.w600,
                                           color: _isInstructor ? Colors.amber.shade900.withOpacity(0.8) : GingaColors.textSecondary,
@@ -1152,7 +1152,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                               Text(
                                 _showPortuguese ? widget.cantiga.letraPt : widget.cantiga.letraEs,
                                 textAlign: TextAlign.center,
-                                style: GoogleFonts.nunito(
+                                style: GoogleFonts.montserrat(
                                   fontSize: 15,
                                   height: 1.8,
                                   color: GingaColors.textPrimary,
@@ -1221,7 +1221,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> with TickerProvider
                           const SizedBox(height: 10),
                           Text(
                             widget.cantiga.contexto,
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 13,
                               color: GingaColors.textSecondary,
                               height: 1.5,

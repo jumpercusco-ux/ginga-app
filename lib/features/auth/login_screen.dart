@@ -113,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 20),
 
           Text('Inicia sesión para continuar',
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.montserrat(
                   fontSize: 14, color: GingaColors.textSecondary)),
 
           const SizedBox(height: 48),
@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
                 fontSize: 14, color: GingaColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Correo electrónico',
@@ -143,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
           TextFormField(
             controller: _passwordController,
             obscureText: _obscurePassword,
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
                 fontSize: 14, color: GingaColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Contraseña',
@@ -177,7 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: GestureDetector(
               onTap: _forgotPassword,
               child: Text('¿Olvidaste tu contraseña?',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                       fontSize: 13,
                       color: GingaColors.brandGreen,
                       fontWeight: FontWeight.w600)),
@@ -202,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(_errorMessage!,
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                             fontSize: 13,
                             color: Colors.red.shade700)),
                   ),
@@ -248,12 +248,12 @@ class _LoginScreenState extends State<LoginScreen> {
             child: RichText(
               text: TextSpan(
                 text: '¿No tienes cuenta? ',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                     color: GingaColors.textSecondary, fontSize: 13),
                 children: [
                   TextSpan(
                     text: 'Regístrate',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                         color: GingaColors.brandGreen,
                         fontSize: 13,
                         fontWeight: FontWeight.w700),
@@ -393,7 +393,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Text(
           'Hemos enviado un correo de recuperación. Revisa tu bandeja de entrada o carpeta de spam.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.nunito(
+          style: GoogleFonts.montserrat(
             fontSize: 13.5,
             color: GingaColors.textSecondary,
             height: 1.4,
@@ -473,7 +473,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 16),
           Text(
             'Ingresa tu correo electrónico registrado y te enviaremos un enlace seguro para restablecer tu contraseña.',
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
               fontSize: 13,
               color: GingaColors.textSecondary,
               height: 1.4,
@@ -484,7 +484,7 @@ class _LoginScreenState extends State<LoginScreen> {
             controller: emailController,
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
-            style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+            style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Correo electrónico',
               prefixIcon: Icon(
@@ -515,7 +515,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Expanded(
                     child: Text(
                       error,
-                      style: GoogleFonts.nunito(fontSize: 12, color: Colors.red.shade700),
+                      style: GoogleFonts.montserrat(fontSize: 12, color: Colors.red.shade700),
                     ),
                   ),
                 ],

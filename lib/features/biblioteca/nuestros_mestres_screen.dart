@@ -196,7 +196,7 @@ class NuestrosMestresScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           mestre.cita,
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                             fontSize: 13.5,
                             fontStyle: FontStyle.italic,
                             color: GingaColors.textPrimary,
@@ -229,7 +229,7 @@ class NuestrosMestresScreen extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         mestre.biografia,
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 14.5,
                           color: GingaColors.textSecondary,
                           height: 1.6,
@@ -356,7 +356,7 @@ class NuestrosMestresScreen extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'El linaje y liderazgo de la Família Irmãos Unidos do Mestre Natal',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 14,
                   color: GingaColors.textSecondary,
                 ),
@@ -489,7 +489,7 @@ class NuestrosMestresScreen extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         mestre.cargo,
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 12,
                           color: GingaColors.textSecondary,
                           fontWeight: FontWeight.w600,
@@ -498,7 +498,7 @@ class NuestrosMestresScreen extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         'Toca para ver biografía y legado histórico.',
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 11,
                           color: GingaColors.brandGreen,
                           fontWeight: FontWeight.w700,
@@ -584,7 +584,7 @@ class NuestrosMestresScreen extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         mestre.cargo,
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 12,
                           color: GingaColors.textSecondary,
                           fontWeight: FontWeight.w600,

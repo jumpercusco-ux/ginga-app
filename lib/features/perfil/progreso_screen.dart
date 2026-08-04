@@ -239,7 +239,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                                     const SizedBox(width: 6),
                                                     Text(
                                                       corda,
-                                                      style: GoogleFonts.nunito(
+                                                      style: GoogleFonts.montserrat(
                                                         fontSize: 12,
                                                         color: GingaColors.brandGreen,
                                                         fontWeight: FontWeight.w600,
@@ -256,7 +256,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                                     const SizedBox(width: 4),
                                                     Text(
                                                       sede,
-                                                      style: GoogleFonts.nunito(
+                                                      style: GoogleFonts.montserrat(
                                                         fontSize: 11,
                                                         color: subtitleColor,
                                                       ),
@@ -298,7 +298,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                 Center(
                                   child: Text(
                                     'Versión 1.0.131 (v131)',
-                                    style: GoogleFonts.nunito(
+                                    style: GoogleFonts.montserrat(
                                       fontSize: 11,
                                       color: subtitleColor,
                                       fontWeight: FontWeight.w500,
@@ -405,7 +405,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                                             BorderRadius.circular(GingaRadius.full),
                                                       ),
                                                       child: Text('Grado: $corda',
-                                                          style: GoogleFonts.nunito(
+                                                          style: GoogleFonts.montserrat(
                                                               fontSize: 13,
                                                               color: GingaColors.brandGreen,
                                                               fontWeight: FontWeight.w600)),
@@ -602,7 +602,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                                 const SizedBox(width: 6),
                                                 Text(
                                                   corda,
-                                                  style: GoogleFonts.nunito(
+                                                  style: GoogleFonts.montserrat(
                                                     fontSize: 13,
                                                     color: GingaColors.brandGreen,
                                                     fontWeight: FontWeight.w600,
@@ -619,7 +619,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                                 const SizedBox(width: 4),
                                                 Text(
                                                   sede,
-                                                  style: GoogleFonts.nunito(
+                                                  style: GoogleFonts.montserrat(
                                                     fontSize: 12,
                                                     color: subtitleColor,
                                                   ),
@@ -750,7 +750,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                                     BorderRadius.circular(GingaRadius.full),
                                               ),
                                               child: Text('Grado: $corda',
-                                                  style: GoogleFonts.nunito(
+                                                  style: GoogleFonts.montserrat(
                                                       fontSize: 13,
                                                       color: GingaColors.brandGreen,
                                                       fontWeight: FontWeight.w600)),
@@ -834,7 +834,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                       Center(
                                         child: Text(
                                           'Versión 1.0.131 (v131)',
-                                          style: GoogleFonts.nunito(
+                                          style: GoogleFonts.montserrat(
                                             fontSize: 12,
                                             color: subtitleColor,
                                             fontWeight: FontWeight.w500,
@@ -917,7 +917,7 @@ class _NotificationToggleCard extends StatelessWidget {
                 ),
                 Text(
                   'Recibir alertas de clases, pagos y novedades',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 11,
                     color: subtitleColor,
                   ),
@@ -1005,7 +1005,7 @@ class _ThemeToggleCard extends StatelessWidget {
                         ),
                         Text(
                           'Elige el aspecto visual de la interfaz',
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                             fontSize: 11,
                             color: subtitleColor,
                           ),
@@ -1192,10 +1192,10 @@ class _XpBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('$total / $objetivo clases',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                       fontSize: 12, color: subtitleColor)),
               Text('para el siguiente corda',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                       fontSize: 11, color: subtitleColor)),
             ],
           ),
@@ -1347,7 +1347,7 @@ class _LogroBadge extends StatelessWidget {
         const SizedBox(height: 2),
         Text(logro.desc,
             textAlign: TextAlign.center,
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
                 fontSize: 9, color: subtitleColor, height: 1.2)),
       ],
     );
@@ -1378,7 +1378,7 @@ class _SectionHeader extends StatelessWidget {
                 color: textColor)),
         if (actionLabel.isNotEmpty)
           Text(actionLabel,
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.montserrat(
                   fontSize: 12,
                   color: GingaColors.brandGreen,
                   fontWeight: FontWeight.w600)),
@@ -1453,8 +1453,8 @@ class _AsistenciaMensualState extends State<_AsistenciaMensual> {
           weekendStyle: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: GingaColors.brandGreen),
         ),
         calendarStyle: CalendarStyle(
-          defaultTextStyle: GoogleFonts.nunito(fontSize: 13, color: textColor),
-          weekendTextStyle: GoogleFonts.nunito(fontSize: 13, color: textColor),
+          defaultTextStyle: GoogleFonts.montserrat(fontSize: 13, color: textColor),
+          weekendTextStyle: GoogleFonts.montserrat(fontSize: 13, color: textColor),
           outsideDaysVisible: false,
         ),
         onPageChanged: (focusedDay) {
@@ -1677,7 +1677,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
               if (esActivo && membresiaFin != null) ...[
                 Text(
                   'Vence el: ${_formatFecha(membresiaFin!.toDate())}',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: Colors.white.withOpacity(0.9),
@@ -1688,7 +1688,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                   diasRestantes == 0
                       ? '¡Tu membresía vence hoy!'
                       : '¡Te quedan $diasRestantes días activos de entrenamiento!',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
@@ -1697,7 +1697,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
               ] else if (statusLimpio == 'prueba' || statusLimpio == 'nuevo') ...[
                 Text(
                   '¡Bienvenido a Capoeira Ginga!',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
@@ -1706,7 +1706,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Disfruta de tus clases de cortesía y coordina tu membresía regular con tu profesor.',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Colors.white.withOpacity(0.9),
@@ -1740,7 +1740,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                   membresiaFin != null
                       ? 'Tu membresía expiró el: ${_formatFecha(membresiaFin!.toDate())}'
                       : 'Aún no tienes una membresía regular activa.',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: Colors.white.withOpacity(0.9),
@@ -1749,7 +1749,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Coordinar renovación y pago de cuota para restablecer tu acceso.',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Colors.white.withOpacity(0.9),
@@ -1826,7 +1826,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                     Text(
                       'Aún no hay transacciones validadas en tu historial.',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 13,
                         color: subtitleColor,
                         fontWeight: FontWeight.w500,
@@ -1914,7 +1914,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               '$meses ${meses == 1 ? "mes" : "meses"} de acceso • $metodo',
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                 fontSize: 12,
                                 color: subtitleColor,
                                 fontWeight: FontWeight.w600,
@@ -1928,7 +1928,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                         children: [
                           Text(
                             fechaStr,
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 11,
                               color: subtitleColor,
                               fontWeight: FontWeight.w500,
@@ -1948,7 +1948,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                                 const SizedBox(width: 4),
                                 Text(
                                   'Validado',
-                                  style: GoogleFonts.nunito(
+                                  style: GoogleFonts.montserrat(
                                     fontSize: 9,
                                     color: Colors.green,
                                     fontWeight: FontWeight.w800,
@@ -2008,7 +2008,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Días o sesiones reincorporadas a tu membresía sin cobros contables.',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 12,
                     color: subtitleColor,
                     fontWeight: FontWeight.w500,
@@ -2088,7 +2088,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                                   const SizedBox(height: 2),
                                   Text(
                                     detalle,
-                                    style: GoogleFonts.nunito(
+                                    style: GoogleFonts.montserrat(
                                       fontSize: 12,
                                       color: subtitleColor,
                                       fontWeight: FontWeight.w500,
@@ -2112,7 +2112,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                               const SizedBox(height: 2),
                               Text(
                                 regStr,
-                                style: GoogleFonts.nunito(
+                                style: GoogleFonts.montserrat(
                                   fontSize: 11,
                                   color: subtitleColor,
                                   fontWeight: FontWeight.w500,

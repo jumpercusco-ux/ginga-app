@@ -34,7 +34,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
           ),
           content: Text(
             '¿Estás seguro de que deseas eliminar la lección "$titulo"? Esta acción no se puede deshacer y desaparecerá de la biblioteca de alumnos.',
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
               color: GingaColors.textSecondary,
               height: 1.4,
             ),
@@ -151,7 +151,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                 },
                 decoration: InputDecoration(
                   hintText: 'Buscar lección en administración...',
-                  hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary.withOpacity(0.6)),
+                  hintStyle: GoogleFonts.montserrat(color: GingaColors.textSecondary.withOpacity(0.6)),
                   prefixIcon: Icon(Icons.search, color: GingaColors.textSecondary),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
@@ -216,7 +216,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                           const SizedBox(height: 4),
                           Text(
                             'Presiona el botón "+" de abajo para crear una.',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 13,
                               color: GingaColors.textSecondary,
                             ),
@@ -238,7 +238,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                     return Center(
                       child: Text(
                         'No hay resultados que coincidan con la búsqueda.',
-                        style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                        style: GoogleFonts.montserrat(color: GingaColors.textSecondary),
                       ),
                     );
                   }
@@ -361,7 +361,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                                         Flexible(
                                           child: Text(
                                             '$categoria • $duracion',
-                                            style: GoogleFonts.nunito(
+                                            style: GoogleFonts.montserrat(
                                               fontSize: 11,
                                               color: GingaColors.textSecondary,
                                               fontWeight: FontWeight.w600,

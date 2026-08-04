@@ -196,7 +196,7 @@ class GraduacionesScreen extends StatelessWidget {
                                       const SizedBox(height: 2),
                                       RichText(
                                         text: TextSpan(
-                                          style: GoogleFonts.nunito(
+                                          style: GoogleFonts.montserrat(
                                             fontSize: 13,
                                             color: Colors.white.withOpacity(0.9),
                                           ),
@@ -237,7 +237,7 @@ class GraduacionesScreen extends StatelessWidget {
                               const SizedBox(height: 6),
                               Text(
                                 'El camino de graduación en la Família Irmãos Unidos. Cada cuerda simboliza un elemento de la naturaleza y una etapa de sabiduría corporal y musical.',
-                                style: GoogleFonts.nunito(
+                                style: GoogleFonts.montserrat(
                                   fontSize: 13,
                                   color: GingaColors.textSecondary,
                                   height: 1.4,
@@ -381,7 +381,7 @@ class GraduacionesScreen extends StatelessWidget {
                                         Expanded(
                                           child: Text(
                                             corda.simbolismo,
-                                            style: GoogleFonts.nunito(
+                                            style: GoogleFonts.montserrat(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
                                               color: GingaColors.brandGreen,
@@ -393,7 +393,7 @@ class GraduacionesScreen extends StatelessWidget {
                                     const SizedBox(height: 6),
                                     Text(
                                       corda.descripcion,
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                         fontSize: 12,
                                         color: GingaColors.textSecondary,
                                         height: 1.35,

@@ -188,7 +188,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
                 Text(
                   'Tu solicitud ha sido guardada en nuestro sistema con estado Pendiente. Recuerda que no necesitas ingresar tarjetas; coordinarás la entrega y el pago en persona con tu profesor.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 14,
                     color: GingaColors.textSecondary,
                     height: 1.5,
@@ -321,7 +321,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
                   const SizedBox(height: 6),
                   Text(
                     'Explora el catálogo y añade artículos',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 13,
                       color: GingaColors.textSecondary,
                     ),
@@ -567,14 +567,14 @@ class _CarritoScreenState extends State<CarritoScreen> {
                       children: [
                         Text(
                           'Comisión / Delivery:',
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                             fontSize: 12.5,
                             color: GingaColors.textSecondary,
                           ),
                         ),
                         Text(
                           'Gratis (Recoger en Academia)',
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                             fontSize: 12.5,
                             color: GingaColors.brandGreen,
                             fontWeight: FontWeight.w700,

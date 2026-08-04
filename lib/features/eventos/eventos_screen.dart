@@ -114,7 +114,7 @@ class _EventosScreenState extends State<EventosScreen> {
                 const SizedBox(width: 4),
                 Text(
                   _userSede,
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: GingaColors.textSecondary,
@@ -316,7 +316,7 @@ class _EventosScreenState extends State<EventosScreen> {
             Text(
               desc,
               textAlign: TextAlign.center,
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.montserrat(
                 fontSize: 13,
                 color: GingaColors.textSecondary,
                 height: 1.4,
@@ -518,7 +518,7 @@ class _EventoCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             fechaTexto,
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: subtitleColor,
@@ -537,7 +537,7 @@ class _EventoCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             lugar,
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 13,
                               color: subtitleColor,
                             ),
@@ -577,7 +577,7 @@ class _EventoCard extends StatelessWidget {
                                 const SizedBox(height: 2),
                                 Text(
                                   'FIU-TKT-${eventId.toUpperCase().substring(0, 5)}',
-                                  style: GoogleFonts.nunito(
+                                  style: GoogleFonts.montserrat(
                                     fontSize: 9,
                                     fontWeight: FontWeight.w800,
                                     color: subtitleColor,

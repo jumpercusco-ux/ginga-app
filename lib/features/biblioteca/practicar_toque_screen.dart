@@ -192,7 +192,7 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
             content: Text(
               'Esta sección interactiva de Toques de Berimbau se encuentra actualmente bajo desarrollo activo para brindarte la mejor experiencia con sonido y ritmos. ¡Disponible muy pronto!',
               textAlign: TextAlign.center,
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.montserrat(
                 color: GingaColors.textSecondary,
                 fontSize: 14,
                 height: 1.4,
@@ -752,7 +752,7 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
                     Expanded(
                       child: Text(
                         selectedToque.descripcion,
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 12,
                           color: GingaColors.textSecondary,
                           fontWeight: FontWeight.w600,
@@ -853,7 +853,7 @@ class _PracticarToqueScreenState extends State<PracticarToqueScreen>
               const SizedBox(height: 1),
               Text(
                 tecnica,
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 10,
                   color: GingaColors.textSecondary,
                   fontWeight: FontWeight.w600,

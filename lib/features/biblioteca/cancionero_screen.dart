@@ -134,7 +134,7 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                 },
                 decoration: InputDecoration(
                   hintText: 'Buscar canciones, letras...',
-                  hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary.withOpacity(0.6)),
+                  hintStyle: GoogleFonts.montserrat(color: GingaColors.textSecondary.withOpacity(0.6)),
                   prefixIcon: Icon(Icons.search, color: GingaColors.textSecondary),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
@@ -219,7 +219,7 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                         child: Text(
                           'Error de Firestore: ${snapshot.error}',
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.nunito(color: Colors.red, fontWeight: FontWeight.bold),
+                          style: GoogleFonts.montserrat(color: Colors.red, fontWeight: FontWeight.bold),
                         ),
                       ),
                     );
@@ -235,7 +235,7 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                     return Center(
                       child: Text(
                         'No hay canciones en la base de datos',
-                        style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                        style: GoogleFonts.montserrat(color: GingaColors.textSecondary),
                       ),
                     );
                   }
@@ -285,7 +285,7 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                           const SizedBox(height: 4),
                           Text(
                             'Prueba con otra búsqueda o filtro',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 12,
                               color: GingaColors.textSecondary.withOpacity(0.8),
                             ),
@@ -388,7 +388,7 @@ class _CancioneroScreenState extends State<CancioneroScreen> {
                                                 cantiga.autor == cantiga.interprete
                                                     ? cantiga.autor
                                                     : '${cantiga.autor} (cantado por ${cantiga.interprete})',
-                                                style: GoogleFonts.nunito(
+                                                style: GoogleFonts.montserrat(
                                                   fontSize: 11,
                                                   color: GingaColors.textSecondary,
                                                 ),

@@ -186,7 +186,7 @@ class _TiendaScreenState extends State<TiendaScreen> {
                             const SizedBox(height: 12),
                             Text(
                               'No hay productos disponibles por ahora',
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                   color: GingaColors.textSecondary, fontSize: 14),
                             ),
                           ],
@@ -205,7 +205,7 @@ class _TiendaScreenState extends State<TiendaScreen> {
                       return Center(
                         child: Text(
                           'No hay productos en esta categoría',
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                               color: GingaColors.textSecondary, fontSize: 14),
                         ),
                       );
@@ -491,7 +491,7 @@ class _ProductCard extends StatelessWidget {
                                 SnackBar(
                                   content: Text(
                                     '¡$nombre añadido al carrito! 🛒',
-                                    style: GoogleFonts.nunito(
+                                    style: GoogleFonts.montserrat(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600),
                                   ),

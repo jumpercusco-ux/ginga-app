@@ -189,7 +189,7 @@ class _SplashScreenState extends State<SplashScreen>
                 },
                 child: Text(
                   'Comunidad & Entrenamiento',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: GingaColors.textSecondary,

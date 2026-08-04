@@ -167,7 +167,7 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
               _isEditMode
                   ? '¡Producto actualizado correctamente! 📦'
                   : '¡Nuevo producto registrado con éxito! 🎉',
-              style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w600),
+              style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.w600),
             ),
             backgroundColor: GingaColors.brandGreen,
           ),
@@ -219,7 +219,7 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
                   children: [
                     Text(
                       _isEditMode ? 'Modifica los datos del artículo' : 'Completa los datos del nuevo artículo para la tienda',
-                      style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textSecondary),
+                      style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textSecondary),
                     ),
                     const SizedBox(height: 24),
 
@@ -274,7 +274,7 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _nombreController,
-                      style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
                       decoration: const InputDecoration(
                         hintText: 'Ej. Berimbau de Biriba Profesional',
                       ),
@@ -295,7 +295,7 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       value: _categoriaSeleccionada,
-                      style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
                       decoration: InputDecoration(
                         fillColor: GingaColors.backgroundLight,
                         filled: true,
@@ -310,7 +310,7 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
                           value: cat['id'],
                           child: Text(
                             cat['label']!,
-                            style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                            style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
                           ),
                         );
                       }).toList(),
@@ -341,7 +341,7 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
                               TextFormField(
                                 controller: _precioController,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+                                style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
                                 decoration: const InputDecoration(
                                   hintText: 'Ej. 85.00',
                                 ),
@@ -372,7 +372,7 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
                               TextFormField(
                                 controller: _stockController,
                                 keyboardType: TextInputType.number,
-                                style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+                                style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
                                 decoration: const InputDecoration(
                                   hintText: 'Ej. 10',
                                 ),
@@ -402,7 +402,7 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
                     TextFormField(
                       controller: _descripcionController,
                       maxLines: 5,
-                      style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
                       decoration: const InputDecoration(
                         hintText: 'Describe el material, la talla de referencia, el tipo de sonido en caso de instrumentos, etc.',
                       ),
@@ -423,7 +423,7 @@ class _CrearProductoScreenState extends State<CrearProductoScreen> {
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _tallasController,
-                      style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
                       decoration: const InputDecoration(
                         hintText: 'Ej. S, M, L, XL o Pandeiro de 10", Pandeiro de 12" (separados por comas)',
                         helperText: 'Deja vacío si el artículo no tiene variantes de tamaño.',

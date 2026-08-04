@@ -286,7 +286,7 @@ class _GlosarioScreenState extends State<GlosarioScreen> {
                   const SizedBox(height: 4),
                   Text(
                     'Domina el lenguaje oficial de la roda, golpes e historia',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 14,
                       color: GingaColors.textSecondary,
                     ),
@@ -318,11 +318,11 @@ class _GlosarioScreenState extends State<GlosarioScreen> {
                       _searchQuery = val.toLowerCase();
                     });
                   },
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                       fontSize: 14, color: GingaColors.textPrimary),
                   decoration: InputDecoration(
                     hintText: 'Buscar término o significado...',
-                    hintStyle: GoogleFonts.nunito(
+                    hintStyle: GoogleFonts.montserrat(
                         fontSize: 14, color: GingaColors.textSecondary),
                     prefixIcon: const Icon(Icons.search,
                         color: GingaColors.brandGreen, size: 20),
@@ -416,7 +416,7 @@ class _GlosarioScreenState extends State<GlosarioScreen> {
                   ? Center(
                       child: Text(
                         'No se encontraron términos.',
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                             color: GingaColors.textSecondary, fontSize: 14),
                       ),
                     )
@@ -522,7 +522,7 @@ class _TerminoCardState extends State<_TerminoCard> {
             children: [
               Text(
                 widget.item.pronunciacion,
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 11,
                   fontStyle: FontStyle.italic,
                   color: GingaColors.textSecondary,
@@ -564,7 +564,7 @@ class _TerminoCardState extends State<_TerminoCard> {
                   const SizedBox(height: 12),
                   Text(
                     widget.item.significado,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 13,
                       color: GingaColors.textPrimary,
                       height: 1.4,
@@ -603,7 +603,7 @@ class _TerminoCardState extends State<_TerminoCard> {
                               const SizedBox(height: 2),
                               Text(
                                 widget.item.consejo,
-                                style: GoogleFonts.nunito(
+                                style: GoogleFonts.montserrat(
                                   fontSize: 12,
                                   color: GingaColors.textSecondary,
                                   height: 1.3,

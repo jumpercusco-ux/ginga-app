@@ -169,7 +169,7 @@ class _CulturaScreenState extends State<CulturaScreen> {
                           const SizedBox(height: 14),
                           Text(
                             articulo.contenido,
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 14,
                               color: GingaColors.textSecondary,
                               height: 1.6,
@@ -277,7 +277,7 @@ class _CulturaScreenState extends State<CulturaScreen> {
                   const SizedBox(height: 4),
                   Text(
                     'Descubre los orígenes, fundamentos y filosofía de la capoeira',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 14,
                       color: GingaColors.textSecondary,
                     ),
@@ -378,7 +378,7 @@ class _CulturaScreenState extends State<CulturaScreen> {
                                     const SizedBox(height: 4),
                                     Text(
                                       articulo.subtitulo,
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                         fontSize: 12,
                                         color: GingaColors.textSecondary,
                                       ),

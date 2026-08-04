@@ -89,7 +89,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error al cargar la sesión de hoy',
-              style: GoogleFonts.nunito(color: Colors.white)),
+              style: GoogleFonts.montserrat(color: Colors.white)),
           backgroundColor: Colors.red,
         ));
       }
@@ -144,7 +144,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   widget.hora,
-                                  style: GoogleFonts.nunito(
+                                  style: GoogleFonts.montserrat(
                                       fontSize: 13,
                                       color: GingaColors.textSecondary),
                                 ),
@@ -171,7 +171,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                                 ),
                                 Text(
                                   _asistencias == 1 ? 'alumno' : 'alumnos',
-                                  style: GoogleFonts.nunito(
+                                  style: GoogleFonts.montserrat(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w700,
                                       color: Colors.white70),
@@ -218,7 +218,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
 
                     Text(
                       'Muestra este QR a tus alumnos',
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                           fontSize: 13, color: GingaColors.textSecondary),
                     ),
 
@@ -248,7 +248,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                             const SizedBox(width: 6),
                             Text(
                               'En vivo',
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.green,
@@ -278,7 +278,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                             return Center(
                               child: Text(
                                 'Esperando escaneos de alumnos...',
-                                style: GoogleFonts.nunito(
+                                style: GoogleFonts.montserrat(
                                   fontSize: 13,
                                   color: GingaColors.textSecondary,
                                   fontStyle: FontStyle.italic,
@@ -427,7 +427,7 @@ class AttendeeTile extends StatelessWidget {
                   email,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 11,
                     color: GingaColors.textSecondary,
                   ),

@@ -27,7 +27,7 @@ class InstructorTiendaScreen extends StatelessWidget {
           ),
           content: Text(
             '¿Estás seguro de que deseas eliminar "$nombre"? Esta acción no se puede deshacer y el artículo desaparecerá del catálogo de los alumnos.',
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
               color: GingaColors.textSecondary,
               fontSize: 13.5,
               height: 1.4,
@@ -38,7 +38,7 @@ class InstructorTiendaScreen extends StatelessWidget {
               onPressed: () => Navigator.pop(dialogContext, false),
               child: Text(
                 'Cancelar',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w700,
                   color: GingaColors.textSecondary,
                 ),
@@ -147,7 +147,7 @@ class InstructorTiendaScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     'No hay productos en la tienda aún.',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 14,
                       color: GingaColors.textSecondary,
                     ),
@@ -274,7 +274,7 @@ class InstructorTiendaScreen extends StatelessWidget {
                                 stock <= 0
                                     ? 'SIN STOCK'
                                     : 'Stock: $stock un.',
-                                style: GoogleFonts.nunito(
+                                style: GoogleFonts.montserrat(
                                   fontSize: 11,
                                   fontWeight: stock <= 3 ? FontWeight.w800 : FontWeight.w600,
                                   color: stock <= 0

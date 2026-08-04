@@ -140,7 +140,7 @@ context.go('/login');
                         // Subtítulo
                         Text(
                           _pages[_currentPage].subtitle,
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                             color: Colors.white70,
                             fontSize: 15,
                             height: 1.5,
@@ -204,7 +204,7 @@ context.go('/login');
                             onTap: () => context.go('/login'),
                             child: Text(
                               'Saltar introducción',
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                 color: Colors.white54,
                                 fontSize: 13,
                                 decoration: TextDecoration.underline,

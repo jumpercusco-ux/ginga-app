@@ -132,13 +132,13 @@ class _PromptTabState extends State<_PromptTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Prompt guardado. Ya está activo, sin necesidad de redeploy.',
-            style: GoogleFonts.nunito(color: Colors.white)),
+            style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: GingaColors.brandGreen,
       ));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Error al guardar: $e', style: GoogleFonts.nunito(color: Colors.white)),
+        content: Text('Error al guardar: $e', style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
     } finally {
@@ -162,7 +162,7 @@ class _PromptTabState extends State<_PromptTab> {
           const SizedBox(height: GingaSpacing.xs),
           Text(
             'Define cómo se comporta la IA que responde por WhatsApp. Los cambios aplican al instante, no requieren redeploy.',
-            style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary),
+            style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary),
           ),
           const SizedBox(height: GingaSpacing.md),
           Expanded(
@@ -171,7 +171,7 @@ class _PromptTabState extends State<_PromptTab> {
               maxLines: null,
               expands: true,
               textAlignVertical: TextAlignVertical.top,
-              style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary),
+              style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textPrimary),
               decoration: InputDecoration(
                 filled: true,
                 fillColor: GingaColors.cardLight,
@@ -291,13 +291,13 @@ class _NegocioTabState extends State<_NegocioTab> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Datos del negocio guardados.', style: GoogleFonts.nunito(color: Colors.white)),
+        content: Text('Datos del negocio guardados.', style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: GingaColors.brandGreen,
       ));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Error al guardar: $e', style: GoogleFonts.nunito(color: Colors.white)),
+        content: Text('Error al guardar: $e', style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
     } finally {
@@ -311,7 +311,7 @@ class _NegocioTabState extends State<_NegocioTab> {
       child: TextField(
         controller: controller,
         keyboardType: esNumero ? TextInputType.number : TextInputType.text,
-        style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary),
+        style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textPrimary),
         decoration: InputDecoration(labelText: label),
       ),
     );
@@ -333,7 +333,7 @@ class _NegocioTabState extends State<_NegocioTab> {
           const SizedBox(height: GingaSpacing.xs),
           Text(
             'La ubicación y descripción ya se toman de cada clase (Crea tu clase). Aquí solo se define el precio, que no está guardado en ninguna clase todavía.',
-            style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary),
+            style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary),
           ),
           const SizedBox(height: GingaSpacing.md),
           _campo('Mensualidad (S/)', _mensualidadController, esNumero: true),
@@ -352,7 +352,7 @@ class _NegocioTabState extends State<_NegocioTab> {
           const SizedBox(height: GingaSpacing.xs),
           Text(
             'Cuando un lead pregunte cómo pagar, la IA le da directo este número de Yape junto con el monto que corresponda.',
-            style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary),
+            style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary),
           ),
           const SizedBox(height: GingaSpacing.sm),
           _campo('Número de Yape (con código de país, ej. 51900075008)', _yapeNumeroController),
@@ -362,7 +362,7 @@ class _NegocioTabState extends State<_NegocioTab> {
           const SizedBox(height: GingaSpacing.xs),
           Text(
             'Cuando la IA no pueda resolver algo, además de la notificación in-app te manda un WhatsApp a este número.',
-            style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary),
+            style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary),
           ),
           const SizedBox(height: GingaSpacing.sm),
           _campo('Tu WhatsApp (con código de país, ej. 51987654321)', _telefonoInstructorController),

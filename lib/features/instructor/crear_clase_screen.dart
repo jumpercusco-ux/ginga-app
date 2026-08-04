@@ -341,10 +341,10 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                             Expanded(
                               child: TextField(
                                 controller: searchController,
-                                style: GoogleFonts.nunito(fontSize: 14),
+                                style: GoogleFonts.montserrat(fontSize: 14),
                                 decoration: InputDecoration(
                                   hintText: 'Buscar calle, parque, plaza...',
-                                  hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary, fontSize: 13),
+                                  hintStyle: GoogleFonts.montserrat(color: GingaColors.textSecondary, fontSize: 13),
                                   filled: true,
                                   fillColor: const Color(0xFFF5F5F5),
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -418,7 +418,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                     displayName,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textPrimary),
+                                    style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textPrimary),
                                   ),
                                   onTap: () {
                                     final lat = double.tryParse(res['lat'] ?? '');
@@ -492,7 +492,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                             ),
                             child: Text(
                               '💡 Toca cualquier parte del mapa para mover el pin de ubicación exacta.',
-                              style: GoogleFonts.nunito(fontSize: 11, fontWeight: FontWeight.w600, color: GingaColors.textSecondary),
+                              style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: GingaColors.textSecondary),
                               textAlign: TextAlign.center,
                             ),
                           ),
@@ -578,7 +578,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
     if (_tipoClase == 'regular' && _diasSeleccionados.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Selecciona al menos un día recurrente',
-            style: GoogleFonts.nunito(color: Colors.white)),
+            style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
       return;
@@ -587,7 +587,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
     if (_tipoClase != 'regular' && _fechaTexto.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Selecciona la fecha del evento',
-            style: GoogleFonts.nunito(color: Colors.white)),
+            style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
       return;
@@ -596,7 +596,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
     if (_tipoClase != 'regular' && _nombreCustomController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Ingresa un título para el evento/roda',
-            style: GoogleFonts.nunito(color: Colors.white)),
+            style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
       return;
@@ -822,7 +822,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
               widget.claseId != null
                   ? '¡Clase actualizada exitosamente!'
                   : '¡Clase publicada exitosamente!',
-              style: GoogleFonts.nunito(color: Colors.white)),
+              style: GoogleFonts.montserrat(color: Colors.white)),
           backgroundColor: GingaColors.brandGreen,
         ));
       }
@@ -830,7 +830,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error al publicar clase',
-              style: GoogleFonts.nunito(color: Colors.white)),
+              style: GoogleFonts.montserrat(color: Colors.white)),
           backgroundColor: Colors.red,
         ));
       }
@@ -927,7 +927,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   TextFormField(
                     controller: _descripcionController,
                     maxLines: 3,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                         fontSize: 13, color: GingaColors.textPrimary),
                     decoration: _inputDecoration(
                         'Describe el contenido o la dinámica de la clase...'),
@@ -947,7 +947,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _organizadorController,
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                           fontSize: 13, color: GingaColors.textPrimary),
                       decoration: _inputDecoration(
                           'Ej: Mestre Sidney, Instructor Enrique...'),
@@ -978,7 +978,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           child: Text(
                             'No hay actividades programadas',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 12,
                               color: GingaColors.textSecondary,
                               fontStyle: FontStyle.italic,
@@ -1013,7 +1013,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                       onChanged: (val) {
                                         _cronograma[index]['hora'] = val;
                                       },
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                           fontSize: 12, color: GingaColors.textPrimary),
                                       decoration: InputDecoration(
                                         hintText: '09:00 AM',
@@ -1034,7 +1034,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                       onChanged: (val) {
                                         _cronograma[index]['actividad'] = val;
                                       },
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                           fontSize: 12, color: GingaColors.textPrimary),
                                       decoration: InputDecoration(
                                         hintText: 'Actividad...',
@@ -1119,7 +1119,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     'Ideal para eventos y clases especiales',
-                                    style: GoogleFonts.nunito(
+                                    style: GoogleFonts.montserrat(
                                       fontSize: 11,
                                       color: GingaColors.textSecondary,
                                     ),
@@ -1250,7 +1250,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _ubicacionController,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                         fontSize: 13, color: GingaColors.textPrimary),
                     decoration: _inputDecoration('Parque de la roda').copyWith(
                       suffixIcon: Icon(Icons.location_on_outlined,
@@ -1315,7 +1315,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                 icon: const Icon(Icons.edit, size: 14, color: GingaColors.brandGreen),
                                 label: Text(
                                   'Cambiar',
-                                  style: GoogleFonts.nunito(fontSize: 11, fontWeight: FontWeight.bold),
+                                  style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ),
@@ -1366,7 +1366,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                             TextFormField(
                               controller: _edadMinController,
                               keyboardType: TextInputType.number,
-                              style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary),
+                              style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textPrimary),
                               decoration: _inputDecoration('Ej. 5'),
                             ),
                           ],
@@ -1382,7 +1382,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                             TextFormField(
                               controller: _edadMaxController,
                               keyboardType: TextInputType.number,
-                              style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary),
+                              style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textPrimary),
                               decoration: _inputDecoration('Ej. 12'),
                             ),
                           ],
@@ -1444,7 +1444,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   Expanded(
                     child: Text(
                       'La clase quedara publicada y los alumnos podrán reservar su lugar desde la sección ARoda. Recibirás una notificación por cada reserva confirmada',
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                           fontSize: 12, color: GingaColors.brandGreen),
                     ),
                   ),
@@ -1487,13 +1487,13 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
   }
 
   Widget _label(String text) => Text(text,
-      style: GoogleFonts.nunito(
+      style: GoogleFonts.montserrat(
           fontSize: 12, color: GingaColors.textSecondary));
 
   InputDecoration _inputDecoration(String hint) => InputDecoration(
         hintText: hint,
         hintStyle:
-            GoogleFonts.nunito(color: GingaColors.textSecondary, fontSize: 13),
+            GoogleFonts.montserrat(color: GingaColors.textSecondary, fontSize: 13),
         filled: true,
         fillColor: const Color(0xFFF8F8F8),
         contentPadding:
@@ -1573,7 +1573,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
             const SizedBox(height: 6),
             Text(
               label,
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.montserrat(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                 color: isSelected ? selectedColor : GingaColors.textSecondary,
@@ -1587,12 +1587,12 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
 
   Widget _customNameField() => TextFormField(
         controller: _nombreCustomController,
-        style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+        style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
         decoration: InputDecoration(
           hintText: _tipoClase == 'roda'
               ? 'ej. Roda de Integración, Roda de Fin de Año'
               : 'ej. Taller de Acrobacias, Masterclass Mestre Sidney',
-          hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary, fontSize: 13),
+          hintStyle: GoogleFonts.montserrat(color: GingaColors.textSecondary, fontSize: 13),
           filled: true,
           fillColor: const Color(0xFFF8F8F8),
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1629,7 +1629,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
               Expanded(
                 child: Text(
                   _fechaTexto.isEmpty ? 'Seleccionar fecha del evento' : _fechaTexto,
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 14,
                     fontWeight: _fechaTexto.isEmpty ? FontWeight.w500 : FontWeight.w700,
                     color: _fechaTexto.isEmpty ? GingaColors.textSecondary : GingaColors.textPrimary,
@@ -1708,7 +1708,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           isExpanded: true,
           icon: Icon(Icons.keyboard_arrow_down,
               color: GingaColors.textSecondary),
-          style: GoogleFonts.nunito(
+          style: GoogleFonts.montserrat(
               fontSize: 14, color: GingaColors.textPrimary),
           items: itemsNombre
               .map((item) => DropdownMenuItem(value: item, child: Text(item)))
@@ -1739,7 +1739,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           isExpanded: true,
           icon: Icon(Icons.keyboard_arrow_down,
               color: GingaColors.textSecondary),
-          style: GoogleFonts.nunito(
+          style: GoogleFonts.montserrat(
               fontSize: 14, color: GingaColors.textPrimary),
           items: itemsSede
               .map((item) => DropdownMenuItem(value: item, child: Text(item)))
@@ -1767,7 +1767,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
             borderRadius: BorderRadius.circular(GingaRadius.full),
           ),
           child: Text(label,
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.montserrat(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: selected ? Colors.white : GingaColors.textSecondary)),
@@ -1830,7 +1830,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                         fontWeight: FontWeight.w700,
                         color: GingaColors.textPrimary)),
                 Text(subtitle,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                         fontSize: 11, color: GingaColors.textSecondary)),
               ],
             ),
@@ -1856,7 +1856,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                         fontWeight: FontWeight.w700,
                         color: GingaColors.textPrimary)),
                 Text(subtitle,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                         fontSize: 11, color: GingaColors.textSecondary)),
               ],
             ),

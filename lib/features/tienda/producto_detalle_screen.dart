@@ -212,7 +212,7 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                           SnackBar(
                             content: Text(
                               'Por favor, selecciona una talla/medida antes de agregar. 🥋',
-                              style: GoogleFonts.nunito(color: Colors.white),
+                              style: GoogleFonts.montserrat(color: Colors.white),
                             ),
                             backgroundColor: Colors.red,
                           ),
@@ -234,7 +234,7 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                         SnackBar(
                           content: Text(
                             '¡$nombre ${hasSizes ? "($_tallaSeleccionada) " : ""}añadido al carrito! 🛒',
-                            style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w600),
+                            style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.w600),
                           ),
                           backgroundColor: GingaColors.brandGreen,
                           duration: const Duration(seconds: 2),
@@ -287,7 +287,7 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
             body: Center(
               child: Text(
                 'El producto no se encuentra disponible.',
-                style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                style: GoogleFonts.montserrat(color: GingaColors.textSecondary),
               ),
             ),
           );
@@ -532,7 +532,7 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                                       : (stock <= 0
                                           ? 'Sin unidades disponibles'
                                           : 'Stock disponible: $stock unidades'),
-                                  style: GoogleFonts.nunito(
+                                  style: GoogleFonts.montserrat(
                                     fontSize: 13,
                                     color: stock <= 0 && categoria != 'membresias'
                                         ? Colors.red
@@ -557,7 +557,7 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                                 const SizedBox(height: 8),
                                 Text(
                                   descripcion,
-                                  style: GoogleFonts.nunito(
+                                  style: GoogleFonts.montserrat(
                                     fontSize: 13.5,
                                     color: GingaColors.textSecondary,
                                     height: 1.6,
@@ -719,7 +719,7 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                                           : (stock <= 0
                                               ? 'Sin unidades disponibles'
                                               : 'Stock disponible: $stock unidades'),
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                         fontSize: 13,
                                         color: stock <= 0 && categoria != 'membresias'
                                             ? Colors.red
@@ -758,7 +758,7 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
                           const SizedBox(height: 8),
                           Text(
                             descripcion,
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 13.5,
                               color: GingaColors.textSecondary,
                               height: 1.5,

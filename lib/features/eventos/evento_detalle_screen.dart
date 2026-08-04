@@ -128,7 +128,7 @@ class _EventoDetalleScreenState extends State<EventoDetalleScreen> {
         ),
         content: Text(
           'Para inscribirte a este evento o roda especial de la academia, debes ser un alumno registrado con membresía activa o en periodo de prueba.\n\nSi eres un usuario nuevo, solicita tu clase de prueba gratuita en la pantalla de inicio para comenzar.',
-          style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textSecondary, height: 1.5),
+          style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textSecondary, height: 1.5),
         ),
         actions: [
           TextButton(
@@ -168,7 +168,7 @@ class _EventoDetalleScreenState extends State<EventoDetalleScreen> {
             const SizedBox(height: 8),
             Text('Se registró tu asistencia confirmada para este evento.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textSecondary)),
+                style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textSecondary)),
             const SizedBox(height: 24),
           ],
         ),
@@ -256,7 +256,7 @@ class _EventoDetalleScreenState extends State<EventoDetalleScreen> {
                       const SizedBox(height: 6),
                       Text(
                         actividad,
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 13.5,
                           color: GingaColors.textPrimary,
                           fontWeight: FontWeight.w600,
@@ -359,7 +359,7 @@ class _EventoDetalleScreenState extends State<EventoDetalleScreen> {
                 const SizedBox(height: 3),
                 Text(
                   value,
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 13,
                     color: GingaColors.textPrimary,
                     fontWeight: FontWeight.w700,
@@ -518,7 +518,7 @@ class _EventoDetalleScreenState extends State<EventoDetalleScreen> {
               body: Center(
                 child: Text(
                   'El evento no existe o fue retirado.',
-                  style: GoogleFonts.nunito(fontSize: 15, color: GingaColors.textSecondary),
+                  style: GoogleFonts.montserrat(fontSize: 15, color: GingaColors.textSecondary),
                 ),
               ),
             );
@@ -599,7 +599,7 @@ class _EventoDetalleScreenState extends State<EventoDetalleScreen> {
                                           onTap: () => _openMaps(lugar),
                                           child: Text(
                                             'Abrir en Maps',
-                                            style: GoogleFonts.nunito(
+                                            style: GoogleFonts.montserrat(
                                               fontSize: 13,
                                               color: GingaColors.brandGreen,
                                               fontWeight: FontWeight.w600,
@@ -665,7 +665,7 @@ class _EventoDetalleScreenState extends State<EventoDetalleScreen> {
                                     descripcion.isNotEmpty
                                         ? descripcion
                                         : 'Acompáñanos en esta actividad especial para la Familia FIU. Ven a entrenar, compartir la música y jugar en la roda. ¡Todos los niveles son bienvenidos!',
-                                    style: GoogleFonts.nunito(
+                                    style: GoogleFonts.montserrat(
                                       fontSize: 13.5,
                                       color: GingaColors.textSecondary,
                                       height: 1.6,
@@ -758,7 +758,7 @@ class _EventoDetalleScreenState extends State<EventoDetalleScreen> {
                                         descripcion.isNotEmpty
                                             ? descripcion
                                             : 'Acompáñanos en esta actividad especial para la Familia FIU. Ven a entrenar, compartir la música y jugar en la roda. ¡Todos los niveles son bienvenidos!',
-                                        style: GoogleFonts.nunito(
+                                        style: GoogleFonts.montserrat(
                                           fontSize: 14,
                                           color: GingaColors.textSecondary,
                                           height: 1.6,
@@ -811,7 +811,7 @@ class _EventoDetalleScreenState extends State<EventoDetalleScreen> {
                                               onTap: () => _openMaps(lugar),
                                               child: Text(
                                                 'Abrir en Maps',
-                                                style: GoogleFonts.nunito(
+                                                style: GoogleFonts.montserrat(
                                                   fontSize: 13,
                                                   color: GingaColors.brandGreen,
                                                   fontWeight: FontWeight.w600,
@@ -879,7 +879,7 @@ class _EventoDetalleScreenState extends State<EventoDetalleScreen> {
         title: Text('Cancelar Inscripción', style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 16)),
         content: Text(
           '¿Estás seguro de que deseas cancelar tu inscripción a este evento especial?',
-          style: GoogleFonts.nunito(fontSize: 14),
+          style: GoogleFonts.montserrat(fontSize: 14),
         ),
         actions: [
           TextButton(
@@ -1015,7 +1015,7 @@ class _MestreCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Instructor o Mestre encargado de guiar y coordinar las actividades de este evento especial. Comprometido con la difusión y excelencia de la Capoeira.',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 12,
                     color: GingaColors.textSecondary,
                     height: 1.4,
@@ -1117,7 +1117,7 @@ class _MapPlaceholder extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       'Toca para navegar',
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                         color: GingaColors.textPrimary,

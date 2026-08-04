@@ -257,7 +257,7 @@ class _EstadoActualCard extends StatelessWidget {
                 ),
                 Text(
                   antiguedad,
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 13,
                     color: GingaColors.textSecondary,
                   ),
@@ -375,7 +375,7 @@ class _CordaTimeline extends StatelessWidget {
                                 : corda.status == _CordaStatus.completada
                                     ? 'Completado'
                                     : 'Próximo Objetivo',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 12,
                               color: corda.status == _CordaStatus.activa
                                   ? GingaColors.brandGreen
@@ -520,7 +520,7 @@ class _ProximoObjetivoCard extends StatelessWidget {
                 children: [
                   Text(
                     'Progreso Total',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 13,
                       color: GingaColors.textSecondary,
                     ),
@@ -598,7 +598,7 @@ class _RequisitoItem extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
               fontSize: 13,
               color: completado
                 ? GingaColors.textPrimary
