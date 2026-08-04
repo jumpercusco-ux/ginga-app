@@ -418,7 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
               fontSize: 14,
               color: GingaColors.textSecondary,
               height: 1.5,
@@ -783,7 +783,7 @@ class _Banner extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(subtitulo,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
@@ -862,7 +862,7 @@ class _ContentByStatus extends StatelessWidget {
               SizedBox(height: 4),
               Text(
                 'Elige una clase y toma una sesión gratuita para empezar tu camino 🥋✨',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 12.5,
                   color: GingaColors.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -885,7 +885,7 @@ class _ContentByStatus extends StatelessWidget {
             SizedBox(height: 4),
             Text(
               'Este es el grupo en el que realizaste tu reserva 🥋✨',
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.montserrat(
                 fontSize: 12.5,
                 color: GingaColors.textSecondary,
                 fontWeight: FontWeight.w600,
@@ -1000,7 +1000,7 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
               const SizedBox(height: 6),
               Text(
                 'Selecciona la academia donde te gustaría asistir a entrenar de forma presencial:',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 13,
                   color: GingaColors.textSecondary,
                 ),
@@ -1075,7 +1075,7 @@ void _mostrarSelectorSedeFisica(BuildContext context, String uid) {
                                   const SizedBox(height: 2),
                                   Text(
                                     sedeMap['desc']!,
-                                    style: GoogleFonts.nunito(
+                                    style: GoogleFonts.montserrat(
                                       fontSize: 11,
                                       color: GingaColors.textSecondary,
                                     ),
@@ -1152,7 +1152,7 @@ class _VirtualDashboard extends StatelessWidget {
                     SizedBox(height: 4),
                     Text(
                       'Visita nuestras academias presenciales en Cusco, Lima o Chimbote y reserva tu primera clase GRATIS.',
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 11,
                         color: GingaColors.textSecondary,
                         fontWeight: FontWeight.w600,
@@ -1238,7 +1238,7 @@ class _VirtualDashboard extends StatelessWidget {
                           'El toque tradicional para el juego bajo y táctico.',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                             fontSize: 10,
                             color: GingaColors.textSecondary,
                             height: 1.3,
@@ -1308,7 +1308,7 @@ class _VirtualDashboard extends StatelessWidget {
                           'Aprende las cantigas de capoeira más populares y practica con sus letras.',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                             fontSize: 10,
                             color: GingaColors.textSecondary,
                             height: 1.3,
@@ -1353,7 +1353,7 @@ class _VirtualDashboard extends StatelessWidget {
               ),
               child: Text(
                 'Ver todos',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 12,
                   color: GingaColors.brandGreen,
                   fontWeight: FontWeight.w700,
@@ -1391,7 +1391,7 @@ class _VirtualDashboard extends StatelessWidget {
                 child: Center(
                   child: Text(
                     'Pronto subiremos nuevas lecciones virtuales 🥋',
-                    style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                    style: GoogleFonts.montserrat(color: GingaColors.textSecondary),
                   ),
                 ),
               );
@@ -1414,7 +1414,7 @@ class _VirtualDashboard extends StatelessWidget {
                 child: Center(
                   child: Text(
                     'Pronto subiremos nuevas lecciones virtuales 🥋',
-                    style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                    style: GoogleFonts.montserrat(color: GingaColors.textSecondary),
                   ),
                 ),
               );
@@ -1552,7 +1552,7 @@ class _FeaturedLessonCard extends StatelessWidget {
                       const SizedBox(width: 2),
                       Text(
                         duracion,
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 10,
                           color: GingaColors.textSecondary,
                         ),
@@ -1784,7 +1784,7 @@ class _ClasesNuevo extends StatelessWidget {
                 Text(
                   'Actualmente no hay horarios disponibles para la sede de $sede. ¡Mantente atento o coordina con el instructor!',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 11,
                     color: GingaColors.textSecondary,
                     height: 1.4,
@@ -2040,7 +2040,7 @@ class _ClaseCardNuevo extends StatelessWidget {
                                     ),
                                     child: Text(
                                       nivel,
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w800,
                                         color: palette.badgeText,
@@ -2073,7 +2073,7 @@ class _ClaseCardNuevo extends StatelessWidget {
                                 Expanded(
                                   child: Text(
                                     '$hora${dias.isNotEmpty ? " • ${_interpretarDiasDeSemana(dias)}" : ""}',
-                                    style: GoogleFonts.nunito(
+                                    style: GoogleFonts.montserrat(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
                                       color: GingaColors.textPrimary,
@@ -2094,7 +2094,7 @@ class _ClaseCardNuevo extends StatelessWidget {
                                   Expanded(
                                     child: Text(
                                       'Instructor: $instructor',
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                         fontSize: 12,
                                         color: GingaColors.textSecondary,
                                       ),
@@ -2115,7 +2115,7 @@ class _ClaseCardNuevo extends StatelessWidget {
                                 Expanded(
                                   child: Text(
                                     locationText,
-                                    style: GoogleFonts.nunito(
+                                    style: GoogleFonts.montserrat(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       color: GingaColors.textSecondary,
@@ -2207,7 +2207,7 @@ class _ReservaPendiente extends StatelessWidget {
               borderRadius: BorderRadius.circular(GingaRadius.lg),
             ),
             child: Text('No se encontró tu reserva.',
-                style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
+                style: GoogleFonts.montserrat(color: GingaColors.textSecondary)),
           );
         }
 
@@ -2251,7 +2251,7 @@ class _ReservaPendiente extends StatelessWidget {
                               color: GingaColors.textPrimary)),
                       Text(
                           '${reserva['hora']} — ${_interpretarDiasDeSemana(reserva['dias'] ?? "")}',
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                               fontSize: 13, color: GingaColors.textSecondary)),
                       const SizedBox(height: 4),
                       Container(
@@ -2362,7 +2362,7 @@ class _ClaseActivo extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             text,
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: textColor,
@@ -2383,7 +2383,7 @@ class _ClaseActivo extends StatelessWidget {
           borderRadius: BorderRadius.circular(GingaRadius.lg),
         ),
         child: Text('Contacta al instructor para asignarte una clase.',
-            style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
+            style: GoogleFonts.montserrat(color: GingaColors.textSecondary)),
       );
     }
 
@@ -2537,7 +2537,7 @@ class _ClaseActivo extends StatelessWidget {
                                 const SizedBox(height: 2),
                                 Text(
                                   'Sesión de entrenamiento recurrente',
-                                  style: GoogleFonts.nunito(
+                                  style: GoogleFonts.montserrat(
                                     fontSize: 12,
                                     color: isDark ? GingaColors.textMuted : GingaColors.textSecondary,
                                     fontWeight: FontWeight.w500,
@@ -2627,7 +2627,7 @@ class _ClaseInactivo extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         color: textAccent)),
                 Text('Renueva tu mensualidad para continuar',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                         fontSize: 12, color: textMuted)),
               ],
             ),
@@ -2656,7 +2656,7 @@ class _ClasePendiente extends StatelessWidget {
           borderRadius: BorderRadius.circular(GingaRadius.lg),
         ),
         child: Text('Cargando información de tu clase...',
-            style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
+            style: GoogleFonts.montserrat(color: GingaColors.textSecondary)),
       );
     }
 
@@ -2724,14 +2724,14 @@ class _ClasePendiente extends StatelessWidget {
                     ),
                     Text(
                       _interpretarDiasDeSemana(data['dias'] ?? ''),
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 11,
                         color: subtitleColor,
                       ),
                     ),
                     Text(
                       'Instructor: ${data['instructor'] ?? ""}',
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 11,
                         color: subtitleColor,
                       ),
@@ -2820,7 +2820,7 @@ class _Header extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(corda,
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                           fontSize: 13,
                           color: GingaColors.brandGreen,
                           fontWeight: FontWeight.w600)),
@@ -2974,7 +2974,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                   },
                   child: Text(
                     'Marcar leídas',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       color: GingaColors.brandGreen,
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
@@ -3011,7 +3011,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                           const SizedBox(height: 12),
                           Text(
                             'No tienes notificaciones aún',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                                 color: GingaColors.textSecondary, fontSize: 14),
                           ),
                         ],
@@ -3036,7 +3036,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                           const SizedBox(height: 12),
                           Text(
                             'No tienes notificaciones aún',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                                 color: GingaColors.textSecondary, fontSize: 14),
                           ),
                         ],
@@ -3150,7 +3150,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                                     const SizedBox(height: 4),
                                     Text(
                                       mensaje,
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                         fontSize: 12,
                                         color: GingaColors.textSecondary,
                                         height: 1.4,
@@ -3304,7 +3304,7 @@ class _WorkshopBanner extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   fechaTexto,
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF5D3D03),
@@ -3424,7 +3424,7 @@ class _WorkshopBanner extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   'Revisa los horarios de los talleres y las rodas del día.',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 12,
                     color: Colors.white.withOpacity(0.85),
                     height: 1.3,
@@ -3501,7 +3501,7 @@ class _WorkshopBanner extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Repasa tu Ginga y tus patadas en nuestra Biblioteca Digital.',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 11,
                     color: GingaColors.textSecondary,
                     height: 1.3,
@@ -3621,7 +3621,7 @@ class _WorkshopBanner extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Organizado por: $organizador',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: GingaColors.brandGreen,
@@ -3648,7 +3648,7 @@ class _WorkshopBanner extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   descripcion,
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 13,
                     color: GingaColors.textSecondary,
                     height: 1.4,
@@ -3708,7 +3708,7 @@ class _WorkshopBanner extends StatelessWidget {
                                 ),
                                 Text(
                                   hora,
-                                  style: GoogleFonts.nunito(
+                                  style: GoogleFonts.montserrat(
                                     fontSize: 11,
                                     color: GingaColors.textSecondary,
                                   ),
@@ -3759,7 +3759,7 @@ class _WorkshopBanner extends StatelessWidget {
                                   const SizedBox(height: 2),
                                   Text(
                                     'Te esperamos con toda la energía. ¡No olvides traer tu uniforme oficial!',
-                                    style: GoogleFonts.nunito(
+                                    style: GoogleFonts.montserrat(
                                       fontSize: 11,
                                       color: GingaColors.textSecondary,
                                     ),
@@ -3901,7 +3901,7 @@ class _SectionTitle extends StatelessWidget {
           GestureDetector(
             onTap: onTapAction,
             child: Text(actionLabel,
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                     fontSize: 12,
                     color: GingaColors.brandGreen,
                     fontWeight: FontWeight.w600)),
@@ -3993,7 +3993,7 @@ class _NoticiaCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 3),
                 Text(subtitulo,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                         fontSize: 11, color: GingaColors.textSecondary),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
@@ -4358,7 +4358,7 @@ class _StorePromoBanner extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         'Consigue abadás, camisetas e instrumentos oficiales de la academia. Reserva tu pedido y recógelo en clase.',
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
                           color: Colors.white.withOpacity(0.9),
@@ -4691,7 +4691,7 @@ class _WalkthroughOverlayState extends State<WalkthroughOverlay>
                   const SizedBox(height: 12),
                   Text(
                     widget.description,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 12.5,
                       color: GingaColors.textSecondary,
                       fontWeight: FontWeight.w600,

@@ -29,7 +29,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
         children: [
           Icon(icon, size: 18, color: isAlert ? Colors.red : GingaColors.brandGreen),
           const SizedBox(width: 10),
-          Text('$label: ', style: GoogleFonts.nunito(fontSize: 13, fontWeight: FontWeight.w600, color: GingaColors.textSecondary)),
+          Text('$label: ', style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: GingaColors.textSecondary)),
           Expanded(
             child: Text(
               value, 
@@ -148,7 +148,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             ),
                             child: Text(
                               status.toUpperCase(),
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
                                 color: status == 'activo'
@@ -244,7 +244,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     data['notas']?.toString().trim().isNotEmpty == true
                         ? data['notas']
                         : 'Sin notas u observaciones para este alumno.',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 13,
                       color: data['notas']?.toString().trim().isNotEmpty == true
                           ? GingaColors.textPrimary
@@ -269,7 +269,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     _buildFichaRow(Icons.error_outline, 'Vencimiento de membresía', '${fin.day}/${fin.month}/${fin.year}', isAlert: status == 'inactivo'),
                     _buildFichaRow(Icons.payment_outlined, 'Meses contratados', '$meses ${meses == 1 ? 'mes' : 'meses'}'),
                   ] else
-                    Text('No hay registros de fechas de membresía.', style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary)),
+                    Text('No hay registros de fechas de membresía.', style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textSecondary)),
                 ] else
                   Row(
                     children: [
@@ -279,7 +279,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         status == 'nuevo' 
                             ? 'Alumno recién registrado sin membresía.' 
                             : 'Alumno en periodo de prueba gratuita.',
-                        style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary),
+                        style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textSecondary),
                       ),
                     ],
                   ),
@@ -450,7 +450,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
           ),
           content: Text(
             '¿Estás seguro de que deseas dar de baja a "$nombre"? Perderá acceso a la aplicación y no aparecerá en tus listas activas, pero se conservará su historial de pagos, pedidos y asistencias.',
-            style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+            style: GoogleFonts.montserrat(color: GingaColors.textSecondary),
           ),
           actions: [
             TextButton(
@@ -661,7 +661,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           isIndividual 
                               ? 'Enviar un mensaje push y buzón a: $targetStudentName' 
                               : 'Envía un mensaje push masivo y regístralo en la campana de los alumnos.',
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                             fontSize: 13,
                             color: GingaColors.textSecondary,
                           ),
@@ -696,7 +696,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 borderSide: const BorderSide(color: GingaColors.brandGreen, width: 1.5),
                               ),
                             ),
-                            style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                            style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                             items: ['Todos', 'Por Sede', 'Por Clase'].map((String value) {
                               return DropdownMenuItem<String>(
                                 value: value,
@@ -738,7 +738,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 borderSide: BorderSide(color: GingaColors.borderLight),
                               ),
                             ),
-                            style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                            style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                             items: ['Cusco', 'Lima', 'Chimbote', 'Virtual / A Distancia'].map((String value) {
                               return DropdownMenuItem<String>(
                                 value: value,
@@ -769,7 +769,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           if (snapshot.connectionState == ConnectionState.waiting)
                             const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
                           else if (clasesList.isEmpty)
-                            Text('No hay clases creadas en el sistema.', style: GoogleFonts.nunito(color: Colors.red))
+                            Text('No hay clases creadas en el sistema.', style: GoogleFonts.montserrat(color: Colors.red))
                           else
                             DropdownButtonFormField<String>(
                               value: claseSeleccionadaId,
@@ -784,7 +784,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                   borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                               ),
-                              style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                              style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                               items: clasesList.map((doc) {
                                 final cdata = doc.data() as Map<String, dynamic>;
                                 return DropdownMenuItem<String>(
@@ -817,7 +817,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           controller: tituloController,
                           decoration: InputDecoration(
                             hintText: 'Ingresa un título llamativo...',
-                            hintStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary),
+                            hintStyle: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textSecondary),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
                               borderSide: BorderSide(color: GingaColors.borderLight),
@@ -846,7 +846,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           maxLines: 4,
                           decoration: InputDecoration(
                             hintText: 'Escribe tu anuncio aquí...',
-                            hintStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary),
+                            hintStyle: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textSecondary),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
                               borderSide: BorderSide(color: GingaColors.borderLight),
@@ -856,7 +856,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                               borderSide: BorderSide(color: GingaColors.borderLight),
                             ),
                           ),
-                          style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                          style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 16),
 
@@ -887,7 +887,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                               borderSide: const BorderSide(color: GingaColors.brandGreen, width: 1.5),
                             ),
                           ),
-                          style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                          style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                           items: const [
                             DropdownMenuItem(value: 'home', child: Text('Inicio 🏠')),
                             DropdownMenuItem(value: 'tienda', child: Text('Tienda Virtual 📦')),
@@ -920,7 +920,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           if (snapshot.connectionState == ConnectionState.waiting)
                             const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
                           else if (clasesList.isEmpty)
-                            Text('No hay clases/eventos creados en el sistema.', style: GoogleFonts.nunito(color: Colors.red))
+                            Text('No hay clases/eventos creados en el sistema.', style: GoogleFonts.montserrat(color: Colors.red))
                           else
                             DropdownButtonFormField<String>(
                               value: claseRedireccionId,
@@ -935,7 +935,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                   borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                               ),
-                              style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                              style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                               items: clasesList.map((doc) {
                                 final cdata = doc.data() as Map<String, dynamic>;
                                 final String nombre = cdata['nombre'] ?? 'Sin nombre';
@@ -971,7 +971,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           if (snapshot.connectionState == ConnectionState.waiting)
                             const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
                           else if (tutorialesList.isEmpty)
-                            Text('No hay tutoriales creados en el sistema.', style: GoogleFonts.nunito(color: Colors.red))
+                            Text('No hay tutoriales creados en el sistema.', style: GoogleFonts.montserrat(color: Colors.red))
                           else
                             DropdownButtonFormField<String>(
                               value: tutorialRedireccionId,
@@ -986,7 +986,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                   borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                               ),
-                              style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                              style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                               items: tutorialesList.map((doc) {
                                 final tdata = doc.data() as Map<String, dynamic>;
                                 final String titulo = tdata['titulo'] ?? 'Sin título';
@@ -1020,7 +1020,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           if (snapshot.connectionState == ConnectionState.waiting)
                             const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
                           else if (cantigasList.isEmpty)
-                            Text('No hay canciones creadas en el sistema.', style: GoogleFonts.nunito(color: Colors.red))
+                            Text('No hay canciones creadas en el sistema.', style: GoogleFonts.montserrat(color: Colors.red))
                           else
                             DropdownButtonFormField<String>(
                               value: cantigaRedireccionId,
@@ -1035,7 +1035,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                   borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                               ),
-                              style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                              style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                               items: cantigasList.map((doc) {
                                 final sdata = doc.data() as Map<String, dynamic>;
                                 final String titulo = sdata['titulo'] ?? 'Sin título';
@@ -1069,7 +1069,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           if (snapshot.connectionState == ConnectionState.waiting)
                             const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
                           else if (productosList.isEmpty)
-                            Text('No hay productos creados en el sistema.', style: GoogleFonts.nunito(color: Colors.red))
+                            Text('No hay productos creados en el sistema.', style: GoogleFonts.montserrat(color: Colors.red))
                           else
                             DropdownButtonFormField<String>(
                               value: productoRedireccionId,
@@ -1084,7 +1084,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                   borderSide: BorderSide(color: GingaColors.borderLight),
                                 ),
                               ),
-                              style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                              style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                               items: productosList.map((doc) {
                                 final pdata = doc.data() as Map<String, dynamic>;
                                 final String nombre = pdata['nombre'] ?? 'Sin nombre';
@@ -1431,7 +1431,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                 height: 200,
                 padding: const EdgeInsets.all(20),
                 child: Center(
-                  child: Text('Error al cargar datos del alumno: ${snapshot.error}', style: GoogleFonts.nunito(color: Colors.red)),
+                  child: Text('Error al cargar datos del alumno: ${snapshot.error}', style: GoogleFonts.montserrat(color: Colors.red)),
                 ),
               );
             }
@@ -1560,7 +1560,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         const SizedBox(height: 8),
                         Text(
                           'Alumno: ' + alumnoNombre,
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                             fontSize: 14,
                             color: GingaColors.textSecondary,
                             fontWeight: FontWeight.bold,
@@ -1570,7 +1570,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           const SizedBox(height: 4),
                           Text(
                             'Horario del Alumno: ' + listDiasClase.join(", "),
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 13,
                               color: GingaColors.brandGreen,
                               fontWeight: FontWeight.w700,
@@ -1597,7 +1597,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 children: [
                                   Text(
                                     'Vencimiento actual:',
-                                    style: GoogleFonts.nunito(
+                                    style: GoogleFonts.montserrat(
                                       fontSize: 11,
                                       color: GingaColors.textSecondary,
                                     ),
@@ -1646,7 +1646,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             filled: true,
                             fillColor: const Color(0xFFF8F8F8),
                           ),
-                          style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                          style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                           items: const [
                             DropdownMenuItem(value: 'feriado', child: Text('Feriado / Festivo 📅')),
                             DropdownMenuItem(value: 'inasistencia_justificada', child: Text('Inasistencia Justificada (Límite 2) 🤒')),
@@ -1744,7 +1744,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             onChanged: (val) => setStateModal(() { detalleMotivoText = val.trim(); }),
                             decoration: InputDecoration(
                               hintText: 'Ej: San Pedro y San Pablo',
-                              hintStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary),
+                              hintStyle: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textSecondary),
                               filled: true,
                               fillColor: const Color(0xFFF8F8F8),
                               border: OutlineInputBorder(
@@ -1752,7 +1752,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 borderSide: BorderSide(color: GingaColors.borderLight),
                               ),
                             ),
-                            style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                            style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 16),
                         ] else if (motivoSeleccionado == 'inasistencia_justificada') ...[
@@ -1828,7 +1828,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             ),
                             child: Text(
                               warningMessage!,
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                 fontSize: 12,
                                 color: warningMessage!.contains('❌') 
                                     ? Colors.red.shade900 
@@ -1987,7 +1987,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                               ),
                               Text(
                                 isCustomDate ? 'Fecha Libre' : (motivoSeleccionado == 'congelar' ? 'congelamiento' : 'proyección de clase'),
-                                style: GoogleFonts.nunito(
+                                style: GoogleFonts.montserrat(
                                   fontSize: 11,
                                   color: GingaColors.brandGreen,
                                   fontWeight: FontWeight.bold,
@@ -2056,7 +2056,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                         children: [
                                           Text(
                                             motivoLabel + ' - ' + det,
-                                            style: GoogleFonts.nunito(
+                                            style: GoogleFonts.montserrat(
                                               fontSize: 11.5,
                                               fontWeight: FontWeight.w700,
                                               color: GingaColors.textPrimary,
@@ -2065,7 +2065,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                           if (fechaC != null)
                                             Text(
                                               'Otorgado: ' + fechaC.day.toString() + '/' + fechaC.month.toString() + '/' + fechaC.year.toString(),
-                                              style: GoogleFonts.nunito(
+                                              style: GoogleFonts.montserrat(
                                                 fontSize: 10,
                                                 color: GingaColors.textSecondary,
                                               ),
@@ -2305,7 +2305,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 color: GingaColors.textPrimary)),
                         const SizedBox(height: 8),
                         Text('Alumno: ${data['nombre'] ?? 'Sin nombre'}',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                                 fontSize: 16, color: GingaColors.textSecondary)),
                         
                         const SizedBox(height: 20),
@@ -2318,7 +2318,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           const Center(child: CircularProgressIndicator(color: GingaColors.brandGreen))
                         else if (clasesList.isEmpty)
                           Text('No hay clases creadas en la base de datos.',
-                              style: GoogleFonts.nunito(fontSize: 13, color: Colors.red))
+                              style: GoogleFonts.montserrat(fontSize: 13, color: Colors.red))
                         else
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -2330,10 +2330,10 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
                                 value: claseSeleccionadaId,
-                                hint: Text('Selecciona una clase regular', style: GoogleFonts.nunito(fontSize: 13)),
+                                hint: Text('Selecciona una clase regular', style: GoogleFonts.montserrat(fontSize: 13)),
                                 isExpanded: true,
                                 icon: Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
-                                style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+                                style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
                                 items: clasesList.map((doc) {
                                   final cData = doc.data() as Map<String, dynamic>;
                                   final nombre = cData['nombre'] ?? 'Sin nombre';
@@ -2486,7 +2486,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                               value: metodoPagoSeleccionado,
                               isExpanded: true,
                               icon: Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
-                              style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w700),
+                              style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w700),
                               items: metodosPago.map((metodo) {
                                 return DropdownMenuItem<String>(
                                   value: metodo,
@@ -2699,7 +2699,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
               const SizedBox(height: 6),
               Text(
                 'Alumno: ${data['nombre'] ?? 'Sin nombre'}',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 14,
                   color: GingaColors.textSecondary,
                 ),
@@ -2714,7 +2714,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                 ),
                 child: RichText(
                   text: TextSpan(
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 13,
                       color: GingaColors.brandGreen,
                     ),
@@ -2849,7 +2849,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                     const SizedBox(height: 2),
                                     Text(
                                       corda.rango,
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                         fontSize: 11,
                                         color: GingaColors.textSecondary,
                                       ),
@@ -2899,7 +2899,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                               fontWeight: FontWeight.w800,
                               color: GingaColors.textPrimary)),
                       Text('Administra el perfil, fichas y membresías de tus alumnos',
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                               fontSize: 14, color: GingaColors.textSecondary)),
                     ],
                   ),
@@ -2971,12 +2971,12 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Buscar por nombre...',
-                      hintStyle: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary),
+                      hintStyle: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textSecondary),
                       prefixIcon: Icon(Icons.search, color: GingaColors.textSecondary, size: 20),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+                    style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
                     onChanged: (val) {
                       setState(() {
                         _searchQuery = val;
@@ -3070,7 +3070,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                   children: [
                     Text(
                       'Ver Alumnos de Baja',
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: GingaColors.textSecondary,
@@ -3109,7 +3109,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return Center(
                     child: Text('No hay alumnos registrados',
-                        style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
+                        style: GoogleFonts.montserrat(color: GingaColors.textSecondary)),
                   );
                 }
 
@@ -3158,7 +3158,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                       padding: const EdgeInsets.all(20.0),
                       child: Text('No se encontraron alumnos con los filtros seleccionados',
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
+                          style: GoogleFonts.montserrat(color: GingaColors.textSecondary)),
                     ),
                   );
                 }
@@ -3246,7 +3246,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(status.toUpperCase(),
-                                            style: GoogleFonts.nunito(
+                                            style: GoogleFonts.montserrat(
                                                 fontSize: 9,
                                                 fontWeight: FontWeight.w800,
                                                 color: status == 'activo'
@@ -3266,7 +3266,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                           ),
                                           child: Text(
                                             'SIN APP 📴',
-                                            style: GoogleFonts.nunito(
+                                            style: GoogleFonts.montserrat(
                                               fontSize: 9,
                                               fontWeight: FontWeight.w800,
                                               color: Colors.orange[800],
@@ -3275,7 +3275,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                         ),
                                       Text(
                                         '•  $userSede • $corda',
-                                        style: GoogleFonts.nunito(
+                                        style: GoogleFonts.montserrat(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
                                             color: GingaColors.textSecondary),
@@ -3289,7 +3289,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                         ),
                                         Text(
                                           'Vence: ${finDate.day}/${finDate.month}/${finDate.year}',
-                                          style: GoogleFonts.nunito(
+                                          style: GoogleFonts.montserrat(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w700,
                                             color: finDate.isBefore(DateTime.now()) ? Colors.redAccent : GingaColors.textSecondary,
@@ -3373,7 +3373,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
             SnackBar(
               content: Text(
                 'El alumno ya tiene asistencia registrada para el $fechaStr',
-                style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
               ),
               backgroundColor: Colors.orange,
             ),
@@ -3407,7 +3407,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
           SnackBar(
             content: Text(
               '¡Asistencia registrada con éxito para el $fechaStr! 🎉',
-              style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
             ),
             backgroundColor: GingaColors.brandGreen,
           ),
@@ -3420,7 +3420,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
           SnackBar(
             content: Text(
               'Error al registrar la asistencia. Intenta de nuevo.',
-              style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
             ),
             backgroundColor: Colors.red,
           ),
@@ -3493,7 +3493,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                       const SizedBox(height: 6),
                       Text(
                         'Crea un nuevo alumno para monitorear sus mensualidades, asistencias y notas.',
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 13,
                           color: GingaColors.textSecondary,
                         ),
@@ -3514,13 +3514,13 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         controller: nombreController,
                         decoration: InputDecoration(
                           hintText: 'Ej. Amaru Valenzuela',
-                          hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                          hintStyle: GoogleFonts.montserrat(color: GingaColors.textSecondary),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(GingaRadius.md),
                             borderSide: BorderSide(color: GingaColors.borderLight),
                           ),
                         ),
-                        style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                        style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'El nombre es obligatorio';
@@ -3548,11 +3548,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             borderSide: BorderSide(color: GingaColors.borderLight),
                           ),
                         ),
-                        style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                        style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
                         items: sedesDisponibles.map((s) {
                           return DropdownMenuItem<String>(
                             value: s,
-                            child: Text(s, style: GoogleFonts.nunito(color: GingaColors.textPrimary)),
+                            child: Text(s, style: GoogleFonts.montserrat(color: GingaColors.textPrimary)),
                           );
                         }).toList(),
                         onChanged: (val) {
@@ -3583,11 +3583,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             borderSide: BorderSide(color: GingaColors.borderLight),
                           ),
                         ),
-                        style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                        style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
                         items: CuerdasFIU.lista.map((c) {
                           return DropdownMenuItem<String>(
                             value: c.nombre,
-                            child: Text(c.nombre, style: GoogleFonts.nunito(color: GingaColors.textPrimary)),
+                            child: Text(c.nombre, style: GoogleFonts.montserrat(color: GingaColors.textPrimary)),
                           );
                         }).toList(),
                         onChanged: (val) {
@@ -3618,7 +3618,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             borderSide: BorderSide(color: GingaColors.borderLight),
                           ),
                         ),
-                        style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                        style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
                         items: const [
                           DropdownMenuItem(value: 'activo', child: Text('Activo')),
                           DropdownMenuItem(value: 'prueba', child: Text('Periodo de Prueba')),
@@ -3649,13 +3649,13 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           hintText: isOffline ? 'Ficticio (Ej. amaru_offline@ginga.app)' : 'Ej. amaru@gmail.com',
-                          hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                          hintStyle: GoogleFonts.montserrat(color: GingaColors.textSecondary),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(GingaRadius.md),
                             borderSide: BorderSide(color: GingaColors.borderLight),
                           ),
                         ),
-                        style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+                        style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
                         enabled: !isOffline,
                       ),
                       const SizedBox(height: 10),
@@ -3678,7 +3678,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 ),
                                 Text(
                                   'Activa esta opción si el alumno no usará la app. Se generará un correo único de respaldo.',
-                                  style: GoogleFonts.nunito(
+                                  style: GoogleFonts.montserrat(
                                     fontSize: 11,
                                     color: GingaColors.textSecondary,
                                   ),
@@ -3822,13 +3822,13 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
             maxLines: 5,
             decoration: InputDecoration(
               hintText: 'Escribe aquí observaciones, lesiones, comportamiento...',
-              hintStyle: GoogleFonts.nunito(color: GingaColors.textSecondary),
+              hintStyle: GoogleFonts.montserrat(color: GingaColors.textSecondary),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(GingaRadius.md),
                 borderSide: BorderSide(color: GingaColors.borderLight),
               ),
             ),
-            style: GoogleFonts.nunito(color: GingaColors.textPrimary),
+            style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
           ),
           actions: [
             TextButton(
@@ -3963,7 +3963,7 @@ class _FichaAsistenciasCalendarState extends State<_FichaAsistenciasCalendar> {
                     ),
                     child: Text(
                       '${asistenciasFechas.length} clases',
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: GingaColors.brandGreen,
@@ -3999,8 +3999,8 @@ class _FichaAsistenciasCalendarState extends State<_FichaAsistenciasCalendar> {
                   weekendStyle: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w600, color: GingaColors.brandGreen),
                 ),
                 calendarStyle: CalendarStyle(
-                  defaultTextStyle: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textPrimary),
-                  weekendTextStyle: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textPrimary),
+                  defaultTextStyle: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textPrimary),
+                  weekendTextStyle: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textPrimary),
                   outsideDaysVisible: false,
                 ),
                 onPageChanged: (focusedDay) {
@@ -4096,7 +4096,7 @@ class _StudentProgressText extends StatelessWidget {
         if (!snapshot.hasData) {
           return Text(
             ' • 🎯 ...%',
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: GingaColors.textSecondary,
@@ -4113,7 +4113,7 @@ class _StudentProgressText extends StatelessWidget {
 
         return Text(
           ' • 🎯 $porcentajeInt%',
-          style: GoogleFonts.nunito(
+          style: GoogleFonts.montserrat(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: GingaColors.brandGreen,
@@ -4215,7 +4215,7 @@ class _FichaProgresoCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       descCorda,
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 12,
                         color: GingaColors.textSecondary,
                         fontWeight: FontWeight.w600,

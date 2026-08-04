@@ -395,14 +395,14 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     return TextFormField(
       controller: controller,
       enabled: false,
-      style: GoogleFonts.nunito(
+      style: GoogleFonts.montserrat(
         fontSize: 14,
         color: GingaColors.textPrimary.withOpacity(0.7),
         fontWeight: FontWeight.w600,
       ),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: GoogleFonts.nunito(
+        labelStyle: GoogleFonts.montserrat(
           color: GingaColors.textSecondary,
           fontSize: 13,
           fontWeight: FontWeight.w500,
@@ -441,20 +441,20 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       controller: controller,
       keyboardType: keyboardType,
       maxLines: maxLines,
-      style: GoogleFonts.nunito(
+      style: GoogleFonts.montserrat(
         fontSize: 14,
         color: GingaColors.textPrimary,
         fontWeight: FontWeight.w600,
       ),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: GoogleFonts.nunito(
+        labelStyle: GoogleFonts.montserrat(
           color: GingaColors.textSecondary,
           fontSize: 13,
           fontWeight: FontWeight.w500,
         ),
         hintText: hint,
-        hintStyle: GoogleFonts.nunito(
+        hintStyle: GoogleFonts.montserrat(
           color: GingaColors.textSecondary.withOpacity(0.5),
           fontSize: 13,
         ),
@@ -512,20 +512,20 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       ),
       child: DropdownButtonFormField<String>(
         value: value,
-        style: GoogleFonts.nunito(
+        style: GoogleFonts.montserrat(
           fontSize: 14,
           color: GingaColors.textPrimary,
           fontWeight: FontWeight.w600,
         ),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: GoogleFonts.nunito(
+          labelStyle: GoogleFonts.montserrat(
             color: GingaColors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
           hintText: hint,
-          hintStyle: GoogleFonts.nunito(
+          hintStyle: GoogleFonts.montserrat(
             color: GingaColors.textSecondary.withOpacity(0.5),
             fontSize: 13,
           ),
@@ -580,7 +580,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                 children: [
                   Text(
                     label,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       color: GingaColors.textSecondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
@@ -589,7 +589,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                   const SizedBox(height: 2),
                   Text(
                     text,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 14,
                       color: date != null ? GingaColors.textPrimary : GingaColors.textSecondary.withOpacity(0.6),
                       fontWeight: FontWeight.w600,

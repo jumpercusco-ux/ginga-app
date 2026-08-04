@@ -69,7 +69,7 @@ void _confirmDeleteClase(BuildContext context, String claseId, String name, Stri
         ),
         content: Text(
           '¿Estás seguro de que deseas eliminar "$name"? Se borrarán todos los registros asociados de forma permanente.',
-          style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+          style: GoogleFonts.montserrat(color: GingaColors.textSecondary),
         ),
         actions: [
           TextButton(
@@ -192,7 +192,7 @@ class _InstructorDashboard extends StatelessWidget {
       child: Center(
         child: Text(
           message,
-          style: GoogleFonts.nunito(
+          style: GoogleFonts.montserrat(
             color: GingaColors.textSecondary,
             fontSize: 13,
           ),
@@ -231,7 +231,7 @@ class _InstructorDashboard extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                             color: GingaColors.textPrimary)),
                     Text('Gestión de clases',
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                             fontSize: 14,
                             color: GingaColors.textSecondary)),
                   ],
@@ -292,7 +292,7 @@ class _InstructorDashboard extends StatelessWidget {
                                   style: GoogleFonts.montserrat(
                                       fontSize: 15, fontWeight: FontWeight.w700, color: GingaColors.textPrimary)),
                               Text('Conversaciones capturadas desde anuncios',
-                                  style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary)),
+                                  style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary)),
                             ],
                           ),
                         ),
@@ -304,7 +304,7 @@ class _InstructorDashboard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(GingaRadius.full),
                             ),
                             child: Text('$nuevos nuevo${nuevos == 1 ? '' : 's'}',
-                                style: GoogleFonts.nunito(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black87)),
+                                style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black87)),
                           )
                         else
                           Icon(Icons.chevron_right, color: GingaColors.textSecondary),
@@ -445,7 +445,7 @@ class _InstructorDashboard extends StatelessWidget {
                                 color: GingaColors.textPrimary)),
                         const SizedBox(height: 4),
                         Text('Administra precios, stock o agrega nuevos productos para que los alumnos los reserven.',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                                 fontSize: 12,
                                 color: GingaColors.textSecondary,
                                 height: 1.4)),
@@ -503,7 +503,7 @@ class _InstructorDashboard extends StatelessWidget {
                                 color: GingaColors.textPrimary)),
                         const SizedBox(height: 4),
                         Text('Crea, edita o elimina los tutoriales on-demand que los alumnos practican desde la biblioteca.',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                                 fontSize: 12,
                                 color: GingaColors.textSecondary,
                                 height: 1.4)),
@@ -553,7 +553,7 @@ class _InstructorDashboard extends StatelessWidget {
                                 color: GingaColors.textPrimary)),
                         const SizedBox(height: 4),
                         Text('Sincroniza las letras de cantigas de capoeira en tiempo real para activar el modo Karaoke de tus alumnos.',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                                 fontSize: 12,
                                 color: GingaColors.textSecondary,
                                 height: 1.4)),
@@ -941,7 +941,7 @@ class _ClaseInstructorCard extends StatelessWidget {
                           Text(dias,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                   fontSize: 11,
                                   color: GingaColors.textSecondary)),
                       ],
@@ -959,7 +959,7 @@ class _ClaseInstructorCard extends StatelessWidget {
                                   ? Colors.red
                                   : GingaColors.brandGreen)),
                       Text('cupos',
-                          style: GoogleFonts.nunito(
+                          style: GoogleFonts.montserrat(
                               fontSize: 10,
                               color: GingaColors.textSecondary)),
                     ],
@@ -1089,7 +1089,7 @@ class _ReservaCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         color: GingaColors.textPrimary)),
                 Text('$hora — $dias',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                         fontSize: 12, color: GingaColors.textSecondary)),
               ],
             ),
@@ -1207,7 +1207,7 @@ class _ClaseHistorialGroupCardState extends State<_ClaseHistorialGroupCard> {
             ),
             subtitle: Text(
               '${widget.hora} — ${widget.dias}',
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.montserrat(
                 fontSize: 11,
                 color: GingaColors.textSecondary,
               ),
@@ -1309,7 +1309,7 @@ class _ClaseHistorialGroupCardState extends State<_ClaseHistorialGroupCard> {
                             child: Text(
                               'No se han iniciado sesiones de esta clase aún.',
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                   fontSize: 12,
                                   color: GingaColors.textSecondary,
                                   fontStyle: FontStyle.italic,
@@ -1436,7 +1436,7 @@ class _SessionDateItem extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '$nivel — $fecha ($hora)',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 13,
                       color: GingaColors.textSecondary,
                     ),
@@ -1460,7 +1460,7 @@ class _SessionDateItem extends StatelessWidget {
                             child: Text(
                               'Ningún alumno registró asistencia en esta sesión.',
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                 fontSize: 13,
                                 color: GingaColors.textSecondary,
                                 fontStyle: FontStyle.italic,
@@ -1549,7 +1549,7 @@ class _SessionDateItem extends StatelessWidget {
         ),
         subtitle: Text(
           hora,
-          style: GoogleFonts.nunito(
+          style: GoogleFonts.montserrat(
             fontSize: 10,
             color: GingaColors.textSecondary,
           ),
@@ -1666,7 +1666,7 @@ class _AttendeeHistorialTile extends StatelessWidget {
                   email,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 10,
                     color: GingaColors.textSecondary,
                   ),
@@ -1801,7 +1801,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                   },
                   child: Text(
                     'Marcar leídas',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       color: GingaColors.brandGreen,
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
@@ -1833,7 +1833,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                           const SizedBox(height: 12),
                           Text(
                             'No tienes notificaciones aún',
-                            style: GoogleFonts.nunito(color: GingaColors.textSecondary, fontSize: 14),
+                            style: GoogleFonts.montserrat(color: GingaColors.textSecondary, fontSize: 14),
                           ),
                         ],
                       ),
@@ -1854,7 +1854,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                           const SizedBox(height: 12),
                           Text(
                             'No tienes notificaciones aún',
-                            style: GoogleFonts.nunito(color: GingaColors.textSecondary, fontSize: 14),
+                            style: GoogleFonts.montserrat(color: GingaColors.textSecondary, fontSize: 14),
                           ),
                         ],
                       ),
@@ -1965,7 +1965,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                                     const SizedBox(height: 4),
                                     Text(
                                       mensaje,
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                         fontSize: 12,
                                         color: GingaColors.textSecondary,
                                         height: 1.4,

@@ -92,7 +92,7 @@ class DesactivadaScreen extends StatelessWidget {
               Text(
                 'Tu perfil de alumno ha sido dado de baja o archivado por la administración de la academia.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: GingaColors.textSecondary,
@@ -103,7 +103,7 @@ class DesactivadaScreen extends StatelessWidget {
               Text(
                 'Para volver a activar tu cuenta y continuar entrenando, comunícate con tu profesor encargado para coordinar la renovación de tu membresía.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 13,
                   color: GingaColors.textSecondary,
                   height: 1.5,

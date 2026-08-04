@@ -223,7 +223,7 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                     const SizedBox(height: 12),
                     Text(
                       'Este tutorial está restringido para alumnos de graduación Cuerda ${tutorialCorda.nombre} o superior.',
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 15,
                         color: Colors.white70,
                         height: 1.5,
@@ -365,7 +365,7 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                               const SizedBox(height: 8),
                               Text(
                                 'Error al reproducir el video',
-                                style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.bold),
+                                style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -435,7 +435,7 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                       const SizedBox(height: 4),
                       Text(
                         'Instrucción por Mestre Enrique',
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: GingaColors.brandGreen,
@@ -454,7 +454,7 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                       const SizedBox(height: 8),
                       Text(
                         widget.description,
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 15,
                           height: 1.6,
                           color: GingaColors.textSecondary,
@@ -645,7 +645,7 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                 const SizedBox(height: 6),
                 Text(
                   desc,
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 13,
                     color: GingaColors.textSecondary,
                     height: 1.4,

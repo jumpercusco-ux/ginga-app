@@ -80,7 +80,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                 Expanded(
                   child: Text(
                     '¡Cantiga "${_tituloController.text.trim()}" agregada con éxito! 🎤',
-                    style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+                    style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -161,7 +161,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                       // Instrucción
                       Text(
                         'Completa los detalles de la nueva canción de capoeira. Una vez guardada, estará disponible de inmediato en la biblioteca y podrás sincronizar sus letras.',
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 13.5,
                           color: GingaColors.textSecondary,
                           height: 1.5,
@@ -173,7 +173,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                       _buildLabel('Título de la Cantiga *'),
                       TextFormField(
                         controller: _tituloController,
-                        style: GoogleFonts.nunito(fontSize: 14.5, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                        style: GoogleFonts.montserrat(fontSize: 14.5, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
                             return 'Por favor ingresa el título de la canción';
@@ -208,7 +208,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                                       value: _ritmoSeleccionado,
                                       isExpanded: true,
                                       icon: Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
-                                      style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w700),
+                                      style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w700),
                                       items: _ritmos.map((ritmo) {
                                         return DropdownMenuItem<String>(
                                           value: ritmo,
@@ -237,7 +237,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                                 _buildLabel('Duración'),
                                 TextFormField(
                                   controller: _duracionController,
-                                  style: GoogleFonts.nunito(fontSize: 14.5, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                                  style: GoogleFonts.montserrat(fontSize: 14.5, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                                   decoration: _buildInputDecoration(
                                     hintText: 'Ej. 2:30',
                                     prefixIcon: Icons.timer_outlined,
@@ -254,7 +254,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                       _buildLabel('Autor / Mestre'),
                       TextFormField(
                         controller: _autorController,
-                        style: GoogleFonts.nunito(fontSize: 14.5, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                        style: GoogleFonts.montserrat(fontSize: 14.5, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                         decoration: _buildInputDecoration(
                           hintText: 'Ej. Tradicional o Mestre Pastinha',
                           prefixIcon: Icons.person_outline_rounded,
@@ -266,7 +266,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                       _buildLabel('Intérprete / Cantor'),
                       TextFormField(
                         controller: _interpreteController,
-                        style: GoogleFonts.nunito(fontSize: 14.5, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
+                        style: GoogleFonts.montserrat(fontSize: 14.5, color: GingaColors.textPrimary, fontWeight: FontWeight.w600),
                         decoration: _buildInputDecoration(
                           hintText: 'Ej. Mestre Barrão o Mestre Toni Vargas',
                           prefixIcon: Icons.record_voice_over_rounded,
@@ -278,7 +278,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                       _buildLabel('Contexto / Historia de la Cantiga'),
                       TextFormField(
                         controller: _contextoController,
-                        style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+                        style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
                         maxLines: 3,
                         decoration: _buildInputDecoration(
                           hintText: '¿Cuándo se canta en la roda? ¿Cuál es su trasfondo histórico?',
@@ -291,7 +291,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                       _buildLabel('Enlace de Audio (.mp3) (Opcional)'),
                       TextFormField(
                         controller: _audioUrlController,
-                        style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+                        style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
                         decoration: _buildInputDecoration(
                           hintText: 'https://ejemplo.com/cancion.mp3',
                           prefixIcon: Icons.link_rounded,
@@ -303,7 +303,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                       _buildLabel('Letra en Portugués *'),
                       TextFormField(
                         controller: _letraPtController,
-                        style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, height: 1.4),
+                        style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, height: 1.4),
                         maxLines: 8,
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
@@ -322,7 +322,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
                       _buildLabel('Letra en Español (Traducción)'),
                       TextFormField(
                         controller: _letraEsController,
-                        style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, height: 1.4),
+                        style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, height: 1.4),
                         maxLines: 8,
                         decoration: _buildInputDecoration(
                           hintText: 'Traducción o adaptación en español de la letra para el aprendizaje de los alumnos.',
@@ -392,7 +392,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
   InputDecoration _buildInputDecoration({required String hintText, required IconData prefixIcon}) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: GoogleFonts.nunito(fontSize: 13.5, color: GingaColors.textSecondary.withOpacity(0.55)),
+      hintStyle: GoogleFonts.montserrat(fontSize: 13.5, color: GingaColors.textSecondary.withOpacity(0.55)),
       prefixIcon: Icon(prefixIcon, color: GingaColors.textSecondary.withOpacity(0.8), size: 20),
       filled: true,
       fillColor: Colors.white,
@@ -417,7 +417,7 @@ class _CrearCantigaScreenState extends State<CrearCantigaScreen> {
         borderRadius: BorderRadius.circular(GingaRadius.md),
         borderSide: const BorderSide(color: Colors.red, width: 1.5),
       ),
-      errorStyle: GoogleFonts.nunito(fontSize: 11, color: Colors.red.shade700),
+      errorStyle: GoogleFonts.montserrat(fontSize: 11, color: Colors.red.shade700),
     );
   }
 }

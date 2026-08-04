@@ -113,7 +113,7 @@ class _Hero extends StatelessWidget {
                 Text(
                   'Capoeira en Cusco. Un espacio donde el movimiento, la música y la agilidad se unen para romper tus propios límites.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.nunito(fontSize: 16, color: Colors.white.withOpacity(0.9), height: 1.5),
+                  style: GoogleFonts.montserrat(fontSize: 16, color: Colors.white.withOpacity(0.9), height: 1.5),
                 ),
                 const SizedBox(height: GingaSpacing.xl),
                 _WhatsAppButton(onTap: onWhatsApp),
@@ -122,7 +122,7 @@ class _Hero extends StatelessWidget {
                   onTap: () => context.go('/login'),
                   child: Text(
                     '¿Ya eres alumno? Inicia sesión',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 13,
                       color: Colors.white70,
                       decoration: TextDecoration.underline,
@@ -181,7 +181,7 @@ class _Propuesta extends StatelessWidget {
           Text(
             'Sin compromiso. Ven, prueba, y decide si esto es para ti.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.nunito(fontSize: 15, color: GingaColors.textSecondary),
+            style: GoogleFonts.montserrat(fontSize: 15, color: GingaColors.textSecondary),
           ),
           const SizedBox(height: GingaSpacing.xl),
           Wrap(
@@ -216,7 +216,7 @@ class _Feature extends StatelessWidget {
           Text(
             text,
             textAlign: TextAlign.center,
-            style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary),
+            style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textSecondary),
           ),
         ],
       ),
@@ -309,10 +309,10 @@ class _GrupoCard extends StatelessWidget {
                     style: GoogleFonts.montserrat(fontSize: 17, fontWeight: FontWeight.w800, color: GingaColors.textPrimary)),
                 const SizedBox(height: 4),
                 Text(subtitulo,
-                    style: GoogleFonts.nunito(fontSize: 12.5, fontWeight: FontWeight.w700, color: GingaColors.brandGreen)),
+                    style: GoogleFonts.montserrat(fontSize: 12.5, fontWeight: FontWeight.w700, color: GingaColors.brandGreen)),
                 const SizedBox(height: 6),
                 Text(descripcion,
-                    style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textSecondary, height: 1.4)),
+                    style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textSecondary, height: 1.4)),
               ],
             ),
           ),
@@ -340,7 +340,7 @@ class _CtaFinal extends StatelessWidget {
           Text(
             'Escríbenos y te ayudamos a encontrar el horario ideal para ti.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textSecondary),
+            style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textSecondary),
           ),
           const SizedBox(height: GingaSpacing.lg),
           ConstrainedBox(
@@ -368,7 +368,7 @@ class _Footer extends StatelessWidget {
             onTap: () => context.go('/onboarding'),
             child: Text(
               'Prefiero crear una cuenta',
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.montserrat(
                 fontSize: 12,
                 color: GingaColors.textSecondary,
                 decoration: TextDecoration.underline,

@@ -218,7 +218,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   Text(
                     'Mantén el código dentro del recuadro verde para escanear',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 13,
                       color: Colors.white70,
                     ),

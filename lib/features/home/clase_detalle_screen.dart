@@ -254,7 +254,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('¡Clase de prueba reservada! 🎉',
-            style: GoogleFonts.nunito(color: Colors.white)),
+            style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: GingaColors.brandGreen,
       ));
       context.go('/home');
@@ -263,7 +263,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Error al reservar. Intenta de nuevo.',
-            style: GoogleFonts.nunito(color: Colors.white)),
+            style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
     } finally {
@@ -328,7 +328,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'Estás por reservar tu clase de prueba gratuita. Por favor confirma los detalles de la sesión:',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 14,
                       color: GingaColors.textSecondary,
                       height: 1.4,
@@ -394,7 +394,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                         Expanded(
                           child: Text(
                             'Beneficio: 1 Sesión Gratis de Prueba 🥋',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: GingaColors.brandGreen,
@@ -477,7 +477,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
           width: 110,
           child: Text(
             '$label: ',
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: GingaColors.textSecondary,
@@ -487,7 +487,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
         Expanded(
           child: Text(
             value,
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: GingaColors.textPrimary,
@@ -509,7 +509,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
         ),
         content: Text(
           'Para inscribirte a este evento o roda especial de la academia, debes ser un alumno registrado con membresía activa o en periodo de prueba.\n\nSi eres un usuario nuevo, solicita tu clase de prueba gratuita en la pantalla de inicio para comenzar.',
-          style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textSecondary, height: 1.5),
+          style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textSecondary, height: 1.5),
         ),
         actions: [
           TextButton(
@@ -583,7 +583,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('¡Asistencia al evento confirmada! 🎉',
-                style: GoogleFonts.nunito(color: Colors.white)),
+                style: GoogleFonts.montserrat(color: Colors.white)),
             backgroundColor: GingaColors.brandGreen,
           ),
         );
@@ -594,7 +594,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al confirmar asistencia. Intenta de nuevo.',
-                style: GoogleFonts.nunito(color: Colors.white)),
+                style: GoogleFonts.montserrat(color: Colors.white)),
             backgroundColor: Colors.red,
           ),
         );
@@ -645,7 +645,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                 const SizedBox(height: 16),
                 Text(
                   value,
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 14,
                     color: GingaColors.textPrimary,
                     height: 1.5,
@@ -722,7 +722,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
             const SizedBox(height: 6),
             Text(
               value,
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.montserrat(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: GingaColors.textPrimary,
@@ -770,7 +770,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
             body: Center(
               child: Text(
                 'La clase no se encuentra disponible',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                     fontSize: 16, color: GingaColors.textSecondary),
               ),
             ),
@@ -1188,7 +1188,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                                   const SizedBox(height: 6),
                                   Text(
                                     'Sesión Oficial de Capoeira',
-                                    style: GoogleFonts.nunito(
+                                    style: GoogleFonts.montserrat(
                                       fontSize: 14,
                                       color: Colors.white.withOpacity(0.8),
                                     ),
@@ -1238,7 +1238,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                                 cuposDisponibles == 0
                                     ? 'Clase Llena'
                                     : 'Disponibles',
-                                style: GoogleFonts.nunito(
+                                style: GoogleFonts.montserrat(
                                   fontSize: 13,
                                   color: GingaColors.textSecondary,
                                   fontWeight: FontWeight.w600,
@@ -1323,7 +1323,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                                     ),
                                     Text(
                                       'Profesor Certificado de Ginga',
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                         fontSize: 12,
                                         color: GingaColors.textSecondary,
                                       ),
@@ -1410,7 +1410,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                             },
                             child: Text(
                               'Abrir en Maps',
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                 fontSize: 13,
                                 color: GingaColors.brandGreen,
                                 fontWeight: FontWeight.w600,
@@ -1496,7 +1496,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                                       const SizedBox(width: 4),
                                       Text(
                                         'Toca para navegar',
-                                        style: GoogleFonts.nunito(
+                                        style: GoogleFonts.montserrat(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                           color: GingaColors.textPrimary,
@@ -1535,7 +1535,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                         displayDescription.isNotEmpty
                             ? displayDescription
                             : 'En esta clase de Capoeira aprenderás los fundamentos esenciales de la disciplina: movimientos básicos (ginga, esquivas, patadas), nociones de musicalidad, ritmo y la estructura tradicional de la Roda. Ideal para mejorar tu coordinación, flexibilidad y conectar con una comunidad global vibrante.',
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 13.5,
                           color: GingaColors.textSecondary,
                           height: 1.5,
@@ -1636,7 +1636,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                                               const SizedBox(width: 8),
                                               Text(
                                                 hora,
-                                                style: GoogleFonts.nunito(
+                                                style: GoogleFonts.montserrat(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                   color: GingaColors.brandGreen,
@@ -1647,7 +1647,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                                           const SizedBox(height: 6),
                                           Text(
                                             act,
-                                            style: GoogleFonts.nunito(
+                                            style: GoogleFonts.montserrat(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w600,
                                               color: GingaColors.textPrimary,
@@ -1721,7 +1721,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                 ),
                 child: Text(
                   'No hay alumnos regulares inscritos en esta clase.',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 13,
                     color: GingaColors.textSecondary,
                     fontStyle: FontStyle.italic,
@@ -1770,7 +1770,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                             ),
                             Text(
                               'Cuerda: $corda',
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                 fontSize: 11,
                                 color: GingaColors.textSecondary,
                               ),
@@ -1830,7 +1830,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                 ),
                 child: Text(
                   'No hay reservas registradas para esta clase.',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 13,
                     color: GingaColors.textSecondary,
                     fontStyle: FontStyle.italic,
@@ -1897,7 +1897,7 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
                                 ),
                                 Text(
                                   isPrueba ? 'Clase de Prueba — Grado: $corda' : 'Evento / Roda Especial',
-                                  style: GoogleFonts.nunito(
+                                  style: GoogleFonts.montserrat(
                                     fontSize: 11,
                                     color: GingaColors.textSecondary,
                                   ),

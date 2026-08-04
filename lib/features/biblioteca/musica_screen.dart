@@ -58,7 +58,7 @@ class MusicaScreen extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 'Aprende los toques del berimbau y canta las cantigas de capoeira',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 14,
                   color: GingaColors.textSecondary,
                 ),
@@ -195,7 +195,7 @@ class _MusicaMenuCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     subtitulo,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 12,
                       color: GingaColors.textSecondary,
                       height: 1.4,

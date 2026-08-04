@@ -89,7 +89,7 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                 final label = _statuses[index];
                 final selected = _selectedStatusFilter == label;
                 return ChoiceChip(
-                  label: Text(label, style: GoogleFonts.nunito(fontWeight: FontWeight.w600, fontSize: 12)),
+                  label: Text(label, style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 12)),
                   selected: selected,
                   selectedColor: GingaColors.brandGreen.withOpacity(0.15),
                   labelStyle: TextStyle(color: selected ? GingaColors.brandGreen : GingaColors.textSecondary),
@@ -111,7 +111,7 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return Center(
                     child: Text('Todavía no hay leads de WhatsApp.',
-                        style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
+                        style: GoogleFonts.montserrat(color: GingaColors.textSecondary)),
                   );
                 }
 
@@ -125,7 +125,7 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                 if (docs.isEmpty) {
                   return Center(
                     child: Text('Sin leads en "$_selectedStatusFilter".',
-                        style: GoogleFonts.nunito(color: GingaColors.textSecondary)),
+                        style: GoogleFonts.montserrat(color: GingaColors.textSecondary)),
                   );
                 }
 
@@ -157,10 +157,10 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(telefono, style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary)),
+                            Text(telefono, style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary)),
                             if (origen != null && origen['ad_id'] != null)
                               Text('Origen: anuncio ${origen['ad_id']}',
-                                  style: GoogleFonts.nunito(fontSize: 11, color: GingaColors.textSecondary)),
+                                  style: GoogleFonts.montserrat(fontSize: 11, color: GingaColors.textSecondary)),
                           ],
                         ),
                         trailing: Column(
@@ -174,11 +174,11 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(status.toUpperCase(),
-                                  style: GoogleFonts.nunito(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
+                                  style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
                             ),
                             const SizedBox(height: 4),
                             Text(_formatearHora(ultimaInteraccion),
-                                style: GoogleFonts.nunito(fontSize: 10, color: GingaColors.textSecondary)),
+                                style: GoogleFonts.montserrat(fontSize: 10, color: GingaColors.textSecondary)),
                             const SizedBox(height: 4),
                             Icon(
                               aiHabilitada ? Icons.smart_toy_outlined : Icons.person_outline,
@@ -250,7 +250,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
               children: [
                 Text(
                   'Se crea un alumno "sin aplicación" (offline) para tu control interno, sin que necesite instalar la app.',
-                  style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary),
+                  style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary),
                 ),
                 const SizedBox(height: GingaSpacing.md),
                 TextField(
@@ -328,13 +328,13 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Alumno "$nombre" creado con éxito.', style: GoogleFonts.nunito(color: Colors.white)),
+        content: Text('Alumno "$nombre" creado con éxito.', style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: GingaColors.brandGreen,
       ));
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Error al crear alumno: $e', style: GoogleFonts.nunito(color: Colors.white)),
+        content: Text('Error al crear alumno: $e', style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
     }
@@ -370,7 +370,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('No se pudo enviar el mensaje: $e', style: GoogleFonts.nunito(color: Colors.white)),
+        content: Text('No se pudo enviar el mensaje: $e', style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
     } finally {
@@ -407,7 +407,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                   final aiHabilitada = (data?['ai_habilitada'] ?? true) != false;
                   return Row(
                     children: [
-                      Text('IA', style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary)),
+                      Text('IA', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary)),
                       Switch(
                         value: aiHabilitada,
                         activeThumbColor: GingaColors.brandGreen,
@@ -431,7 +431,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                     children: [
                       const Icon(Icons.check_circle, size: 16, color: GingaColors.brandGreen),
                       const SizedBox(width: 4),
-                      Text('Ya convertido en alumno', style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.textSecondary)),
+                      Text('Ya convertido en alumno', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary)),
                     ],
                   ),
                 );
@@ -443,7 +443,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                   child: OutlinedButton.icon(
                     onPressed: () => _convertirEnAlumno(context, leadRef),
                     icon: const Icon(Icons.school_outlined, size: 16, color: GingaColors.brandGreen),
-                    label: Text('Convertir en alumno', style: GoogleFonts.nunito(fontSize: 12, color: GingaColors.brandGreen)),
+                    label: Text('Convertir en alumno', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.brandGreen)),
                     style: OutlinedButton.styleFrom(side: const BorderSide(color: GingaColors.brandGreen)),
                   ),
                 ),
@@ -482,7 +482,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                         ),
                         child: Text(
                           data['texto'] ?? '',
-                          style: GoogleFonts.nunito(fontSize: 13, color: GingaColors.textPrimary),
+                          style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textPrimary),
                         ),
                       ),
                     );

@@ -42,7 +42,7 @@ class BibliotecaScreen extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 'Aprende, practica y descubre la cultura',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 14,
                   color: GingaColors.textSecondary,
                 ),
@@ -163,7 +163,7 @@ class BibliotecaScreen extends StatelessWidget {
                   ),
                   Text(
                     'Ver todas',
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 12,
                       color: GingaColors.brandGreen,
                       fontWeight: FontWeight.w600,
@@ -198,7 +198,7 @@ class BibliotecaScreen extends StatelessWidget {
                       child: Center(
                         child: Text(
                           'No hay lecciones en la biblioteca aún',
-                          style: GoogleFonts.nunito(color: GingaColors.textSecondary),
+                          style: GoogleFonts.montserrat(color: GingaColors.textSecondary),
                         ),
                       ),
                     );
@@ -355,7 +355,7 @@ class _SeccionCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     subtitulo,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.montserrat(
                       fontSize: 12,
                       color: GingaColors.textSecondary,
                       height: 1.4,
@@ -453,7 +453,7 @@ class _LeccionCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Icon(Icons.access_time_outlined, size: 12, color: GingaColors.textSecondary),
                       const SizedBox(width: 3),
-                      Text(duracion, style: GoogleFonts.nunito(fontSize: 11, color: GingaColors.textSecondary)),
+                      Text(duracion, style: GoogleFonts.montserrat(fontSize: 11, color: GingaColors.textSecondary)),
                     ],
                   ),
                 ],

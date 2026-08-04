@@ -123,7 +123,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
               RichText(
                 textAlign: TextAlign.center,
                 text: TextSpan(
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.montserrat(
                     fontSize: 14,
                     color: subtitleColor,
                     height: 1.4,
@@ -210,7 +210,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                     ],
                     Text(
                       cordaRequerida.descripcion,
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 12,
                         color: subtitleColor.withOpacity(0.9),
                         fontStyle: FontStyle.italic,
@@ -348,7 +348,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                         },
                         decoration: InputDecoration(
                           hintText: 'Buscar técnicas, movimientos...',
-                          hintStyle: GoogleFonts.nunito(color: subtitleColor.withOpacity(0.6)),
+                          hintStyle: GoogleFonts.montserrat(color: subtitleColor.withOpacity(0.6)),
                           prefixIcon: Icon(Icons.search, color: subtitleColor),
                           suffixIcon: _searchQuery.isNotEmpty
                               ? IconButton(
@@ -505,7 +505,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     'Prueba con otra palabra o categoría',
-                                    style: GoogleFonts.nunito(
+                                    style: GoogleFonts.montserrat(
                                       fontSize: 12,
                                       color: GingaColors.textSecondary.withOpacity(0.8),
                                     ),
@@ -664,7 +664,7 @@ class _TutorialesScreenState extends State<TutorialesScreen> {
                                                       const SizedBox(width: 3),
                                                       Text(
                                                         duracion,
-                                                        style: GoogleFonts.nunito(
+                                                        style: GoogleFonts.montserrat(
                                                           fontSize: 11,
                                                           color: GingaColors.textSecondary,
                                                         ),

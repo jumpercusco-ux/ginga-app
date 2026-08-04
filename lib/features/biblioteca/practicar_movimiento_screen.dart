@@ -265,7 +265,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
               const SizedBox(height: 6),
               Text(
                 'Observa el bucle guía y mantén la técnica',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 14,
                   color: GingaColors.textSecondary,
                 ),
@@ -367,7 +367,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                       ),
                       Text(
                         'restantes',
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                           fontSize: 11,
                           color: Colors.white.withOpacity(0.8),
                           fontWeight: FontWeight.w700,
@@ -461,7 +461,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                           const SizedBox(height: 6),
                           Text(
                             _motivationQuotes[_currentQuoteIndex],
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 13,
                               color: GingaColors.textPrimary,
                               height: 1.4,
@@ -495,7 +495,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
                     const SizedBox(width: 8),
                     Text(
                       'Base Rítmica Berimbau',
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 12,
                         color: _metronomeActive ? GingaColors.textPrimary : GingaColors.textSecondary,
                         fontWeight: FontWeight.w700,
@@ -643,7 +643,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
               const SizedBox(height: 12),
               Text(
                 'Has completado tu práctica diaria de ${widget.titulo}. Cada minuto de ginga te acerca más a tu próxima corda.',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.montserrat(
                   fontSize: 15,
                   color: GingaColors.textSecondary,
                   height: 1.5,
@@ -723,7 +723,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
         const SizedBox(height: 4),
         Text(
           label,
-          style: GoogleFonts.nunito(
+          style: GoogleFonts.montserrat(
             fontSize: 11,
             color: GingaColors.textSecondary,
             fontWeight: FontWeight.w600,
@@ -746,7 +746,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
           ),
           content: Text(
             'Si sales ahora, no se guardará el registro de práctica de hoy para este movimiento.',
-            style: GoogleFonts.nunito(),
+            style: GoogleFonts.montserrat(),
           ),
           actions: [
             TextButton(
@@ -784,7 +784,7 @@ class _PracticarMovimientoScreenState extends State<PracticarMovimientoScreen> {
           ),
           content: Text(
             '¿Ya has sudado la camiseta y dominado el movimiento? Si es así, puedes completar tu registro de hoy.',
-            style: GoogleFonts.nunito(),
+            style: GoogleFonts.montserrat(),
           ),
           actions: [
             TextButton(

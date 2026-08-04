@@ -189,7 +189,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                   color: GingaColors.textPrimary)),
           const SizedBox(height: 6),
           Text('Completa tu perfil de capoeira',
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.montserrat(
                   fontSize: 14, color: GingaColors.textSecondary)),
 
           const SizedBox(height: 28),
@@ -261,11 +261,11 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
           TextFormField(
             controller: _passwordController,
             obscureText: _obscurePassword,
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.montserrat(
                 fontSize: 14, color: GingaColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Contraseña',
-              hintStyle: GoogleFonts.nunito(
+              hintStyle: GoogleFonts.montserrat(
                   color: GingaColors.textSecondary, fontSize: 14),
               prefixIcon: Icon(Icons.lock_outline,
                   color: GingaColors.textSecondary, size: 20),
@@ -328,7 +328,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(_errorMessage!,
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                             fontSize: 13,
                             color: Colors.red.shade700)),
                   ),
@@ -380,7 +380,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
             onTap: () => context.go('/login'),
             child: Text(
               '¿Ya tienes cuenta? Inicia sesión',
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.montserrat(
                 fontSize: 13,
                 color: GingaColors.brandGreen,
                 fontWeight: FontWeight.w700,
@@ -453,10 +453,10 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary),
+      style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: GoogleFonts.nunito(
+        hintStyle: GoogleFonts.montserrat(
             color: GingaColors.textSecondary, fontSize: 14),
         prefixIcon:
             Icon(icon, color: GingaColors.textSecondary, size: 20),

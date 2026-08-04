@@ -15,7 +15,7 @@ class GingaColors {
   GingaColors._();
 
   // Primario (Marca)
-  static const Color brandGreen       = Color(0xFF388E3C); // Verde Principal
+  static const Color brandGreen       = Color(0xFF1E9B12); // Verde Principal (manual de marca)
   static const Color accentAmber      = Color(0xFFFBC02D); // Amarillo Dorado / Alerta
 
   // Neutros — Modo Claro
@@ -69,8 +69,7 @@ class GingaColors {
 class GingaTextStyles {
   GingaTextStyles._();
 
-  // Usa 'Montserrat' para headers (añadir al pubspec.yaml)
-  // Usa 'Nunito' para body (añadir al pubspec.yaml)
+  // Montserrat en toda la app (headers y body), según manual de marca.
 
   static TextStyle displayLarge = TextStyle(
     fontFamily: 'Montserrat',
@@ -96,14 +95,14 @@ class GingaTextStyles {
   );
 
   static TextStyle bodyLarge = TextStyle(
-    fontFamily: 'Nunito',
+    fontFamily: 'Montserrat',
     fontSize: 15,
     fontWeight: FontWeight.w400,
     color: GingaColors.textSecondary,
   );
 
   static TextStyle bodySmall = TextStyle(
-    fontFamily: 'Nunito',
+    fontFamily: 'Montserrat',
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: GingaColors.textSecondary,
@@ -127,7 +126,7 @@ class GingaTextStyles {
   );
 
   static const TextStyle bodyLargeDark = TextStyle(
-    fontFamily: 'Nunito',
+    fontFamily: 'Montserrat',
     fontSize: 15,
     fontWeight: FontWeight.w400,
     color: GingaColors.textMuted,
@@ -170,7 +169,7 @@ class GingaRadius {
 ThemeData get gingaLightTheme => ThemeData(
   useMaterial3: true,
   brightness: Brightness.light,
-  fontFamily: 'Nunito',
+  fontFamily: 'Montserrat',
 
   colorScheme: ColorScheme.light(
     primary:        GingaColors.brandGreen,
@@ -293,7 +292,7 @@ ThemeData get gingaLightTheme => ThemeData(
 ThemeData get gingaDarkTheme => ThemeData(
   useMaterial3: true,
   brightness: Brightness.dark,
-  fontFamily: 'Nunito',
+  fontFamily: 'Montserrat',
 
   colorScheme: ColorScheme.dark(
     primary:        GingaColors.accentGreenDark,

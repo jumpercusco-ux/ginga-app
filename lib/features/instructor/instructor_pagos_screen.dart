@@ -22,7 +22,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
         SnackBar(
           content: Text(
             'El alumno no tiene un número de teléfono registrado.',
-            style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+            style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
           ),
           backgroundColor: Colors.orange,
         ),
@@ -58,7 +58,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
           SnackBar(
             content: Text(
               'No se pudo abrir WhatsApp automáticamente. Copia el mensaje o verifica la instalación.',
-              style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
             ),
             backgroundColor: Colors.red,
           ),
@@ -111,7 +111,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                             color: GingaColors.textPrimary)),
                     const SizedBox(height: 6),
                     Text('Alumno: $nombre',
-                        style: GoogleFonts.nunito(
+                        style: GoogleFonts.montserrat(
                             fontSize: 14, color: GingaColors.textSecondary)),
                     Divider(height: 24, color: GingaColors.borderLight),
 
@@ -202,7 +202,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                           value: metodoPagoSeleccionado,
                           isExpanded: true,
                           icon: Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
-                          style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w700),
+                          style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w700),
                           items: metodosPago.map((metodo) {
                             return DropdownMenuItem<String>(
                               value: metodo,
@@ -290,7 +290,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                                 SnackBar(
                                   content: Text(
                                     '¡Membresía activada y pago registrado de S/ ${montoCobrado.toStringAsFixed(2)}! 🎉',
-                                    style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+                                    style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
                                   ),
                                   backgroundColor: GingaColors.brandGreen,
                                 ),
@@ -303,7 +303,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                                 SnackBar(
                                   content: Text(
                                     'Error al registrar el pago: $e',
-                                    style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+                                    style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
                                   ),
                                   backgroundColor: Colors.red,
                                 ),
@@ -396,7 +396,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                                 fontWeight: FontWeight.w800,
                                 color: GingaColors.textPrimary)),
                         Text('Control de cobros y caja',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                                 fontSize: 14,
                                 color: GingaColors.textSecondary)),
                       ],
@@ -532,7 +532,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                           child: Text(
                             '¡Excelente! Todos tus alumnos están al día con sus pagos. 🎉',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 13,
                               color: GingaColors.textSecondary,
                               fontWeight: FontWeight.w600,
@@ -601,7 +601,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                                     ),
                                     Text(
                                       fechaTexto,
-                                      style: GoogleFonts.nunito(
+                                      style: GoogleFonts.montserrat(
                                         fontSize: 11,
                                         color: GingaColors.textSecondary,
                                       ),
@@ -688,7 +688,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                         child: Center(
                           child: Text(
                             'Aún no has registrado transacciones en esta academia.',
-                            style: GoogleFonts.nunito(
+                            style: GoogleFonts.montserrat(
                               fontSize: 12,
                               color: GingaColors.textSecondary,
                               fontStyle: FontStyle.italic,
@@ -761,7 +761,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                                               ),
                                               Text(
                                                 'Método: $metodo • $dateStr',
-                                                style: GoogleFonts.nunito(
+                                                style: GoogleFonts.montserrat(
                                                   fontSize: 10,
                                                   color: GingaColors.textSecondary,
                                                 ),
@@ -829,7 +829,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
         ),
         content: Text(
           '¿Estás seguro de que deseas eliminar permanentemente el registro de pago de S/ ${monto.toStringAsFixed(2)} para $alumno?\n\nEsta acción recalculará la caja mensual al instante y no se puede deshacer.',
-          style: GoogleFonts.nunito(fontSize: 14, color: GingaColors.textSecondary, height: 1.5),
+          style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textSecondary, height: 1.5),
         ),
         actions: [
           TextButton(
@@ -847,7 +847,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Transacción eliminada con éxito 🎉', style: GoogleFonts.nunito(color: Colors.white)),
+                      content: Text('Transacción eliminada con éxito 🎉', style: GoogleFonts.montserrat(color: Colors.white)),
                       backgroundColor: GingaColors.brandGreen,
                     ),
                   );
@@ -856,7 +856,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Error al eliminar transacción: $e', style: GoogleFonts.nunito(color: Colors.white)),
+                      content: Text('Error al eliminar transacción: $e', style: GoogleFonts.montserrat(color: Colors.white)),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -927,7 +927,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                     const SizedBox(height: 16),
                     Text(
                       'Alumno: ${pagoData['user_name'] ?? 'Alumno'}',
-                      style: GoogleFonts.nunito(
+                      style: GoogleFonts.montserrat(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: GingaColors.textSecondary,
@@ -989,7 +989,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                               value: val,
                               child: Text(
                                 val,
-                                style: GoogleFonts.nunito(
+                                style: GoogleFonts.montserrat(
                                   fontWeight: FontWeight.w600,
                                   color: GingaColors.textPrimary,
                                 ),
@@ -1056,7 +1056,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                           children: [
                             Text(
                               '${selectedDate.day}/${selectedDate.month}/${selectedDate.year} ${selectedDate.hour.toString().padLeft(2, '0')}:${selectedDate.minute.toString().padLeft(2, '0')}',
-                              style: GoogleFonts.nunito(
+                              style: GoogleFonts.montserrat(
                                 fontWeight: FontWeight.w600,
                                 color: GingaColors.textPrimary,
                               ),
@@ -1097,7 +1097,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                               if (nuevoMonto == null || nuevoMonto <= 0) {
                                 scaffoldMessenger.showSnackBar(
                                   SnackBar(
-                                    content: Text('Por favor, ingresa un monto válido', style: GoogleFonts.nunito(color: Colors.white)),
+                                    content: Text('Por favor, ingresa un monto válido', style: GoogleFonts.montserrat(color: Colors.white)),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
@@ -1114,14 +1114,14 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
 
                                 scaffoldMessenger.showSnackBar(
                                   SnackBar(
-                                    content: Text('Transacción actualizada con éxito 🎉', style: GoogleFonts.nunito(color: Colors.white)),
+                                    content: Text('Transacción actualizada con éxito 🎉', style: GoogleFonts.montserrat(color: Colors.white)),
                                     backgroundColor: GingaColors.brandGreen,
                                   ),
                                 );
                               } catch (e) {
                                 scaffoldMessenger.showSnackBar(
                                   SnackBar(
-                                    content: Text('Error al actualizar: $e', style: GoogleFonts.nunito(color: Colors.white)),
+                                    content: Text('Error al actualizar: $e', style: GoogleFonts.montserrat(color: Colors.white)),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
