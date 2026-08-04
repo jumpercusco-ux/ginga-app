@@ -13,13 +13,35 @@ import '../../core/theme/ginga_theme.dart';
 /// Estilo visual: negro como color de acción principal (botones), verde de
 /// marca como acento — inspirado en la referencia que compartió el cliente,
 /// adaptado a los dos colores reales del manual de marca.
-class LandingScreen extends StatelessWidget {
+class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
 
+  @override
+  State<LandingScreen> createState() => _LandingScreenState();
+}
+
+class _LandingScreenState extends State<LandingScreen> {
   static const String _whatsappNumero = '51925727071';
   static const String _tiktokUrl = 'https://www.tiktok.com/@gingaperu';
   static const String _instagramUrl = 'https://www.instagram.com/gingaperu/';
   static const String _facebookUrl = 'https://www.facebook.com/profile.php?id=61585316410134';
+
+  final ScrollController _scrollController = ScrollController();
+  bool _scrolledPastHero = false;
+  double _heroHeight = 640;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final pastHero = _scrollController.offset > _heroHeight - kTopBarHeight;
+    if (pastHero != _scrolledPastHero) {
+      setState(() => _scrolledPastHero = pastHero);
+    }
+  }
 
   Future<void> _abrirWhatsApp(BuildContext context) async {
     const mensaje = '¡Hola! Quiero más información.';
@@ -45,31 +67,40 @@ class LandingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    _heroHeight = MediaQuery.of(context).size.height < 520 ? 520 : MediaQuery.of(context).size.height;
+    // El listener se re-registra sin duplicar gracias a removeListener primero.
+    _scrollController.removeListener(_onScroll);
+    _scrollController.addListener(_onScroll);
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
+      body: Stack(
         children: [
-          _TopBar(onWhatsApp: () => _abrirWhatsApp(context)),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  _Hero(onWhatsApp: () => _abrirWhatsApp(context)),
-                  _SobreGinga(),
-                  _Disciplinas(),
-                  _HorariosYPrecios(),
-                  _Comunidad(),
-                  _Ubicacion(),
-                  _CtaFinal(onWhatsApp: () => _abrirWhatsApp(context)),
-                  _Footer(
-                    onWhatsApp: () => _abrirWhatsApp(context),
-                    onTiktok: () => _abrirUrl(context, _tiktokUrl),
-                    onInstagram: () => _abrirUrl(context, _instagramUrl),
-                    onFacebook: () => _abrirUrl(context, _facebookUrl),
-                  ),
-                ],
-              ),
+          SingleChildScrollView(
+            controller: _scrollController,
+            child: Column(
+              children: [
+                _Hero(height: _heroHeight, onWhatsApp: () => _abrirWhatsApp(context)),
+                _SobreGinga(),
+                _Disciplinas(),
+                _HorariosYPrecios(),
+                _Comunidad(),
+                _Ubicacion(),
+                _CtaFinal(onWhatsApp: () => _abrirWhatsApp(context)),
+                _Footer(
+                  onWhatsApp: () => _abrirWhatsApp(context),
+                  onTiktok: () => _abrirUrl(context, _tiktokUrl),
+                  onInstagram: () => _abrirUrl(context, _instagramUrl),
+                  onFacebook: () => _abrirUrl(context, _facebookUrl),
+                ),
+              ],
             ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _TopBar(solid: _scrolledPastHero, onWhatsApp: () => _abrirWhatsApp(context)),
           ),
         ],
       ),
@@ -131,42 +162,54 @@ class _PillButton extends StatelessWidget {
   }
 }
 
-/// Altura fija de _TopBar — el Hero la resta de la altura de pantalla para
-/// ocupar exactamente el resto del viewport (topBar + hero = 100vh).
+/// Altura fija de _TopBar — usada como umbral de scroll para saber cuándo
+/// pasar de flotante/transparente a sólido.
 const double kTopBarHeight = 64;
 
+/// Barra superior flotante: transparente con logo/botón en blanco mientras
+/// se ve el hero (foto de fondo oscura), y sólida (blanco, logo a color,
+/// botón negro) apenas se pasa del hero. El logo en blanco se logra con un
+/// ColorFilter — no requiere un archivo aparte todavía.
 class _TopBar extends StatelessWidget {
+  final bool solid;
   final VoidCallback onWhatsApp;
-  const _TopBar({required this.onWhatsApp});
+  const _TopBar({required this.solid, required this.onWhatsApp});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       height: kTopBarHeight,
-      color: Colors.white,
+      color: solid ? Colors.white : Colors.transparent,
       padding: const EdgeInsets.symmetric(horizontal: GingaSpacing.lg, vertical: GingaSpacing.sm),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1040),
           child: Row(
             children: [
-              Image.asset('assets/images/logo_ginga.png', width: 36, height: 36),
-              const SizedBox(width: GingaSpacing.sm),
-              Text('GINGA',
-                  style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.black)),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: solid
+                    ? Image.asset('assets/images/logo_ginga.png', key: const ValueKey('logo-color'), height: 46)
+                    : ColorFiltered(
+                        key: const ValueKey('logo-white'),
+                        colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                        child: Image.asset('assets/images/logo_ginga.png', height: 46),
+                      ),
+              ),
               const Spacer(),
               SizedBox(
                 height: 40,
                 child: ElevatedButton(
                   onPressed: onWhatsApp,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
+                    backgroundColor: solid ? Colors.black : Colors.white,
+                    foregroundColor: solid ? Colors.white : Colors.black,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.full)),
                     elevation: 0,
                   ),
-                  child: Text('Reservar', style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700)),
+                  child: Text('Reservar Clase', style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700)),
                 ),
               ),
             ],
@@ -178,18 +221,15 @@ class _TopBar extends StatelessWidget {
 }
 
 class _Hero extends StatelessWidget {
+  final double height;
   final VoidCallback onWhatsApp;
-  const _Hero({required this.onWhatsApp});
+  const _Hero({required this.height, required this.onWhatsApp});
 
   @override
   Widget build(BuildContext context) {
-    // El hero siempre ocupa el resto de la ventana visible bajo la barra
-    // superior, sin importar el tamaño de pantalla (mínimo 520 en pantallas
-    // muy chicas para que el texto no quede apretado).
-    final alturaDisponible = MediaQuery.of(context).size.height - kTopBarHeight;
     return Container(
       width: double.infinity,
-      height: alturaDisponible < 520 ? 520 : alturaDisponible,
+      height: height,
       decoration: const BoxDecoration(
         image: DecorationImage(image: AssetImage('assets/images/roda.jpg'), fit: BoxFit.cover),
       ),
