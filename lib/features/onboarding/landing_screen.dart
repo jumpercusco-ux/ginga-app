@@ -131,6 +131,10 @@ class _PillButton extends StatelessWidget {
   }
 }
 
+/// Altura fija de _TopBar — el Hero la resta de la altura de pantalla para
+/// ocupar exactamente el resto del viewport (topBar + hero = 100vh).
+const double kTopBarHeight = 64;
+
 class _TopBar extends StatelessWidget {
   final VoidCallback onWhatsApp;
   const _TopBar({required this.onWhatsApp});
@@ -138,6 +142,7 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: kTopBarHeight,
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: GingaSpacing.lg, vertical: GingaSpacing.sm),
       child: Center(
@@ -178,9 +183,13 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // El hero siempre ocupa el resto de la ventana visible bajo la barra
+    // superior, sin importar el tamaño de pantalla (mínimo 520 en pantallas
+    // muy chicas para que el texto no quede apretado).
+    final alturaDisponible = MediaQuery.of(context).size.height - kTopBarHeight;
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 640),
+      height: alturaDisponible < 520 ? 520 : alturaDisponible,
       decoration: const BoxDecoration(
         image: DecorationImage(image: AssetImage('assets/images/roda.jpg'), fit: BoxFit.cover),
       ),
