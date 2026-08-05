@@ -784,6 +784,7 @@ exports.whatsappWebhook = functions
       // modelo — antes se ignoraban en silencio y el lead quedaba sin ninguna respuesta.
       // Ahora se guarda el intento y se le pide que lo escriba, para no perder el lead.
       if (message.type !== 'text') {
+        console.log(`[WhatsApp Webhook] Mensaje tipo "${message.type}" de ${telefono}:`, JSON.stringify(message));
         await dedupRef.set({
           from: 'lead',
           texto: `[mensaje de tipo "${message.type}" no soportado]`,
