@@ -221,9 +221,9 @@ Tono y estilo (así habla Ginga con sus alumnos):
 
 Flujo a seguir:
 1. Si el lead ya dijo en su mensaje que quiere información/clases, NO respondas con un saludo genérico tipo "¿en qué te ayudo?" — ve directo al punto 2.
-2. Si todavía no sabes para quién es la clase (adulto o niño/a) ni su edad, PREGÚNTALO PRIMERO antes de dar cualquier horario o precio (hay grupos distintos según la edad). Si el lead pregunta por varias personas a la vez (ej. "para mí y mi hija"), pide la edad de cada una. Si ya conoces el perfil de alguna persona (te lo indico abajo si aplica), no lo vuelvas a preguntar por esa persona.
+2. Si todavía no sabes el nombre, si es adulto o niño/a, ni su edad de cada persona interesada, PREGÚNTALO PRIMERO antes de dar cualquier horario o precio (hay grupos distintos según la edad, y el instructor necesita el nombre real de quien va a asistir para identificarlo el día de la clase). Puede ser cualquier combinación de personas (el lead mismo, sus dos hijos, etc., no asumas que siempre es "un adulto y un niño") — pide nombre y edad de cada una. Si ya conoces el perfil de alguna persona (te lo indico abajo si aplica), no lo vuelvas a preguntar por esa persona.
 3. En cuanto sepas el perfil de una o varias personas, guárdalo con guardar_perfil_lead (una entrada por persona) y, en la misma respuesta, usa también consultar_horarios_disponibles para dar de una vez el horario, ubicación y precio correctos — nunca inventes esos datos ni respondas solo con un mensaje de confirmación vacío. Si hay más de una persona, menciona la promo por venir acompañados. La ubicación SIEMPRE debe incluir la referencia completa (edificio, piso, punto de referencia), no solo la calle/número — "Av. de la Cultura E-4" solo no le sirve a nadie para llegar. Esto aplica incluso con la regla de respuestas cortas: prioriza incluir la referencia completa sobre acortar el mensaje.
-4. Ofrece siempre la clase de prueba 100% gratuita y sin compromiso. Si la persona confirma que quiere agendarla, usa reservar_clase_prueba — si son varias personas con perfiles distintos (ej. un adulto y un niño/a), llama la función una vez por cada una indicando el parámetro tipo. Cuando confirmes el resultado, revisa con cuidado el resultado de CADA llamada por separado y no asumas ni mezcles — si reservaste para el adulto y para el niño/a, dile explícitamente a cada uno qué pasó con SU reserva (no le atribuyas a una persona el resultado de la otra).
+4. Ofrece siempre la clase de prueba 100% gratuita y sin compromiso. Si la persona confirma que quiere agendarla, usa reservar_clase_prueba — si son varias personas (ej. el lead y sus dos hijos), llama la función una vez por cada una, indicando SIEMPRE tanto tipo como nombre de esa persona específica (así el instructor sabe exactamente a quién esperar, sobre todo si hay dos del mismo tipo, ej. dos niños). Cuando confirmes el resultado, revisa con cuidado el resultado de CADA llamada por separado y no asumas ni mezcles — dile a cada persona, por su nombre, qué pasó con SU reserva (no le atribuyas a una persona el resultado de la otra).
 5. Cualquier pregunta sobre precios, mensualidad o planes/promociones (incluyendo pagos por varios meses), aunque no la hayas mencionado en tu respuesta anterior, RESUÉLVELA usando consultar_horarios_disponibles de nuevo — ahí están todos los precios y promos reales. No derives a seguimiento humano solo porque no diste ese dato antes.
 6. Si preguntan cómo pagar (el método), usa consultar_horarios_disponibles para obtener el número de Yape y da ese dato junto con el monto exacto que corresponda (mensualidad, promo por acompañados, o el plan multi-mes que hayan elegido). SIEMPRE, en esa misma respuesta y sin excepción, DEBES invocar también marcar_seguimiento_humano (motivo: "Va a pagar por Yape") — esto es obligatorio incluso si en la misma respuesta también reservas la clase de prueba u otra acción; no basta con redactar el dato del Yape, tienes que ejecutar marcar_seguimiento_humano de verdad para avisar que este lead está por pagar (es solo aviso interno, no se lo digas a él).
 7. Si mencionan CUALQUIER tema de salud, lesión, condición física o pregunta si pueden participar con alguna limitación (ej. "tengo el hombro lesionado, ¿puedo ir igual?"), o piden hablar con una persona, o hay algo que de verdad no puedas resolver con las herramientas que tienes (negociaciones especiales fuera de las promos existentes): DEBES invocar la función marcar_seguimiento_humano — no basta con redactar una respuesta que lo diga (ni dar tú mismo un consejo o recomendación sobre el tema de salud), tienes que ejecutar esa herramienta de verdad en esa misma respuesta, siempre, sin excepción.
@@ -261,7 +261,7 @@ function verifyMetaSignature(req) {
  * Misma lógica transaccional que `_reservarClasePrueba` en clase_detalle_screen.dart,
  * portada a Node y usando `lead_id` en vez de `user_id`.
  */
-async function reservarClasePruebaLead(leadId, claseId) {
+async function reservarClasePruebaLead(leadId, claseId, nombrePersona) {
   return admin.firestore().runTransaction(async (transaction) => {
     const claseRef = admin.firestore().collection('clases').doc(claseId);
     const claseDoc = await transaction.get(claseRef);
@@ -275,6 +275,7 @@ async function reservarClasePruebaLead(leadId, claseId) {
     transaction.set(reservaRef, {
       lead_id: leadId,
       clase_id: claseId,
+      nombre_persona: nombrePersona || null,
       nivel: claseData.nivel || '',
       hora: claseData.hora || '',
       dias: claseData.dias || '',
@@ -298,7 +299,7 @@ async function reservarClasePruebaLead(leadId, claseId) {
         .collection('notificaciones').doc();
       transaction.set(instNotifRef, {
         titulo: 'Nuevo lead de WhatsApp reservó clase de prueba 🥋',
-        mensaje: `Un lead de WhatsApp reservó una clase de prueba de ${claseData.nivel || ''} el ${claseData.hora || ''}.`,
+        mensaje: `${nombrePersona || 'Un lead de WhatsApp'} reservó una clase de prueba de ${claseData.nivel || ''} el ${claseData.hora || ''}.`,
         fecha: admin.firestore.FieldValue.serverTimestamp(),
         leido: false,
         tipo: 'bienvenida',
@@ -376,6 +377,43 @@ async function marcarLeidoYEscribiendo(waMessageId) {
 }
 
 /**
+ * Envía la plantilla aprobada "alerta_seguimiento_lead_v2" (categoría Utility).
+ * A diferencia de un mensaje de texto normal, una plantilla SÍ puede enviarse
+ * aunque hayan pasado más de 24h desde el último mensaje del destinatario —
+ * por eso se usa para la alerta al instructor en vez de enviarMensajeWhatsApp.
+ */
+async function enviarAlertaSeguimientoHumano(to, nombreLead, leadId, motivo) {
+  const phoneNumberId = process.env.META_PHONE_NUMBER_ID;
+  const token = process.env.META_WHATSAPP_TOKEN;
+  const destinatario = BSUID_REGEX.test(to) ? { recipient: to } : { to };
+  const resp = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      ...destinatario,
+      type: 'template',
+      template: {
+        name: 'alerta_seguimiento_lead_v2',
+        language: { code: 'es' },
+        components: [{
+          type: 'body',
+          parameters: [
+            { type: 'text', text: nombreLead },
+            { type: 'text', text: leadId },
+            { type: 'text', text: motivo },
+          ],
+        }],
+      },
+    }),
+  });
+  if (!resp.ok) {
+    console.error('[WhatsApp] Error enviando plantilla de alerta:', await resp.text());
+  }
+  return resp.ok;
+}
+
+/**
  * Registro de herramientas reales que la IA puede invocar (function-calling de OpenAI).
  * Cada handler ejecuta la acción de verdad en Firestore y devuelve un texto que el
  * modelo usa para redactar la respuesta final al lead.
@@ -387,7 +425,7 @@ const AVAILABLE_TOOLS = [
       type: 'function',
       function: {
         name: 'reservar_clase_prueba',
-        description: 'Reserva la clase de prueba gratuita para el lead que está escribiendo. Si el lead preguntó por varias personas (ej. él y su hijo/a), llama esta función una vez POR CADA persona, indicando el parámetro tipo.',
+        description: 'Reserva la clase de prueba gratuita para el lead que está escribiendo. Si el lead preguntó por varias personas (ej. él y sus dos hijos), llama esta función una vez POR CADA persona, indicando tipo y nombre de esa persona específica.',
         parameters: {
           type: 'object',
           properties: {
@@ -396,6 +434,10 @@ const AVAILABLE_TOOLS = [
               enum: ['adulto', 'niño'],
               description: 'Para quién es esta reserva específica. Solo hace falta si el lead preguntó por más de una persona; si es una sola, se puede omitir y se usa su perfil guardado.',
             },
+            nombre: {
+              type: 'string',
+              description: 'Nombre de la persona específica de ESTA reserva (necesario si hay varias personas del mismo tipo, ej. dos niños/as). Si se omite, se usa el nombre guardado en el perfil.',
+            },
           },
           required: [],
         },
@@ -403,14 +445,22 @@ const AVAILABLE_TOOLS = [
     },
     handler: async (leadId, args) => {
       let publicoBuscado = args?.tipo === 'niño' ? 'niños' : args?.tipo === 'adulto' ? 'jovenes_adultos' : null;
+      let nombrePersona = args?.nombre || null;
 
-      if (!publicoBuscado) {
+      if (!publicoBuscado || !nombrePersona) {
         const leadDoc = await admin.firestore().collection('whatsapp_leads').doc(leadId).get();
         const personas = leadDoc.data()?.perfil_personas || [];
-        const primera = personas[0];
         // El perfil del lead ('adulto' | 'niño') se guarda con guardar_perfil_lead;
         // acá se mapea al valor 'publico' que usan los documentos de `clases`.
-        publicoBuscado = primera?.tipo === 'niño' ? 'niños' : primera?.tipo === 'adulto' ? 'jovenes_adultos' : null;
+        const match = (args?.nombre && personas.find((p) => p.nombre === args.nombre))
+          || (args?.tipo && personas.find((p) => p.tipo === args.tipo))
+          || personas[0];
+        if (!publicoBuscado) {
+          publicoBuscado = match?.tipo === 'niño' ? 'niños' : match?.tipo === 'adulto' ? 'jovenes_adultos' : null;
+        }
+        if (!nombrePersona) {
+          nombrePersona = match?.nombre || leadDoc.data()?.nombre || 'Lead';
+        }
       }
 
       const clase = await buscarClaseDisponibleParaPrueba(publicoBuscado);
@@ -430,8 +480,8 @@ const AVAILABLE_TOOLS = [
         return `Ya existe una reserva para esta persona en esa clase (nivel ${clase.nivel}, días ${clase.dias}, hora ${clase.hora}). Confírmaselo al lead, no la dupliques.`;
       }
 
-      await reservarClasePruebaLead(leadId, clase.id);
-      return `Reserva confirmada. Detalles: nivel ${clase.nivel}, días ${clase.dias}, hora ${clase.hora}. Confirma esto al lead con entusiasmo.`;
+      await reservarClasePruebaLead(leadId, clase.id, nombrePersona);
+      return `Reserva confirmada para ${nombrePersona}. Detalles: nivel ${clase.nivel}, días ${clase.dias}, hora ${clase.hora}. Confirma esto al lead con entusiasmo, mencionando el nombre de la persona reservada si hay más de una.`;
     },
   },
   {
@@ -495,10 +545,11 @@ const AVAILABLE_TOOLS = [
               items: {
                 type: 'object',
                 properties: {
+                  nombre: { type: 'string', description: 'Nombre de pila de esa persona (quien realmente va a asistir a la clase).' },
                   tipo: { type: 'string', enum: ['adulto', 'niño'], description: 'A quién le interesa la clase.' },
                   edad: { type: 'number', description: 'Edad de esa persona.' },
                 },
-                required: ['tipo', 'edad'],
+                required: ['nombre', 'tipo', 'edad'],
               },
             },
           },
@@ -555,15 +606,15 @@ const AVAILABLE_TOOLS = [
       await batch.commit();
 
       // Alerta directa por WhatsApp al instructor, además de la notificación in-app,
-      // usando el número configurado en config/negocio.telefono_instructor.
+      // usando el número configurado en config/negocio.telefono_instructor. Se manda
+      // como plantilla aprobada (no texto libre) para que llegue siempre, sin
+      // depender de si el instructor le escribió al número de Ginga en las
+      // últimas 24h.
       try {
         const negocioDoc = await admin.firestore().collection('config').doc('negocio').get();
         const telefonoInstructor = negocioDoc.data()?.telefono_instructor;
         if (telefonoInstructor) {
-          await enviarMensajeWhatsApp(
-            telefonoInstructor,
-            `🙋 *Lead necesita atención*\n${nombreLead} (${leadId})\nMotivo: ${motivo}\n\nEntra a la app para responder o toma la conversación tú mismo.`
-          );
+          await enviarAlertaSeguimientoHumano(telefonoInstructor, nombreLead, leadId, motivo);
         }
       } catch (e) {
         console.error('[marcar_seguimiento_humano] Error avisando por WhatsApp al instructor:', e.message);
@@ -796,7 +847,7 @@ exports.whatsappWebhook = functions
       let systemPrompt = await obtenerSystemPrompt();
       const personasConocidas = leadDataActual.perfil_personas;
       if (Array.isArray(personasConocidas) && personasConocidas.length > 0) {
-        const detalle = personasConocidas.map((p) => `${p.tipo}, ${p.edad ?? '?'} años`).join('; ');
+        const detalle = personasConocidas.map((p) => `${p.nombre ?? 'sin nombre'} (${p.tipo}, ${p.edad ?? '?'} años)`).join('; ');
         systemPrompt += `\n\nPersonas ya conocidas de este lead: ${detalle}. No vuelvas a preguntar por ellas.`;
       }
       const textoRespuesta = await preguntarIA(telefono, systemPrompt, historial);
