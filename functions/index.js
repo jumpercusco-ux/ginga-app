@@ -729,6 +729,11 @@ exports.whatsappWebhook = functions
       const change = req.body.entry?.[0]?.changes?.[0]?.value;
       const message = change?.messages?.[0];
       if (!message) {
+        // Loguea callbacks de estado (entregado/leído/fallido)
+        // que Meta manda para mensajes salientes, para depurar la plantilla de alerta.
+        if (change?.statuses) {
+          console.log('[WhatsApp Webhook] Status callback:', JSON.stringify(change.statuses));
+        }
         res.sendStatus(200);
         return;
       }
