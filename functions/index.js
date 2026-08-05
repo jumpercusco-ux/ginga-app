@@ -908,7 +908,15 @@ exports.sendManualWhatsAppMessage = functions
       texto,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
-    await leadRef.update({ ultima_interaccion: admin.firestore.FieldValue.serverTimestamp() });
+
+    const updates = { ultima_interaccion: admin.firestore.FieldValue.serverTimestamp() };
+    // Si el profesor responde manualmente un lead que "requería atención", se
+    // asume que ya lo está atendiendo — se limpia la etiqueta automáticamente.
+    const leadDoc = await leadRef.get();
+    if (leadDoc.data()?.status === 'requiere_atencion') {
+      updates.status = 'conversando';
+    }
+    await leadRef.update(updates);
 
     return { success: true };
   });

@@ -423,6 +423,26 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
             stream: leadRef.snapshots(),
             builder: (context, snapshot) {
               final data = snapshot.data?.data() as Map<String, dynamic>?;
+              final status = data?['status'] as String?;
+              if (status != 'requiere_atencion') return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: GingaSpacing.xs),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () => leadRef.update({'status': 'conversando'}),
+                    icon: const Icon(Icons.check_circle_outline, size: 16, color: Colors.deepOrange),
+                    label: Text('Marcar como resuelto', style: GoogleFonts.montserrat(fontSize: 12, color: Colors.deepOrange)),
+                    style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.deepOrange)),
+                  ),
+                ),
+              );
+            },
+          ),
+          StreamBuilder<DocumentSnapshot>(
+            stream: leadRef.snapshots(),
+            builder: (context, snapshot) {
+              final data = snapshot.data?.data() as Map<String, dynamic>?;
               final convertidoUid = data?['convertido_uid'] as String?;
               if (convertidoUid != null) {
                 return Padding(
