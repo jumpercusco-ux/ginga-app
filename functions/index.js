@@ -195,6 +195,49 @@ exports.enviarRecordatorioPruebaDiario = functions.pubsub
     }
   });
 
+/**
+ * Tarea programada diaria que busca leads de WhatsApp "fríos" — que llegaron a
+ * conversar con la IA pero se quedaron en status "conversando" sin reservar ni
+ * escalar, y llevan más de 24h sin escribir — y les manda UNA sola vez la
+ * plantilla "seguimiento_lead_frio" para reactivarlos, sin insistir a diario.
+ */
+exports.enviarSeguimientoLeadsFrios = functions
+  .runWith({ secrets: ['META_WHATSAPP_TOKEN', 'META_PHONE_NUMBER_ID'] })
+  .pubsub.schedule('0 10 * * *')
+  .timeZone('America/Lima')
+  .onRun(async () => {
+    console.log('[Scheduler] Buscando leads fríos para seguimiento...');
+    const hace24h = admin.firestore.Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
+
+    try {
+      const snapshot = await admin.firestore().collection('whatsapp_leads')
+        .where('status', '==', 'conversando')
+        .where('ultima_interaccion', '<=', hace24h)
+        .get();
+
+      const pendientes = snapshot.docs.filter((doc) => !doc.data().seguimiento_frio_enviado);
+      if (pendientes.length === 0) {
+        console.log('[Scheduler] No hay leads fríos pendientes de seguimiento hoy.');
+        return null;
+      }
+
+      console.log(`[Scheduler] Enviando seguimiento a ${pendientes.length} lead(s) frío(s).`);
+      for (const doc of pendientes) {
+        const data = doc.data();
+        const telefono = data.telefono || doc.id;
+        const nombre = data.perfil_personas?.[0]?.nombre || data.nombre || 'hola';
+        const enviado = await enviarSeguimientoLeadFrio(telefono, nombre);
+        if (enviado) {
+          await doc.ref.update({ seguimiento_frio_enviado: true });
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('[Scheduler] Error al enviar seguimiento a leads fríos:', error);
+      return null;
+    }
+  });
+
 // ============================================================
 //  WHATSAPP ADS LEADS: webhook de Meta + IA (OpenAI) + reserva
 // ============================================================
@@ -410,6 +453,38 @@ async function enviarAlertaSeguimientoHumano(to, nombreLead, leadId, motivo) {
   });
   if (!resp.ok) {
     console.error('[WhatsApp] Error enviando plantilla de alerta:', await resp.text());
+  }
+  return resp.ok;
+}
+
+/**
+ * Envía la plantilla "seguimiento_lead_frio" (categoría Marketing) a un lead que
+ * dejó de responder — igual que enviarAlertaSeguimientoHumano, funciona aunque
+ * hayan pasado más de 24h desde su último mensaje.
+ */
+async function enviarSeguimientoLeadFrio(to, nombreLead) {
+  const phoneNumberId = process.env.META_PHONE_NUMBER_ID;
+  const token = process.env.META_WHATSAPP_TOKEN;
+  const destinatario = BSUID_REGEX.test(to) ? { recipient: to } : { to };
+  const resp = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      ...destinatario,
+      type: 'template',
+      template: {
+        name: 'seguimiento_lead_frio',
+        language: { code: 'es' },
+        components: [{
+          type: 'body',
+          parameters: [{ type: 'text', text: nombreLead }],
+        }],
+      },
+    }),
+  });
+  if (!resp.ok) {
+    console.error('[WhatsApp] Error enviando plantilla de seguimiento frío:', await resp.text());
   }
   return resp.ok;
 }
