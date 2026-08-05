@@ -450,6 +450,34 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
               );
             },
           ),
+          StreamBuilder<DocumentSnapshot>(
+            stream: leadRef.snapshots(),
+            builder: (context, snapshot) {
+              final data = snapshot.data?.data() as Map<String, dynamic>?;
+              final personas = data?['perfil_personas'] as List<dynamic>?;
+              if (personas == null || personas.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: GingaSpacing.xs),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: personas.map((p) {
+                    final persona = p as Map<String, dynamic>;
+                    final nombre = persona['nombre'] ?? 'Sin nombre';
+                    final tipo = persona['tipo'] ?? '';
+                    final edad = persona['edad'];
+                    return Chip(
+                      label: Text('$nombre ($tipo${edad != null ? ', $edad años' : ''})',
+                          style: GoogleFonts.montserrat(fontSize: 11, color: GingaColors.textPrimary)),
+                      backgroundColor: GingaColors.brandGreen.withOpacity(0.1),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    );
+                  }).toList(),
+                ),
+              );
+            },
+          ),
           Divider(color: GingaColors.borderLight),
           Flexible(
             child: StreamBuilder<QuerySnapshot>(
