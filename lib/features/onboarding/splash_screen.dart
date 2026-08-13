@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/ginga_theme.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -77,6 +76,15 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _startAnimation() async {
+    // En web, la animación de splash solo suma espera antes de que alguien
+    // llegado por un anuncio vea la landing — se salta directo. Se espera al
+    // primer frame (addPostFrameCallback) porque GoRouter no admite navegar
+    // en medio del build inicial del widget.
+    if (kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _navigate());
+      return;
+    }
+
     // 1 — Logo aparece
     await _logoController.forward();
 
@@ -149,8 +157,13 @@ class _SplashScreenState extends State<SplashScreen>
         );
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
+        backgroundColor: Colors.black,
+        // En web no se anima nada (se navega casi de inmediato) — mostrar la
+        // columna igual arriesga un frame con el logo a medio animar (opacidad
+        // en 0, a mitad de escala). Mejor una pantalla negra lisa, sin nada.
+        body: kIsWeb
+            ? const SizedBox.shrink()
+            : Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center, // Centra verticalmente
             children: [
@@ -167,9 +180,8 @@ class _SplashScreenState extends State<SplashScreen>
                   );
                 },
                 child: Image.asset(
-                  'assets/images/logo_ginga.png',
-                  width: 180, // Aumenté un poco el tamaño para compensar el texto faltante
-                  height: 180,
+                  'assets/images/logofull.png',
+                  width: 180,
                 ),
               ),
 
@@ -192,7 +204,7 @@ class _SplashScreenState extends State<SplashScreen>
                   style: GoogleFonts.montserrat(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: GingaColors.textSecondary,
+                    color: Colors.white70,
                     letterSpacing: 0.8,
                   ),
                 ),
