@@ -10,6 +10,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../../core/theme/ginga_theme.dart';
 
+// Colores fijos (no los tokens adaptativos de GingaColors) — esta pantalla
+// es parte del flujo público y debe verse igual al Hero de la landing
+// (fondo negro, texto blanco, acento verde), sin importar el modo de
+// sistema del visitante.
+const Color _kBordeOscuro = Color(0x33FFFFFF);
+const Color _kCampoFondoOscuro = Color(0x14FFFFFF);
+
 class ProfileCreationScreen extends StatefulWidget {
   const ProfileCreationScreen({super.key});
 
@@ -170,13 +177,46 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
 
-          // Logo
+          // Volver al inicio — arriba a la izquierda de la tarjeta.
+          SizedBox(
+            width: double.infinity,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => context.go('/landing'),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.arrow_back, size: 16, color: Colors.white70),
+                      const SizedBox(width: 6),
+                      Text('Ir al inicio',
+                          style: GoogleFonts.montserrat(
+                              fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Logo — versión blanca, la misma que usa el Hero/Footer de la landing.
+          // Tocable también: otra forma de volver al inicio desde esta pantalla.
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset('assets/images/logo_ginga.png', width: 100, height: 100),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => context.go('/landing'),
+                  child: Image.asset('assets/images/logofull.png', width: 100, height: 100),
+                ),
+              ),
             ],
           ),
 
@@ -186,11 +226,11 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
               style: GoogleFonts.montserrat(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
-                  color: GingaColors.textPrimary)),
+                  color: Colors.white)),
           const SizedBox(height: 6),
           Text('Completa tu perfil de capoeira',
               style: GoogleFonts.montserrat(
-                  fontSize: 14, color: GingaColors.textSecondary)),
+                  fontSize: 14, color: Colors.white70)),
 
           const SizedBox(height: 28),
 
@@ -201,13 +241,13 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
               children: [
                 CircleAvatar(
                   radius: 44,
-                  backgroundColor: GingaColors.cardLight,
+                  backgroundColor: _kCampoFondoOscuro,
                   backgroundImage: (kIsWeb
                       ? (_webImageBytes != null ? MemoryImage(_webImageBytes!) : null)
                       : (_imageFile != null ? FileImage(File(_imageFile!.path)) : null)) as ImageProvider<Object>?,
                   child: _imageFile == null
-                      ? Icon(Icons.person_outline,
-                          size: 40, color: GingaColors.textSecondary)
+                      ? const Icon(Icons.person_outline,
+                          size: 40, color: Colors.white54)
                       : null,
                 ),
                 Positioned(
@@ -262,13 +302,13 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
             controller: _passwordController,
             obscureText: _obscurePassword,
             style: GoogleFonts.montserrat(
-                fontSize: 14, color: GingaColors.textPrimary),
+                fontSize: 14, color: Colors.white),
             decoration: InputDecoration(
               hintText: 'Contraseña',
               hintStyle: GoogleFonts.montserrat(
-                  color: GingaColors.textSecondary, fontSize: 14),
-              prefixIcon: Icon(Icons.lock_outline,
-                  color: GingaColors.textSecondary, size: 20),
+                  color: Colors.white54, fontSize: 14),
+              prefixIcon: const Icon(Icons.lock_outline,
+                  color: Colors.white54, size: 20),
               suffixIcon: GestureDetector(
                 onTap: () => setState(
                     () => _obscurePassword = !_obscurePassword),
@@ -276,23 +316,21 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                   _obscurePassword
                       ? Icons.visibility_outlined
                       : Icons.visibility_off_outlined,
-                  color: GingaColors.textSecondary,
+                  color: Colors.white54,
                   size: 20,
                 ),
               ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: _kCampoFondoOscuro,
               contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(GingaRadius.md),
-                borderSide:
-                    BorderSide(color: GingaColors.borderLight),
+                borderSide: const BorderSide(color: _kBordeOscuro),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(GingaRadius.md),
-                borderSide:
-                    BorderSide(color: GingaColors.borderLight),
+                borderSide: const BorderSide(color: _kBordeOscuro),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -317,20 +355,20 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.red.shade50,
+                color: Colors.red.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(GingaRadius.md),
-                border: Border.all(color: Colors.red.shade200),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
               ),
               child: Row(
                 children: [
                   Icon(Icons.error_outline,
-                      color: Colors.red.shade600, size: 16),
+                      color: Colors.red.shade300, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(_errorMessage!,
                         style: GoogleFonts.montserrat(
                             fontSize: 13,
-                            color: Colors.red.shade700)),
+                            color: Colors.red.shade300)),
                   ),
                 ],
               ),
@@ -339,15 +377,15 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
 
           const SizedBox(height: 32),
 
-          // Botón Crear Perfil
+          // Botón Crear Perfil — blanco sobre negro, mismo contraste que en login.
           SizedBox(
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
               onPressed: _isLoading ? null : _crearPerfil,
               style: ElevatedButton.styleFrom(
-                backgroundColor: GingaColors.brandGreen,
-                foregroundColor: Colors.white,
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(100),
                 ),
@@ -358,7 +396,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
+                          color: Colors.black, strokeWidth: 2),
                     )
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -395,7 +433,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
           Text('GINGA APP • COMUNIDAD GLOBAL',
               style: GoogleFonts.montserrat(
                   fontSize: 10,
-                  color: GingaColors.borderLight,
+                  color: Colors.white38,
                   letterSpacing: 1.5,
                   fontWeight: FontWeight.w600)),
 
@@ -409,17 +447,10 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         margin: const EdgeInsets.symmetric(vertical: 40),
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
         decoration: BoxDecoration(
-          color: GingaColors.cardLight,
+          color: const Color(0xFF161616),
           borderRadius: BorderRadius.circular(GingaRadius.lg),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
           border: Border.all(
-            color: GingaColors.borderLight,
+            color: _kBordeOscuro,
             width: 1,
           ),
         ),
@@ -428,7 +459,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     }
 
     return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
+      backgroundColor: Colors.black,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -453,24 +484,24 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
+      style: GoogleFonts.montserrat(fontSize: 14, color: Colors.white),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: GoogleFonts.montserrat(
-            color: GingaColors.textSecondary, fontSize: 14),
+            color: Colors.white54, fontSize: 14),
         prefixIcon:
-            Icon(icon, color: GingaColors.textSecondary, size: 20),
+            Icon(icon, color: Colors.white54, size: 20),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: _kCampoFondoOscuro,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          borderSide: BorderSide(color: GingaColors.borderLight),
+          borderSide: const BorderSide(color: _kBordeOscuro),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          borderSide: BorderSide(color: GingaColors.borderLight),
+          borderSide: const BorderSide(color: _kBordeOscuro),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),

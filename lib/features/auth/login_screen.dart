@@ -6,6 +6,14 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
 import 'dart:ui' as ui;
 
+// Colores fijos (no los tokens adaptativos de GingaColors) — esta pantalla
+// es parte del flujo público y debe verse igual al Hero de la landing
+// (fondo negro, texto blanco, acento verde), sin importar el modo de
+// sistema del visitante.
+const Color _kTarjetaOscura = Color(0xFF161616);
+const Color _kBordeOscuro = Color(0x33FFFFFF);
+const Color _kCampoFondoOscuro = Color(0x14FFFFFF);
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -26,6 +34,31 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  // Decoración fija (no depende de Theme.of(context) ni de GingaColors
+  // adaptativos) — campos oscuros con buen contraste sobre fondo negro.
+  InputDecoration _decoracionCampo({required String hintText, required Widget prefixIcon, Widget? suffixIcon}) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: GoogleFonts.montserrat(color: Colors.white54, fontSize: 14),
+      prefixIcon: prefixIcon,
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: _kCampoFondoOscuro,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(GingaRadius.md),
+        borderSide: const BorderSide(color: _kBordeOscuro),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(GingaRadius.md),
+        borderSide: const BorderSide(color: _kBordeOscuro),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(GingaRadius.md),
+        borderSide: const BorderSide(color: GingaColors.brandGreen, width: 1.5),
+      ),
+    );
   }
 
   Future<void> _login() async {
@@ -106,15 +139,48 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(height: isDesktop ? 40 : 60),
+          SizedBox(height: isDesktop ? 24 : 40),
 
-          // Logo
-          Image.asset('assets/images/logo_ginga.png', width: 140, height: 140),
+          // Volver al inicio — arriba a la izquierda de la tarjeta.
+          SizedBox(
+            width: double.infinity,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => context.go('/landing'),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.arrow_back, size: 16, color: Colors.white70),
+                      const SizedBox(width: 6),
+                      Text('Ir al inicio',
+                          style: GoogleFonts.montserrat(
+                              fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          SizedBox(height: isDesktop ? 24 : 32),
+
+          // Logo — versión blanca, la misma que usa el Hero/Footer de la landing.
+          // Tocable también: otra forma de volver al inicio desde esta pantalla.
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => context.go('/landing'),
+              child: Image.asset('assets/images/logofull.png', width: 140, height: 140),
+            ),
+          ),
           const SizedBox(height: 20),
 
           Text('Inicia sesión para continuar',
               style: GoogleFonts.montserrat(
-                  fontSize: 14, color: GingaColors.textSecondary)),
+                  fontSize: 14, color: Colors.white70)),
 
           const SizedBox(height: 48),
 
@@ -124,11 +190,11 @@ class _LoginScreenState extends State<LoginScreen> {
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
             style: GoogleFonts.montserrat(
-                fontSize: 14, color: GingaColors.textPrimary),
-            decoration: InputDecoration(
+                fontSize: 14, color: Colors.white),
+            decoration: _decoracionCampo(
               hintText: 'Correo electrónico',
-              prefixIcon: Icon(Icons.email_outlined,
-                  color: GingaColors.textSecondary, size: 20),
+              prefixIcon: const Icon(Icons.email_outlined,
+                  color: Colors.white54, size: 20),
             ),
             validator: (val) {
               if (val == null || val.isEmpty) return 'Ingresa tu correo';
@@ -144,11 +210,11 @@ class _LoginScreenState extends State<LoginScreen> {
             controller: _passwordController,
             obscureText: _obscurePassword,
             style: GoogleFonts.montserrat(
-                fontSize: 14, color: GingaColors.textPrimary),
-            decoration: InputDecoration(
+                fontSize: 14, color: Colors.white),
+            decoration: _decoracionCampo(
               hintText: 'Contraseña',
-              prefixIcon: Icon(Icons.lock_outline,
-                  color: GingaColors.textSecondary, size: 20),
+              prefixIcon: const Icon(Icons.lock_outline,
+                  color: Colors.white54, size: 20),
               suffixIcon: GestureDetector(
                 onTap: () => setState(
                     () => _obscurePassword = !_obscurePassword),
@@ -156,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   _obscurePassword
                       ? Icons.visibility_outlined
                       : Icons.visibility_off_outlined,
-                  color: GingaColors.textSecondary,
+                  color: Colors.white54,
                   size: 20,
                 ),
               ),
@@ -191,20 +257,20 @@ class _LoginScreenState extends State<LoginScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.red.shade50,
+                color: Colors.red.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(GingaRadius.md),
-                border: Border.all(color: Colors.red.shade200),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
               ),
               child: Row(
                 children: [
                   Icon(Icons.error_outline,
-                      color: Colors.red.shade600, size: 16),
+                      color: Colors.red.shade300, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(_errorMessage!,
                         style: GoogleFonts.montserrat(
                             fontSize: 13,
-                            color: Colors.red.shade700)),
+                            color: Colors.red.shade300)),
                   ),
                 ],
               ),
@@ -213,15 +279,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
           const SizedBox(height: 32),
 
-          // Botón Login
+          // Botón Login — blanco sobre negro, mismo contraste que el botón
+          // secundario del Hero ("¿Ya eres alumno? Inicia sesión").
           SizedBox(
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
               onPressed: _isLoading ? null : _login,
               style: ElevatedButton.styleFrom(
-                backgroundColor: GingaColors.brandGreen,
-                foregroundColor: Colors.white,
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(GingaRadius.full),
                 ),
@@ -232,34 +299,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
+                          color: Colors.black, strokeWidth: 2),
                     )
                   : Text('Iniciar Sesión',
                       style: GoogleFonts.montserrat(
                           fontSize: 15, fontWeight: FontWeight.w700)),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Registro
-          GestureDetector(
-            onTap: () => context.go('/profile-creation'),
-            child: RichText(
-              text: TextSpan(
-                text: '¿No tienes cuenta? ',
-                style: GoogleFonts.montserrat(
-                    color: GingaColors.textSecondary, fontSize: 13),
-                children: [
-                  TextSpan(
-                    text: 'Regístrate',
-                    style: GoogleFonts.montserrat(
-                        color: GingaColors.brandGreen,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
             ),
           ),
 
@@ -273,17 +317,10 @@ class _LoginScreenState extends State<LoginScreen> {
         margin: const EdgeInsets.symmetric(vertical: 40),
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
         decoration: BoxDecoration(
-          color: GingaColors.cardLight,
+          color: _kTarjetaOscura,
           borderRadius: BorderRadius.circular(GingaRadius.lg),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
           border: Border.all(
-            color: GingaColors.borderLight,
+            color: _kBordeOscuro,
             width: 1,
           ),
         ),
@@ -292,7 +329,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
+      backgroundColor: Colors.black,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -327,31 +364,34 @@ class _LoginScreenState extends State<LoginScreen> {
             return BackdropFilter(
               filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
               child: Dialog(
-                backgroundColor: GingaColors.cardLight,
+                backgroundColor: _kTarjetaOscura,
                 elevation: 6,
                 insetPadding: const EdgeInsets.symmetric(horizontal: 20),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(GingaRadius.lg),
-                  side: BorderSide(color: GingaColors.brandGreen.withOpacity(0.15)),
+                  side: const BorderSide(color: _kBordeOscuro),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-                  child: AnimatedSize(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    child: isSent
-                        ? _buildSuccessView(dialogContext)
-                        : _buildFormView(
-                            dialogContext,
-                            formKey,
-                            emailController,
-                            isDialogLoading,
-                            dialogError,
-                            (fn) => setDialogState(fn),
-                            (sentVal) => setDialogState(() => isSent = sentVal),
-                            (loadingVal) => setDialogState(() => isDialogLoading = loadingVal),
-                            (errorVal) => setDialogState(() => dialogError = errorVal),
-                          ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      child: isSent
+                          ? _buildSuccessView(dialogContext)
+                          : _buildFormView(
+                              dialogContext,
+                              formKey,
+                              emailController,
+                              isDialogLoading,
+                              dialogError,
+                              (fn) => setDialogState(fn),
+                              (sentVal) => setDialogState(() => isSent = sentVal),
+                              (loadingVal) => setDialogState(() => isDialogLoading = loadingVal),
+                              (errorVal) => setDialogState(() => dialogError = errorVal),
+                            ),
+                    ),
                   ),
                 ),
               ),
@@ -371,7 +411,7 @@ class _LoginScreenState extends State<LoginScreen> {
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: GingaColors.brandGreen.withOpacity(0.1),
+            color: GingaColors.brandGreen.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
           child: const Icon(
@@ -386,7 +426,7 @@ class _LoginScreenState extends State<LoginScreen> {
           style: GoogleFonts.montserrat(
             fontSize: 18,
             fontWeight: FontWeight.w800,
-            color: GingaColors.textPrimary,
+            color: Colors.white,
           ),
         ),
         const SizedBox(height: 10),
@@ -395,7 +435,7 @@ class _LoginScreenState extends State<LoginScreen> {
           textAlign: TextAlign.center,
           style: GoogleFonts.montserrat(
             fontSize: 13.5,
-            color: GingaColors.textSecondary,
+            color: Colors.white70,
             height: 1.4,
           ),
         ),
@@ -406,8 +446,8 @@ class _LoginScreenState extends State<LoginScreen> {
           child: ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext),
             style: ElevatedButton.styleFrom(
-              backgroundColor: GingaColors.brandGreen,
-              foregroundColor: Colors.white,
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(GingaRadius.full),
               ),
@@ -448,7 +488,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: GingaColors.brandGreen.withOpacity(0.1),
+                  color: GingaColors.brandGreen.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(GingaRadius.md),
                 ),
                 child: const Icon(
@@ -464,7 +504,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: GoogleFonts.montserrat(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: GingaColors.textPrimary,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -475,7 +515,7 @@ class _LoginScreenState extends State<LoginScreen> {
             'Ingresa tu correo electrónico registrado y te enviaremos un enlace seguro para restablecer tu contraseña.',
             style: GoogleFonts.montserrat(
               fontSize: 13,
-              color: GingaColors.textSecondary,
+              color: Colors.white70,
               height: 1.4,
             ),
           ),
@@ -484,12 +524,12 @@ class _LoginScreenState extends State<LoginScreen> {
             controller: emailController,
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
-            style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
-            decoration: InputDecoration(
+            style: GoogleFonts.montserrat(fontSize: 14, color: Colors.white),
+            decoration: _decoracionCampo(
               hintText: 'Correo electrónico',
-              prefixIcon: Icon(
+              prefixIcon: const Icon(
                 Icons.email_outlined,
-                color: GingaColors.textSecondary,
+                color: Colors.white54,
                 size: 20,
               ),
             ),
@@ -504,18 +544,18 @@ class _LoginScreenState extends State<LoginScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.red.shade50,
+                color: Colors.red.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(GingaRadius.sm),
-                border: Border.all(color: Colors.red.shade200),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.error_outline, color: Colors.red.shade600, size: 14),
+                  Icon(Icons.error_outline, color: Colors.red.shade300, size: 14),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       error,
-                      style: GoogleFonts.montserrat(fontSize: 12, color: Colors.red.shade700),
+                      style: GoogleFonts.montserrat(fontSize: 12, color: Colors.red.shade300),
                     ),
                   ),
                 ],
@@ -531,7 +571,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: OutlinedButton(
                     onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: GingaColors.borderLight),
+                      side: const BorderSide(color: _kBordeOscuro),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(GingaRadius.full),
                       ),
@@ -541,7 +581,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: GoogleFonts.montserrat(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textSecondary,
+                        color: Colors.white70,
                       ),
                     ),
                   ),
@@ -582,8 +622,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: GingaColors.brandGreen,
-                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(GingaRadius.full),
                       ),
@@ -594,7 +634,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
-                              color: Colors.white,
+                              color: Colors.black,
                               strokeWidth: 2,
                             ),
                           )
