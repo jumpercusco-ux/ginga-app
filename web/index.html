@@ -16,22 +16,39 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Aplicación oficial de Ginga Capoeira - Cusco & U. Continental.">
+  <meta name="description" content="Ginga — comunidad y entrenamiento en Cusco, Perú. Capoeira para niños y adultos, primera clase de prueba 100% gratis.">
+
+  <!-- Open Graph / Facebook, WhatsApp, etc. -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.gingaperu.com/">
+  <meta property="og:title" content="Ginga — Cusco, Perú">
+  <meta property="og:description" content="Un espacio de movimiento y comunidad donde entrenas el cuerpo y despiertas algo más. Primera clase de prueba 100% gratis.">
+  <meta property="og:image" content="https://www.gingaperu.com/share-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Ginga — Cusco, Perú">
+  <meta name="twitter:description" content="Un espacio de movimiento y comunidad donde entrenas el cuerpo y despiertas algo más. Primera clase de prueba 100% gratis.">
+  <meta name="twitter:image" content="https://www.gingaperu.com/share-image.png">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="Ginga Capoeira">
+  <meta name="apple-mobile-web-app-title" content="Ginga">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png">
 
-  <title>Ginga Capoeira</title>
+  <title>Ginga — Cusco, Perú</title>
   <link rel="manifest" href="manifest.json">
   
   
   <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+  
+  
   <style id="splash-screen-style">
     html {
       height: 100%
@@ -40,7 +57,7 @@
     body {
       margin: 0;
       min-height: 100%;
-      background-color: #FFFFFF;
+      background-color: #000000;
           background-size: 100% 100%;
     }
 
@@ -51,6 +68,18 @@
       left: 50%;
       -ms-transform: translate(-50%, -50%);
       transform: translate(-50%, -50%);
+      animation: gingaSplashZoom 1400ms ease-out forwards;
+    }
+
+    @keyframes gingaSplashZoom {
+      from {
+        transform: translate(-50%, -50%) scale(0.82);
+        opacity: 0;
+      }
+      to {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+      }
     }
 
     .contain {
@@ -92,9 +121,22 @@
   </style>
   <script id="splash-screen-script">
     function removeSplashFromWeb() {
-      document.getElementById("splash")?.remove();
-      document.getElementById("splash-branding")?.remove();
+      const splash = document.getElementById("splash");
+      const branding = document.getElementById("splash-branding");
+      const fadeMs = 500;
+      if (splash) {
+        splash.style.transition = "opacity " + fadeMs + "ms ease-in";
+        splash.style.opacity = "0";
+      }
+      if (branding) {
+        branding.style.transition = "opacity " + fadeMs + "ms ease-in";
+        branding.style.opacity = "0";
+      }
       document.body.style.background = "transparent";
+      setTimeout(() => {
+        splash?.remove();
+        branding?.remove();
+      }, fadeMs);
     }
   </script>
 </head>
@@ -104,6 +146,7 @@
       <source srcset="splash/img/dark-1x.png 1x, splash/img/dark-2x.png 2x, splash/img/dark-3x.png 3x, splash/img/dark-4x.png 4x" media="(prefers-color-scheme: dark)">
       <img class="center" aria-hidden="true" src="splash/img/light-1x.png" alt="">
   </picture>
+  
   
   <!--
     You can customize the "flutter_bootstrap.js" script.
