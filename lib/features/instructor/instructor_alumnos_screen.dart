@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -3433,7 +3434,8 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
     final formKey = GlobalKey<FormState>();
     final nombreController = TextEditingController();
     final emailController = TextEditingController();
-    
+    final telefonoController = TextEditingController();
+
     final List<String> sedesDisponibles = _sedes.where((s) => s != 'Todos').toList();
     String selectedSede = sedesDisponibles.first;
     
@@ -3658,6 +3660,32 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
                         enabled: !isOffline,
                       ),
+                      const SizedBox(height: 14),
+
+                      // Teléfono / WhatsApp
+                      Text(
+                        'Teléfono / WhatsApp (Opcional)',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: GingaColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: telefonoController,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: InputDecoration(
+                          hintText: 'Ej. 51987654321 (con código de país)',
+                          hintStyle: GoogleFonts.montserrat(color: GingaColors.textSecondary),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: BorderSide(color: GingaColors.borderLight),
+                          ),
+                        ),
+                        style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
+                      ),
                       const SizedBox(height: 10),
 
                       // Switch Alumno sin aplicación (Offline)
@@ -3734,6 +3762,8 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                             );
 
                             try {
+                              final telefono = telefonoController.text.trim();
+
                               final newUserRef = FirebaseFirestore.instance.collection('users').doc();
                               final Map<String, dynamic> userData = {
                                 'uid': newUserRef.id,
@@ -3746,6 +3776,8 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 'is_offline': isOffline,
                                 'created_at': FieldValue.serverTimestamp(),
                                 'notas': '',
+                                if (telefono.isNotEmpty) 'whatsapp_id': telefono,
+                                if (telefono.isNotEmpty) 'whatsapp_id_es_telefono': true,
                               };
 
                               await newUserRef.set(userData);
