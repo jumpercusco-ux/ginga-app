@@ -21,12 +21,13 @@ class InstructorLeadsScreen extends StatefulWidget {
 class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
   String _selectedStatusFilter = 'Todos';
   final List<String> _statuses = [
-    'Todos', 'Nuevo', 'Conversando', 'Requiere atención', 'Reservado', 'Matriculado', 'Perdido'
+    'Todos', 'Nuevo', 'Conversando', 'Requiere atención', 'Reservado', 'Asistió', 'Matriculado', 'Perdido'
   ];
 
   /// Convierte la etiqueta visible del filtro al valor real guardado en `status`.
   String _statusValueForLabel(String label) {
     if (label == 'Requiere atención') return 'requiere_atencion';
+    if (label == 'Asistió') return 'asistio';
     return label.toLowerCase();
   }
 
@@ -34,6 +35,8 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
     switch (status) {
       case 'reservado':
         return GingaColors.accentAmber;
+      case 'asistio':
+        return Colors.teal;
       case 'matriculado':
         return GingaColors.brandGreen;
       case 'conversando':
@@ -98,6 +101,7 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
               },
             ),
           ),
+          const _ChecklistPruebasHoy(),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -161,6 +165,32 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                             if (origen != null && origen['ad_id'] != null)
                               Text('Origen: anuncio ${origen['ad_id']}',
                                   style: GoogleFonts.montserrat(fontSize: 11, color: GingaColors.textSecondary)),
+                            const SizedBox(height: 2),
+                            StreamBuilder<QuerySnapshot>(
+                              stream: doc.reference
+                                  .collection('mensajes')
+                                  .orderBy('timestamp', descending: true)
+                                  .limit(1)
+                                  .snapshots(),
+                              builder: (context, msgSnapshot) {
+                                if (!msgSnapshot.hasData || msgSnapshot.data!.docs.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+                                final ultimoMsg = msgSnapshot.data!.docs.first.data() as Map<String, dynamic>;
+                                final esDelLead = (ultimoMsg['from'] ?? 'lead') == 'lead';
+                                final texto = (ultimoMsg['texto'] ?? '').toString();
+                                return Text(
+                                  esDelLead ? texto : 'Tú: $texto',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 12,
+                                    color: GingaColors.textPrimary,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         ),
                         trailing: Column(
@@ -212,6 +242,255 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
   }
 }
 
+/// Panel de check-in: muestra los leads en `reservado` para marcar si llegaron
+/// a la clase de prueba, y permite dar de alta a quien vino acompañando a
+/// alguien sin haber reservado antes por WhatsApp.
+class _ChecklistPruebasHoy extends StatefulWidget {
+  const _ChecklistPruebasHoy();
+
+  @override
+  State<_ChecklistPruebasHoy> createState() => _ChecklistPruebasHoyState();
+}
+
+class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
+  bool _expandido = true;
+
+  String _formatearFechaCorta(Timestamp ts) {
+    const dias = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+    const mesesCortos = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    final f = ts.toDate();
+    return '${dias[f.weekday]} ${f.day} de ${mesesCortos[f.month - 1]}';
+  }
+
+  void _mostrarDialogoWalkIn(BuildContext context) {
+    final nombreController = TextEditingController();
+    final telefonoController = TextEditingController();
+    final edadController = TextEditingController();
+    String tipoSeleccionado = 'niño';
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.lg)),
+          title: Text('Agregar quien vino sin reservar', style: GoogleFonts.montserrat(fontWeight: FontWeight.w800)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Para poder darle seguimiento después (matrícula, avisos), como mínimo necesitamos su nombre y teléfono.',
+                  style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary),
+                ),
+                const SizedBox(height: GingaSpacing.md),
+                TextField(controller: nombreController, decoration: const InputDecoration(labelText: 'Nombre completo *')),
+                const SizedBox(height: GingaSpacing.sm),
+                TextField(
+                  controller: telefonoController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: 'Teléfono / WhatsApp * (con código de país)'),
+                ),
+                const SizedBox(height: GingaSpacing.sm),
+                TextField(
+                  controller: edadController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Edad (opcional)'),
+                ),
+                const SizedBox(height: GingaSpacing.sm),
+                DropdownButtonFormField<String>(
+                  value: tipoSeleccionado,
+                  decoration: const InputDecoration(labelText: 'Tipo'),
+                  items: const [
+                    DropdownMenuItem(value: 'niño', child: Text('Niño/a')),
+                    DropdownMenuItem(value: 'adulto', child: Text('Adulto')),
+                  ],
+                  onChanged: (val) => setDialogState(() => tipoSeleccionado = val ?? tipoSeleccionado),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () async {
+                final nombre = nombreController.text.trim();
+                final telefono = telefonoController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+                if (nombre.isEmpty || telefono.isEmpty) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(content: Text('Nombre y teléfono son obligatorios.'), backgroundColor: Colors.orange),
+                  );
+                  return;
+                }
+                try {
+                  final edad = edadController.text.trim();
+                  await FirebaseFirestore.instance.collection('whatsapp_leads').doc(telefono).set({
+                    'telefono': telefono,
+                    'nombre': nombre,
+                    'status': 'asistio',
+                    'perfil_personas': [
+                      {'nombre': nombre, 'tipo': tipoSeleccionado, 'edad': edad.isNotEmpty ? edad : null},
+                    ],
+                    'origen': {'tipo': 'presencial'},
+                    'created_at': FieldValue.serverTimestamp(),
+                    'ultima_interaccion': FieldValue.serverTimestamp(),
+                  }, SetOptions(merge: true));
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('$nombre agregado(a) 🎉'), backgroundColor: GingaColors.brandGreen),
+                    );
+                  }
+                } catch (e) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: GingaColors.brandGreen, foregroundColor: Colors.white),
+              child: const Text('Agregar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('whatsapp_leads')
+          .where('status', isEqualTo: 'reservado')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? [];
+        return Container(
+          margin: const EdgeInsets.fromLTRB(GingaSpacing.md, 0, GingaSpacing.md, GingaSpacing.sm),
+          padding: const EdgeInsets.all(GingaSpacing.md),
+          decoration: BoxDecoration(
+            color: GingaColors.accentAmber.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(GingaRadius.lg),
+            border: Border.all(color: GingaColors.accentAmber.withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                onTap: () => setState(() => _expandido = !_expandido),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text('Check-in de pruebas 📋',
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 13, color: GingaColors.textPrimary)),
+                          ),
+                          if (docs.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(color: GingaColors.accentAmber, borderRadius: BorderRadius.circular(10)),
+                              child: Text('${docs.length}',
+                                  style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.black)),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    Icon(_expandido ? Icons.expand_less : Icons.expand_more, color: GingaColors.textSecondary),
+                  ],
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _mostrarDialogoWalkIn(context),
+                  icon: const Icon(Icons.person_add_alt_1, size: 16),
+                  label: Text('Agregar sin reserva', style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: GingaColors.brandGreen,
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ),
+              if (_expandido)
+                if (docs.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('No hay reservas pendientes de check-in.',
+                        style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary)),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      itemCount: docs.length,
+                      itemBuilder: (context, index) {
+                        final doc = docs[index];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final nombreLead = data['nombre'] ?? doc.id;
+                        final personas = (data['perfil_personas'] as List?) ?? [];
+                        final nombresPersonas = personas
+                            .whereType<Map>()
+                            .map((p) => p['nombre'])
+                            .whereType<String>()
+                            .where((n) => n.trim().isNotEmpty)
+                            .join(', ');
+                        final etiqueta = nombresPersonas.isNotEmpty ? nombresPersonas : nombreLead;
+                        final fechaReservada = data['fecha_clase_reservada'] as Timestamp?;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: GingaSpacing.sm),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(etiqueta,
+                                        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: GingaColors.textPrimary)),
+                                    if (fechaReservada != null)
+                                      Text(_formatearFechaCorta(fechaReservada),
+                                          style: GoogleFonts.montserrat(fontSize: 11, color: GingaColors.textSecondary)),
+                                  ],
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => doc.reference
+                                    .update({'status': 'asistio', 'ultima_interaccion': FieldValue.serverTimestamp()}),
+                                style: TextButton.styleFrom(foregroundColor: GingaColors.brandGreen, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                                child: Text('Asistió', style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700)),
+                              ),
+                              TextButton(
+                                onPressed: () => doc.reference
+                                    .update({'status': 'perdido', 'ultima_interaccion': FieldValue.serverTimestamp()}),
+                                style: TextButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                                child: Text('No asistió', style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _LeadDetalleSheet extends StatefulWidget {
   final String leadId;
   final Map<String, dynamic> leadData;
@@ -229,6 +508,15 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
   void dispose() {
     _mensajeController.dispose();
     super.dispose();
+  }
+
+  String _formatearFechaHoraMensaje(Timestamp ts) {
+    final fecha = ts.toDate();
+    final dd = fecha.day.toString().padLeft(2, '0');
+    final mm = fecha.month.toString().padLeft(2, '0');
+    final hh = fecha.hour.toString().padLeft(2, '0');
+    final min = fecha.minute.toString().padLeft(2, '0');
+    return '$dd/$mm/${fecha.year} $hh:$min';
   }
 
   Future<void> _convertirEnAlumno(BuildContext context, DocumentReference leadRef) async {
@@ -324,7 +612,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
         'whatsapp_lead_id': widget.leadId,
         'notas': 'Convertido desde lead de WhatsApp ($whatsappId).',
       });
-      await leadRef.update({'convertido_uid': newUserRef.id});
+      await leadRef.update({'convertido_uid': newUserRef.id, 'status': 'matriculado'});
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -335,6 +623,159 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Error al crear alumno: $e', style: GoogleFonts.montserrat(color: Colors.white)),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
+
+  /// Marca manualmente una reserva cuando TÚ coordinaste directo con la
+  /// persona (con la IA apagada) — hace lo mismo que hacía la IA con
+  /// reservar_clase_prueba: busca la clase real que le corresponde, guarda
+  /// la reserva con fecha, y deja el lead en status 'reservado'.
+  Future<void> _marcarComoReservado(BuildContext context, DocumentReference leadRef) async {
+    final personas = (widget.leadData['perfil_personas'] as List?) ?? [];
+    final primeraPersona = personas.isNotEmpty ? personas.first as Map : null;
+
+    final nombreController = TextEditingController(
+      text: (primeraPersona?['nombre'] as String?) ?? (widget.leadData['nombre'] as String?) ?? '',
+    );
+    String tipoSeleccionado = (primeraPersona?['tipo'] as String?) ?? 'adulto';
+    DateTime? fechaSeleccionada;
+
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text('Marcar como reservado', style: GoogleFonts.montserrat(fontWeight: FontWeight.w800)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Úsalo cuando coordinaste tú directamente (con la IA apagada) y quieres dejar la reserva guardada igual que si lo hubiera hecho la IA.',
+                  style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary),
+                ),
+                const SizedBox(height: GingaSpacing.md),
+                TextField(
+                  controller: nombreController,
+                  decoration: const InputDecoration(labelText: 'Nombre de quien va a la clase'),
+                ),
+                const SizedBox(height: GingaSpacing.sm),
+                DropdownButtonFormField<String>(
+                  value: tipoSeleccionado,
+                  decoration: const InputDecoration(labelText: 'Tipo'),
+                  items: const [
+                    DropdownMenuItem(value: 'niño', child: Text('Niño/a')),
+                    DropdownMenuItem(value: 'adulto', child: Text('Adulto')),
+                  ],
+                  onChanged: (val) => setDialogState(() => tipoSeleccionado = val ?? tipoSeleccionado),
+                ),
+                const SizedBox(height: GingaSpacing.sm),
+                InkWell(
+                  onTap: () async {
+                    final ahora = DateTime.now();
+                    final picked = await showDatePicker(
+                      context: dialogContext,
+                      initialDate: ahora,
+                      firstDate: ahora,
+                      lastDate: ahora.add(const Duration(days: 90)),
+                      // Las clases (incluida la de prueba) son solo martes y jueves.
+                      selectableDayPredicate: (d) => d.weekday == DateTime.tuesday || d.weekday == DateTime.thursday,
+                      builder: buildGingaDatePickerTheme,
+                    );
+                    if (picked != null) setDialogState(() => fechaSeleccionada = picked);
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Fecha de la clase'),
+                    child: Text(
+                      fechaSeleccionada == null
+                          ? 'Toca para elegir (solo martes o jueves)'
+                          : '${fechaSeleccionada!.day.toString().padLeft(2, '0')}/${fechaSeleccionada!.month.toString().padLeft(2, '0')}/${fechaSeleccionada!.year}',
+                      style: GoogleFonts.montserrat(
+                        color: fechaSeleccionada == null ? GingaColors.textSecondary : GingaColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: fechaSeleccionada == null || nombreController.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(backgroundColor: GingaColors.brandGreen, foregroundColor: Colors.white),
+              child: const Text('Guardar reserva'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmado != true || !context.mounted || fechaSeleccionada == null) return;
+
+    final nombre = nombreController.text.trim();
+    if (nombre.isEmpty) return;
+
+    try {
+      final publicoBuscado = tipoSeleccionado == 'niño' ? 'niños' : 'jovenes_adultos';
+      final claseSnap = await FirebaseFirestore.instance
+          .collection('clases')
+          .where('tipo', isEqualTo: 'regular')
+          .where('publico', isEqualTo: publicoBuscado)
+          .limit(1)
+          .get();
+
+      if (claseSnap.docs.isEmpty) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('No encontré una clase regular para "$tipoSeleccionado". Revisa la colección "clases".',
+              style: GoogleFonts.montserrat(color: Colors.white)),
+          backgroundColor: Colors.red,
+        ));
+        return;
+      }
+
+      final claseDoc = claseSnap.docs.first;
+      final claseData = claseDoc.data();
+      final fechaTimestamp = Timestamp.fromDate(
+        DateTime(fechaSeleccionada!.year, fechaSeleccionada!.month, fechaSeleccionada!.day, 12),
+      );
+
+      final reservaRef = FirebaseFirestore.instance.collection('reservas').doc();
+      await reservaRef.set({
+        'lead_id': widget.leadId,
+        'clase_id': claseDoc.id,
+        'nombre_persona': nombre,
+        'nivel': claseData['nivel'] ?? '',
+        'hora': claseData['hora'] ?? '',
+        'dias': claseData['dias'] ?? '',
+        'fecha_clase': fechaTimestamp,
+        'status': 'confirmado',
+        'tipo': 'prueba',
+        'origen': 'manual',
+        'created_at': FieldValue.serverTimestamp(),
+      });
+
+      await leadRef.update({
+        'status': 'reservado',
+        'clase_reservada_id': claseDoc.id,
+        'reserva_id': reservaRef.id,
+        'fecha_clase_reservada': fechaTimestamp,
+      });
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Reserva guardada para $nombre.', style: GoogleFonts.montserrat(color: Colors.white)),
+        backgroundColor: GingaColors.brandGreen,
+      ));
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error al guardar la reserva: $e', style: GoogleFonts.montserrat(color: Colors.white)),
         backgroundColor: Colors.red,
       ));
     }
@@ -418,6 +859,37 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                 },
               ),
             ],
+          ),
+          StreamBuilder<DocumentSnapshot>(
+            stream: leadRef.snapshots(),
+            builder: (context, snapshot) {
+              final data = snapshot.data?.data() as Map<String, dynamic>?;
+              final status = data?['status'] as String?;
+              if (status == 'reservado') {
+                return Padding(
+                  padding: const EdgeInsets.only(top: GingaSpacing.xs),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.event_available, size: 16, color: GingaColors.accentAmber),
+                      const SizedBox(width: 4),
+                      Text('Ya tiene una reserva guardada', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary)),
+                    ],
+                  ),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.only(top: GingaSpacing.xs),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _marcarComoReservado(context, leadRef),
+                    icon: const Icon(Icons.event_available, size: 16, color: GingaColors.accentAmber),
+                    label: Text('Marcar como reservado', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.accentAmber)),
+                    style: OutlinedButton.styleFrom(side: const BorderSide(color: GingaColors.accentAmber)),
+                  ),
+                ),
+              );
+            },
           ),
           StreamBuilder<DocumentSnapshot>(
             stream: leadRef.snapshots(),
@@ -518,6 +990,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                     final data = mensajes[index].data() as Map<String, dynamic>;
                     final from = data['from'] ?? 'lead';
                     final esLead = from == 'lead';
+                    final ts = data['timestamp'] as Timestamp?;
                     return Align(
                       alignment: esLead ? Alignment.centerLeft : Alignment.centerRight,
                       child: Container(
@@ -528,9 +1001,22 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                           color: esLead ? GingaColors.borderLight : GingaColors.brandGreen.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(GingaRadius.md),
                         ),
-                        child: Text(
-                          data['texto'] ?? '',
-                          style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textPrimary),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              data['texto'] ?? '',
+                              style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textPrimary),
+                            ),
+                            if (ts != null) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                _formatearFechaHoraMensaje(ts),
+                                style: GoogleFonts.montserrat(fontSize: 10, color: GingaColors.textSecondary),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     );
