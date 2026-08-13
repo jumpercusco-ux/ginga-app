@@ -47,6 +47,9 @@ jobs:
       - name: Debug active identity
         run: gcloud auth list
 
+      - name: Debug direct secret access via gcloud
+        run: gcloud secrets versions access latest --secret=META_WHATSAPP_TOKEN --project=capoeirafiu-ea8ljo
+
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
