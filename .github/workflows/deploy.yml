@@ -38,8 +38,14 @@ jobs:
           node-version: "20"
 
       - uses: google-github-actions/auth@v2
+        id: auth
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Debug active identity
+        run: gcloud auth list
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
@@ -49,4 +55,6 @@ jobs:
         run: npm ci
 
       - name: Deploy functions
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
         run: firebase deploy --only functions --project capoeirafiu-ea8ljo --non-interactive
