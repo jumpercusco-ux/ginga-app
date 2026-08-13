@@ -1,0 +1,68 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main, dev]
+
+jobs:
+  deploy-web:
+    name: Deploy web (Vercel)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.4"
+          channel: "stable"
+
+      - run: flutter pub get
+      - run: flutter build web --release
+      - run: cp web/vercel.json build/web/vercel.json
+
+      - name: Deploy to Vercel (producción)
+        if: github.ref == 'refs/heads/main'
+        working-directory: build/web
+        run: npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel (entorno de pruebas)
+        if: github.ref == 'refs/heads/dev'
+        working-directory: build/web
+        run: |
+          DEPLOY_URL=$(npx vercel deploy --token="$VERCEL_TOKEN" --yes)
+          echo "### Link de pruebas (este deploy)" >> "$GITHUB_STEP_SUMMARY"
+          echo "$DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$VERCEL_DEV_ALIAS" ]; then
+            npx vercel alias set "$DEPLOY_URL" "$VERCEL_DEV_ALIAS" --token="$VERCEL_TOKEN"
+            echo "### Link fijo de pruebas" >> "$GITHUB_STEP_SUMMARY"
+            echo "https://$VERCEL_DEV_ALIAS" >> "$GITHUB_STEP_SUMMARY"
+          fi
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_DEV_ALIAS: ${{ secrets.VERCEL_DEV_ALIAS }}
+
+  deploy-functions:
+    name: Deploy Cloud Functions (Firebase)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools@15.10.1
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Deploy functions
+        run: firebase deploy --only functions --project capoeirafiu-ea8ljo --non-interactive --token "${{ secrets.FIREBASE_TOKEN }}"
