@@ -5,6 +5,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/ginga_theme.dart';
 
+// Paleta oscura fija — mismo tratamiento que el resto del flujo de profesor.
+const Color _kFondoOscuro = Colors.black;
+const Color _kTarjetaOscura = Color(0xFF161616);
+const Color _kBordeOscuro = Color(0x33FFFFFF);
+const Color _kTextoSecundarioOscuro = Colors.white70;
+
 class InstructorPagosScreen extends StatefulWidget {
   const InstructorPagosScreen({super.key});
 
@@ -79,7 +85,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: _kTarjetaOscura,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.xl)),
       ),
@@ -108,16 +114,16 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                         style: GoogleFonts.montserrat(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
-                            color: GingaColors.textPrimary)),
+                            color: Colors.white)),
                     const SizedBox(height: 6),
                     Text('Alumno: $nombre',
                         style: GoogleFonts.montserrat(
-                            fontSize: 14, color: GingaColors.textSecondary)),
-                    Divider(height: 24, color: GingaColors.borderLight),
+                            fontSize: 14, color: _kTextoSecundarioOscuro)),
+                    Divider(height: 24, color: _kBordeOscuro),
 
                     Text('Meses a contratar:',
                         style: GoogleFonts.montserrat(
-                            fontSize: 13, fontWeight: FontWeight.w600)),
+                            fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -133,19 +139,17 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             decoration: BoxDecoration(
-                              color: isSelected ? GingaColors.brandGreen : Colors.white,
+                              color: isSelected ? GingaColors.brandGreen : _kTarjetaOscura,
                               borderRadius: BorderRadius.circular(GingaRadius.md),
                               border: Border.all(
                                   color: isSelected
                                       ? GingaColors.brandGreen
-                                      : GingaColors.borderLight),
+                                      : _kBordeOscuro),
                             ),
                             child: Text('$mes',
                                 style: GoogleFonts.montserrat(
                                     fontWeight: FontWeight.w700,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : GingaColors.textPrimary)),
+                                    color: Colors.white)),
                           ),
                         );
                       }).toList(),
@@ -154,19 +158,19 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                     const SizedBox(height: 18),
                     Text('Monto Cobrado (Soles S/):',
                         style: GoogleFonts.montserrat(
-                            fontSize: 13, fontWeight: FontWeight.w600)),
+                            fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
                     const SizedBox(height: 8),
                     TextField(
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w700),
+                      style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
                       decoration: InputDecoration(
                         prefixText: 'S/ ',
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         filled: true,
-                        fillColor: const Color(0xFFF8F8F8),
+                        fillColor: _kTarjetaOscura,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GingaRadius.md),
-                          borderSide: BorderSide(color: GingaColors.borderLight),
+                          borderSide: BorderSide(color: _kBordeOscuro),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -193,16 +197,17 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8F8F8),
+                        color: _kTarjetaOscura,
                         borderRadius: BorderRadius.circular(GingaRadius.md),
-                        border: Border.all(color: GingaColors.borderLight),
+                        border: Border.all(color: _kBordeOscuro),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
+                          dropdownColor: _kTarjetaOscura,
                           value: metodoPagoSeleccionado,
                           isExpanded: true,
-                          icon: Icon(Icons.keyboard_arrow_down, color: GingaColors.textSecondary),
-                          style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary, fontWeight: FontWeight.w700),
+                          icon: Icon(Icons.keyboard_arrow_down, color: _kTextoSecundarioOscuro),
+                          style: GoogleFonts.montserrat(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w700),
                           items: metodosPago.map((metodo) {
                             return DropdownMenuItem<String>(
                               value: metodo,
@@ -394,11 +399,11 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                             style: GoogleFonts.montserrat(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
-                                color: GingaColors.textPrimary)),
+                                color: Colors.white)),
                         Text('Control de cobros y caja',
                             style: GoogleFonts.montserrat(
                                 fontSize: 14,
-                                color: GingaColors.textSecondary)),
+                                color: _kTextoSecundarioOscuro)),
                       ],
                     ),
                     CircleAvatar(
@@ -480,7 +485,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                     style: GoogleFonts.montserrat(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary)),
+                        color: Colors.white)),
                 const SizedBox(height: 12),
 
                 StreamBuilder<QuerySnapshot>(
@@ -524,9 +529,9 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: _kTarjetaOscura,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
-                          border: Border.all(color: GingaColors.borderLight),
+                          border: Border.all(color: _kBordeOscuro),
                         ),
                         child: Center(
                           child: Text(
@@ -534,7 +539,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                             textAlign: TextAlign.center,
                             style: GoogleFonts.montserrat(
                               fontSize: 13,
-                              color: GingaColors.textSecondary,
+                              color: _kTextoSecundarioOscuro,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -575,9 +580,9 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: _kTarjetaOscura,
                             borderRadius: BorderRadius.circular(GingaRadius.lg),
-                            border: Border.all(color: GingaColors.borderLight),
+                            border: Border.all(color: _kBordeOscuro),
                           ),
                           child: Row(
                             children: [
@@ -596,14 +601,14 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                                       style: GoogleFonts.montserrat(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
-                                        color: GingaColors.textPrimary,
+                                        color: Colors.white,
                                       ),
                                     ),
                                     Text(
                                       fechaTexto,
                                       style: GoogleFonts.montserrat(
                                         fontSize: 11,
-                                        color: GingaColors.textSecondary,
+                                        color: _kTextoSecundarioOscuro,
                                       ),
                                     ),
                                   ],
@@ -660,7 +665,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                     style: GoogleFonts.montserrat(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary)),
+                        color: Colors.white)),
                 const SizedBox(height: 12),
 
                 StreamBuilder<QuerySnapshot>(
@@ -681,16 +686,16 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: _kTarjetaOscura,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
-                          border: Border.all(color: GingaColors.borderLight),
+                          border: Border.all(color: _kBordeOscuro),
                         ),
                         child: Center(
                           child: Text(
                             'Aún no has registrado transacciones en esta academia.',
                             style: GoogleFonts.montserrat(
                               fontSize: 12,
-                              color: GingaColors.textSecondary,
+                              color: _kTextoSecundarioOscuro,
                               fontStyle: FontStyle.italic,
                             ),
                           ),
@@ -729,9 +734,9 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                               margin: const EdgeInsets.only(bottom: 8),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: _kTarjetaOscura,
                                 borderRadius: BorderRadius.circular(GingaRadius.lg),
-                                border: Border.all(color: GingaColors.borderLight),
+                                border: Border.all(color: _kBordeOscuro),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -754,7 +759,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                                                 style: GoogleFonts.montserrat(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
-                                                  color: isDeBaja ? Colors.redAccent : GingaColors.textPrimary,
+                                                  color: isDeBaja ? Colors.redAccent : Colors.white,
                                                 ),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
@@ -763,7 +768,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                                                 'Método: $metodo • $dateStr',
                                                 style: GoogleFonts.montserrat(
                                                   fontSize: 10,
-                                                  color: GingaColors.textSecondary,
+                                                  color: _kTextoSecundarioOscuro,
                                                 ),
                                               ),
                                             ],
@@ -785,7 +790,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                                       ),
                                       const SizedBox(width: 12),
                                       IconButton(
-                                        icon: Icon(Icons.edit_outlined, size: 16, color: GingaColors.textSecondary),
+                                        icon: Icon(Icons.edit_outlined, size: 16, color: _kTextoSecundarioOscuro),
                                         padding: EdgeInsets.zero,
                                         constraints: const BoxConstraints(),
                                         onPressed: () => _editarPagoModal(context, pagoId, data),
@@ -825,18 +830,18 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.lg)),
         title: Text(
           'Eliminar Transacción 🗑️',
-          style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 16, color: GingaColors.textPrimary),
+          style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
         ),
         content: Text(
           '¿Estás seguro de que deseas eliminar permanentemente el registro de pago de S/ ${monto.toStringAsFixed(2)} para $alumno?\n\nEsta acción recalculará la caja mensual al instante y no se puede deshacer.',
-          style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textSecondary, height: 1.5),
+          style: GoogleFonts.montserrat(fontSize: 14, color: _kTextoSecundarioOscuro, height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               'Cancelar',
-              style: GoogleFonts.montserrat(color: GingaColors.textSecondary, fontWeight: FontWeight.bold),
+              style: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro, fontWeight: FontWeight.bold),
             ),
           ),
           TextButton(
@@ -893,7 +898,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
           builder: (BuildContext context, StateSetter setModalState) {
             return Container(
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: _kTarjetaOscura,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               padding: EdgeInsets.fromLTRB(
@@ -915,7 +920,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                           style: GoogleFonts.montserrat(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
-                            color: GingaColors.textPrimary,
+                            color: Colors.white,
                           ),
                         ),
                         IconButton(
@@ -930,7 +935,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                       style: GoogleFonts.montserrat(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textSecondary,
+                        color: _kTextoSecundarioOscuro,
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -941,19 +946,21 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                       style: GoogleFonts.montserrat(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary,
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: montoController,
+                      style: GoogleFonts.montserrat(color: Colors.white),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         hintText: 'Ej. 140.00',
+                        hintStyle: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GingaRadius.md),
-                          borderSide: BorderSide(color: GingaColors.borderLight),
+                          borderSide: BorderSide(color: _kBordeOscuro),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -969,7 +976,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                       style: GoogleFonts.montserrat(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary,
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -977,13 +984,14 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(GingaRadius.md),
-                        border: Border.all(color: GingaColors.borderLight),
+                        border: Border.all(color: _kBordeOscuro),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
+                          dropdownColor: _kTarjetaOscura,
                           value: selectedMetodo,
                           isExpanded: true,
-                          icon: Icon(Icons.keyboard_arrow_down_rounded, color: GingaColors.textSecondary),
+                          icon: Icon(Icons.keyboard_arrow_down_rounded, color: _kTextoSecundarioOscuro),
                           items: ['Yape', 'Plin', 'Efectivo', 'Transferencia'].map((String val) {
                             return DropdownMenuItem<String>(
                               value: val,
@@ -991,7 +999,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                                 val,
                                 style: GoogleFonts.montserrat(
                                   fontWeight: FontWeight.w600,
-                                  color: GingaColors.textPrimary,
+                                  color: Colors.white,
                                 ),
                               ),
                             );
@@ -1012,7 +1020,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                       style: GoogleFonts.montserrat(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary,
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1049,7 +1057,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(GingaRadius.md),
-                          border: Border.all(color: GingaColors.borderLight),
+                          border: Border.all(color: _kBordeOscuro),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1058,7 +1066,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                               '${selectedDate.day}/${selectedDate.month}/${selectedDate.year} ${selectedDate.hour.toString().padLeft(2, '0')}:${selectedDate.minute.toString().padLeft(2, '0')}',
                               style: GoogleFonts.montserrat(
                                 fontWeight: FontWeight.w600,
-                                color: GingaColors.textPrimary,
+                                color: Colors.white,
                               ),
                             ),
                             const Icon(Icons.calendar_today_rounded, size: 16, color: GingaColors.brandGreen),
@@ -1084,7 +1092,7 @@ class _InstructorPagosScreenState extends State<InstructorPagosScreen> {
                               style: GoogleFonts.montserrat(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: GingaColors.textSecondary,
+                                color: _kTextoSecundarioOscuro,
                               ),
                             ),
                           ),

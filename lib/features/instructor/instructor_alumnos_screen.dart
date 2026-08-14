@@ -263,7 +263,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF9F9F9),
+                    color: _kTarjetaOscura,
                     borderRadius: BorderRadius.circular(GingaRadius.md),
                     border: Border.all(color: _kBordeOscuro),
                   ),
@@ -2073,7 +2073,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 margin: const EdgeInsets.only(bottom: 8),
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF9F9F9),
+                                  color: _kTarjetaOscura,
                                   borderRadius: BorderRadius.circular(GingaRadius.sm),
                                   border: Border.all(color: _kBordeOscuro),
                                 ),
@@ -2433,7 +2433,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         const SizedBox(height: 20),
                         Text('Meses a contratar:',
                             style: GoogleFonts.montserrat(
-                                fontSize: 14, fontWeight: FontWeight.w600)),
+                                fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
                         const SizedBox(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -2449,7 +2449,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? GingaColors.brandGreen : Colors.white,
+                                  color: isSelected ? GingaColors.brandGreen : _kTarjetaOscura,
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
                                   border: Border.all(
                                       color: isSelected
@@ -2459,9 +2459,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 child: Text('$mes',
                                     style: GoogleFonts.montserrat(
                                         fontWeight: FontWeight.w700,
-                                        color: isSelected
-                                            ? Colors.white
-                                            : Colors.white)),
+                                        color: Colors.white)),
                               ),
                             );
                           }).toList(),
@@ -2470,7 +2468,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         const SizedBox(height: 20),
                         Text('Monto Cobrado (Soles S/):',
                             style: GoogleFonts.montserrat(
-                                fontSize: 14, fontWeight: FontWeight.w600)),
+                                fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
                         const SizedBox(height: 8),
                         TextField(
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
