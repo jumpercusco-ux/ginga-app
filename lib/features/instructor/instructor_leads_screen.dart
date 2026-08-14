@@ -8,6 +8,33 @@ import '../../core/theme/ginga_theme.dart';
 import '../../core/models/cuerdas_fiu.dart';
 import 'agent_prompt_screen.dart';
 
+// Paleta oscura fija — mismo tratamiento que instructor_clase_screen/login:
+// esta vista debe verse igual sin importar el modo de sistema del profesor.
+const Color _kFondoOscuro = Colors.black;
+const Color _kTarjetaOscura = Color(0xFF161616);
+const Color _kBordeOscuro = Color(0x33FFFFFF);
+const Color _kTextoSecundarioOscuro = Colors.white70;
+
+/// Tema oscuro para el contenido de los AlertDialog de esta pantalla —
+/// evita que los TextField/Dropdown por defecto (sin estilo propio)
+/// hereden colores claros del tema ambiente sobre el fondo oscuro fijo.
+ThemeData _darkDialogTheme(BuildContext context) {
+  final base = Theme.of(context);
+  return base.copyWith(
+    canvasColor: _kTarjetaOscura,
+    textTheme: base.textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
+    colorScheme: base.colorScheme.copyWith(onSurface: Colors.white, onSurfaceVariant: _kTextoSecundarioOscuro),
+    inputDecorationTheme: InputDecorationTheme(
+      labelStyle: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro),
+      floatingLabelStyle: GoogleFonts.montserrat(color: GingaColors.brandGreen),
+      hintStyle: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro),
+      border: const OutlineInputBorder(borderSide: BorderSide(color: _kBordeOscuro)),
+      enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: _kBordeOscuro)),
+      focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: GingaColors.brandGreen, width: 1.5)),
+    ),
+  );
+}
+
 /// Pipeline de leads capturados por WhatsApp (anuncios "Click to WhatsApp").
 /// La IA responde automáticamente vía la Cloud Function `whatsappWebhook`;
 /// aquí el profesor supervisa la conversación y puede tomar control manual.
@@ -65,13 +92,15 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
+      backgroundColor: _kFondoOscuro,
       appBar: AppBar(
+        backgroundColor: _kFondoOscuro,
+        foregroundColor: Colors.white,
         title: Text('Leads de WhatsApp',
-            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: GingaColors.textPrimary)),
+            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: Colors.white)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
+            icon: const Icon(Icons.settings_outlined, color: Colors.white),
             tooltip: 'Configurar Agente IA',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const AgentPromptScreen()),
@@ -94,8 +123,10 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                 return ChoiceChip(
                   label: Text(label, style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 12)),
                   selected: selected,
-                  selectedColor: GingaColors.brandGreen.withOpacity(0.15),
-                  labelStyle: TextStyle(color: selected ? GingaColors.brandGreen : GingaColors.textSecondary),
+                  backgroundColor: _kTarjetaOscura,
+                  selectedColor: GingaColors.brandGreen.withOpacity(0.2),
+                  side: BorderSide(color: selected ? GingaColors.brandGreen : _kBordeOscuro),
+                  labelStyle: TextStyle(color: selected ? GingaColors.brandGreen : _kTextoSecundarioOscuro),
                   onSelected: (_) => setState(() => _selectedStatusFilter = label),
                 );
               },
@@ -115,7 +146,7 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return Center(
                     child: Text('Todavía no hay leads de WhatsApp.',
-                        style: GoogleFonts.montserrat(color: GingaColors.textSecondary)),
+                        style: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro)),
                   );
                 }
 
@@ -129,7 +160,7 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                 if (docs.isEmpty) {
                   return Center(
                     child: Text('Sin leads en "$_selectedStatusFilter".',
-                        style: GoogleFonts.montserrat(color: GingaColors.textSecondary)),
+                        style: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro)),
                   );
                 }
 
@@ -148,8 +179,12 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                     final ultimaInteraccion = data['ultima_interaccion'] as Timestamp?;
 
                     return Card(
+                      color: _kTarjetaOscura,
                       margin: const EdgeInsets.only(bottom: GingaSpacing.sm),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.lg)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(GingaRadius.lg),
+                        side: const BorderSide(color: _kBordeOscuro),
+                      ),
                       child: ListTile(
                         onTap: () => _mostrarDetalleLead(context, doc.id, data),
                         leading: CircleAvatar(
@@ -157,14 +192,14 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                           child: Icon(Icons.chat_bubble_outline, color: color),
                         ),
                         title: Text(nombre,
-                            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: GingaColors.textPrimary)),
+                            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: Colors.white)),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(telefono, style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary)),
+                            Text(telefono, style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro)),
                             if (origen != null && origen['ad_id'] != null)
                               Text('Origen: anuncio ${origen['ad_id']}',
-                                  style: GoogleFonts.montserrat(fontSize: 11, color: GingaColors.textSecondary)),
+                                  style: GoogleFonts.montserrat(fontSize: 11, color: _kTextoSecundarioOscuro)),
                             const SizedBox(height: 2),
                             StreamBuilder<QuerySnapshot>(
                               stream: doc.reference
@@ -185,7 +220,7 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.montserrat(
                                     fontSize: 12,
-                                    color: GingaColors.textPrimary,
+                                    color: Colors.white,
                                     fontStyle: FontStyle.italic,
                                   ),
                                 );
@@ -208,12 +243,12 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(_formatearHora(ultimaInteraccion),
-                                style: GoogleFonts.montserrat(fontSize: 10, color: GingaColors.textSecondary)),
+                                style: GoogleFonts.montserrat(fontSize: 10, color: _kTextoSecundarioOscuro)),
                             const SizedBox(height: 4),
                             Icon(
                               aiHabilitada ? Icons.smart_toy_outlined : Icons.person_outline,
                               size: 16,
-                              color: GingaColors.textSecondary,
+                              color: _kTextoSecundarioOscuro,
                             ),
                           ],
                         ),
@@ -233,7 +268,7 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: _kTarjetaOscura,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.xl)),
       ),
@@ -272,16 +307,23 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.lg)),
-          title: Text('Agregar quien vino sin reservar', style: GoogleFonts.montserrat(fontWeight: FontWeight.w800)),
-          content: SingleChildScrollView(
+          backgroundColor: _kTarjetaOscura,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(GingaRadius.lg),
+            side: const BorderSide(color: _kBordeOscuro),
+          ),
+          title: Text('Agregar quien vino sin reservar',
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, color: Colors.white)),
+          content: Theme(
+            data: _darkDialogTheme(dialogContext),
+            child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Para poder darle seguimiento después (matrícula, avisos), como mínimo necesitamos su nombre y teléfono.',
-                  style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary),
+                  style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro),
                 ),
                 const SizedBox(height: GingaSpacing.md),
                 TextField(controller: nombreController, decoration: const InputDecoration(labelText: 'Nombre completo *')),
@@ -309,6 +351,7 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
                 ),
               ],
             ),
+          ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
@@ -389,7 +432,7 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
                           Flexible(
                             child: Text('Check-in de pruebas 📋',
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 13, color: GingaColors.textPrimary)),
+                                style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.white)),
                           ),
                           if (docs.isNotEmpty) ...[
                             const SizedBox(width: 6),
@@ -403,7 +446,7 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
                         ],
                       ),
                     ),
-                    Icon(_expandido ? Icons.expand_less : Icons.expand_more, color: GingaColors.textSecondary),
+                    Icon(_expandido ? Icons.expand_less : Icons.expand_more, color: _kTextoSecundarioOscuro),
                   ],
                 ),
               ),
@@ -426,7 +469,7 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text('No hay reservas pendientes de check-in.',
-                        style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary)),
+                        style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro)),
                   )
                 else
                   ConstrainedBox(
@@ -458,10 +501,10 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(etiqueta,
-                                        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: GingaColors.textPrimary)),
+                                        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
                                     if (fechaReservada != null)
                                       Text(_formatearFechaCorta(fechaReservada),
-                                          style: GoogleFonts.montserrat(fontSize: 11, color: GingaColors.textSecondary)),
+                                          style: GoogleFonts.montserrat(fontSize: 11, color: _kTextoSecundarioOscuro)),
                                   ],
                                 ),
                               ),
@@ -530,15 +573,23 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text('Convertir en alumno', style: GoogleFonts.montserrat(fontWeight: FontWeight.w800)),
-          content: SingleChildScrollView(
+          backgroundColor: _kTarjetaOscura,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(GingaRadius.lg),
+            side: const BorderSide(color: _kBordeOscuro),
+          ),
+          title: Text('Convertir en alumno',
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, color: Colors.white)),
+          content: Theme(
+            data: _darkDialogTheme(dialogContext),
+            child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Se crea un alumno "sin aplicación" (offline) para tu control interno, sin que necesite instalar la app.',
-                  style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary),
+                  style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro),
                 ),
                 const SizedBox(height: GingaSpacing.md),
                 TextField(
@@ -572,6 +623,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                 ),
               ],
             ),
+          ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
@@ -646,15 +698,23 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text('Marcar como reservado', style: GoogleFonts.montserrat(fontWeight: FontWeight.w800)),
-          content: SingleChildScrollView(
+          backgroundColor: _kTarjetaOscura,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(GingaRadius.lg),
+            side: const BorderSide(color: _kBordeOscuro),
+          ),
+          title: Text('Marcar como reservado',
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, color: Colors.white)),
+          content: Theme(
+            data: _darkDialogTheme(dialogContext),
+            child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Úsalo cuando coordinaste tú directamente (con la IA apagada) y quieres dejar la reserva guardada igual que si lo hubiera hecho la IA.',
-                  style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary),
+                  style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro),
                 ),
                 const SizedBox(height: GingaSpacing.md),
                 TextField(
@@ -693,13 +753,14 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                           ? 'Toca para elegir (solo martes o jueves)'
                           : '${fechaSeleccionada!.day.toString().padLeft(2, '0')}/${fechaSeleccionada!.month.toString().padLeft(2, '0')}/${fechaSeleccionada!.year}',
                       style: GoogleFonts.montserrat(
-                        color: fechaSeleccionada == null ? GingaColors.textSecondary : GingaColors.textPrimary,
+                        color: fechaSeleccionada == null ? _kTextoSecundarioOscuro : Colors.white,
                       ),
                     ),
                   ),
                 ),
               ],
             ),
+          ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
@@ -839,7 +900,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
             children: [
               Expanded(
                 child: Text(widget.leadData['nombre'] ?? 'Lead',
-                    style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w800, color: GingaColors.textPrimary)),
+                    style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
               ),
               StreamBuilder<DocumentSnapshot>(
                 stream: leadRef.snapshots(),
@@ -848,10 +909,13 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                   final aiHabilitada = (data?['ai_habilitada'] ?? true) != false;
                   return Row(
                     children: [
-                      Text('IA', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary)),
+                      Text('IA', style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro)),
                       Switch(
                         value: aiHabilitada,
                         activeThumbColor: GingaColors.brandGreen,
+                        activeTrackColor: GingaColors.brandGreen.withOpacity(0.3),
+                        inactiveThumbColor: Colors.white70,
+                        inactiveTrackColor: _kBordeOscuro,
                         onChanged: (value) => leadRef.update({'ai_habilitada': value}),
                       ),
                     ],
@@ -872,7 +936,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                     children: [
                       const Icon(Icons.event_available, size: 16, color: GingaColors.accentAmber),
                       const SizedBox(width: 4),
-                      Text('Ya tiene una reserva guardada', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary)),
+                      Text('Ya tiene una reserva guardada', style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro)),
                     ],
                   ),
                 );
@@ -923,7 +987,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                     children: [
                       const Icon(Icons.check_circle, size: 16, color: GingaColors.brandGreen),
                       const SizedBox(width: 4),
-                      Text('Ya convertido en alumno', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary)),
+                      Text('Ya convertido en alumno', style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro)),
                     ],
                   ),
                 );
@@ -960,7 +1024,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                     final edad = persona['edad'];
                     return Chip(
                       label: Text('$nombre ($tipo${edad != null ? ', $edad años' : ''})',
-                          style: GoogleFonts.montserrat(fontSize: 11, color: GingaColors.textPrimary)),
+                          style: GoogleFonts.montserrat(fontSize: 11, color: Colors.white)),
                       backgroundColor: GingaColors.brandGreen.withOpacity(0.1),
                       visualDensity: VisualDensity.compact,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -970,7 +1034,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
               );
             },
           ),
-          Divider(color: GingaColors.borderLight),
+          Divider(color: _kBordeOscuro),
           Flexible(
             child: StreamBuilder<QuerySnapshot>(
               stream: leadRef.collection('mensajes').orderBy('timestamp', descending: false).snapshots(),
@@ -998,7 +1062,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: esLead ? GingaColors.borderLight : GingaColors.brandGreen.withOpacity(0.15),
+                          color: esLead ? _kBordeOscuro : GingaColors.brandGreen.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(GingaRadius.md),
                         ),
                         child: Column(
@@ -1007,13 +1071,13 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                           children: [
                             Text(
                               data['texto'] ?? '',
-                              style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textPrimary),
+                              style: GoogleFonts.montserrat(fontSize: 13, color: Colors.white),
                             ),
                             if (ts != null) ...[
                               const SizedBox(height: 3),
                               Text(
                                 _formatearFechaHoraMensaje(ts),
-                                style: GoogleFonts.montserrat(fontSize: 10, color: GingaColors.textSecondary),
+                                style: GoogleFonts.montserrat(fontSize: 10, color: _kTextoSecundarioOscuro),
                               ),
                             ],
                           ],
@@ -1031,7 +1095,25 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
               Expanded(
                 child: TextField(
                   controller: _mensajeController,
-                  decoration: const InputDecoration(hintText: 'Responder manualmente...'),
+                  style: GoogleFonts.montserrat(color: Colors.white, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Responder manualmente...',
+                    hintStyle: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro, fontSize: 14),
+                    filled: true,
+                    fillColor: const Color(0x14FFFFFF),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                      borderSide: const BorderSide(color: _kBordeOscuro),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                      borderSide: const BorderSide(color: _kBordeOscuro),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                      borderSide: const BorderSide(color: GingaColors.brandGreen, width: 1.5),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: GingaSpacing.sm),
