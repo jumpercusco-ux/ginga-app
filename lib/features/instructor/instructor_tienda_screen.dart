@@ -5,6 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/widgets/ginga_cached_image.dart';
 
+// Paleta oscura fija — mismo tratamiento que el resto del flujo de profesor.
+const Color _kFondoOscuro = Colors.black;
+const Color _kTarjetaOscura = Color(0xFF161616);
+const Color _kBordeOscuro = Color(0x33FFFFFF);
+const Color _kTextoSecundarioOscuro = Colors.white70;
+
 class InstructorTiendaScreen extends StatelessWidget {
   const InstructorTiendaScreen({super.key});
 
@@ -13,22 +19,23 @@ class InstructorTiendaScreen extends StatelessWidget {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          backgroundColor: Colors.white,
+          backgroundColor: _kTarjetaOscura,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(GingaRadius.lg),
+            side: const BorderSide(color: _kBordeOscuro),
           ),
           title: Text(
             '¿Eliminar producto?',
             style: GoogleFonts.montserrat(
               fontWeight: FontWeight.w800,
-              color: GingaColors.textPrimary,
+              color: Colors.white,
               fontSize: 16,
             ),
           ),
           content: Text(
             '¿Estás seguro de que deseas eliminar "$nombre"? Esta acción no se puede deshacer y el artículo desaparecerá del catálogo de los alumnos.',
             style: GoogleFonts.montserrat(
-              color: GingaColors.textSecondary,
+              color: _kTextoSecundarioOscuro,
               fontSize: 13.5,
               height: 1.4,
             ),
@@ -40,7 +47,7 @@ class InstructorTiendaScreen extends StatelessWidget {
                 'Cancelar',
                 style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w700,
-                  color: GingaColors.textSecondary,
+                  color: _kTextoSecundarioOscuro,
                 ),
               ),
             ),
@@ -93,12 +100,12 @@ class InstructorTiendaScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
+      backgroundColor: _kFondoOscuro,
       appBar: AppBar(
-        backgroundColor: GingaColors.backgroundLight,
+        backgroundColor: _kFondoOscuro,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: GingaColors.textPrimary),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -106,7 +113,7 @@ class InstructorTiendaScreen extends StatelessWidget {
           style: GoogleFonts.montserrat(
             fontWeight: FontWeight.w800,
             fontSize: 18,
-            color: GingaColors.textPrimary,
+            color: Colors.white,
           ),
         ),
       ),
@@ -142,14 +149,14 @@ class InstructorTiendaScreen extends StatelessWidget {
                   Icon(
                     Icons.store_mall_directory_outlined,
                     size: 64,
-                    color: GingaColors.textSecondary.withOpacity(0.3),
+                    color: _kTextoSecundarioOscuro.withOpacity(0.3),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'No hay productos en la tienda aún.',
                     style: GoogleFonts.montserrat(
                       fontSize: 14,
-                      color: GingaColors.textSecondary,
+                      color: _kTextoSecundarioOscuro,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -204,9 +211,9 @@ class InstructorTiendaScreen extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: _kTarjetaOscura,
                   borderRadius: BorderRadius.circular(GingaRadius.lg),
-                  border: Border.all(color: GingaColors.borderLight),
+                  border: Border.all(color: _kBordeOscuro),
                 ),
                 child: Row(
                   children: [
@@ -244,7 +251,7 @@ class InstructorTiendaScreen extends StatelessWidget {
                             style: GoogleFonts.montserrat(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w700,
-                              color: GingaColors.textPrimary,
+                              color: Colors.white,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -265,7 +272,7 @@ class InstructorTiendaScreen extends StatelessWidget {
                                 width: 3,
                                 height: 3,
                                 decoration: BoxDecoration(
-                                  color: GingaColors.textSecondary,
+                                  color: _kTextoSecundarioOscuro,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -281,7 +288,7 @@ class InstructorTiendaScreen extends StatelessWidget {
                                       ? Colors.red
                                       : stock <= 3
                                           ? GingaColors.accentAmber
-                                          : GingaColors.textSecondary,
+                                          : _kTextoSecundarioOscuro,
                                 ),
                               ),
                             ],
