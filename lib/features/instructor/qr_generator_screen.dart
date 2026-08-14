@@ -5,6 +5,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme/ginga_theme.dart';
 
+// Paleta oscura fija — mismo tratamiento que el resto del flujo de profesor.
+const Color _kFondoOscuro = Colors.black;
+const Color _kTarjetaOscura = Color(0xFF161616);
+const Color _kBordeOscuro = Color(0x33FFFFFF);
+const Color _kTextoSecundarioOscuro = Colors.white70;
+
 class QrGeneratorScreen extends StatefulWidget {
   final String claseId;
   final String nivel;
@@ -99,12 +105,12 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
+      backgroundColor: _kFondoOscuro,
       appBar: AppBar(
         title: Text('QR de Clase',
-            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
-        backgroundColor: GingaColors.backgroundLight,
-        foregroundColor: GingaColors.textPrimary,
+            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: Colors.white)),
+        backgroundColor: _kFondoOscuro,
+        foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: _isLoading
@@ -121,9 +127,9 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: GingaColors.cardLight,
+                        color: _kTarjetaOscura,
                         borderRadius: BorderRadius.circular(GingaRadius.lg),
-                        border: Border.all(color: GingaColors.borderLight),
+                        border: Border.all(color: _kBordeOscuro),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -139,14 +145,14 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                                   style: GoogleFonts.montserrat(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w800,
-                                      color: GingaColors.textPrimary),
+                                      color: Colors.white),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   widget.hora,
                                   style: GoogleFonts.montserrat(
                                       fontSize: 13,
-                                      color: GingaColors.textSecondary),
+                                      color: _kTextoSecundarioOscuro),
                                 ),
                               ],
                             ),
@@ -189,9 +195,12 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
+                        // Fondo del QR siempre blanco a propósito (necesario para que
+                        // escanee bien) — por eso sus módulos van en negro fijo, nunca
+                        // en un color adaptativo que podría volverse blanco en modo oscuro.
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(GingaRadius.lg),
-                        border: Border.all(color: GingaColors.borderLight),
+                        border: Border.all(color: _kBordeOscuro),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.03),
@@ -207,9 +216,9 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                           eyeShape: QrEyeShape.square,
                           color: GingaColors.brandGreen,
                         ),
-                        dataModuleStyle: QrDataModuleStyle(
+                        dataModuleStyle: const QrDataModuleStyle(
                           dataModuleShape: QrDataModuleShape.square,
-                          color: GingaColors.textPrimary,
+                          color: Colors.black,
                         ),
                       ),
                     ),
@@ -219,7 +228,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                     Text(
                       'Muestra este QR a tus alumnos',
                       style: GoogleFonts.montserrat(
-                          fontSize: 13, color: GingaColors.textSecondary),
+                          fontSize: 13, color: _kTextoSecundarioOscuro),
                     ),
 
                     const SizedBox(height: 24),
@@ -232,7 +241,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                           style: GoogleFonts.montserrat(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary,
+                            color: Colors.white,
                           ),
                         ),
                         Row(
@@ -280,7 +289,7 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                                 'Esperando escaneos de alumnos...',
                                 style: GoogleFonts.montserrat(
                                   fontSize: 13,
-                                  color: GingaColors.textSecondary,
+                                  color: _kTextoSecundarioOscuro,
                                   fontStyle: FontStyle.italic,
                                 ),
                               ),
@@ -397,9 +406,9 @@ class AttendeeTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _kTarjetaOscura,
         borderRadius: BorderRadius.circular(GingaRadius.md),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: _kBordeOscuro),
       ),
       child: Row(
         children: [
@@ -420,7 +429,7 @@ class AttendeeTile extends StatelessWidget {
                   style: GoogleFonts.montserrat(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary,
+                    color: Colors.white,
                   ),
                 ),
                 Text(
@@ -429,7 +438,7 @@ class AttendeeTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.montserrat(
                     fontSize: 11,
-                    color: GingaColors.textSecondary,
+                    color: _kTextoSecundarioOscuro,
                   ),
                 ),
               ],

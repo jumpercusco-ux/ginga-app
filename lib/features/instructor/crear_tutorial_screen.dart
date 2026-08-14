@@ -10,6 +10,12 @@ import '../../core/services/tutoriales_service.dart';
 import '../biblioteca/widgets/tutorial_thumbnail.dart';
 import '../../core/models/cuerdas_fiu.dart';
 
+// Paleta oscura fija — mismo tratamiento que el resto del flujo de profesor.
+const Color _kFondoOscuro = Colors.black;
+const Color _kTarjetaOscura = Color(0xFF161616);
+const Color _kBordeOscuro = Color(0x33FFFFFF);
+const Color _kTextoSecundarioOscuro = Colors.white70;
+
 class CrearTutorialScreen extends StatefulWidget {
   final String tutorialId;
 
@@ -228,15 +234,15 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
+      backgroundColor: _kFondoOscuro,
       appBar: AppBar(
         title: Text(
           _isEditMode ? 'Editar Lección' : 'Crear Lección',
           style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 16),
         ),
-        backgroundColor: GingaColors.backgroundLight,
+        backgroundColor: _kFondoOscuro,
         elevation: 0,
-        foregroundColor: GingaColors.textPrimary,
+        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
           onPressed: () => Navigator.pop(context),
@@ -262,12 +268,12 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                         decoration: BoxDecoration(
                           color: _selectedVideoFile != null || _existingVideoUrl.isNotEmpty
                               ? GingaColors.brandGreen.withOpacity(0.05)
-                              : Colors.white,
+                              : _kTarjetaOscura,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
                           border: Border.all(
                             color: _selectedVideoFile != null || _existingVideoUrl.isNotEmpty
                                 ? GingaColors.brandGreen
-                                : GingaColors.borderLight,
+                                : _kBordeOscuro,
                             width: _selectedVideoFile != null || _existingVideoUrl.isNotEmpty ? 1.5 : 1.0,
                           ),
                         ),
@@ -281,7 +287,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                               size: 40,
                               color: _selectedVideoFile != null || _existingVideoUrl.isNotEmpty
                                   ? GingaColors.brandGreen
-                                  : GingaColors.textSecondary.withOpacity(0.6),
+                                  : _kTextoSecundarioOscuro.withOpacity(0.6),
                             ),
                             const SizedBox(height: 12),
                             Text(
@@ -295,7 +301,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                                 fontWeight: FontWeight.w700,
                                 color: _selectedVideoFile != null || _existingVideoUrl.isNotEmpty
                                     ? GingaColors.brandGreen
-                                    : GingaColors.textPrimary,
+                                    : Colors.white,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -307,7 +313,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                                       : 'Sube un video en formato MP4 (máx. 10 min)'),
                               style: GoogleFonts.montserrat(
                                 fontSize: 11,
-                                color: GingaColors.textSecondary,
+                                color: _kTextoSecundarioOscuro,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -325,9 +331,9 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                         width: double.infinity,
                         height: 120,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: _kTarjetaOscura,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
-                          border: Border.all(color: GingaColors.borderLight),
+                          border: Border.all(color: _kBordeOscuro),
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: _selectedImageFile != null
@@ -348,7 +354,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                     _buildLabel('Título del movimiento / lección *'),
                     TextFormField(
                       controller: _tituloController,
-                      style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(color: Colors.white),
                       decoration: _buildInputDecoration('Ej: Queixada, Armada, Cocorinha...'),
                       validator: (value) =>
                           value == null || value.trim().isEmpty ? 'Ingresa el nombre de la lección' : null,
@@ -366,8 +372,10 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                               _buildLabel('Categoría *'),
                               DropdownButtonFormField<String>(
                                 value: _selectedCategory,
+                                dropdownColor: _kTarjetaOscura,
+                                style: GoogleFonts.montserrat(color: Colors.white),
                                 items: _categorias.map((cat) {
-                                  return DropdownMenuItem(value: cat, child: Text(cat, style: GoogleFonts.montserrat()));
+                                  return DropdownMenuItem(value: cat, child: Text(cat, style: GoogleFonts.montserrat(color: Colors.white)));
                                 }).toList(),
                                 onChanged: (value) => setState(() => _selectedCategory = value!),
                                 decoration: _buildInputDecoration(''),
@@ -384,8 +392,10 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                               _buildLabel('Nivel *'),
                               DropdownButtonFormField<String>(
                                 value: _selectedLevel,
+                                dropdownColor: _kTarjetaOscura,
+                                style: GoogleFonts.montserrat(color: Colors.white),
                                 items: _niveles.map((niv) {
-                                  return DropdownMenuItem(value: niv, child: Text(niv, style: GoogleFonts.montserrat()));
+                                  return DropdownMenuItem(value: niv, child: Text(niv, style: GoogleFonts.montserrat(color: Colors.white)));
                                 }).toList(),
                                 onChanged: (value) => setState(() => _selectedLevel = value!),
                                 decoration: _buildInputDecoration(''),
@@ -401,6 +411,8 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                     _buildLabel('Cuerda Requerida (Graduación) *'),
                     DropdownButtonFormField<String>(
                       value: _selectedCorda,
+                      dropdownColor: _kTarjetaOscura,
+                      style: GoogleFonts.montserrat(color: Colors.white),
                       items: CuerdasFIU.lista.map((c) {
                         return DropdownMenuItem(
                           value: c.nombre,
@@ -408,7 +420,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                             '${c.nombre} (${c.rango})',
                             style: GoogleFonts.montserrat(
                               fontSize: 13,
-                              color: GingaColors.textPrimary,
+                              color: Colors.white,
                             ),
                           ),
                         );
@@ -423,7 +435,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                     _buildLabel('Duración estimada de la práctica *'),
                     TextFormField(
                       controller: _duracionController,
-                      style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(color: Colors.white),
                       decoration: _buildInputDecoration('Ej: 6 min, 10 min, 15 min...'),
                       validator: (value) =>
                           value == null || value.trim().isEmpty ? 'Ingresa la duración estimada' : null,
@@ -435,7 +447,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                     TextFormField(
                       controller: _descripcionController,
                       maxLines: 4,
-                      style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(color: Colors.white),
                       decoration: _buildInputDecoration(
                           'Explica paso a paso cómo posicionar los pies, balancear el tronco, elevar la cadera y rotar...'),
                       validator: (value) =>
@@ -448,7 +460,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                     TextFormField(
                       controller: _tipMestreController,
                       maxLines: 2,
-                      style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(color: Colors.white),
                       decoration: _buildInputDecoration('Ej: No quites la vista de tu oponente al girar...'),
                     ),
                     const SizedBox(height: 16),
@@ -458,16 +470,16 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                     TextFormField(
                       controller: _tipErrorController,
                       maxLines: 2,
-                      style: GoogleFonts.montserrat(color: GingaColors.textPrimary),
+                      style: GoogleFonts.montserrat(color: Colors.white),
                       decoration: _buildInputDecoration('Ej: Apoyar el talón completo frena tu velocidad de escape...'),
                     ),
                     // Visibilidad / Borrador Switch
                     Container(
                       margin: const EdgeInsets.only(top: 8, bottom: 24),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: _kTarjetaOscura,
                         borderRadius: BorderRadius.circular(GingaRadius.md),
-                        border: Border.all(color: GingaColors.borderLight),
+                        border: Border.all(color: _kBordeOscuro),
                       ),
                       child: SwitchListTile(
                         value: _visible,
@@ -477,7 +489,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                           style: GoogleFonts.montserrat(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary,
+                            color: Colors.white,
                           ),
                         ),
                         subtitle: Text(
@@ -486,7 +498,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
                               : 'Guardado como borrador (oculto para alumnos).',
                           style: GoogleFonts.montserrat(
                             fontSize: 12,
-                            color: GingaColors.textSecondary,
+                            color: _kTextoSecundarioOscuro,
                           ),
                         ),
                         onChanged: (bool val) {
@@ -533,7 +545,7 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
         style: GoogleFonts.montserrat(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: GingaColors.textPrimary,
+          color: Colors.white,
         ),
       ),
     );
@@ -542,17 +554,17 @@ class _CrearTutorialScreenState extends State<CrearTutorialScreen> {
   InputDecoration _buildInputDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textSecondary.withOpacity(0.5)),
+      hintStyle: GoogleFonts.montserrat(fontSize: 13, color: _kTextoSecundarioOscuro.withOpacity(0.5)),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: _kTarjetaOscura,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(GingaRadius.md),
-        borderSide: BorderSide(color: GingaColors.borderLight),
+        borderSide: BorderSide(color: _kBordeOscuro),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(GingaRadius.md),
-        borderSide: BorderSide(color: GingaColors.borderLight),
+        borderSide: BorderSide(color: _kBordeOscuro),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(GingaRadius.md),

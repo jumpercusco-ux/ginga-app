@@ -15,6 +15,13 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/widgets/ginga_cached_image.dart';
 
+// Paleta oscura fija — mismo tratamiento que el resto del flujo de profesor.
+const Color _kFondoOscuro = Colors.black;
+const Color _kTarjetaOscura = Color(0xFF161616);
+const Color _kCampoOscuro = Color(0xFF1F1F1F);
+const Color _kBordeOscuro = Color(0x33FFFFFF);
+const Color _kTextoSecundarioOscuro = Colors.white70;
+
 class CrearClaseScreen extends StatefulWidget {
   final String? claseId;
   const CrearClaseScreen({super.key, this.claseId});
@@ -259,7 +266,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: _kTarjetaOscura,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -310,7 +317,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: const BoxDecoration(
-                      border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+                      border: Border(bottom: BorderSide(color: _kBordeOscuro)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -320,11 +327,11 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                           style: GoogleFonts.montserrat(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: GingaColors.textPrimary,
+                            color: Colors.white,
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close),
+                          icon: const Icon(Icons.close, color: Colors.white),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
@@ -341,12 +348,12 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                             Expanded(
                               child: TextField(
                                 controller: searchController,
-                                style: GoogleFonts.montserrat(fontSize: 14),
+                                style: GoogleFonts.montserrat(fontSize: 14, color: Colors.white),
                                 decoration: InputDecoration(
                                   hintText: 'Buscar calle, parque, plaza...',
-                                  hintStyle: GoogleFonts.montserrat(color: GingaColors.textSecondary, fontSize: 13),
+                                  hintStyle: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro, fontSize: 13),
                                   filled: true,
-                                  fillColor: const Color(0xFFF5F5F5),
+                                  fillColor: _kCampoOscuro,
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
@@ -362,7 +369,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                           ),
                                         )
                                       : IconButton(
-                                          icon: const Icon(Icons.clear, size: 18),
+                                          icon: const Icon(Icons.clear, size: 18, color: Colors.white),
                                           onPressed: () {
                                             searchController.clear();
                                             setModalState(() {
@@ -395,7 +402,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                             constraints: const BoxConstraints(maxHeight: 180),
                             margin: const EdgeInsets.only(top: 8),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: _kTarjetaOscura,
                               borderRadius: BorderRadius.circular(10),
                               boxShadow: [
                                 BoxShadow(
@@ -418,7 +425,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                     displayName,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textPrimary),
+                                    style: GoogleFonts.montserrat(fontSize: 12, color: Colors.white),
                                   ),
                                   onTap: () {
                                     final lat = double.tryParse(res['lat'] ?? '');
@@ -492,7 +499,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                             ),
                             child: Text(
                               '💡 Toca cualquier parte del mapa para mover el pin de ubicación exacta.',
-                              style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: GingaColors.textSecondary),
+                              style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87),
                               textAlign: TextAlign.center,
                             ),
                           ),
@@ -842,19 +849,19 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F2),
+      backgroundColor: _kFondoOscuro,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _kFondoOscuro,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: GingaColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(widget.claseId != null ? 'Editar clase' : 'Crear clase',
             style: GoogleFonts.montserrat(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: GingaColors.textPrimary)),
+                color: Colors.white)),
         centerTitle: false,
       ),
       bottomNavigationBar: SafeArea(
@@ -928,7 +935,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                     controller: _descripcionController,
                     maxLines: 3,
                     style: GoogleFonts.montserrat(
-                        fontSize: 13, color: GingaColors.textPrimary),
+                        fontSize: 13, color: Colors.white),
                     decoration: _inputDecoration(
                         'Describe el contenido o la dinámica de la clase...'),
                   ),
@@ -948,7 +955,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                     TextFormField(
                       controller: _organizadorController,
                       style: GoogleFonts.montserrat(
-                          fontSize: 13, color: GingaColors.textPrimary),
+                          fontSize: 13, color: Colors.white),
                       decoration: _inputDecoration(
                           'Ej: Mestre Sidney, Instructor Enrique...'),
                     ),
@@ -980,7 +987,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                             'No hay actividades programadas',
                             style: GoogleFonts.montserrat(
                               fontSize: 12,
-                              color: GingaColors.textSecondary,
+                              color: _kTextoSecundarioOscuro,
                               fontStyle: FontStyle.italic,
                             ),
                           ),
@@ -996,10 +1003,10 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                           return Card(
                             key: ValueKey(item),
                             margin: const EdgeInsets.only(bottom: 8),
-                            color: Colors.white,
+                            color: _kTarjetaOscura,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(GingaRadius.md),
-                              side: BorderSide(color: GingaColors.borderLight),
+                              side: BorderSide(color: _kBordeOscuro),
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(8.0),
@@ -1014,14 +1021,14 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                         _cronograma[index]['hora'] = val;
                                       },
                                       style: GoogleFonts.montserrat(
-                                          fontSize: 12, color: GingaColors.textPrimary),
+                                          fontSize: 12, color: Colors.white),
                                       decoration: InputDecoration(
                                         hintText: '09:00 AM',
                                         isDense: true,
                                         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(GingaRadius.sm),
-                                          borderSide: BorderSide(color: GingaColors.borderLight),
+                                          borderSide: BorderSide(color: _kBordeOscuro),
                                         ),
                                       ),
                                     ),
@@ -1035,14 +1042,14 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                         _cronograma[index]['actividad'] = val;
                                       },
                                       style: GoogleFonts.montserrat(
-                                          fontSize: 12, color: GingaColors.textPrimary),
+                                          fontSize: 12, color: Colors.white),
                                       decoration: InputDecoration(
                                         hintText: 'Actividad...',
                                         isDense: true,
                                         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(GingaRadius.sm),
-                                          borderSide: BorderSide(color: GingaColors.borderLight),
+                                          borderSide: BorderSide(color: _kBordeOscuro),
                                         ),
                                       ),
                                     ),
@@ -1077,9 +1084,9 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   width: double.infinity,
                   height: 140,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8F8F8),
+                    color: _kCampoOscuro,
                     borderRadius: BorderRadius.circular(GingaRadius.md),
-                    border: Border.all(color: GingaColors.borderLight),
+                    border: Border.all(color: _kBordeOscuro),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: _selectedImageFile != null
@@ -1098,7 +1105,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                   ),
                                 ))
                           : Container(
-                              color: const Color(0xFFF8F8F8),
+                              color: _kCampoOscuro,
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -1113,7 +1120,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                     style: GoogleFonts.montserrat(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
-                                      color: GingaColors.textPrimary,
+                                      color: Colors.white,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -1121,7 +1128,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                     'Ideal para eventos y clases especiales',
                                     style: GoogleFonts.montserrat(
                                       fontSize: 11,
-                                      color: GingaColors.textSecondary,
+                                      color: _kTextoSecundarioOscuro,
                                     ),
                                   ),
                                 ],
@@ -1156,7 +1163,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                 decoration: BoxDecoration(
                                   color: sel
                                       ? GingaColors.brandGreen
-                                      : const Color(0xFFF0F0F0),
+                                      : _kCampoOscuro,
                                   shape: BoxShape.circle,
                                 ),
                                 child: Center(
@@ -1166,7 +1173,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                           fontWeight: FontWeight.w700,
                                           color: sel
                                               ? Colors.white
-                                              : GingaColors.textSecondary)),
+                                              : _kTextoSecundarioOscuro)),
                                 ),
                               ),
                             );
@@ -1251,10 +1258,10 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   TextFormField(
                     controller: _ubicacionController,
                     style: GoogleFonts.montserrat(
-                        fontSize: 13, color: GingaColors.textPrimary),
+                        fontSize: 13, color: Colors.white),
                     decoration: _inputDecoration('Parque de la roda').copyWith(
                       suffixIcon: Icon(Icons.location_on_outlined,
-                          color: GingaColors.textSecondary, size: 20),
+                          color: _kTextoSecundarioOscuro, size: 20),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1307,7 +1314,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                                 onPressed: () => _showMapPicker(context),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.white.withOpacity(0.9),
-                                  foregroundColor: GingaColors.textPrimary,
+                                  foregroundColor: Colors.black87,
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   elevation: 2,
@@ -1366,7 +1373,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                             TextFormField(
                               controller: _edadMinController,
                               keyboardType: TextInputType.number,
-                              style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textPrimary),
+                              style: GoogleFonts.montserrat(fontSize: 13, color: Colors.white),
                               decoration: _inputDecoration('Ej. 5'),
                             ),
                           ],
@@ -1382,7 +1389,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                             TextFormField(
                               controller: _edadMaxController,
                               keyboardType: TextInputType.number,
-                              style: GoogleFonts.montserrat(fontSize: 13, color: GingaColors.textPrimary),
+                              style: GoogleFonts.montserrat(fontSize: 13, color: Colors.white),
                               decoration: _inputDecoration('Ej. 12'),
                             ),
                           ],
@@ -1397,7 +1404,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                     value: _claseGratuita,
                     onChanged: (v) => setState(() => _claseGratuita = v),
                   ),
-                  Divider(height: 24, color: GingaColors.borderLight),
+                  Divider(height: 24, color: _kBordeOscuro),
                   _toggleRow(
                     title: 'Publicar inmediatamente',
                     subtitle: 'Visible para los alumnos al publicar',
@@ -1418,7 +1425,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                 children: [
                   _precioRow('Mensualidad', 'Para alumnos recurrentes',
                       'S/. 140'),
-                  Divider(height: 24, color: GingaColors.borderLight),
+                  Divider(height: 24, color: _kBordeOscuro),
                   _precioRow('Primera clase', 'Alumnos nuevos', 'gratis'),
                 ],
               ),
@@ -1466,7 +1473,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _kTarjetaOscura,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
       ),
       child: Column(
@@ -1477,7 +1484,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                 style: GoogleFonts.montserrat(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary)),
+                    color: Colors.white)),
             const SizedBox(height: 16),
           ],
           child,
@@ -1488,23 +1495,23 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
 
   Widget _label(String text) => Text(text,
       style: GoogleFonts.montserrat(
-          fontSize: 12, color: GingaColors.textSecondary));
+          fontSize: 12, color: _kTextoSecundarioOscuro));
 
   InputDecoration _inputDecoration(String hint) => InputDecoration(
         hintText: hint,
         hintStyle:
-            GoogleFonts.montserrat(color: GingaColors.textSecondary, fontSize: 13),
+            GoogleFonts.montserrat(color: _kTextoSecundarioOscuro, fontSize: 13),
         filled: true,
-        fillColor: const Color(0xFFF8F8F8),
+        fillColor: _kCampoOscuro,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          borderSide: BorderSide(color: GingaColors.borderLight),
+          borderSide: BorderSide(color: _kBordeOscuro),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
-          borderSide: BorderSide(color: GingaColors.borderLight),
+          borderSide: BorderSide(color: _kBordeOscuro),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -1556,10 +1563,10 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? selectedColor.withOpacity(0.08) : Colors.white,
+          color: isSelected ? selectedColor.withOpacity(0.08) : _kTarjetaOscura,
           borderRadius: BorderRadius.circular(GingaRadius.md),
           border: Border.all(
-            color: isSelected ? selectedColor : GingaColors.borderLight,
+            color: isSelected ? selectedColor : _kBordeOscuro,
             width: isSelected ? 2.0 : 1.0,
           ),
         ),
@@ -1567,7 +1574,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? selectedColor : GingaColors.textSecondary,
+              color: isSelected ? selectedColor : _kTextoSecundarioOscuro,
               size: 24,
             ),
             const SizedBox(height: 6),
@@ -1576,7 +1583,7 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
               style: GoogleFonts.montserrat(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? selectedColor : GingaColors.textSecondary,
+                color: isSelected ? selectedColor : _kTextoSecundarioOscuro,
               ),
             ),
           ],
@@ -1587,22 +1594,22 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
 
   Widget _customNameField() => TextFormField(
         controller: _nombreCustomController,
-        style: GoogleFonts.montserrat(fontSize: 14, color: GingaColors.textPrimary),
+        style: GoogleFonts.montserrat(fontSize: 14, color: Colors.white),
         decoration: InputDecoration(
           hintText: _tipoClase == 'roda'
               ? 'ej. Roda de Integración, Roda de Fin de Año'
               : 'ej. Taller de Acrobacias, Masterclass Mestre Sidney',
-          hintStyle: GoogleFonts.montserrat(color: GingaColors.textSecondary, fontSize: 13),
+          hintStyle: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro, fontSize: 13),
           filled: true,
-          fillColor: const Color(0xFFF8F8F8),
+          fillColor: _kCampoOscuro,
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(GingaRadius.md),
-            borderSide: BorderSide(color: GingaColors.borderLight),
+            borderSide: BorderSide(color: _kBordeOscuro),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(GingaRadius.md),
-            borderSide: BorderSide(color: GingaColors.borderLight),
+            borderSide: BorderSide(color: _kBordeOscuro),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -1617,9 +1624,9 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8F8F8),
+            color: _kCampoOscuro,
             borderRadius: BorderRadius.circular(GingaRadius.md),
-            border: Border.all(color: GingaColors.borderLight),
+            border: Border.all(color: _kBordeOscuro),
           ),
           child: Row(
             children: [
@@ -1632,12 +1639,12 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   style: GoogleFonts.montserrat(
                     fontSize: 14,
                     fontWeight: _fechaTexto.isEmpty ? FontWeight.w500 : FontWeight.w700,
-                    color: _fechaTexto.isEmpty ? GingaColors.textSecondary : GingaColors.textPrimary,
+                    color: _fechaTexto.isEmpty ? _kTextoSecundarioOscuro : Colors.white,
                   ),
                 ),
               ),
               Icon(Icons.keyboard_arrow_right_rounded,
-                  color: GingaColors.textSecondary, size: 18),
+                  color: _kTextoSecundarioOscuro, size: 18),
             ],
           ),
         ),
@@ -1698,18 +1705,19 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F8F8),
+        color: _kCampoOscuro,
         borderRadius: BorderRadius.circular(GingaRadius.md),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: _kBordeOscuro),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
+          dropdownColor: _kTarjetaOscura,
           value: _nombreClase,
           isExpanded: true,
           icon: Icon(Icons.keyboard_arrow_down,
-              color: GingaColors.textSecondary),
+              color: _kTextoSecundarioOscuro),
           style: GoogleFonts.montserrat(
-              fontSize: 14, color: GingaColors.textPrimary),
+              fontSize: 14, color: Colors.white),
           items: itemsNombre
               .map((item) => DropdownMenuItem(value: item, child: Text(item)))
               .toList(),
@@ -1729,18 +1737,19 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F8F8),
+        color: _kCampoOscuro,
         borderRadius: BorderRadius.circular(GingaRadius.md),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: _kBordeOscuro),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
+          dropdownColor: _kTarjetaOscura,
           value: _selectedSede,
           isExpanded: true,
           icon: Icon(Icons.keyboard_arrow_down,
-              color: GingaColors.textSecondary),
+              color: _kTextoSecundarioOscuro),
           style: GoogleFonts.montserrat(
-              fontSize: 14, color: GingaColors.textPrimary),
+              fontSize: 14, color: Colors.white),
           items: itemsSede
               .map((item) => DropdownMenuItem(value: item, child: Text(item)))
               .toList(),
@@ -1763,14 +1772,14 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           decoration: BoxDecoration(
             color: selected
                 ? GingaColors.brandGreen
-                : const Color(0xFFF0F0F0),
+                : _kCampoOscuro,
             borderRadius: BorderRadius.circular(GingaRadius.full),
           ),
           child: Text(label,
               style: GoogleFonts.montserrat(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : GingaColors.textSecondary)),
+                  color: selected ? Colors.white : _kTextoSecundarioOscuro)),
         ),
       );
 
@@ -1780,9 +1789,9 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8F8F8),
+            color: _kCampoOscuro,
             borderRadius: BorderRadius.circular(GingaRadius.md),
-            border: Border.all(color: GingaColors.borderLight),
+            border: Border.all(color: _kBordeOscuro),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1791,9 +1800,9 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                   style: GoogleFonts.montserrat(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: GingaColors.textPrimary)),
+                      color: Colors.white)),
               Icon(Icons.access_time,
-                  color: GingaColors.textSecondary, size: 18),
+                  color: _kTextoSecundarioOscuro, size: 18),
             ],
           ),
         ),
@@ -1805,10 +1814,10 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: const Color(0xFFF0F0F0),
+            color: _kCampoOscuro,
             borderRadius: BorderRadius.circular(GingaRadius.sm),
           ),
-          child: Icon(icon, size: 20, color: GingaColors.textPrimary),
+          child: Icon(icon, size: 20, color: Colors.white),
         ),
       );
 
@@ -1828,10 +1837,10 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                     style: GoogleFonts.montserrat(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary)),
+                        color: Colors.white)),
                 Text(subtitle,
                     style: GoogleFonts.montserrat(
-                        fontSize: 11, color: GingaColors.textSecondary)),
+                        fontSize: 11, color: _kTextoSecundarioOscuro)),
               ],
             ),
           ),
@@ -1854,10 +1863,10 @@ class _CrearClaseScreenState extends State<CrearClaseScreen> {
                     style: GoogleFonts.montserrat(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary)),
+                        color: Colors.white)),
                 Text(subtitle,
                     style: GoogleFonts.montserrat(
-                        fontSize: 11, color: GingaColors.textSecondary)),
+                        fontSize: 11, color: _kTextoSecundarioOscuro)),
               ],
             ),
           ),

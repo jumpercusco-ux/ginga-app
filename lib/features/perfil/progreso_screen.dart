@@ -6,10 +6,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../core/theme/ginga_theme.dart';
-import '../../core/theme/theme_manager.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/cuerdas_fiu.dart';
+
+// Paleta oscura fija — mismo tratamiento que el resto de la app: un solo
+// tema, sin selector claro/oscuro/sistema.
+const Color _kFondoOscuro = Colors.black;
+const Color _kTarjetaOscura = Color(0xFF161616);
+const Color _kBordeOscuro = Color(0x33FFFFFF);
+const Color _kTextoSecundarioOscuro = Colors.white70;
 
 int _obtenerAsistenciasObjetivo(String cordaUsuario) {
   final cordaObj = CuerdasFIU.encontrarCordaFIU(cordaUsuario);
@@ -112,12 +118,11 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                 (totalAsistencias / objetivo).clamp(0.0, 1.0);
             final int porcentajeInt = (porcentaje * 100).toInt();
 
-            final isDark = Theme.of(context).brightness == Brightness.dark;
-            final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
-            final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
-            final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
-            final cardThemeBg = Theme.of(context).cardTheme.color ?? GingaColors.cardLight;
-            final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
+            const textColor = Colors.white;
+            const subtitleColor = _kTextoSecundarioOscuro;
+            const cardBg = _kTarjetaOscura;
+            const cardThemeBg = _kTarjetaOscura;
+            const borderColor = _kBordeOscuro;
 
             final screenWidth = MediaQuery.of(context).size.width;
             final isDesktop = screenWidth > 850;
@@ -126,7 +131,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
               return DefaultTabController(
                 length: 3,
                 child: Scaffold(
-                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  backgroundColor: _kFondoOscuro,
                   body: SafeArea(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +143,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                           decoration: BoxDecoration(
                             border: Border(
                               right: BorderSide(
-                                color: isDark ? Colors.white.withOpacity(0.08) : GingaColors.borderLight,
+                                color: _kBordeOscuro,
                               ),
                             ),
                           ),
@@ -187,7 +192,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                     color: cardThemeBg,
                                     borderRadius: BorderRadius.circular(GingaRadius.lg),
                                     border: Border.all(
-                                        color: GingaColors.brandGreen.withOpacity(isDark ? 0.15 : 0.3)),
+                                        color: GingaColors.brandGreen.withOpacity(0.15)),
                                   ),
                                   child: Stack(
                                     children: [
@@ -292,8 +297,6 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                   uid: uid,
                                   notificationsEnabled: notificationsEnabled,
                                 ),
-                                const SizedBox(height: 12),
-                                const _ThemeToggleCard(),
                                 const SizedBox(height: 32),
                                 Center(
                                   child: Text(
@@ -322,7 +325,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                   height: 38,
                                   constraints: const BoxConstraints(maxWidth: 500),
                                   decoration: BoxDecoration(
-                                    color: isDark ? GingaColors.surfaceDark.withOpacity(0.5) : GingaColors.borderLight.withOpacity(0.3),
+                                    color: _kTarjetaOscura.withOpacity(0.5),
                                     borderRadius: BorderRadius.circular(24),
                                   ),
                                   padding: const EdgeInsets.all(3),
@@ -334,7 +337,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     labelColor: Colors.white,
-                                    unselectedLabelColor: GingaColors.textSecondary,
+                                    unselectedLabelColor: _kTextoSecundarioOscuro,
                                     labelStyle: GoogleFonts.montserrat(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
@@ -491,7 +494,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
             return DefaultTabController(
               length: 4,
               child: Scaffold(
-                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                backgroundColor: _kFondoOscuro,
                 body: SafeArea(
                   child: Center(
                     child: ConstrainedBox(
@@ -550,7 +553,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                 color: cardThemeBg,
                                 borderRadius: BorderRadius.circular(GingaRadius.lg),
                                 border: Border.all(
-                                    color: GingaColors.brandGreen.withOpacity(isDark ? 0.15 : 0.3)),
+                                    color: GingaColors.brandGreen.withOpacity(0.15)),
                               ),
                               child: Stack(
                                 children: [
@@ -658,7 +661,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                             child: Container(
                               height: 38,
                               decoration: BoxDecoration(
-                                color: isDark ? GingaColors.surfaceDark.withOpacity(0.5) : GingaColors.borderLight.withOpacity(0.3),
+                                color: _kTarjetaOscura.withOpacity(0.5),
                                 borderRadius: BorderRadius.circular(24),
                               ),
                               padding: const EdgeInsets.all(3),
@@ -670,7 +673,7 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 labelColor: Colors.white,
-                                unselectedLabelColor: GingaColors.textSecondary,
+                                unselectedLabelColor: _kTextoSecundarioOscuro,
                                 labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                                 labelStyle: GoogleFonts.montserrat(
                                   fontSize: 11,
@@ -828,8 +831,6 @@ class _ProgresoScreenState extends State<ProgresoScreen> {
                                         uid: uid,
                                         notificationsEnabled: notificationsEnabled,
                                       ),
-                                      const SizedBox(height: 12),
-                                      const _ThemeToggleCard(),
                                       const SizedBox(height: 32),
                                       Center(
                                         child: Text(
@@ -874,11 +875,10 @@ class _NotificationToggleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (uid == null) return const SizedBox();
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
-    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
-    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
-    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+    const cardBg = _kTarjetaOscura;
+    const borderColor = _kBordeOscuro;
+    const textColor = Colors.white;
+    const subtitleColor = _kTextoSecundarioOscuro;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -946,128 +946,6 @@ class _NotificationToggleCard extends StatelessWidget {
   }
 }
 
-class _ThemeToggleCard extends StatelessWidget {
-  const _ThemeToggleCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: ThemeManager.instance,
-      builder: (context, _) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
-        final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
-        final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
-        final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
-        final currentMode = ThemeManager.instance.themeMode;
-        
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(GingaRadius.lg),
-            border: Border.all(color: borderColor),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: GingaColors.brandGreen.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      currentMode == ThemeMode.dark
-                          ? Icons.dark_mode_outlined
-                          : currentMode == ThemeMode.light
-                              ? Icons.light_mode_outlined
-                              : Icons.settings_brightness_outlined,
-                      color: GingaColors.brandGreen,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Tema de la App',
-                          style: GoogleFonts.montserrat(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: textColor,
-                          ),
-                        ),
-                        Text(
-                          'Elige el aspecto visual de la interfaz',
-                          style: GoogleFonts.montserrat(
-                            fontSize: 11,
-                            color: subtitleColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<ThemeMode>(
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-                      if (states.contains(WidgetState.selected)) {
-                        return GingaColors.brandGreen;
-                      }
-                      return isDark ? GingaColors.surfaceDark.withOpacity(0.5) : Colors.grey.shade100;
-                    }),
-                    foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-                      if (states.contains(WidgetState.selected)) {
-                        return Colors.white;
-                      }
-                      return textColor;
-                    }),
-                    side: WidgetStateProperty.all(BorderSide.none),
-                  ),
-                  segments: const [
-                    ButtonSegment(
-                      value: ThemeMode.light,
-                      label: Text('Claro', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      icon: Icon(Icons.light_mode, size: 16),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.dark,
-                      label: Text('Oscuro', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      icon: Icon(Icons.dark_mode, size: 16),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.system,
-                      label: Text('Sistema', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      icon: Icon(Icons.settings, size: 16),
-                    ),
-                  ],
-                  selected: {currentMode},
-                  onSelectionChanged: (newSelection) {
-                    ThemeManager.instance.setThemeMode(newSelection.first);
-                  },
-                  showSelectedIcon: false,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
 // ─────────────────────────────────────────
 //  CÍRCULO DE PROGRESO
 // ─────────────────────────────────────────
@@ -1087,10 +965,9 @@ class _ProgressCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final progressCircleBg = isDark ? GingaColors.surfaceDark : GingaColors.borderLight;
-    final avatarBg = isDark ? GingaColors.surfaceDark : GingaColors.cardLight;
-    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    const progressCircleBg = _kTarjetaOscura;
+    const avatarBg = _kTarjetaOscura;
+    const textColor = Colors.white;
 
     return SizedBox(
       width: 140,
@@ -1180,9 +1057,8 @@ class _XpBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
-    final barBg = isDark ? GingaColors.surfaceDark : GingaColors.borderLight;
+    const subtitleColor = _kTextoSecundarioOscuro;
+    const barBg = _kTarjetaOscura;
 
     return SizedBox(
       width: 260,
@@ -1306,12 +1182,11 @@ class _LogroBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
-    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+    const textColor = Colors.white;
+    const subtitleColor = _kTextoSecundarioOscuro;
 
     final Color badgeColor =
-        logro.unlocked ? logro.color : (isDark ? Colors.grey.shade600 : Colors.grey.shade400);
+        logro.unlocked ? logro.color : Colors.grey.shade600;
 
     return Column(
       children: [
@@ -1324,7 +1199,7 @@ class _LogroBadge extends StatelessWidget {
             border: Border.all(
               color: logro.unlocked
                   ? badgeColor.withOpacity(0.3)
-                  : (isDark ? Colors.white.withOpacity(0.12) : Colors.grey.shade300),
+                  : Colors.white.withOpacity(0.12),
               width: 1,
             ),
           ),
@@ -1365,8 +1240,7 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
+    const textColor = Colors.white;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1416,11 +1290,10 @@ class _AsistenciaMensualState extends State<_AsistenciaMensual> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
-    final borderColor = isDark ? Colors.transparent : GingaColors.borderLight;
-    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
-    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+    const cardBg = _kTarjetaOscura;
+    const borderColor = _kBordeOscuro;
+    const textColor = Colors.white;
+    const subtitleColor = _kTextoSecundarioOscuro;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1573,10 +1446,9 @@ class _MembresiaYPagosSection extends StatelessWidget {
     int diasRestantes = 0;
     bool expirado = false;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? (Theme.of(context).cardTheme.color ?? GingaColors.surfaceDark) : Colors.white;
-    final textColor = isDark ? GingaColors.textWhite : GingaColors.textPrimary;
-    final subtitleColor = isDark ? GingaColors.textMuted : GingaColors.textSecondary;
+    const cardBg = _kTarjetaOscura;
+    const textColor = Colors.white;
+    const subtitleColor = _kTextoSecundarioOscuro;
 
     if (membresiaFin != null) {
       final finDate = membresiaFin!.toDate();
@@ -1817,7 +1689,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: cardBg,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : GingaColors.borderLight.withOpacity(0.5)),
+                  border: Border.all(color: _kBordeOscuro),
                 ),
                 child: Column(
                   children: [
@@ -1889,7 +1761,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: cardBg,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : GingaColors.borderLight.withOpacity(0.5)),
+                    border: Border.all(color: _kBordeOscuro),
                   ),
                   child: Row(
                     children: [
@@ -2062,7 +1934,7 @@ class _MembresiaYPagosSection extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: cardBg,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : GingaColors.borderLight.withOpacity(0.5)),
+                        border: Border.all(color: _kBordeOscuro),
                       ),
                       child: Row(
                         children: [

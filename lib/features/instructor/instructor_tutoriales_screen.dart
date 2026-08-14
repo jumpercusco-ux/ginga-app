@@ -6,6 +6,12 @@ import '../../core/theme/ginga_theme.dart';
 import '../../core/services/tutoriales_service.dart';
 import '../biblioteca/widgets/tutorial_thumbnail.dart';
 
+// Paleta oscura fija — mismo tratamiento que el resto del flujo de profesor.
+const Color _kFondoOscuro = Colors.black;
+const Color _kTarjetaOscura = Color(0xFF161616);
+const Color _kBordeOscuro = Color(0x33FFFFFF);
+const Color _kTextoSecundarioOscuro = Colors.white70;
+
 class InstructorTutorialesScreen extends StatefulWidget {
   const InstructorTutorialesScreen({super.key});
 
@@ -22,20 +28,22 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
       context: context,
       builder: (BuildContext ctx) {
         return AlertDialog(
+          backgroundColor: _kTarjetaOscura,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(GingaRadius.lg),
+            side: const BorderSide(color: _kBordeOscuro),
           ),
           title: Text(
             '¿Eliminar lección?',
             style: GoogleFonts.montserrat(
               fontWeight: FontWeight.w800,
-              color: GingaColors.textPrimary,
+              color: Colors.white,
             ),
           ),
           content: Text(
             '¿Estás seguro de que deseas eliminar la lección "$titulo"? Esta acción no se puede deshacer y desaparecerá de la biblioteca de alumnos.',
             style: GoogleFonts.montserrat(
-              color: GingaColors.textSecondary,
+              color: _kTextoSecundarioOscuro,
               height: 1.4,
             ),
           ),
@@ -46,7 +54,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                 'Cancelar',
                 style: GoogleFonts.montserrat(
                   fontWeight: FontWeight.w700,
-                  color: GingaColors.textSecondary,
+                  color: _kTextoSecundarioOscuro,
                 ),
               ),
             ),
@@ -106,7 +114,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: GingaColors.backgroundLight,
+      backgroundColor: _kFondoOscuro,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,7 +126,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(Icons.arrow_back_ios_new, size: 18, color: GingaColors.textPrimary),
+                    icon: Icon(Icons.arrow_back_ios_new, size: 18, color: Colors.white),
                   ),
                   Expanded(
                     child: Text(
@@ -126,13 +134,13 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                       style: GoogleFonts.montserrat(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: GingaColors.textPrimary,
+                        color: Colors.white,
                       ),
                     ),
                   ),
                   IconButton(
                     onPressed: () {},
-                    icon: Icon(Icons.help_outline, color: GingaColors.textSecondary, size: 20),
+                    icon: Icon(Icons.help_outline, color: _kTextoSecundarioOscuro, size: 20),
                   ),
                 ],
               ),
@@ -144,6 +152,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
               child: TextField(
                 controller: _searchController,
+                style: GoogleFonts.montserrat(color: Colors.white),
                 onChanged: (value) {
                   setState(() {
                     _searchQuery = value;
@@ -151,11 +160,11 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                 },
                 decoration: InputDecoration(
                   hintText: 'Buscar lección en administración...',
-                  hintStyle: GoogleFonts.montserrat(color: GingaColors.textSecondary.withOpacity(0.6)),
-                  prefixIcon: Icon(Icons.search, color: GingaColors.textSecondary),
+                  hintStyle: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro.withOpacity(0.6)),
+                  prefixIcon: Icon(Icons.search, color: _kTextoSecundarioOscuro),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
+                          icon: const Icon(Icons.clear, size: 18, color: Colors.white),
                           onPressed: () {
                             _searchController.clear();
                             setState(() {
@@ -165,15 +174,15 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                         )
                       : null,
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: _kTarjetaOscura,
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
-                    borderSide: BorderSide(color: GingaColors.borderLight),
+                    borderSide: BorderSide(color: _kBordeOscuro),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
-                    borderSide: BorderSide(color: GingaColors.borderLight),
+                    borderSide: BorderSide(color: _kBordeOscuro),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -203,14 +212,14 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.play_circle_outline, size: 56, color: GingaColors.borderLight),
+                          Icon(Icons.play_circle_outline, size: 56, color: _kBordeOscuro),
                           const SizedBox(height: 12),
                           Text(
                             'Biblioteca sin lecciones',
                             style: GoogleFonts.montserrat(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: GingaColors.textPrimary,
+                              color: Colors.white,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -218,7 +227,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                             'Presiona el botón "+" de abajo para crear una.',
                             style: GoogleFonts.montserrat(
                               fontSize: 13,
-                              color: GingaColors.textSecondary,
+                              color: _kTextoSecundarioOscuro,
                             ),
                           ),
                         ],
@@ -238,7 +247,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                     return Center(
                       child: Text(
                         'No hay resultados que coincidan con la búsqueda.',
-                        style: GoogleFonts.montserrat(color: GingaColors.textSecondary),
+                        style: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro),
                       ),
                     );
                   }
@@ -260,9 +269,9 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                       return Container(
                         margin: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: _kTarjetaOscura,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
-                          border: Border.all(color: GingaColors.borderLight),
+                          border: Border.all(color: _kBordeOscuro),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.015),
@@ -304,7 +313,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                                         style: GoogleFonts.montserrat(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w700,
-                                          color: GingaColors.textPrimary,
+                                          color: Colors.white,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -317,12 +326,12 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                                             decoration: BoxDecoration(
                                               color: visible
                                                   ? GingaColors.brandGreen.withOpacity(0.08)
-                                                  : GingaColors.textSecondary.withOpacity(0.08),
+                                                  : _kTextoSecundarioOscuro.withOpacity(0.08),
                                               borderRadius: BorderRadius.circular(4),
                                               border: Border.all(
                                                 color: visible
                                                     ? GingaColors.brandGreen.withOpacity(0.2)
-                                                    : GingaColors.textSecondary.withOpacity(0.2),
+                                                    : _kTextoSecundarioOscuro.withOpacity(0.2),
                                                 width: 0.5,
                                               ),
                                             ),
@@ -333,7 +342,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                                                 fontWeight: FontWeight.w800,
                                                 color: visible
                                                     ? GingaColors.brandGreen
-                                                    : GingaColors.textSecondary,
+                                                    : _kTextoSecundarioOscuro,
                                               ),
                                             ),
                                           ),
@@ -341,7 +350,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: GingaColors.cardLight,
+                                              color: _kTarjetaOscura,
                                               borderRadius: BorderRadius.circular(4),
                                             ),
                                             child: Text(
@@ -363,7 +372,7 @@ class _InstructorTutorialesScreenState extends State<InstructorTutorialesScreen>
                                             '$categoria • $duracion',
                                             style: GoogleFonts.montserrat(
                                               fontSize: 11,
-                                              color: GingaColors.textSecondary,
+                                              color: _kTextoSecundarioOscuro,
                                               fontWeight: FontWeight.w600,
                                             ),
                                             maxLines: 1,
