@@ -13,6 +13,13 @@ import 'instructor_alumnos_screen.dart';
 import 'instructor_pagos_screen.dart';
 import '../biblioteca/cancionero_screen.dart';
 
+// Paleta oscura fija — mismo tratamiento que login_screen/landing_screen:
+// esta vista debe verse igual sin importar el modo de sistema del profesor.
+const Color _kFondoOscuro = Colors.black;
+const Color _kTarjetaOscura = Color(0xFF161616);
+const Color _kBordeOscuro = Color(0x33FFFFFF);
+const Color _kTextoSecundarioOscuro = Colors.white70;
+
 // Función global de navegación al QR Generator
 void _navigateToQrGenerator(
     BuildContext context, String claseId, String nivel, String hora) {
@@ -62,21 +69,25 @@ void _confirmDeleteClase(BuildContext context, String claseId, String name, Stri
     context: context,
     builder: (BuildContext ctx) {
       return AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.lg)),
+        backgroundColor: _kTarjetaOscura,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          side: const BorderSide(color: _kBordeOscuro),
+        ),
         title: Text(
           '¿Eliminar sesión? ⚠️',
-          style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, color: GingaColors.textPrimary),
+          style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, color: Colors.white),
         ),
         content: Text(
           '¿Estás seguro de que deseas eliminar "$name"? Se borrarán todos los registros asociados de forma permanente.',
-          style: GoogleFonts.montserrat(color: GingaColors.textSecondary),
+          style: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
               'Cancelar',
-              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: GingaColors.textSecondary),
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: _kTextoSecundarioOscuro),
             ),
           ),
           ElevatedButton(
@@ -137,7 +148,7 @@ class _InstructorClaseScreenState extends State<InstructorClaseScreen> {
         }
 
         return Scaffold(
-          backgroundColor: GingaColors.backgroundLight,
+          backgroundColor: _kFondoOscuro,
           body: IndexedStack(
             index: _selectedTab,
             children: const [
@@ -185,15 +196,15 @@ class _InstructorDashboard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _kTarjetaOscura,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: _kBordeOscuro),
       ),
       child: Center(
         child: Text(
           message,
           style: GoogleFonts.montserrat(
-            color: GingaColors.textSecondary,
+            color: _kTextoSecundarioOscuro,
             fontSize: 13,
           ),
         ),
@@ -229,11 +240,11 @@ class _InstructorDashboard extends StatelessWidget {
                         style: GoogleFonts.montserrat(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
-                            color: GingaColors.textPrimary)),
+                            color: Colors.white)),
                     Text('Gestión de clases',
                         style: GoogleFonts.montserrat(
                             fontSize: 14,
-                            color: GingaColors.textSecondary)),
+                            color: _kTextoSecundarioOscuro)),
                   ],
                 ),
                 Row(
@@ -273,8 +284,9 @@ class _InstructorDashboard extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     margin: const EdgeInsets.only(bottom: 24),
                     decoration: BoxDecoration(
-                      color: GingaColors.cardLight,
+                      color: _kTarjetaOscura,
                       borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      border: Border.all(color: _kBordeOscuro),
                     ),
                     child: Row(
                       children: [
@@ -290,9 +302,9 @@ class _InstructorDashboard extends StatelessWidget {
                             children: [
                               Text('Leads de WhatsApp',
                                   style: GoogleFonts.montserrat(
-                                      fontSize: 15, fontWeight: FontWeight.w700, color: GingaColors.textPrimary)),
+                                      fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
                               Text('Conversaciones capturadas desde anuncios',
-                                  style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.textSecondary)),
+                                  style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro)),
                             ],
                           ),
                         ),
@@ -307,7 +319,7 @@ class _InstructorDashboard extends StatelessWidget {
                                 style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black87)),
                           )
                         else
-                          Icon(Icons.chevron_right, color: GingaColors.textSecondary),
+                          Icon(Icons.chevron_right, color: _kTextoSecundarioOscuro),
                       ],
                     ),
                   ),
@@ -361,7 +373,7 @@ class _InstructorDashboard extends StatelessWidget {
                         style: GoogleFonts.montserrat(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary)),
+                            color: Colors.white)),
                     const SizedBox(height: 8),
                     if (clasesRegulares.isEmpty)
                       _buildEmptySection('No hay clases regulares registradas hoy')
@@ -388,7 +400,7 @@ class _InstructorDashboard extends StatelessWidget {
                         style: GoogleFonts.montserrat(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: GingaColors.textPrimary)),
+                            color: Colors.white)),
                     const SizedBox(height: 8),
                     if (eventosYRodas.isEmpty)
                       _buildEmptySection('No hay eventos o rodas activos hoy')
@@ -421,16 +433,16 @@ class _InstructorDashboard extends StatelessWidget {
                 style: GoogleFonts.montserrat(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary)),
+                    color: Colors.white)),
 
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: _kTarjetaOscura,
                 borderRadius: BorderRadius.circular(GingaRadius.lg),
-                border: Border.all(color: GingaColors.borderLight),
+                border: Border.all(color: _kBordeOscuro),
               ),
               child: Row(
                 children: [
@@ -442,12 +454,12 @@ class _InstructorDashboard extends StatelessWidget {
                             style: GoogleFonts.montserrat(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: GingaColors.textPrimary)),
+                                color: Colors.white)),
                         const SizedBox(height: 4),
                         Text('Administra precios, stock o agrega nuevos productos para que los alumnos los reserven.',
                             style: GoogleFonts.montserrat(
                                 fontSize: 12,
-                                color: GingaColors.textSecondary,
+                                color: _kTextoSecundarioOscuro,
                                 height: 1.4)),
                         const SizedBox(height: 12),
                         ElevatedButton(
@@ -479,16 +491,16 @@ class _InstructorDashboard extends StatelessWidget {
                 style: GoogleFonts.montserrat(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary)),
+                    color: Colors.white)),
 
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: _kTarjetaOscura,
                 borderRadius: BorderRadius.circular(GingaRadius.lg),
-                border: Border.all(color: GingaColors.borderLight),
+                border: Border.all(color: _kBordeOscuro),
               ),
               child: Row(
                 children: [
@@ -500,12 +512,12 @@ class _InstructorDashboard extends StatelessWidget {
                             style: GoogleFonts.montserrat(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: GingaColors.textPrimary)),
+                                color: Colors.white)),
                         const SizedBox(height: 4),
                         Text('Crea, edita o elimina los tutoriales on-demand que los alumnos practican desde la biblioteca.',
                             style: GoogleFonts.montserrat(
                                 fontSize: 12,
-                                color: GingaColors.textSecondary,
+                                color: _kTextoSecundarioOscuro,
                                 height: 1.4)),
                         const SizedBox(height: 12),
                         ElevatedButton(
@@ -536,9 +548,9 @@ class _InstructorDashboard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: _kTarjetaOscura,
                 borderRadius: BorderRadius.circular(GingaRadius.lg),
-                border: Border.all(color: GingaColors.borderLight),
+                border: Border.all(color: _kBordeOscuro),
               ),
               child: Row(
                 children: [
@@ -550,12 +562,12 @@ class _InstructorDashboard extends StatelessWidget {
                             style: GoogleFonts.montserrat(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: GingaColors.textPrimary)),
+                                color: Colors.white)),
                         const SizedBox(height: 4),
                         Text('Sincroniza las letras de cantigas de capoeira en tiempo real para activar el modo Karaoke de tus alumnos.',
                             style: GoogleFonts.montserrat(
                                 fontSize: 12,
-                                color: GingaColors.textSecondary,
+                                color: _kTextoSecundarioOscuro,
                                 height: 1.4)),
                         const SizedBox(height: 12),
                         ElevatedButton(
@@ -593,7 +605,7 @@ class _InstructorDashboard extends StatelessWidget {
                 style: GoogleFonts.montserrat(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary)),
+                    color: Colors.white)),
 
             const SizedBox(height: 12),
 
@@ -629,7 +641,7 @@ class _InstructorDashboard extends StatelessWidget {
                         style: GoogleFonts.montserrat(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: GingaColors.textSecondary)),
+                            color: _kTextoSecundarioOscuro)),
                     const SizedBox(height: 8),
                     if (clasesRegularesHistorial.isEmpty)
                       _buildEmptySection('No hay clases regulares registradas aún')
@@ -651,7 +663,7 @@ class _InstructorDashboard extends StatelessWidget {
                         style: GoogleFonts.montserrat(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: GingaColors.textSecondary)),
+                            color: _kTextoSecundarioOscuro)),
                     const SizedBox(height: 8),
                     if (eventosYRodasHistorial.isEmpty)
                       _buildEmptySection('No hay eventos o rodas registrados aún')
@@ -698,9 +710,9 @@ class _InstructorBottomNav extends StatelessWidget {
       currentIndex: currentIndex,
       onTap: onTap,
       type: BottomNavigationBarType.fixed,
-      backgroundColor: Colors.white,
+      backgroundColor: _kTarjetaOscura,
       selectedItemColor: GingaColors.brandGreen,
-      unselectedItemColor: GingaColors.textSecondary,
+      unselectedItemColor: _kTextoSecundarioOscuro,
       selectedLabelStyle:
           GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600),
       unselectedLabelStyle: GoogleFonts.montserrat(fontSize: 11),
@@ -848,12 +860,12 @@ class _ClaseInstructorCard extends StatelessWidget {
         margin: const EdgeInsets.only(left: 5),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isEventOrRoda ? const Color(0xFFFFFDF8) : Colors.white,
+          color: isEventOrRoda ? const Color(0xFF1C1A12) : _kTarjetaOscura,
           borderRadius: const BorderRadius.only(
             topRight: Radius.circular(GingaRadius.lg),
             bottomRight: Radius.circular(GingaRadius.lg),
           ),
-          border: Border.all(color: GingaColors.borderLight),
+          border: Border.all(color: _kBordeOscuro),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -897,7 +909,7 @@ class _ClaseInstructorCard extends StatelessWidget {
                                 style: GoogleFonts.montserrat(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
-                                    color: GingaColors.textPrimary),
+                                    color: Colors.white),
                               ),
                             ),
                             const SizedBox(width: 6),
@@ -921,7 +933,7 @@ class _ClaseInstructorCard extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: publicarInmediatamente
                                     ? GingaColors.brandGreen.withValues(alpha: 0.12)
-                                    : GingaColors.textSecondary.withValues(alpha: 0.12),
+                                    : _kTextoSecundarioOscuro.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -931,7 +943,7 @@ class _ClaseInstructorCard extends StatelessWidget {
                                   fontWeight: FontWeight.w800,
                                   color: publicarInmediatamente
                                       ? GingaColors.brandGreen
-                                      : GingaColors.textSecondary,
+                                      : _kTextoSecundarioOscuro,
                                 ),
                               ),
                             ),
@@ -943,7 +955,7 @@ class _ClaseInstructorCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.montserrat(
                                   fontSize: 11,
-                                  color: GingaColors.textSecondary)),
+                                  color: _kTextoSecundarioOscuro)),
                       ],
                     ),
                   ),
@@ -961,7 +973,7 @@ class _ClaseInstructorCard extends StatelessWidget {
                       Text('cupos',
                           style: GoogleFonts.montserrat(
                               fontSize: 10,
-                              color: GingaColors.textSecondary)),
+                              color: _kTextoSecundarioOscuro)),
                     ],
                   ),
                 ],
@@ -1062,9 +1074,9 @@ class _ReservaCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _kTarjetaOscura,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: _kBordeOscuro),
       ),
       child: Row(
         children: [
@@ -1087,10 +1099,10 @@ class _ReservaCard extends StatelessWidget {
                     style: GoogleFonts.montserrat(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: GingaColors.textPrimary)),
+                        color: Colors.white)),
                 Text('$hora — $dias',
                     style: GoogleFonts.montserrat(
-                        fontSize: 12, color: GingaColors.textSecondary)),
+                        fontSize: 12, color: _kTextoSecundarioOscuro)),
               ],
             ),
           ),
@@ -1154,14 +1166,14 @@ class _ClaseHistorialGroupCardState extends State<_ClaseHistorialGroupCard> {
         widget.fechaFin!.toDate().isBefore(DateTime.now());
 
     final badgeColor = isArchived
-        ? Colors.grey.shade600
+        ? Colors.grey.shade400
         : (widget.tipo == 'roda'
             ? const Color(0xFFE65100)
             : (widget.tipo == 'evento'
                 ? GingaColors.accentAmber
                 : GingaColors.brandGreen));
 
-    final leadingColor = isArchived ? Colors.grey.shade600 : badgeColor;
+    final leadingColor = isArchived ? Colors.grey.shade400 : badgeColor;
     final badgeText = isArchived ? 'Archivado 📁' : widget.badge;
     final bool isEventOrRoda = widget.tipo != 'regular';
 
@@ -1175,12 +1187,12 @@ class _ClaseHistorialGroupCardState extends State<_ClaseHistorialGroupCard> {
       child: Container(
         margin: const EdgeInsets.only(left: 5),
         decoration: BoxDecoration(
-          color: isEventOrRoda ? const Color(0xFFFFFDF8) : Colors.white,
+          color: isEventOrRoda ? const Color(0xFF1C1A12) : _kTarjetaOscura,
           borderRadius: const BorderRadius.only(
             topRight: Radius.circular(GingaRadius.lg),
             bottomRight: Radius.circular(GingaRadius.lg),
           ),
-          border: Border.all(color: GingaColors.borderLight),
+          border: Border.all(color: _kBordeOscuro),
         ),
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -1202,14 +1214,14 @@ class _ClaseHistorialGroupCardState extends State<_ClaseHistorialGroupCard> {
               style: GoogleFonts.montserrat(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: GingaColors.textPrimary,
+                color: Colors.white,
               ),
             ),
             subtitle: Text(
               '${widget.hora} — ${widget.dias}',
               style: GoogleFonts.montserrat(
                 fontSize: 11,
-                color: GingaColors.textSecondary,
+                color: _kTextoSecundarioOscuro,
               ),
             ),
             trailing: Row(
@@ -1233,7 +1245,7 @@ class _ClaseHistorialGroupCardState extends State<_ClaseHistorialGroupCard> {
                 const SizedBox(width: 8),
                 Icon(
                   _expanded ? Icons.expand_less : Icons.expand_more,
-                  color: GingaColors.textSecondary,
+                  color: _kTextoSecundarioOscuro,
                 ),
               ],
             ),
@@ -1311,7 +1323,7 @@ class _ClaseHistorialGroupCardState extends State<_ClaseHistorialGroupCard> {
                               textAlign: TextAlign.center,
                               style: GoogleFonts.montserrat(
                                   fontSize: 12,
-                                  color: GingaColors.textSecondary,
+                                  color: _kTextoSecundarioOscuro,
                                   fontStyle: FontStyle.italic,
                               ),
                             ),
@@ -1336,7 +1348,7 @@ class _ClaseHistorialGroupCardState extends State<_ClaseHistorialGroupCard> {
                           children: [
                             Container(
                               height: 1,
-                              color: GingaColors.borderLight,
+                              color: _kBordeOscuro,
                               margin: const EdgeInsets.only(bottom: 12),
                             ),
                             Text(
@@ -1344,7 +1356,7 @@ class _ClaseHistorialGroupCardState extends State<_ClaseHistorialGroupCard> {
                               style: GoogleFonts.montserrat(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: GingaColors.textSecondary,
+                                color: _kTextoSecundarioOscuro,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -1398,7 +1410,7 @@ class _SessionDateItem extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: _kTarjetaOscura,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.xl)),
       ),
@@ -1419,7 +1431,7 @@ class _SessionDateItem extends StatelessWidget {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: GingaColors.borderLight,
+                        color: _kBordeOscuro,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -1430,7 +1442,7 @@ class _SessionDateItem extends StatelessWidget {
                     style: GoogleFonts.montserrat(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: GingaColors.textPrimary,
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -1438,7 +1450,7 @@ class _SessionDateItem extends StatelessWidget {
                     '$nivel — $fecha ($hora)',
                     style: GoogleFonts.montserrat(
                       fontSize: 13,
-                      color: GingaColors.textSecondary,
+                      color: _kTextoSecundarioOscuro,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1462,7 +1474,7 @@ class _SessionDateItem extends StatelessWidget {
                               textAlign: TextAlign.center,
                               style: GoogleFonts.montserrat(
                                 fontSize: 13,
-                                color: GingaColors.textSecondary,
+                                color: _kTextoSecundarioOscuro,
                                 fontStyle: FontStyle.italic,
                               ),
                             ),
@@ -1527,16 +1539,16 @@ class _SessionDateItem extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: GingaColors.backgroundLight,
+        color: _kTarjetaOscura,
         borderRadius: BorderRadius.circular(GingaRadius.md),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: _kBordeOscuro),
       ),
       child: ListTile(
         dense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: Icon(
           activa ? Icons.qr_code_scanner : Icons.calendar_today_outlined,
-          color: activa ? GingaColors.brandGreen : GingaColors.textSecondary,
+          color: activa ? GingaColors.brandGreen : _kTextoSecundarioOscuro,
           size: 16,
         ),
         title: Text(
@@ -1544,14 +1556,14 @@ class _SessionDateItem extends StatelessWidget {
           style: GoogleFonts.montserrat(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: GingaColors.textPrimary,
+            color: Colors.white,
           ),
         ),
         subtitle: Text(
           hora,
           style: GoogleFonts.montserrat(
             fontSize: 10,
-            color: GingaColors.textSecondary,
+            color: _kTextoSecundarioOscuro,
           ),
         ),
         trailing: Row(
@@ -1562,7 +1574,7 @@ class _SessionDateItem extends StatelessWidget {
               decoration: BoxDecoration(
                 color: activa
                     ? GingaColors.brandGreen.withValues(alpha: 0.1)
-                    : GingaColors.textSecondary.withValues(alpha: 0.1),
+                    : _kTextoSecundarioOscuro.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -1570,14 +1582,14 @@ class _SessionDateItem extends StatelessWidget {
                 style: GoogleFonts.montserrat(
                   fontSize: 8,
                   fontWeight: FontWeight.w800,
-                  color: activa ? GingaColors.brandGreen : GingaColors.textSecondary,
+                  color: activa ? GingaColors.brandGreen : _kTextoSecundarioOscuro,
                 ),
               ),
             ),
             const SizedBox(width: 4),
             Icon(
               Icons.chevron_right,
-              color: GingaColors.textSecondary,
+              color: _kTextoSecundarioOscuro,
               size: 16,
             ),
           ],
@@ -1636,9 +1648,9 @@ class _AttendeeHistorialTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: GingaColors.backgroundLight,
+        color: _kTarjetaOscura,
         borderRadius: BorderRadius.circular(GingaRadius.md),
-        border: Border.all(color: GingaColors.borderLight),
+        border: Border.all(color: _kBordeOscuro),
       ),
       child: Row(
         children: [
@@ -1659,7 +1671,7 @@ class _AttendeeHistorialTile extends StatelessWidget {
                   style: GoogleFonts.montserrat(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: GingaColors.textPrimary,
+                    color: Colors.white,
                   ),
                 ),
                 Text(
@@ -1668,7 +1680,7 @@ class _AttendeeHistorialTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.montserrat(
                     fontSize: 10,
-                    color: GingaColors.textSecondary,
+                    color: _kTextoSecundarioOscuro,
                   ),
                 ),
               ],
@@ -1709,7 +1721,7 @@ class _NotificationsBell extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             IconButton(
-              icon: Icon(Icons.notifications_outlined, size: 26, color: GingaColors.textPrimary),
+              icon: Icon(Icons.notifications_outlined, size: 26, color: Colors.white),
               onPressed: () => _mostrarBuzonNotificaciones(context, uid),
             ),
             if (unreadCount > 0)
@@ -1748,7 +1760,7 @@ class _NotificationsBell extends StatelessWidget {
 void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
   showModalBottomSheet(
     context: context,
-    backgroundColor: GingaColors.backgroundLight,
+    backgroundColor: _kTarjetaOscura,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.lg)),
@@ -1779,7 +1791,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                       style: GoogleFonts.montserrat(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: GingaColors.textPrimary,
+                        color: Colors.white,
                       ),
                     ),
                   ],
@@ -1829,11 +1841,11 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.notifications_none, size: 60, color: GingaColors.textSecondary.withOpacity(0.3)),
+                          Icon(Icons.notifications_none, size: 60, color: _kTextoSecundarioOscuro.withOpacity(0.3)),
                           const SizedBox(height: 12),
                           Text(
                             'No tienes notificaciones aún',
-                            style: GoogleFonts.montserrat(color: GingaColors.textSecondary, fontSize: 14),
+                            style: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro, fontSize: 14),
                           ),
                         ],
                       ),
@@ -1850,11 +1862,11 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.notifications_none, size: 60, color: GingaColors.textSecondary.withOpacity(0.3)),
+                          Icon(Icons.notifications_none, size: 60, color: _kTextoSecundarioOscuro.withOpacity(0.3)),
                           const SizedBox(height: 12),
                           Text(
                             'No tienes notificaciones aún',
-                            style: GoogleFonts.montserrat(color: GingaColors.textSecondary, fontSize: 14),
+                            style: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro, fontSize: 14),
                           ),
                         ],
                       ),
@@ -1920,7 +1932,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                             color: leido ? Colors.transparent : itemColor.withOpacity(0.06),
                             borderRadius: BorderRadius.circular(GingaRadius.md),
                             border: Border.all(
-                              color: leido ? GingaColors.borderLight : itemColor.withOpacity(0.3),
+                              color: leido ? _kBordeOscuro : itemColor.withOpacity(0.3),
                               width: leido ? 1 : 1.5,
                             ),
                           ),
@@ -1948,7 +1960,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                                           style: GoogleFonts.montserrat(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w700,
-                                            color: GingaColors.textPrimary,
+                                            color: Colors.white,
                                           ),
                                         ),
                                         if (!leido)
@@ -1967,7 +1979,7 @@ void _mostrarBuzonNotificaciones(BuildContext context, String uid) {
                                       mensaje,
                                       style: GoogleFonts.montserrat(
                                         fontSize: 12,
-                                        color: GingaColors.textSecondary,
+                                        color: _kTextoSecundarioOscuro,
                                         height: 1.4,
                                       ),
                                     ),
