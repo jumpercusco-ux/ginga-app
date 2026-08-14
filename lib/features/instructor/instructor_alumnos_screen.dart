@@ -845,7 +845,6 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         ),
                         const SizedBox(height: 8),
                         TextField(
-                          style: GoogleFonts.montserrat(color: Colors.white),
                           controller: tituloController,
                           decoration: InputDecoration(
                             hintText: 'Ingresa un título llamativo...',
@@ -874,7 +873,6 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         ),
                         const SizedBox(height: 8),
                         TextField(
-                          style: GoogleFonts.montserrat(color: Colors.white),
                           controller: mensajeController,
                           maxLines: 4,
                           decoration: InputDecoration(
@@ -1774,7 +1772,6 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           ),
                           const SizedBox(height: 8),
                           TextField(
-                            style: GoogleFonts.montserrat(color: Colors.white),
                             onChanged: (val) => setStateModal(() { detalleMotivoText = val.trim(); }),
                             decoration: InputDecoration(
                               hintText: 'Ej: San Pedro y San Pablo',
@@ -3005,7 +3002,6 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     borderRadius: BorderRadius.circular(GingaRadius.md),
                   ),
                   child: TextField(
-                    style: GoogleFonts.montserrat(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: 'Buscar por nombre...',
                       hintStyle: GoogleFonts.montserrat(fontSize: 13, color: _kTextoSecundarioOscuro),
@@ -3551,7 +3547,6 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                       ),
                       const SizedBox(height: 6),
                       TextFormField(
-                        style: GoogleFonts.montserrat(color: Colors.white),
                         controller: nombreController,
                         decoration: InputDecoration(
                           hintText: 'Ej. Amaru Valenzuela',
@@ -3686,7 +3681,6 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                       ),
                       const SizedBox(height: 6),
                       TextFormField(
-                        style: GoogleFonts.montserrat(color: Colors.white),
                         controller: emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
@@ -3713,7 +3707,6 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                       ),
                       const SizedBox(height: 6),
                       TextFormField(
-                        style: GoogleFonts.montserrat(color: Colors.white),
                         controller: telefonoController,
                         keyboardType: TextInputType.phone,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -3895,7 +3888,6 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
             style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, color: Colors.white),
           ),
           content: TextField(
-            style: GoogleFonts.montserrat(color: Colors.white),
             controller: controller,
             maxLines: 5,
             decoration: InputDecoration(
