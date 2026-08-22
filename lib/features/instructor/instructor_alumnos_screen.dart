@@ -3202,7 +3202,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     crossAxisCount: 3,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 0.62,
+                    childAspectRatio: 0.8,
                   ),
                   itemCount: filteredDocs.length,
                   itemBuilder: (context, index) {
@@ -3504,7 +3504,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           ),
                           IconButton(
                             onPressed: () => Navigator.pop(sheetCtx),
-                            icon: const Icon(Icons.close, size: 20),
+                            icon: const Icon(Icons.close, size: 20, color: Colors.white70),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                           ),
@@ -3535,9 +3535,19 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         decoration: InputDecoration(
                           hintText: 'Ej. Amaru Valenzuela',
                           hintStyle: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro),
+                          filled: true,
+                          fillColor: _kTarjetaOscura,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(GingaRadius.md),
                             borderSide: BorderSide(color: _kBordeOscuro),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: BorderSide(color: _kBordeOscuro),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: const BorderSide(color: GingaColors.brandGreen),
                           ),
                         ),
                         style: GoogleFonts.montserrat(color: Colors.white),
@@ -3563,11 +3573,22 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                       DropdownButtonFormField<String>(
                         value: selectedSede,
                         decoration: InputDecoration(
+                          filled: true,
+                          fillColor: _kTarjetaOscura,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(GingaRadius.md),
                             borderSide: BorderSide(color: _kBordeOscuro),
                           ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: BorderSide(color: _kBordeOscuro),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: const BorderSide(color: GingaColors.brandGreen),
+                          ),
                         ),
+                        dropdownColor: _kTarjetaOscura,
                         style: GoogleFonts.montserrat(color: Colors.white),
                         items: sedesDisponibles.map((s) {
                           return DropdownMenuItem<String>(
@@ -3598,11 +3619,22 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                       DropdownButtonFormField<String>(
                         value: selectedCorda,
                         decoration: InputDecoration(
+                          filled: true,
+                          fillColor: _kTarjetaOscura,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(GingaRadius.md),
                             borderSide: BorderSide(color: _kBordeOscuro),
                           ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: BorderSide(color: _kBordeOscuro),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: const BorderSide(color: GingaColors.brandGreen),
+                          ),
                         ),
+                        dropdownColor: _kTarjetaOscura,
                         style: GoogleFonts.montserrat(color: Colors.white),
                         items: CuerdasFIU.lista.map((c) {
                           return DropdownMenuItem<String>(
@@ -3633,11 +3665,22 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                       DropdownButtonFormField<String>(
                         value: selectedStatus,
                         decoration: InputDecoration(
+                          filled: true,
+                          fillColor: _kTarjetaOscura,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(GingaRadius.md),
                             borderSide: BorderSide(color: _kBordeOscuro),
                           ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: BorderSide(color: _kBordeOscuro),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: const BorderSide(color: GingaColors.brandGreen),
+                          ),
                         ),
+                        dropdownColor: _kTarjetaOscura,
                         style: GoogleFonts.montserrat(color: Colors.white),
                         items: const [
                           DropdownMenuItem(value: 'activo', child: Text('Activo')),
@@ -3670,9 +3713,19 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         decoration: InputDecoration(
                           hintText: isOffline ? 'Ficticio (Ej. amaru_offline@ginga.app)' : 'Ej. amaru@gmail.com',
                           hintStyle: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro),
+                          filled: true,
+                          fillColor: _kTarjetaOscura,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(GingaRadius.md),
                             borderSide: BorderSide(color: _kBordeOscuro),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: BorderSide(color: _kBordeOscuro),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: const BorderSide(color: GingaColors.brandGreen),
                           ),
                         ),
                         style: GoogleFonts.montserrat(color: Colors.white),
@@ -3697,9 +3750,19 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         decoration: InputDecoration(
                           hintText: 'Ej. 51987654321 (con código de país)',
                           hintStyle: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro),
+                          filled: true,
+                          fillColor: _kTarjetaOscura,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(GingaRadius.md),
                             borderSide: BorderSide(color: _kBordeOscuro),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: BorderSide(color: _kBordeOscuro),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            borderSide: const BorderSide(color: GingaColors.brandGreen),
                           ),
                         ),
                         style: GoogleFonts.montserrat(color: Colors.white),
@@ -3877,9 +3940,19 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
             decoration: InputDecoration(
               hintText: 'Escribe aquí observaciones, lesiones, comportamiento...',
               hintStyle: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro),
+              filled: true,
+              fillColor: _kTarjetaOscura,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(GingaRadius.md),
                 borderSide: BorderSide(color: _kBordeOscuro),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+                borderSide: BorderSide(color: _kBordeOscuro),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(GingaRadius.md),
+                borderSide: const BorderSide(color: GingaColors.brandGreen),
               ),
             ),
             style: GoogleFonts.montserrat(color: Colors.white),
