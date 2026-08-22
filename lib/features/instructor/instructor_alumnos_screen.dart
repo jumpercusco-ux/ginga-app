@@ -3004,6 +3004,8 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                       hintText: 'Buscar por nombre...',
                       hintStyle: GoogleFonts.montserrat(fontSize: 13, color: _kTextoSecundarioOscuro),
                       prefixIcon: Icon(Icons.search, color: _kTextoSecundarioOscuro, size: 20),
+                      filled: true,
+                      fillColor: _kTarjetaOscura,
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     ),
@@ -3202,7 +3204,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     crossAxisCount: 3,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 0.8,
+                    childAspectRatio: 1.05,
                   ),
                   itemCount: filteredDocs.length,
                   itemBuilder: (context, index) {
@@ -3237,10 +3239,11 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             CircleAvatar(
-                              radius: 24,
+                              radius: 32,
                               backgroundColor: statusColor.withOpacity(0.2),
                               backgroundImage: fotoUrl != null && fotoUrl.isNotEmpty
                                   ? NetworkImage(fotoUrl)
@@ -3315,7 +3318,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 ),
                               ),
                             ],
-                            const Spacer(),
+                            const SizedBox(height: 10),
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
