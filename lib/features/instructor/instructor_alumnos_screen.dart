@@ -3196,8 +3196,14 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                return GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.62,
+                  ),
                   itemCount: filteredDocs.length,
                   itemBuilder: (context, index) {
                     final doc = filteredDocs[index];
@@ -3208,6 +3214,13 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     final String corda = data['corda'] ?? 'Crua';
                     final finTime = data['membresia_fin'] as Timestamp?;
                     final DateTime? finDate = finTime?.toDate();
+                    final Color statusColor = status == 'activo'
+                        ? GingaColors.brandGreen
+                        : status == 'prueba'
+                            ? GingaColors.accentAmber
+                            : status == 'nuevo'
+                                ? Colors.blue
+                                : Colors.red;
 
                     return GestureDetector(
                       onTap: () {
@@ -3216,141 +3229,114 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         _mostrarFichaAlumno(context, dataWithUid);
                       },
                       child: Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: _kTarjetaOscura,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
                           border: Border.all(color: _kBordeOscuro),
                         ),
-                        child: Row(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.max,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             CircleAvatar(
-                              radius: 20,
-                              backgroundColor: status == 'activo'
-                                  ? GingaColors.brandGreen.withOpacity(0.2)
-                                  : status == 'prueba'
-                                      ? GingaColors.accentAmber.withOpacity(0.2)
-                                      : status == 'nuevo'
-                                          ? Colors.blue.withOpacity(0.2)
-                                          : Colors.red.withOpacity(0.2),
-                              backgroundImage: fotoUrl != null && fotoUrl!.isNotEmpty
-                                  ? NetworkImage(fotoUrl!)
+                              radius: 24,
+                              backgroundColor: statusColor.withOpacity(0.2),
+                              backgroundImage: fotoUrl != null && fotoUrl.isNotEmpty
+                                  ? NetworkImage(fotoUrl)
                                   : null,
-                              child: fotoUrl != null && fotoUrl!.isNotEmpty
+                              child: fotoUrl != null && fotoUrl.isNotEmpty
                                   ? null
-                                  : Icon(
-                                      Icons.person,
-                                      color: status == 'activo'
-                                          ? GingaColors.brandGreen
-                                          : status == 'prueba'
-                                              ? GingaColors.accentAmber
-                                              : status == 'nuevo'
-                                                  ? Colors.blue
-                                                  : Colors.red,
-                                    ),
+                                  : Icon(Icons.person, color: statusColor),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(data['nombre'] ?? 'Sin nombre',
-                                      style: GoogleFonts.montserrat(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white)),
-                                  const SizedBox(height: 2),
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 4,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: status == 'activo'
-                                              ? GingaColors.brandGreen.withOpacity(0.15)
-                                              : status == 'prueba'
-                                                  ? GingaColors.accentAmber.withOpacity(0.15)
-                                                  : status == 'nuevo'
-                                                      ? Colors.blue.withOpacity(0.15)
-                                                      : Colors.red.withOpacity(0.15),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(status.toUpperCase(),
-                                            style: GoogleFonts.montserrat(
-                                                fontSize: 9,
-                                                fontWeight: FontWeight.w800,
-                                                color: status == 'activo'
-                                                    ? GingaColors.brandGreen
-                                                    : status == 'prueba'
-                                                        ? GingaColors.accentAmber
-                                                        : status == 'nuevo'
-                                                            ? Colors.blue
-                                                            : Colors.red)),
-                                      ),
-                                      if (data['is_offline'] == true)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.orange.withOpacity(0.15),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            'SIN APP 📴',
-                                            style: GoogleFonts.montserrat(
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w800,
-                                              color: Colors.orange[800],
-                                            ),
-                                          ),
-                                        ),
-                                      Text(
-                                        '•  $userSede • $corda',
-                                        style: GoogleFonts.montserrat(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: _kTextoSecundarioOscuro),
-                                      ),
-                                      _StudentProgressText(uid: doc.id, corda: corda),
-                                      if (finDate != null) ...[
-                                        Icon(
-                                          Icons.event_outlined,
-                                          size: 13,
-                                          color: finDate.isBefore(DateTime.now()) ? Colors.redAccent : _kTextoSecundarioOscuro,
-                                        ),
-                                        Text(
-                                          'Vence: ${finDate.day}/${finDate.month}/${finDate.year}',
-                                          style: GoogleFonts.montserrat(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                            color: finDate.isBefore(DateTime.now()) ? Colors.redAccent : _kTextoSecundarioOscuro,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
+                            const SizedBox(height: 8),
+                            Text(
+                              data['nombre'] ?? 'Sin nombre',
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.montserrat(
+                                  fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 4,
+                              runSpacing: 4,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
-                                ],
-                              ),
-                            ),
-                            ElevatedButton(
-                              onPressed: () => _mostrarModalActivacion(context, data, doc.id),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: status == 'activo'
-                                    ? Colors.blueGrey
-                                    : GingaColors.brandGreen,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                minimumSize: const Size(0, 36),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  child: Text(status.toUpperCase(),
+                                      style: GoogleFonts.montserrat(
+                                          fontSize: 9, fontWeight: FontWeight.w800, color: statusColor)),
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                if (data['is_offline'] == true)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'SIN APP 📴',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.orange[800],
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '$userSede • $corda',
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.montserrat(
+                                  fontSize: 10, fontWeight: FontWeight.w600, color: _kTextoSecundarioOscuro),
+                            ),
+                            const SizedBox(height: 2),
+                            _StudentProgressText(uid: doc.id, corda: corda),
+                            if (finDate != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Vence: ${finDate.day}/${finDate.month}/${finDate.year}',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: finDate.isBefore(DateTime.now()) ? Colors.redAccent : _kTextoSecundarioOscuro,
+                                ),
                               ),
-                              child: Text(status == 'activo' ? 'Gestionar' : (status == 'inactivo' ? 'Renovar' : 'Activar'),
-                                  style: GoogleFonts.montserrat(
-                                      fontSize: 12, fontWeight: FontWeight.w700)),
+                            ],
+                            const Spacer(),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () => _mostrarModalActivacion(context, data, doc.id),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: status == 'activo'
+                                      ? Colors.blueGrey
+                                      : GingaColors.brandGreen,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  minimumSize: const Size(0, 32),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  ),
+                                ),
+                                child: Text(
+                                  status == 'activo' ? 'Gestionar' : (status == 'inactivo' ? 'Renovar' : 'Activar'),
+                                  style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700),
+                                ),
+                              ),
                             ),
                           ],
                         ),
