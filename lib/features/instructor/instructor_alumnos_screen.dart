@@ -3204,7 +3204,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     crossAxisCount: 3,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 1.05,
+                    mainAxisExtent: 270,
                   ),
                   itemCount: filteredDocs.length,
                   itemBuilder: (context, index) {
@@ -3232,6 +3232,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                       },
                       child: Container(
                         padding: const EdgeInsets.all(12),
+                        clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
                           color: _kTarjetaOscura,
                           borderRadius: BorderRadius.circular(GingaRadius.lg),
@@ -3243,7 +3244,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             CircleAvatar(
-                              radius: 32,
+                              radius: 28,
                               backgroundColor: statusColor.withOpacity(0.2),
                               backgroundImage: fotoUrl != null && fotoUrl.isNotEmpty
                                   ? NetworkImage(fotoUrl)
