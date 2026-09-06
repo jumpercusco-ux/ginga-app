@@ -89,6 +89,13 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
     return '${fecha.day}/${fecha.month}';
   }
 
+  String _formatearFechaCorta(Timestamp ts) {
+    const dias = ['', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+    const mesesCortos = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    final f = ts.toDate();
+    return '${dias[f.weekday]} ${f.day} ${mesesCortos[f.month - 1]}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -177,6 +184,7 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                     final origen = data['origen'] as Map<String, dynamic>?;
                     final aiHabilitada = data['ai_habilitada'] != false;
                     final ultimaInteraccion = data['ultima_interaccion'] as Timestamp?;
+                    final fechaReservada = data['fecha_clase_reservada'] as Timestamp?;
 
                     return Card(
                       color: _kTarjetaOscura,
@@ -200,7 +208,19 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                             if (origen != null && origen['ad_id'] != null)
                               Text('Origen: anuncio ${origen['ad_id']}',
                                   style: GoogleFonts.montserrat(fontSize: 11, color: _kTextoSecundarioOscuro)),
-                            const SizedBox(height: 2),
+                            if (fechaReservada != null)
+                              Container(
+                                margin: const EdgeInsets.only(top: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: GingaColors.accentAmber.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: GingaColors.accentAmber.withOpacity(0.4)),
+                                ),
+                                child: Text('📅 Prueba: ${_formatearFechaCorta(fechaReservada)}',
+                                    style: GoogleFonts.montserrat(fontSize: 10, color: GingaColors.accentAmber, fontWeight: FontWeight.w600)),
+                              ),
+                            const SizedBox(height: 4),
                             StreamBuilder<QuerySnapshot>(
                               stream: doc.reference
                                   .collection('mensajes')
