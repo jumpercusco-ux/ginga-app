@@ -139,7 +139,9 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
               },
             ),
           ),
-          const _ChecklistPruebasHoy(),
+          _ChecklistPruebasHoy(
+            onLeadTap: (id, data) => _mostrarDetalleLead(context, id, data),
+          ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -301,7 +303,8 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
 /// a la clase de prueba, y permite dar de alta a quien vino acompañando a
 /// alguien sin haber reservado antes por WhatsApp.
 class _ChecklistPruebasHoy extends StatefulWidget {
-  const _ChecklistPruebasHoy();
+  final void Function(String leadId, Map<String, dynamic> leadData) onLeadTap;
+  const _ChecklistPruebasHoy({required this.onLeadTap});
 
   @override
   State<_ChecklistPruebasHoy> createState() => _ChecklistPruebasHoyState();
@@ -513,21 +516,26 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
                         final fechaReservada = data['fecha_clase_reservada'] as Timestamp?;
                         return Padding(
                           padding: const EdgeInsets.only(top: GingaSpacing.sm),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(etiqueta,
-                                        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
-                                    if (fechaReservada != null)
-                                      Text(_formatearFechaCorta(fechaReservada),
-                                          style: GoogleFonts.montserrat(fontSize: 11, color: _kTextoSecundarioOscuro)),
-                                  ],
-                                ),
-                              ),
+                          child: InkWell(
+                            onTap: () => widget.onLeadTap(doc.id, data),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(etiqueta,
+                                            style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white, decoration: TextDecoration.underline, decorationColor: Colors.white54)),
+                                        if (fechaReservada != null)
+                                          Text(_formatearFechaCorta(fechaReservada),
+                                              style: GoogleFonts.montserrat(fontSize: 11, color: _kTextoSecundarioOscuro)),
+                                      ],
+                                    ),
+                                  ),
                               TextButton(
                                 onPressed: () => doc.reference
                                     .update({'status': 'asistio', 'ultima_interaccion': FieldValue.serverTimestamp()}),
@@ -540,7 +548,9 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
                                 style: TextButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 8)),
                                 child: Text('No asistió', style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700)),
                               ),
-                            ],
+                                ],
+                              ),
+                            ),
                           ),
                         );
                       },
