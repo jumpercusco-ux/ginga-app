@@ -592,6 +592,13 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
     return '$dd/$mm/${fecha.year} $hh:$min';
   }
 
+  String _formatearFechaCorta(Timestamp ts) {
+    const dias = ['', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+    const mesesCortos = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    final f = ts.toDate();
+    return '${dias[f.weekday]} ${f.day} ${mesesCortos[f.month - 1]}';
+  }
+
   Future<void> _convertirEnAlumno(BuildContext context, DocumentReference leadRef) async {
     final nombreController = TextEditingController(text: widget.leadData['nombre'] ?? '');
     final sedesDisponibles = ['Cusco', 'Lima', 'Virtual / A Distancia', 'U. Continental', 'Chimbote'];
@@ -960,14 +967,18 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
               final data = snapshot.data?.data() as Map<String, dynamic>?;
               final status = data?['status'] as String?;
               if (status == 'reservado') {
+                final ts = data?['fecha_clase_reservada'] as Timestamp?;
+                final dateStr = ts != null ? ' (${_formatearFechaCorta(ts)})' : '';
                 return Padding(
                   padding: const EdgeInsets.only(top: GingaSpacing.xs),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.event_available, size: 16, color: GingaColors.accentAmber),
-                      const SizedBox(width: 4),
-                      Text('Ya tiene una reserva guardada', style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro)),
-                    ],
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _marcarComoReservado(context, leadRef),
+                      icon: const Icon(Icons.edit_calendar, size: 16, color: GingaColors.accentAmber),
+                      label: Text('Cambiar fecha de reserva$dateStr', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.accentAmber)),
+                      style: OutlinedButton.styleFrom(side: const BorderSide(color: GingaColors.accentAmber)),
+                    ),
                   ),
                 );
               }
