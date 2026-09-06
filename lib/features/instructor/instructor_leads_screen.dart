@@ -1110,7 +1110,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
+                            SelectableText(
                               data['texto'] ?? '',
                               style: GoogleFonts.montserrat(fontSize: 13, color: Colors.white),
                             ),
