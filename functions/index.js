@@ -145,7 +145,32 @@ exports.enviarRecordatorioPruebaDiario = functions.pubsub
         const nivel = data.nivel || 'Capoeira';
 
         if (!uid) {
-          console.log(`[Warning] Reserva ${doc.id} no cuenta con user_id.`);
+          const leadId = data.lead_id;
+          if (leadId) {
+            // Es un lead de WhatsApp
+            const leadDoc = await admin.firestore().collection('whatsapp_leads').doc(leadId).get();
+            if (leadDoc.exists) {
+              const leadData = leadDoc.data();
+              const telefono = leadData.telefono || leadDoc.id;
+              // Usar el nombre de la reserva o el nombre guardado en el lead
+              const nombreLead = data.nombre_persona || leadData.nombre || 'hola';
+              
+              const enviado = await enviarRecordatorioWhatsApp(telefono, nombreLead);
+              if (enviado) {
+                // Registrar el mensaje en el historial del chat para que el instructor lo vea
+                await leadDoc.ref.collection('mensajes').add({
+                  from: 'ai',
+                  texto: `¡Hola ${nombreLead}! 🥋 Te escribimos de Ginga para recordarte que hoy es la clase de prueba que agendamos. ¡Te esperamos en la academia con mucho entusiasmo!`,
+                  timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                });
+                console.log(`[Scheduler] Recordatorio de prueba por WhatsApp enviado a lead: ${leadId}`);
+              }
+            } else {
+              console.log(`[Warning] Reserva ${doc.id} tiene lead_id ${leadId} pero no se encontró el documento de WhatsApp.`);
+            }
+          } else {
+            console.log(`[Warning] Reserva ${doc.id} no cuenta con user_id ni lead_id.`);
+          }
           return;
         }
 
@@ -569,6 +594,36 @@ async function enviarSeguimientoLeadFrio(to, nombreLead) {
   });
   if (!resp.ok) {
     console.error('[WhatsApp] Error enviando plantilla de seguimiento frío:', await resp.text());
+  }
+  return resp.ok;
+}
+
+/**
+ * Envía la plantilla "recordatorio_clase_prueba" (categoría Utility) a un lead de WhatsApp.
+ */
+async function enviarRecordatorioWhatsApp(to, nombreLead) {
+  const phoneNumberId = process.env.META_PHONE_NUMBER_ID;
+  const token = process.env.META_WHATSAPP_TOKEN;
+  const destinatario = BSUID_REGEX.test(to) ? { recipient: to } : { to };
+  const resp = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      ...destinatario,
+      type: 'template',
+      template: {
+        name: 'recordatorio_clase_prueba',
+        language: { code: 'es' },
+        components: [{
+          type: 'body',
+          parameters: [{ type: 'text', text: nombreLead }],
+        }],
+      },
+    }),
+  });
+  if (!resp.ok) {
+    console.error('[WhatsApp] Error enviando plantilla de recordatorio:', await resp.text());
   }
   return resp.ok;
 }
