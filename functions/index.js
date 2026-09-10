@@ -1114,7 +1114,19 @@ exports.whatsappWebhook = functions
         // NO es hoy por eso, no porque hoy no sea día de clase.
         const hoyEsDiaDeClasePeroYaPasoMediodia = (dowHoy === 2 || dowHoy === 4) && horaHoy >= 12;
 
-        systemPrompt += `\n\nFecha y hora actuales (America/Lima): hoy es ${diasSemana[dowHoy]} ${limaDate.getDate()} de ${meses[limaDate.getMonth()]} de ${limaDate.getFullYear()} (año actual: ${limaDate.getFullYear()}), son las ${String(horaHoy).padStart(2, '0')}:${String(limaDate.getMinutes()).padStart(2, '0')}. La PRÓXIMA fecha disponible para la clase de prueba (o cualquier clase, ya que son solo martes y jueves) es: ${fechaProximaClase} de ${targetDate.getFullYear()}. Usa EXACTAMENTE esta fecha, tal cual, cuando menciones el horario o invites a agendar — no la calcules ni la ajustes tú, no digas "martes o jueves" de forma genérica. Si necesitas construir una fecha en formato AAAA-MM-DD (ej. para fecha_solicitada), usa SIEMPRE el año ${limaDate.getFullYear()} salvo que la fecha caiga después del 31 de diciembre, en cuyo caso usa ${limaDate.getFullYear() + 1}.${hoyEsDiaDeClasePeroYaPasoMediodia ? ' AVISO: hoy es día de clase pero ya pasó el mediodía, por eso la fecha de arriba no es hoy. Si el lead insiste específicamente en venir HOY MISMO a pesar de eso, no se lo niegues de plano — usa marcar_seguimiento_humano (motivo: "Quiere venir hoy mismo, fuera del horario límite") para que un instructor decida en el momento si alcanza, y dile a la persona que un instructor le va a confirmar si alcanza para hoy.' : ''}`;
+        const proximasClasesFechas = [];
+        let d = new Date(targetDate);
+        for(let i = 0; i < 4; i++) {
+           proximasClasesFechas.push(`- ${diasSemana[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]} de ${d.getFullYear()} (formato AAAA-MM-DD: ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')})`);
+           d.setDate(d.getDate() + (d.getDay() === 2 ? 2 : 5));
+        }
+        const listaProximas = proximasClasesFechas.join('\n');
+
+        systemPrompt += `\n\nFecha y hora actuales (America/Lima): hoy es ${diasSemana[dowHoy]} ${limaDate.getDate()} de ${meses[limaDate.getMonth()]} de ${limaDate.getFullYear()} (año actual: ${limaDate.getFullYear()}), son las ${String(horaHoy).padStart(2, '0')}:${String(limaDate.getMinutes()).padStart(2, '0')}. La PRÓXIMA fecha disponible para la clase de prueba (o cualquier clase, ya que son solo martes y jueves) es: ${fechaProximaClase} de ${targetDate.getFullYear()}. Usa EXACTAMENTE esta fecha, tal cual, cuando menciones el horario o invites a agendar — no la calcules ni la ajustes tú, no digas "martes o jueves" de forma genérica.
+
+Además, si el lead pide explícitamente "la próxima semana" o una fecha futura ("el otro martes", etc.), NUNCA calcules la fecha en tu cabeza. Usa esta lista exacta de las próximas clases disponibles:
+${listaProximas}
+Usa el formato AAAA-MM-DD provisto ahí si necesitas llenar el campo fecha_solicitada de tu herramienta.${hoyEsDiaDeClasePeroYaPasoMediodia ? ' AVISO: hoy es día de clase pero ya pasó el mediodía, por eso la fecha de arriba no es hoy. Si el lead insiste específicamente en venir HOY MISMO a pesar de eso, no se lo niegues de plano — usa marcar_seguimiento_humano (motivo: "Quiere venir hoy mismo, fuera del horario límite") para que un instructor decida en el momento si alcanza, y dile a la persona que un instructor le va a confirmar si alcanza para hoy.' : ''}`;
 
         // Cualquier "hoy"/fecha que aparezca en mensajes anteriores del historial
         // puede estar desactualizada — hay que avisarlo SIEMPRE que exista historial
