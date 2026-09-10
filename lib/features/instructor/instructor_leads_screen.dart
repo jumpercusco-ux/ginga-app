@@ -1063,12 +1063,21 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                     final nombre = persona['nombre'] ?? 'Sin nombre';
                     final tipo = persona['tipo'] ?? '';
                     final edad = persona['edad'];
-                    return Chip(
-                      label: Text('$nombre ($tipo${edad != null ? ', $edad años' : ''})',
-                          style: GoogleFonts.montserrat(fontSize: 11, color: Colors.white)),
-                      backgroundColor: GingaColors.brandGreen.withOpacity(0.1),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: GingaColors.brandGreen.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: GingaColors.brandGreen.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        '$nombre ($tipo${edad != null ? ', $edad años' : ''})',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          color: GingaColors.brandGreen,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     );
                   }).toList(),
                 ),

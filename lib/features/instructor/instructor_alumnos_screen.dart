@@ -2838,7 +2838,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isCurrent ? GingaColors.brandGreen.withOpacity(0.05) : Colors.white,
+                            color: isCurrent ? GingaColors.brandGreen.withOpacity(0.05) : Colors.transparent,
                             borderRadius: BorderRadius.circular(GingaRadius.md),
                             border: Border.all(
                               color: isCurrent ? GingaColors.brandGreen : _kBordeOscuro,
