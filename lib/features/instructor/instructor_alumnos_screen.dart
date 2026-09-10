@@ -227,6 +227,30 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                 ),
                 if (created != null)
                   _buildFichaRow(Icons.calendar_today_outlined, 'Fecha de registro', '${created.day}/${created.month}/${created.year}'),
+                _buildFichaRow(
+                  Icons.cake_outlined,
+                  'Fecha de nacimiento',
+                  data['fecha_nacimiento'] != null 
+                      ? '${(data['fecha_nacimiento'] as Timestamp).toDate().day}/${(data['fecha_nacimiento'] as Timestamp).toDate().month}/${(data['fecha_nacimiento'] as Timestamp).toDate().year} (${DateTime.now().year - (data['fecha_nacimiento'] as Timestamp).toDate().year} años)'
+                      : 'No registrada',
+                  suffix: GestureDetector(
+                    onTap: () {
+                      _editarFechaNacimiento(context, ctx, data);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: GingaColors.brandGreen.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.edit_calendar_rounded,
+                        size: 14,
+                        color: GingaColors.brandGreen,
+                      ),
+                    ),
+                  ),
+                ),
 
                 Divider(height: 32, color: _kBordeOscuro),
 
@@ -3198,7 +3222,131 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                   );
                 }
 
-                return GridView.builder(
+                final today = DateTime.now();
+                final upcomingBirthdays = filteredDocs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final birthTimestamp = data['fecha_nacimiento'] as Timestamp?;
+                  if (birthTimestamp == null) return false;
+                  final birthDate = birthTimestamp.toDate();
+                  
+                  DateTime nextBirthday = DateTime(today.year, birthDate.month, birthDate.day);
+                  if (nextBirthday.isBefore(DateTime(today.year, today.month, today.day))) {
+                    nextBirthday = DateTime(today.year + 1, birthDate.month, birthDate.day);
+                  }
+                  final difference = nextBirthday.difference(DateTime(today.year, today.month, today.day)).inDays;
+                  return difference >= 0 && difference <= 7;
+                }).toList();
+
+                // Ordenar próximos cumpleaños por cercanía
+                upcomingBirthdays.sort((a, b) {
+                  final aData = a.data() as Map<String, dynamic>;
+                  final bData = b.data() as Map<String, dynamic>;
+                  final aDate = (aData['fecha_nacimiento'] as Timestamp).toDate();
+                  final bDate = (bData['fecha_nacimiento'] as Timestamp).toDate();
+                  
+                  DateTime aNext = DateTime(today.year, aDate.month, aDate.day);
+                  if (aNext.isBefore(DateTime(today.year, today.month, today.day))) {
+                    aNext = DateTime(today.year + 1, aDate.month, aDate.day);
+                  }
+                  DateTime bNext = DateTime(today.year, bDate.month, bDate.day);
+                  if (bNext.isBefore(DateTime(today.year, today.month, today.day))) {
+                    bNext = DateTime(today.year + 1, bDate.month, bDate.day);
+                  }
+                  return aNext.compareTo(bNext);
+                });
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (upcomingBirthdays.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                        child: Text(
+                          'Próximos Cumpleaños 🎂',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 80,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: upcomingBirthdays.length,
+                          itemBuilder: (context, index) {
+                            final doc = upcomingBirthdays[index];
+                            final data = doc.data() as Map<String, dynamic>;
+                            final birthDate = (data['fecha_nacimiento'] as Timestamp).toDate();
+                            final isToday = birthDate.month == today.month && birthDate.day == today.day;
+                            
+                            return GestureDetector(
+                              onTap: () {
+                                final Map<String, dynamic> dataWithUid = Map.from(data);
+                                dataWithUid['uid'] = doc.id;
+                                _mostrarFichaAlumno(context, dataWithUid);
+                              },
+                              child: Container(
+                                width: 150,
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isToday ? GingaColors.brandGreen.withOpacity(0.2) : _kTarjetaOscura,
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  border: Border.all(color: isToday ? GingaColors.brandGreen : _kBordeOscuro),
+                                ),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: GingaColors.brandGreen.withOpacity(0.2),
+                                      backgroundImage: data['foto_url'] != null && data['foto_url'].toString().isNotEmpty
+                                          ? NetworkImage(data['foto_url'])
+                                          : null,
+                                      child: data['foto_url'] != null && data['foto_url'].toString().isNotEmpty
+                                          ? null
+                                          : const Icon(Icons.person, color: GingaColors.brandGreen, size: 16),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            data['nombre'] ?? '',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.montserrat(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          Text(
+                                            isToday ? '¡Hoy!' : '${birthDate.day}/${birthDate.month}',
+                                            style: GoogleFonts.montserrat(
+                                              fontSize: 10,
+                                              color: isToday ? GingaColors.brandGreen : _kTextoSecundarioOscuro,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    Expanded(
+                      child: GridView.builder(
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
@@ -3254,13 +3402,26 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                   : Icon(Icons.person, color: statusColor),
                             ),
                             const SizedBox(height: 8),
-                            Text(
-                              data['nombre'] ?? 'Sin nombre',
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.montserrat(
-                                  fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                            
+                            Builder(
+                              builder: (context) {
+                                bool isBirthdayToday = false;
+                                final birthTimestamp = data['fecha_nacimiento'] as Timestamp?;
+                                if (birthTimestamp != null) {
+                                  final bd = birthTimestamp.toDate();
+                                  final today = DateTime.now();
+                                  if (bd.month == today.month && bd.day == today.day) isBirthdayToday = true;
+                                }
+
+                                return Text(
+                                  (data['nombre'] ?? 'Sin nombre') + (isBirthdayToday ? ' 🎂' : ''),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.montserrat(
+                                      fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                                );
+                              }
                             ),
                             const SizedBox(height: 6),
                             Wrap(
@@ -3347,10 +3508,13 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                       ),
                     );
                   },
-                );
-              },
-            ),
-          ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    ),
         ],
       ),
     );
@@ -3464,6 +3628,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
     String selectedCorda = 'Crua';
     String selectedStatus = 'activo';
     bool isOffline = true;
+    DateTime? selectedFechaNacimiento;
 
     showModalBottomSheet(
       context: context,
@@ -3773,6 +3938,53 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                       ),
                       const SizedBox(height: 10),
 
+                      // Fecha de Nacimiento
+                      Text(
+                        'Fecha de Nacimiento (Opcional)',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _kTextoSecundarioOscuro,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      InkWell(
+                        onTap: () async {
+                          final pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate: selectedFechaNacimiento ?? DateTime.now().subtract(const Duration(days: 365 * 10)),
+                            firstDate: DateTime(1900),
+                            lastDate: DateTime.now(),
+                            builder: buildGingaDatePickerTheme,
+                          );
+                          if (pickedDate != null) {
+                            modalSetState(() {
+                              selectedFechaNacimiento = pickedDate;
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: _kTarjetaOscura,
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            border: Border.all(color: _kBordeOscuro),
+                          ),
+                          child: Text(
+                            selectedFechaNacimiento != null
+                                ? '${selectedFechaNacimiento!.day}/${selectedFechaNacimiento!.month}/${selectedFechaNacimiento!.year}'
+                                : 'Seleccionar fecha',
+                            style: GoogleFonts.montserrat(
+                              color: selectedFechaNacimiento != null ? Colors.white : _kTextoSecundarioOscuro,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
                       // Switch Alumno sin aplicación (Offline)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3863,6 +4075,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                                 'notas': '',
                                 if (telefono.isNotEmpty) 'whatsapp_id': telefono,
                                 if (telefono.isNotEmpty) 'whatsapp_id_es_telefono': true,
+                                if (selectedFechaNacimiento != null) 'fecha_nacimiento': Timestamp.fromDate(selectedFechaNacimiento!),
                               };
 
                               await newUserRef.set(userData);
@@ -4002,7 +4215,7 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
                     Navigator.pop(context); // Cierra cargando
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Error al guardar notas: $e'),
+                        content: Text('Error al actualizar las notas: $e'),
                         backgroundColor: Colors.red,
                       ),
                     );
@@ -4012,10 +4225,9 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: GingaColors.brandGreen,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.md)),
               ),
               child: Text(
-                'Guardar',
+                'Guardar Notas',
                 style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
               ),
             ),
@@ -4024,6 +4236,75 @@ class _InstructorAlumnosScreenState extends State<InstructorAlumnosScreen> {
       },
     );
   }
+
+  Future<void> _editarFechaNacimiento(BuildContext context, BuildContext sheetCtx, Map<String, dynamic> userData) async {
+    final String userUid = userData['uid'] ?? '';
+    if (userUid.isEmpty) return;
+
+    DateTime initialDate = DateTime.now().subtract(const Duration(days: 365 * 10)); // Default 10 años
+    if (userData['fecha_nacimiento'] != null) {
+      initialDate = (userData['fecha_nacimiento'] as Timestamp).toDate();
+    }
+
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: GingaColors.brandGreen,
+              onPrimary: Colors.white,
+              surface: _kTarjetaOscura,
+              onSurface: Colors.white,
+            ),
+            dialogBackgroundColor: _kFondoOscuro,
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedDate != null) {
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext loaderCtx) => const Center(
+          child: CircularProgressIndicator(color: GingaColors.brandGreen),
+        ),
+      );
+
+      try {
+        await FirebaseFirestore.instance.collection('users').doc(userUid).update({
+          'fecha_nacimiento': Timestamp.fromDate(pickedDate),
+        });
+
+        if (context.mounted) {
+          Navigator.pop(context); // Cierra cargando
+          Navigator.pop(sheetCtx); // Cierra la ficha del alumno para recargar los datos
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Fecha de nacimiento actualizada correctamente 🎂'),
+              backgroundColor: GingaColors.brandGreen,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          Navigator.pop(context); // Cierra cargando
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al actualizar fecha de nacimiento: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+  }
+}
 }
 
 // ─────────────────────────────────────────
