@@ -1,6 +1,9 @@
 {
-  "cleanUrls": true,
+  "cleanUrls": false,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/robots.txt", "destination": "/robots.txt" },
+    { "source": "/sitemap.xml", "destination": "/sitemap.xml" },
+    { "source": "/google74ee89afc3e0b9fa.html", "destination": "/google74ee89afc3e0b9fa.html" },
+    { "source": "/((?!.*\\.).*)", "destination": "/index.html" }
   ]
 }
