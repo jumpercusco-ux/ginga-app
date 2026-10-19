@@ -235,7 +235,10 @@ class _InstructorLeadsScreenState extends State<InstructorLeadsScreen> {
                                 }
                                 final ultimoMsg = msgSnapshot.data!.docs.first.data() as Map<String, dynamic>;
                                 final esDelLead = (ultimoMsg['from'] ?? 'lead') == 'lead';
-                                final texto = (ultimoMsg['texto'] ?? '').toString();
+                                String texto = (ultimoMsg['texto'] ?? '').toString();
+                                if (texto.contains('reaction') && texto.contains('no soportado')) {
+                                  texto = 'Reaccionó con 👍';
+                                }
                                 return Text(
                                   esDelLead ? texto : 'Tú: $texto',
                                   maxLines: 1,
@@ -508,11 +511,10 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
                         final personas = (data['perfil_personas'] as List?) ?? [];
                         final nombresPersonas = personas
                             .whereType<Map>()
-                            .map((p) => p['nombre'])
-                            .whereType<String>()
-                            .where((n) => n.trim().isNotEmpty)
+                            .map((p) => (p['nombre'] ?? '').toString().trim())
+                            .where((n) => n.isNotEmpty && !n.startsWith('[') && !n.toLowerCase().contains('nombre de tu'))
                             .join(', ');
-                        final etiqueta = nombresPersonas.isNotEmpty ? nombresPersonas : nombreLead;
+                        final etiqueta = nombresPersonas.isNotEmpty ? '$nombreLead ($nombresPersonas)' : nombreLead;
                         final fechaReservada = data['fecha_clase_reservada'] as Timestamp?;
                         return Padding(
                           padding: const EdgeInsets.only(top: GingaSpacing.sm),
@@ -1114,24 +1116,28 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                     final from = data['from'] ?? 'lead';
                     final esLead = from == 'lead';
                     final ts = data['timestamp'] as Timestamp?;
+                    final rawTexto = (data['texto'] ?? '').toString();
+                    final texto = (rawTexto.contains('reaction') && rawTexto.contains('no soportado'))
+                        ? 'Reaccionó con 👍'
+                        : rawTexto;
                     return Align(
                       alignment: esLead ? Alignment.centerLeft : Alignment.centerRight,
-                      child: Container(
-                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: esLead ? _kBordeOscuro : GingaColors.brandGreen.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(GingaRadius.md),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SelectableText(
-                              data['texto'] ?? '',
-                              style: GoogleFonts.montserrat(fontSize: 13, color: Colors.white),
-                            ),
+                              child: Container(
+                                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: esLead ? _kBordeOscuro : GingaColors.brandGreen.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SelectableText(
+                                      texto,
+                                      style: GoogleFonts.montserrat(fontSize: 13, color: Colors.white),
+                                    ),
                             if (ts != null) ...[
                               const SizedBox(height: 3),
                               Text(

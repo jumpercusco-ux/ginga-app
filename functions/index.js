@@ -1365,3 +1365,69 @@ exports.sendManualWhatsAppMessage = functions
 
     return { success: true };
   });
+
+/**
+ * Tarea administrativa puntual para migrar mensajes de reacciones antiguas en Firestore
+ * y limpiar placeholders con corchetes en leads y reservas.
+ */
+exports.migrarMensajesHistoricos = functions.https.onRequest(async (req, res) => {
+  try {
+    const leadsSnap = await admin.firestore().collection('whatsapp_leads').get();
+    let updatedMsgs = 0;
+    let deletedRobotic = 0;
+    let fixedLeads = 0;
+
+    for (const leadDoc of leadsSnap.docs) {
+      const data = leadDoc.data();
+      let needUpdate = false;
+      const patch = {};
+
+      if (Array.isArray(data.perfil_personas)) {
+        const cleaned = data.perfil_personas.map(p => {
+          let n = (p.nombre || '').trim();
+          if (n.startsWith('[') || n.toLowerCase().includes('nombre de tu')) {
+            n = '';
+            needUpdate = true;
+          }
+          return { ...p, nombre: n };
+        });
+        if (needUpdate) patch.perfil_personas = cleaned;
+      }
+
+      if (needUpdate) {
+        await leadDoc.ref.update(patch);
+        fixedLeads++;
+      }
+
+      const msgsSnap = await leadDoc.ref.collection('mensajes').get();
+      for (const msgDoc of msgsSnap.docs) {
+        const m = msgDoc.data();
+        const txt = m.texto || '';
+        if (txt.includes('reaction') && txt.includes('no soportado')) {
+          await msgDoc.ref.update({ texto: 'Reaccionó con 👍' });
+          updatedMsgs++;
+        } else if (txt.includes('Por ahora solo puedo leer mensajes de texto')) {
+          await msgDoc.ref.delete();
+          deletedRobotic++;
+        }
+      }
+    }
+
+    const resSnap = await admin.firestore().collection('reservas').get();
+    let fixedRes = 0;
+    for (const rDoc of resSnap.docs) {
+      const r = rDoc.data();
+      const n = (r.nombre_persona || '').trim();
+      if (n.startsWith('[') || n.toLowerCase().includes('nombre de tu')) {
+        await rDoc.ref.update({ nombre_persona: 'Hijo (12 años)' });
+        fixedRes++;
+      }
+    }
+
+    res.json({ success: true, fixedLeads, updatedMsgs, deletedRobotic, fixedRes });
+  } catch (err) {
+    console.error('Error migrando mensajes:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
