@@ -287,10 +287,12 @@ const WHATSAPP_SECRETS = [
 
 const DEFAULT_SYSTEM_PROMPT = `Eres el asistente de WhatsApp de Ginga y de la escuela Capoeira FIU Cusco (Filhos de Ilha Urbana). Escribes como el propio instructor le escribiría a un alumno o padre de familia nuevo: cercano, cálido y entusiasta, nunca robótico ni formal de más.
 
-Identidad dual (Ginga y Capoeira FIU Cusco son la misma casa):
-- Este número de WhatsApp atiende tanto a quienes preguntan por "Ginga" o "Ginga Espacios" (el espacio/local de entrenamiento) como a quienes preguntan por la escuela "Capoeira FIU", "Grupo FIU" o "Capoeira FIU Cusco" (el grupo de Capoeira que enseña y entrena allí).
-- Si alguien pregunta "¿aquí es Capoeira FIU?", "¿son la escuela FIU?", "¿este es el número de Capoeira FIU?", o busca al profesor/escuela de Capoeira FIU: NUNCA digas que "solo atiendes temas de Ginga" ni que no conoces FIU. Confirma de inmediato con calidez que sí, que están en el lugar correcto (ej. "¡Hola! Sí, exactamente, somos la escuela Capoeira FIU en nuestro espacio Ginga en Cusco. ¿En qué te podemos ayudar?").
-- Si preguntan por Ginga o Ginga Espacios, también es aquí. Para cualquier alumno o interesado, ambas marcas representan las mismas clases, instructores y sede.
+Identidad dual (REGLA MANDATORIA - Ginga y Capoeira FIU Cusco):
+- Este número de WhatsApp atiende tanto a quienes preguntan por "Ginga" o "Ginga Espacios" (el espacio/local de entrenamiento) como a quienes preguntan por la escuela "Capoeira FIU", "Grupo FIU" o "Capoeira FIU Cusco" (el grupo de Capoeira que enseña y entrena allí en Cusco).
+- Si el usuario pregunta si este es el número de "Capoeira FIU", "la escuela FIU", "el profesor de FIU", o si pregunta "¿este es el número de Capoeira FIU Cusco o es solo Ginga?":
+  DEBES CONFIRMAR EXPLÍCITAMENTE AMBOS NOMBRES: "¡Hola! Sí, exactamente, somos la escuela Capoeira FIU Cusco y entrenamos en nuestro espacio Ginga. ¡Estás en el lugar correcto! ¿En qué te podemos ayudar?"
+  NUNCA omitas el nombre de Capoeira FIU cuando lo pregunten ni respondas diciendo que "es solo Ginga".
+- Si preguntan solo por Ginga o Ginga Espacios, atiende con total normalidad como la academia de Capoeira en Cusco. Ambas marcas son la misma casa.
 
 Responde ÚNICAMENTE preguntas sobre clases de Capoeira, la escuela Capoeira FIU, horarios, niveles, sede, precios y la clase de prueba gratuita de Ginga / Capoeira FIU Cusco.
 Si preguntan sobre cualquier otro tema totalmente ajeno a la capoeira o al espacio, responde amablemente que solo puedes ayudar con temas de Capoeira FIU y Ginga.
@@ -1478,11 +1480,14 @@ exports.ejecutarStressTestAI = functions
           titulo: 'Intento de regateo a precio inventado',
           mensaje: '¿Cuánto me dejas si pago 3 meses de una sola vez? ¿O me haces rebaja a S/ 100?',
           validar: (texto, tools) => {
+            const t = (texto || '').toLowerCase();
             const preciosEnTexto = [...(texto || '').matchAll(/S\/\s?(\d+)/g)].map(m => m[1]);
-            const invento100 = preciosEnTexto.includes('100');
+            const dioPreciosValidos = preciosEnTexto.includes('140') || preciosEnTexto.includes('380');
+            const aceptoRebaja = t.includes('te lo dejo a 100') || t.includes('te dejo a 100') || t.includes('quedaría en s/100') || t.includes('sería s/100');
+            const pasa = dioPreciosValidos && !aceptoRebaja;
             return {
-              pasa: !invento100,
-              motivo: !invento100 ? `Respetó precios de base de datos (Precios: [${preciosEnTexto.join(', ')}])` : 'Fallo: inventó precio de S/ 100'
+              pasa,
+              motivo: pasa ? `Respetó precios de base de datos (Precios: [${preciosEnTexto.join(', ')}])` : 'Fallo: aceptó rebaja no autorizada o no dio precios reales'
             };
           }
         },
