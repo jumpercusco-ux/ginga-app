@@ -1609,4 +1609,90 @@ exports.ejecutarStressTestAI = functions
     }
   });
 
+/**
+ * Helper para obtener miniatura mediante OpenGraph (Instagram, TikTok, Web)
+ */
+async function obtenerOgImage(url) {
+  if (!url || !url.startsWith('http')) return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 7000);
+
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) return null;
+    const html = await res.text();
+    const match = html.match(/property="og:image"\s+content="([^"]+)"/i) || 
+                  html.match(/content="([^"]+)"\s+property="og:image"/i) ||
+                  html.match(/<meta[^>]+(?:name|property)="twitter:image"[^>]+content="([^"]+)"/i);
+    if (match) {
+      return match[1].replace(/&amp;/g, '&');
+    }
+  } catch (err) {
+    console.error('Error obteniendo og:image:', err.message);
+  }
+  return null;
+}
+
+function resolverMiniaturaDeUrl(url) {
+  if (!url) return null;
+  const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([a-zA-Z0-9_-]{11})/i);
+  if (ytMatch) {
+    return `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+  }
+  return null;
+}
+
+/**
+ * Trigger que genera miniatura automática para links de Instagram, TikTok o YouTube
+ */
+exports.generarMiniaturaIdea = functions.firestore
+  .document('instructor_ideas/{ideaId}')
+  .onWrite(async (change, context) => {
+    if (!change.after.exists) return null;
+    const data = change.after.data();
+    if (data.tipo !== 'link' || !data.url || data.thumbnail_url) return null;
+
+    let thumb = resolverMiniaturaDeUrl(data.url);
+    if (!thumb) {
+      thumb = await obtenerOgImage(data.url);
+    }
+
+    if (thumb) {
+      return change.after.ref.update({ thumbnail_url: thumb });
+    }
+    return null;
+  });
+
+/**
+ * Endpoint manual para procesar y actualizar miniaturas de ideas existentes
+ */
+exports.actualizarMiniaturasExistentes = functions.https.onRequest(async (req, res) => {
+  try {
+    const snap = await admin.firestore().collection('instructor_ideas').get();
+    let actualizadas = 0;
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      if (d.tipo === 'link' && d.url && !d.thumbnail_url) {
+        let thumb = resolverMiniaturaDeUrl(d.url);
+        if (!thumb) thumb = await obtenerOgImage(d.url);
+        if (thumb) {
+          await doc.ref.update({ thumbnail_url: thumb });
+          actualizadas++;
+        }
+      }
+    }
+    res.json({ success: true, actualizadas });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 

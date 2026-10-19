@@ -596,7 +596,7 @@ class _ModalCrearIdeaState extends State<_ModalCrearIdea> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? GingaColors.brandGreen.withOpacity(0.15) : _kFondoOscuro,
+            color: isSelected ? GingaColors.brandGreen.withValues(alpha: 0.15) : _kFondoOscuro,
             borderRadius: BorderRadius.circular(GingaRadius.md),
             border: Border.all(
               color: isSelected ? GingaColors.brandGreen : _kBordeOscuro,
@@ -649,40 +649,79 @@ class _IdeaCard extends StatelessWidget {
     final notas = data['notas'] as String?;
     final categoria = data['categoria'] ?? 'General';
 
+    // Determinar miniatura visual
+    String? miniatura = data['thumbnail_url'] as String?;
+    if (miniatura == null || miniatura.isEmpty) {
+      if (tipo == 'imagen') {
+        miniatura = url;
+      } else if (tipo == 'link' && url != null) {
+        final ytMatch = RegExp(r'(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([a-zA-Z0-9_-]{11})').firstMatch(url);
+        if (ytMatch != null) {
+          miniatura = 'https://img.youtube.com/vi/${ytMatch.group(1)}/hqdefault.jpg';
+        }
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: _kTarjetaOscura,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
         border: Border.all(
-          color: completado ? GingaColors.brandGreen.withOpacity(0.3) : _kBordeOscuro,
+          color: completado ? GingaColors.brandGreen.withValues(alpha: 0.3) : _kBordeOscuro,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Imagen si la tiene
-          if (tipo == 'imagen' && url != null && url.isNotEmpty)
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(GingaRadius.lg)),
-              child: CachedNetworkImage(
-                imageUrl: url,
-                height: 160,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  height: 160,
-                  color: _kFondoOscuro,
-                  child: const Center(
-                    child: CircularProgressIndicator(color: GingaColors.brandGreen),
+          // Miniatura visual (tanto si es imagen subida, o si es link con miniatura de Reel/TikTok/YouTube)
+          if (miniatura != null && miniatura.isNotEmpty)
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(GingaRadius.lg)),
+                  child: CachedNetworkImage(
+                    imageUrl: miniatura,
+                    height: 170,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      height: 170,
+                      color: _kFondoOscuro,
+                      child: const Center(
+                        child: CircularProgressIndicator(color: GingaColors.brandGreen, strokeWidth: 2),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      height: 170,
+                      color: _kFondoOscuro,
+                      child: const Icon(Icons.broken_image, color: _kTextoSecundario),
+                    ),
                   ),
                 ),
-                errorWidget: (context, url, error) => Container(
-                  height: 160,
-                  color: _kFondoOscuro,
-                  child: const Icon(Icons.broken_image, color: _kTextoSecundario),
-                ),
-              ),
+                // Botón Play sobre la miniatura si es un video/link
+                if (tipo == 'link')
+                  InkWell(
+                    onTap: () async {
+                      if (url != null && url.isNotEmpty) {
+                        final uri = Uri.parse(url);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white70, width: 2),
+                      ),
+                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 36),
+                    ),
+                  ),
+              ],
             ),
 
           Padding(
@@ -697,7 +736,7 @@ class _IdeaCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: _categoriaColor(categoria).withOpacity(0.15),
+                        color: _categoriaColor(categoria).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(GingaRadius.full),
                       ),
                       child: Text(
