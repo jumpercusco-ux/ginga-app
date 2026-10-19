@@ -1002,7 +1002,12 @@ class _Ubicacion extends StatelessWidget {
             child: FlutterMap(
               options: MapOptions(
                 initialCenter: const LatLng(lat, lng),
-                initialZoom: 15.5,
+                initialZoom: 16.5,
+                minZoom: 14.0,
+                maxZoom: 18.5,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom | InteractiveFlag.doubleTapZoom,
+                ),
                 onTap: (tapPosition, point) async {
                   final googleUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
                   if (await canLaunchUrl(googleUrl)) {
@@ -1012,12 +1017,9 @@ class _Ubicacion extends StatelessWidget {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.jumperstudio.ginga_app',
-                ),
-                TileLayer(
-                  urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
-                  userAgentPackageName: 'com.jumperstudio.ginga_app',
+                  tileBuilder: darkModeTileBuilder,
                 ),
                 const MarkerLayer(markers: [
                   Marker(
