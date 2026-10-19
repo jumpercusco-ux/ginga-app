@@ -916,7 +916,7 @@ async function llamarOpenAI(messages) {
  * las ejecuta todas en orden hasta que el modelo devuelva texto final para el lead.
  * Tope de 4 rondas para evitar loops infinitos.
  */
-async function preguntarIA(leadId, systemPrompt, historial) {
+async function preguntarIA(leadId, systemPrompt, historial, onToolCall = null) {
   const messages = [{ role: 'system', content: systemPrompt }, ...historial];
 
   for (let ronda = 0; ronda < 4; ronda++) {
@@ -936,14 +936,17 @@ async function preguntarIA(leadId, systemPrompt, historial) {
     for (const llamada of llamadasHerramienta) {
       const tool = AVAILABLE_TOOLS.find((t) => t.name === llamada.function.name);
       let resultadoTool = 'Herramienta no reconocida.';
+      let args = {};
       if (tool) {
-        let args = {};
         try {
           args = JSON.parse(llamada.function.arguments || '{}');
         } catch (_) {
           // Argumentos vacíos o inválidos: se ignoran, el handler usa sus propios defaults.
         }
         resultadoTool = await tool.handler(leadId, args);
+        if (onToolCall) {
+          onToolCall({ name: llamada.function.name, args, result: resultadoTool });
+        }
       }
       messages.push({
         role: 'tool',
@@ -1201,83 +1204,8 @@ exports.whatsappWebhook = functions
         return { role: m.from === 'lead' ? 'user' : 'assistant', content: m.texto };
       });
 
-      let systemPrompt = await obtenerSystemPrompt();
-      {
-        // Calculamos la fecha en código (no le pedimos a la IA que haga aritmética de
-        // calendario — es poco confiable para eso) y se la damos ya resuelta.
-        const diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-        const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-        const limaDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
-        const dowHoy = limaDate.getDay();
-        const horaHoy = limaDate.getHours();
-
-        let diasASumar;
-        if ((dowHoy === 2 || dowHoy === 4) && horaHoy < 12) {
-          diasASumar = 0; // hoy mismo: es martes o jueves y aún no es mediodía
-        } else {
-          diasASumar = 1;
-          while (![2, 4].includes((dowHoy + diasASumar) % 7)) diasASumar++;
-        }
-        const targetDate = new Date(limaDate.getFullYear(), limaDate.getMonth(), limaDate.getDate() + diasASumar);
-        const esHoy = diasASumar === 0;
-        const fechaProximaClase = `${esHoy ? 'HOY ' : ''}${diasSemana[targetDate.getDay()]} ${targetDate.getDate()} de ${meses[targetDate.getMonth()]}`;
-        // Es día de clase pero ya pasó el corte de mediodía — la fecha ofrecida arriba
-        // NO es hoy por eso, no porque hoy no sea día de clase.
-        const hoyEsDiaDeClasePeroYaPasoMediodia = (dowHoy === 2 || dowHoy === 4) && horaHoy >= 12;
-
-        const proximasClasesFechas = [];
-        let d = new Date(targetDate);
-        for(let i = 0; i < 4; i++) {
-           proximasClasesFechas.push(`- ${diasSemana[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]} de ${d.getFullYear()} (formato AAAA-MM-DD: ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')})`);
-           d.setDate(d.getDate() + (d.getDay() === 2 ? 2 : 5));
-        }
-        const listaProximas = proximasClasesFechas.join('\n');
-
-        systemPrompt += `\n\nFecha y hora actuales (America/Lima): hoy es ${diasSemana[dowHoy]} ${limaDate.getDate()} de ${meses[limaDate.getMonth()]} de ${limaDate.getFullYear()} (año actual: ${limaDate.getFullYear()}), son las ${String(horaHoy).padStart(2, '0')}:${String(limaDate.getMinutes()).padStart(2, '0')}. La PRÓXIMA fecha disponible para la clase de prueba (o cualquier clase, ya que son solo martes y jueves) es: ${fechaProximaClase} de ${targetDate.getFullYear()}. Usa EXACTAMENTE esta fecha, tal cual, cuando menciones el horario o invites a agendar — no la calcules ni la ajustes tú, no digas "martes o jueves" de forma genérica.
-
-Además, si el lead pide explícitamente "la próxima semana" o una fecha futura ("el otro martes", etc.), NUNCA calcules la fecha en tu cabeza. Usa esta lista exacta de las próximas clases disponibles:
-${listaProximas}
-Usa el formato AAAA-MM-DD provisto ahí si necesitas llenar el campo fecha_solicitada de tu herramienta.${hoyEsDiaDeClasePeroYaPasoMediodia ? ' AVISO: hoy es día de clase pero ya pasó el mediodía, por eso la fecha de arriba no es hoy. Si el lead insiste específicamente en venir HOY MISMO a pesar de eso, no se lo niegues de plano — usa marcar_seguimiento_humano (motivo: "Quiere venir hoy mismo, fuera del horario límite") para que un instructor decida en el momento si alcanza, y dile a la persona que un instructor le va a confirmar si alcanza para hoy.' : ''}`;
-
-        // Cualquier "hoy"/fecha que aparezca en mensajes anteriores del historial
-        // puede estar desactualizada — hay que avisarlo SIEMPRE que exista historial
-        // previo, no solo cuando ha pasado tiempo desde el último mensaje. Un lead
-        // puede responder rápido a un mensaje reciente (ej. la plantilla del cron de
-        // leads fríos) y aun así tener, un par de turnos atrás, una fecha vieja
-        // escrita por el profesor o por la IA en un día distinto — el modelo tiende
-        // a repetir lo que ya ve escrito en el chat en vez de confiar en el dato
-        // fresco de arriba, así que este aviso va fijo, sin condición de horas.
-        const docsAsc = historialSnapshot.docs; // ya quedó en orden ascendente (ver .reverse() arriba)
-        if (docsAsc.length >= 2) {
-          systemPrompt += `\n\nAVISO: cualquier mención de "hoy", "mañana" o una fecha específica en mensajes ANTERIORES de este historial (incluso si la escribió el profesor manualmente, o vino de un mensaje automático previo) puede estar DESACTUALIZADA por el paso del tiempo — NO la repitas ni la des por vigente bajo ninguna circunstancia. Para cualquier referencia de fecha en tu respuesta, usa EXCLUSIVAMENTE la fecha_proxima_clase indicada arriba, recalculada para el momento actual.`;
-        }
-      }
-      const personasConocidas = leadDataActual.perfil_personas;
-      if (Array.isArray(personasConocidas) && personasConocidas.length > 0) {
-        const detalle = personasConocidas.map((p) => `${p.nombre ?? 'sin nombre'} (${p.tipo}, ${p.edad ?? '?'} años)`).join('; ');
-        systemPrompt += `\n\nPersonas ya conocidas de este lead: ${detalle}. No vuelvas a preguntar por ellas.`;
-      }
-
-      // Datos reales inyectados directo en el contexto (no dependemos de que el
-      // modelo llame bien la herramienta) — mismo enfoque que ya usamos con la
-      // fecha: se le da el dato ya resuelto, para que no tenga que "recordarlo".
-      const negocioDoc = await admin.firestore().collection('config').doc('negocio').get();
-      const preciosValidos = new Set(['0']);
-      if (negocioDoc.exists) {
-        const n = negocioDoc.data();
-        if (n.mensualidad) preciosValidos.add(String(n.mensualidad));
-        if (n.promo_2x) preciosValidos.add(String(n.promo_2x));
-        if (n.promos_multimes) Object.values(n.promos_multimes).forEach((p) => preciosValidos.add(String(p)));
-        systemPrompt += `\n\nDATOS REALES DE PRECIOS (los únicos válidos, cualquier otro monto es un error tuyo): mensualidad regular S/${n.mensualidad} por persona; promo "vienen acompañados" (2 personas) S/${n.promo_2x} en total por mes; Yape: ${n.yape_numero}.`;
-      }
-      const claseUbicacionSnap = await admin.firestore().collection('clases')
-        .where('tipo', '==', 'regular').limit(1).get();
-      if (!claseUbicacionSnap.empty) {
-        const ubicacionReal = claseUbicacionSnap.docs[0].data().ubicacion;
-        if (ubicacionReal) {
-          systemPrompt += `\n\nDIRECCIÓN REAL (la única válida, cópiala tal cual, no la parafrasees ni cambies pisos/referencias): ${ubicacionReal}`;
-        }
-      }
+      const docsAsc = historialSnapshot.docs;
+      const { systemPrompt, preciosValidos } = await generarSystemPrompt(leadDataActual, docsAsc.length);
 
       const textoRespuesta = await preguntarIA(telefono, systemPrompt, historial);
       if (!textoRespuesta) {
@@ -1430,4 +1358,228 @@ exports.migrarMensajesHistoricos = functions.https.onRequest(async (req, res) =>
     res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * Genera el System Prompt contextualizado para un lead (fecha, calendario, precios, sede).
+ */
+async function generarSystemPrompt(leadData = {}, numMensajesPrevios = 0) {
+  let systemPrompt = await obtenerSystemPrompt();
+  
+  const diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const limaDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+  const dowHoy = limaDate.getDay();
+  const horaHoy = limaDate.getHours();
+
+  let diasASumar;
+  if ((dowHoy === 2 || dowHoy === 4) && horaHoy < 12) {
+    diasASumar = 0;
+  } else {
+    diasASumar = 1;
+    while (![2, 4].includes((dowHoy + diasASumar) % 7)) diasASumar++;
+  }
+  const targetDate = new Date(limaDate.getFullYear(), limaDate.getMonth(), limaDate.getDate() + diasASumar);
+  const esHoy = diasASumar === 0;
+  const fechaProximaClase = `${esHoy ? 'HOY ' : ''}${diasSemana[targetDate.getDay()]} ${targetDate.getDate()} de ${meses[targetDate.getMonth()]}`;
+  const hoyEsDiaDeClasePeroYaPasoMediodia = (dowHoy === 2 || dowHoy === 4) && horaHoy >= 12;
+
+  const proximasClasesFechas = [];
+  let d = new Date(targetDate);
+  for (let i = 0; i < 4; i++) {
+    proximasClasesFechas.push(`- ${diasSemana[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]} de ${d.getFullYear()} (formato AAAA-MM-DD: ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')})`);
+    d.setDate(d.getDate() + (d.getDay() === 2 ? 2 : 5));
+  }
+  const listaProximas = proximasClasesFechas.join('\n');
+
+  systemPrompt += `\n\nFecha y hora actuales (America/Lima): hoy es ${diasSemana[dowHoy]} ${limaDate.getDate()} de ${meses[limaDate.getMonth()]} de ${limaDate.getFullYear()} (año actual: ${limaDate.getFullYear()}), son las ${String(horaHoy).padStart(2, '0')}:${String(limaDate.getMinutes()).padStart(2, '0')}. La PRÓXIMA fecha disponible para la clase de prueba (o cualquier clase, ya que son solo martes y jueves) es: ${fechaProximaClase} de ${targetDate.getFullYear()}. Usa EXACTAMENTE esta fecha, tal cual, cuando menciones el horario o invites a agendar — no la calcules ni la ajustes tú, no digas "martes o jueves" de forma genérica.
+
+Además, si el lead pide explícitamente "la próxima semana" o una fecha futura ("el otro martes", etc.), NUNCA calcules la fecha en tu cabeza. Usa esta lista exacta de las próximas clases disponibles:
+${listaProximas}
+Usa el formato AAAA-MM-DD provisto ahí si necesitas llenar el campo fecha_solicitada de tu herramienta.${hoyEsDiaDeClasePeroYaPasoMediodia ? ' AVISO: hoy es día de clase pero ya pasó el mediodía, por eso la fecha de arriba no es hoy. Si el lead insiste específicamente en venir HOY MISMO a pesar de eso, no se lo niegues de plano — usa marcar_seguimiento_humano (motivo: "Quiere venir hoy mismo, fuera del horario límite") para que un instructor decida en el momento si alcanza, y dile a la persona que un instructor le va a confirmar si alcanza para hoy.' : ''}`;
+
+  if (numMensajesPrevios >= 2) {
+    systemPrompt += `\n\nAVISO: cualquier mención de "hoy", "mañana" o una fecha específica en mensajes ANTERIORES de este historial (incluso si la escribió el profesor manualmente, o vino de un mensaje automático previo) puede estar DESACTUALIZADA por el paso del tiempo — NO la repitas ni la des por vigente bajo ninguna circunstancia. Para cualquier referencia de fecha en tu respuesta, usa EXCLUSIVAMENTE la fecha_proxima_clase indicada arriba, recalculada para el momento actual.`;
+  }
+
+  const personasConocidas = leadData.perfil_personas;
+  if (Array.isArray(personasConocidas) && personasConocidas.length > 0) {
+    const detalle = personasConocidas.map((p) => `${p.nombre || 'sin nombre'} (${p.tipo}, ${p.edad ?? '?'} años)`).join('; ');
+    systemPrompt += `\n\nPersonas ya conocidas de este lead: ${detalle}. No vuelvas a preguntar por ellas.`;
+  }
+
+  const negocioDoc = await admin.firestore().collection('config').doc('negocio').get();
+  const preciosValidos = new Set(['0']);
+  if (negocioDoc.exists) {
+    const n = negocioDoc.data();
+    if (n.mensualidad) preciosValidos.add(String(n.mensualidad));
+    if (n.promo_2x) preciosValidos.add(String(n.promo_2x));
+    if (n.promos_multimes) Object.values(n.promos_multimes).forEach((p) => preciosValidos.add(String(p)));
+    systemPrompt += `\n\nDATOS REALES DE PRECIOS (los únicos válidos, cualquier otro monto es un error tuyo): mensualidad regular S/${n.mensualidad} por persona; promo "vienen acompañados" (2 personas) S/${n.promo_2x} en total por mes; Yape: ${n.yape_numero}.`;
+  }
+
+  const claseUbicacionSnap = await admin.firestore().collection('clases')
+    .where('tipo', '==', 'regular').limit(1).get();
+  if (!claseUbicacionSnap.empty) {
+    const ubicacionReal = claseUbicacionSnap.docs[0].data().ubicacion;
+    if (ubicacionReal) {
+      systemPrompt += `\n\nDIRECCIÓN REAL (la única válida, cópiala tal cual, no la parafrasees ni cambies pisos/referencias): ${ubicacionReal}`;
+    }
+  }
+
+  return { systemPrompt, preciosValidos };
+}
+
+/**
+ * Suite de pruebas de estrés automáticas que simula 6 casos complejos y verifica herramientas.
+ */
+exports.ejecutarStressTestAI = functions
+  .runWith({ secrets: WHATSAPP_SECRETS, timeoutSeconds: 300, memory: '512MB' })
+  .https.onRequest(async (req, res) => {
+    try {
+      const escenarios = [
+        {
+          id: 1,
+          categoria: 'Familias / Hermanos',
+          titulo: 'Mamá con 2 hijos sin dar nombres de pila',
+          mensaje: 'Hola, quisiera información para mis dos niños de 12 y 7 años.',
+          validar: (texto, tools) => {
+            const tieneCorchetes = (texto || '').includes('[') || (texto || '').includes('nombre de tu');
+            const preguntoNombres = (texto || '').toLowerCase().includes('nombre') || (texto || '').toLowerCase().includes('llaman');
+            const reservoConPlaceholder = tools.some(t => t.name === 'reservar_clase_prueba' && (!t.args?.nombre || t.args.nombre.includes('[')));
+            const pasa = !tieneCorchetes && preguntoNombres && !reservoConPlaceholder;
+            return {
+              pasa,
+              motivo: pasa ? 'Preguntó nombres propios sin inventar corchetes ni reservar a ciegas' : 'Fallo: inventó corchetes o no preguntó nombres'
+            };
+          }
+        },
+        {
+          id: 2,
+          categoria: 'Salud / Lesión',
+          titulo: 'Adulto con dolor de rodilla',
+          mensaje: 'Hola, tengo 48 años pero tengo una lesión en la rodilla izquierda, ¿puedo hacer la clase igual o me voy a lastimar?',
+          validar: (texto, tools) => {
+            const llamoSeguimiento = tools.some(t => t.name === 'marcar_seguimiento_humano');
+            return {
+              pasa: llamoSeguimiento,
+              motivo: llamoSeguimiento ? 'Activó marcar_seguimiento_humano para que el instructor lo revise' : 'Fallo: no derivó al instructor humano'
+            };
+          }
+        },
+        {
+          id: 3,
+          categoria: 'Precios / Regateo',
+          titulo: 'Intento de regateo a precio inventado',
+          mensaje: '¿Cuánto me dejas si pago 3 meses de una sola vez? ¿O me haces rebaja a S/ 100?',
+          validar: (texto, tools) => {
+            const preciosEnTexto = [...(texto || '').matchAll(/S\/\s?(\d+)/g)].map(m => m[1]);
+            const invento100 = preciosEnTexto.includes('100');
+            return {
+              pasa: !invento100,
+              motivo: !invento100 ? `Respetó precios de base de datos (Precios: [${preciosEnTexto.join(', ')}])` : 'Fallo: inventó precio de S/ 100'
+            };
+          }
+        },
+        {
+          id: 4,
+          categoria: 'Ubicación / Geografía',
+          titulo: 'Pregunta sobre altura y referencias en Cusco',
+          mensaje: '¿A qué altura de la avenida la Cultura queda y cerca de qué?',
+          validar: (texto, tools) => {
+            const t = (texto || '').toLowerCase();
+            const tieneReferencia = t.includes('magisterio') || t.includes('divergym') || t.includes('caja arequipa');
+            const tieneMaps = (texto || '').includes('maps.app.goo.gl');
+            const pasa = tieneReferencia && tieneMaps;
+            return {
+              pasa,
+              motivo: pasa ? 'Entregó referencia completa (Divergym/Magisterio) y link de Google Maps' : 'Faltó referencia exacta o link de Maps'
+            };
+          }
+        },
+        {
+          id: 5,
+          categoria: 'Fechas / Calendario',
+          titulo: 'Solicitud de fecha futura específica',
+          mensaje: 'Este martes no puedo, ¿puedo ir el próximo martes 27 de octubre?',
+          validar: (texto, tools) => {
+            const t = (texto || '').toLowerCase();
+            const entendio = t.includes('27') && (t.includes('octubre') || t.includes('martes'));
+            return {
+              pasa: entendio,
+              motivo: entendio ? 'Calculó y reconoció la fecha futura solicitada' : 'Fallo: no reconoció el 27 de octubre'
+            };
+          }
+        },
+        {
+          id: 6,
+          categoria: 'Reserva Doble',
+          titulo: 'Mamá da nombres de dos hermanos para agendar',
+          mensaje: 'Mi hijo se llama Mateo de 12 años y mi hija se llama Lucía de 7 años. Queremos agendar su clase de prueba gratuita.',
+          validar: (texto, tools) => {
+            const reservas = tools.filter(t => t.name === 'reservar_clase_prueba');
+            const perfil = tools.filter(t => t.name === 'guardar_perfil_lead');
+            const pasa = perfil.length > 0 || reservas.length > 0;
+            return {
+              pasa,
+              motivo: pasa ? `Registró perfil/reserva para los hermanos (${reservas.length} reservas creadas)` : 'Fallo: no ejecutó herramientas de guardado'
+            };
+          }
+        }
+      ];
+
+      const resultados = [];
+
+      for (const esc of escenarios) {
+        const testLeadId = `test_stress_${esc.id}_${Date.now()}`;
+        const toolsEjecutados = [];
+
+        await admin.firestore().collection('whatsapp_leads').doc(testLeadId).set({
+          telefono: testLeadId,
+          nombre: 'Tester',
+          status: 'nuevo',
+          created_at: admin.firestore.FieldValue.serverTimestamp(),
+          ai_habilitada: true,
+        });
+
+        const { systemPrompt } = await generarSystemPrompt({}, 0);
+        const respuesta = await preguntarIA(testLeadId, systemPrompt, [
+          { role: 'user', content: esc.mensaje }
+        ], (call) => toolsEjecutados.push(call));
+
+        const evaluacion = esc.validar(respuesta, toolsEjecutados);
+
+        resultados.push({
+          id: esc.id,
+          categoria: esc.categoria,
+          titulo: esc.titulo,
+          mensajeUsuario: esc.mensaje,
+          respuestaIA: respuesta,
+          herramientasUsadas: toolsEjecutados.map(t => ({ nombre: t.name, args: t.args })),
+          pasa: evaluacion.pasa,
+          diagnostico: evaluacion.motivo
+        });
+
+        // Limpieza de datos dummy
+        try {
+          await admin.firestore().collection('whatsapp_leads').doc(testLeadId).delete();
+          const rSnap = await admin.firestore().collection('reservas').where('lead_id', '==', testLeadId).get();
+          for (const r of rSnap.docs) {
+            await r.ref.delete();
+          }
+        } catch (_) {}
+      }
+
+      const totalPasados = resultados.filter(r => r.pasa).length;
+      res.json({
+        totalPruebas: escenarios.length,
+        pasadas: totalPasados,
+        tasaExito: `${Math.round((totalPasados / escenarios.length) * 100)}%`,
+        resultados
+      });
+    } catch (err) {
+      console.error('[ejecutarStressTestAI] Error:', err);
+      res.status(500).json({ error: err.message, stack: err.stack });
+    }
+  });
+
 
