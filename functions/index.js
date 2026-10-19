@@ -297,10 +297,12 @@ Tono y estilo (así habla Ginga con sus alumnos):
 
 Flujo a seguir:
 1. Si el lead ya dijo en su mensaje que quiere información/clases, NO respondas con un saludo genérico tipo "¿en qué te ayudo?" — ve directo al punto 2.
-2. Si todavía no sabes el nombre REAL, si es adulto o niño/a, ni su edad de cada persona interesada, PREGÚNTALO PRIMERO antes de dar el horario o precio PERSONALIZADO de esa persona (hay grupos distintos según la edad, y el instructor necesita el nombre propio real de quien va a asistir para identificarlo el día de la clase). Puede ser cualquier combinación de personas (el lead mismo, sus dos hijos, etc., no asumas que siempre es "un adulto y un niño") — pide nombre y edad de cada una. ¡ATENCIÓN!: NUNCA asumas ni guardes palabras genéricas (ej. "niño", "niña", "hijo", "hija", "adulto", "sobrino") como si fueran un nombre propio. Si te dicen "un niño de 11 años", NO guardes "niño" como su nombre; respóndele preguntando amablemente cuál es el nombre propio del niño. Si ya conoces el perfil completo de alguna persona (te lo indico abajo si aplica), no lo vuelvas a preguntar por esa persona. Excepción: si preguntan algo GENERAL de elegibilidad, no de su propio caso (ej. "¿desde qué edad es el grupo de adultos?", "¿hasta qué edad pueden ir los niños?"), respóndelo de inmediato usando consultar_horarios_disponibles — no hace falta pedir el perfil primero para eso, es información pública que no depende de quién pregunta.
+2. Si todavía no sabes el nombre REAL, si es adulto o niño/a, ni su edad de cada persona interesada, PREGÚNTALO PRIMERO antes de dar el horario o precio PERSONALIZADO de esa persona (hay grupos distintos según la edad, y el instructor necesita el nombre propio real de quien va a asistir para identificarlo el día de la clase). Puede ser cualquier combinación de personas (el lead mismo, sus dos hijos, etc., no asumas que siempre es "un adulto y un niño") — pide nombre y edad de cada una.
+   ¡PROHIBICIÓN ESTRICTA DE CORCHETES Y PLACEHOLDERS!: NUNCA inventes nombres con corchetes ni etiquetas como "[nombre de tu niño]", "[nombre de tu hija]", "[hijo]", ni guardes palabras genéricas ("niño", "niña", "hijo", "hija", "adulto", "sobrino") como si fueran un nombre propio. Si el lead menciona las edades pero NO te ha dicho cómo se llaman (ej. "tengo un niño de 12 y una de 7"), agradécele y PREGÚNTALE DIRECTAMENTE sus nombres propios de pila (ej. "¿Y cómo se llaman tus pequeños para ponerlos en la lista de asistencia?") ANTES de guardar el perfil o reservar. NUNCA ejecutes reservar_clase_prueba ni guardar_perfil_lead sin tener el nombre de pila real de cada asistente.
+   Si ya conoces el perfil completo de alguna persona (te lo indico abajo si aplica), no lo vuelvas a preguntar por esa persona. Excepción: si preguntan algo GENERAL de elegibilidad, no de su propio caso (ej. "¿desde qué edad es el grupo de adultos?", "¿hasta qué edad pueden ir los niños?"), respóndelo de inmediato usando consultar_horarios_disponibles — no hace falta pedir el perfil primero para eso, es información pública que no depende de quién pregunta.
 3. En cuanto sepas el perfil completo (nombre PROPIO real, edad, tipo) de una o varias personas, guárdalo con guardar_perfil_lead (una entrada por persona) y, en la misma respuesta, usa también consultar_horarios_disponibles para dar de una vez el horario, ubicación y precio correctos — nunca inventes esos datos ni respondas solo con un mensaje de confirmación vacío. La ubicación SIEMPRE debe incluir la referencia completa (edificio, piso, punto de referencia), no solo la calle/número — "Av. de la Cultura E-4" solo no le sirve a nadie para llegar. Esto aplica incluso con la regla de respuestas cortas: prioriza incluir la referencia completa sobre acortar el mensaje.
    Si hay MÁS DE UNA persona, sé explícito con el precio para que no se confunda con "por sesión" ni con un descuento raro: SIEMPRE menciona primero la mensualidad regular por persona (ej. "la mensualidad normal es S/140 por persona al mes"), y luego la promo aclarando que es un total mensual combinado por las dos personas juntas, no por sesión (ej. "pero si vienen las dos, la promo es S/260 AL MES en total por ambas, en vez de pagar S/280 por separado"). Nunca digas solo el número de la promo sin este contraste — sin la mensualidad regular de referencia, es fácil que lo interpreten como precio por sesión o por clase suelta en vez de mensualidad.
-4. Ofrece siempre la clase de prueba 100% gratuita y sin compromiso. Si la persona confirma que quiere agendarla, usa reservar_clase_prueba — si son varias personas (ej. el lead y sus dos hijos), llama la función una vez por cada una, indicando SIEMPRE tanto tipo como nombre de esa persona específica (así el instructor sabe exactamente a quién esperar, sobre todo si hay dos del mismo tipo, ej. dos niños). Cuando confirmes el resultado, revisa con cuidado el resultado de CADA llamada por separado y no asumas ni mezcles — dile a cada persona, por su nombre, qué pasó con SU reserva (no le atribuyas a una persona el resultado de la otra).
+4. Ofrece siempre la clase de prueba 100% gratuita y sin compromiso. Si la persona confirma que quiere agendarla, usa reservar_clase_prueba — si son varias personas (ej. dos hermanos que van al mismo horario de niños), llama la función una vez por CADA una con su respectivo nombre propio. El sistema soporta múltiples reservas para el mismo número si los nombres son distintos. Cuando confirmes el resultado, revisa con cuidado el resultado de CADA llamada por separado y no asumas ni mezcles — dile a cada persona, por su nombre real, qué pasó con SU reserva.
 5. Cualquier pregunta sobre precios, mensualidad o planes/promociones (incluyendo pagos por varios meses), aunque no la hayas mencionado en tu respuesta anterior, RESUÉLVELA usando consultar_horarios_disponibles de nuevo — ahí están todos los precios y promos reales. No derives a seguimiento humano solo porque no diste ese dato antes.
 6. Si preguntan cómo pagar (el método), usa consultar_horarios_disponibles para obtener el número de Yape y da ese dato junto con el monto exacto que corresponda (mensualidad, promo por acompañados, o el plan multi-mes que hayan elegido). SIEMPRE, en esa misma respuesta y sin excepción, DEBES invocar también marcar_seguimiento_humano (motivo: "Va a pagar por Yape") — esto es obligatorio incluso si en la misma respuesta también reservas la clase de prueba u otra acción; no basta con redactar el dato del Yape, tienes que ejecutar marcar_seguimiento_humano de verdad para avisar que este lead está por pagar (es solo aviso interno, no se lo digas a él).
 7. Si mencionan CUALQUIER tema de salud, lesión, condición física o pregunta si pueden participar con alguna limitación (ej. "tengo el hombro lesionado, ¿puedo ir igual?"), o piden hablar con una persona, o hay algo que de verdad no puedas resolver con las herramientas que tienes (negociaciones especiales fuera de las promos existentes): DEBES invocar la función marcar_seguimiento_humano — no basta con redactar una respuesta que lo diga (ni dar tú mismo un consejo o recomendación sobre el tema de salud), tienes que ejecutar esa herramienta de verdad en esa misma respuesta, siempre, sin excepción.
@@ -664,7 +666,12 @@ const AVAILABLE_TOOLS = [
     },
     handler: async (leadId, args) => {
       let publicoBuscado = args?.tipo === 'niño' ? 'niños' : args?.tipo === 'adulto' ? 'jovenes_adultos' : null;
-      let nombrePersona = args?.nombre || null;
+      let nombrePersona = args?.nombre ? String(args.nombre).trim() : null;
+
+      // Limpia placeholders con corchetes o descriptivos
+      if (nombrePersona && (nombrePersona.startsWith('[') || nombrePersona.toLowerCase().includes('nombre de tu') || nombrePersona.toLowerCase().includes('hijo mayor'))) {
+        nombrePersona = null;
+      }
 
       if (!publicoBuscado || !nombrePersona) {
         const leadDoc = await admin.firestore().collection('whatsapp_leads').doc(leadId).get();
@@ -689,14 +696,23 @@ const AVAILABLE_TOOLS = [
         return 'No hay cupos disponibles para la clase de prueba que le corresponde a este lead en este momento. Informa al lead que un instructor lo contactará pronto para coordinar.';
       }
 
-      // Evita reservas duplicadas si el lead insiste varias veces por la misma clase.
-      const existente = await admin.firestore().collection('reservas')
+      // Evita reservas duplicadas si el lead insiste varias veces por la misma clase para la MISMA persona.
+      // Permite que un mismo lead (ej. papá/mamá) reserve para varios hijos diferentes en el mismo horario.
+      const existentesSnap = await admin.firestore().collection('reservas')
         .where('lead_id', '==', leadId)
         .where('clase_id', '==', clase.id)
-        .limit(1)
         .get();
-      if (!existente.empty) {
-        return `Ya existe una reserva para esta persona en esa clase (nivel ${clase.nivel}, días ${clase.dias}, hora ${clase.hora}). Confírmaselo al lead, no la dupliques.`;
+
+      const yaExiste = existentesSnap.docs.some((doc) => {
+        const data = doc.data();
+        if (data.nombre_persona && nombrePersona) {
+          return data.nombre_persona.trim().toLowerCase() === nombrePersona.trim().toLowerCase();
+        }
+        return false;
+      });
+
+      if (yaExiste) {
+        return `Ya existe una reserva previa para ${nombrePersona} en esa clase (nivel ${clase.nivel}, días ${clase.dias}, hora ${clase.hora}). Confírmaselo al lead, no la dupliques.`;
       }
 
       let fechaClase = null;
@@ -785,7 +801,7 @@ const AVAILABLE_TOOLS = [
               items: {
                 type: 'object',
                 properties: {
-                  nombre: { type: 'string', description: 'Nombre de pila de esa persona (quien realmente va a asistir a la clase).' },
+                  nombre: { type: 'string', description: 'Nombre de pila real de esa persona. Si no sabes el nombre propio real, NO uses esta herramienta ni inventes corchetes como "[nombre]". Pregunta primero el nombre real.' },
                   tipo: { type: 'string', enum: ['adulto', 'niño'], description: 'A quién le interesa la clase.' },
                   edad: { type: 'number', description: 'Edad de esa persona.' },
                 },
@@ -799,8 +815,15 @@ const AVAILABLE_TOOLS = [
     },
     handler: async (leadId, args) => {
       const personas = Array.isArray(args?.personas) ? args.personas : [];
+      const personasLimpias = personas.map((p) => {
+        let n = (p.nombre || '').trim();
+        if (n.startsWith('[') || n.toLowerCase().includes('nombre de tu')) {
+          n = '';
+        }
+        return { ...p, nombre: n };
+      });
       await admin.firestore().collection('whatsapp_leads').doc(leadId).update({
-        perfil_personas: personas,
+        perfil_personas: personasLimpias,
       });
       return 'Perfil guardado. Continúa la conversación normalmente usando este dato, sin mencionar que lo guardaste.';
     },
@@ -1019,14 +1042,102 @@ exports.whatsappWebhook = functions
         created_at: esLeadNuevo ? admin.firestore.FieldValue.serverTimestamp() : leadDoc.data().created_at,
       }, { merge: true });
 
-      // Los mensajes que no son de texto (audio, foto, sticker) no los puede leer el
-      // modelo — antes se ignoraban en silencio y el lead quedaba sin ninguna respuesta.
-      // Ahora se guarda el intento y se le pide que lo escriba, para no perder el lead.
+      // Manejo especializado de mensajes entrantes que no son texto plano
+      if (message.type === 'reaction') {
+        const emoji = message.reaction?.emoji;
+        console.log(`[WhatsApp Webhook] Reacción "${emoji || '(quitada)'}" de ${telefono}`);
+        if (emoji) {
+          await dedupRef.set({
+            from: 'lead',
+            texto: `Reaccionó con ${emoji}`,
+            emoji,
+            tipo: 'reaction',
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            wa_message_id: waMessageId,
+          });
+          await leadRef.update({
+            ultima_interaccion: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        // Silencio total: Las reacciones son confirmaciones/cortesía. La IA no debe responder texto.
+        res.sendStatus(200);
+        return;
+      }
+
+      if (message.type === 'sticker') {
+        console.log(`[WhatsApp Webhook] Sticker de ${telefono}`);
+        await dedupRef.set({
+          from: 'lead',
+          texto: '👾 [Sticker]',
+          tipo: 'sticker',
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          wa_message_id: waMessageId,
+        });
+        await leadRef.update({
+          ultima_interaccion: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        // Silencio para stickers de cierre/agradecimiento
+        res.sendStatus(200);
+        return;
+      }
+
+      if (message.type === 'audio' || message.type === 'voice') {
+        console.log(`[WhatsApp Webhook] Audio/Voz recibido de ${telefono}`);
+        await dedupRef.set({
+          from: 'lead',
+          texto: '🎤 [Nota de voz]',
+          tipo: 'audio',
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          wa_message_id: waMessageId,
+        });
+        const leadDataActual = (await leadRef.get()).data();
+        if (leadDataActual.ai_habilitada !== false) {
+          const respuesta = '¡Hola! Por ahora no puedo escuchar notas de voz. ¿Me podrías escribir tu consulta en texto, por favor?';
+          await marcarLeidoYEscribiendo(waMessageId);
+          await enviarMensajeWhatsApp(telefono, respuesta);
+          await leadRef.collection('mensajes').add({
+            from: 'ai',
+            texto: respuesta,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        res.sendStatus(200);
+        return;
+      }
+
+      if (message.type === 'image') {
+        console.log(`[WhatsApp Webhook] Imagen recibida de ${telefono}`);
+        await dedupRef.set({
+          from: 'lead',
+          texto: '📷 [Foto / Imagen]',
+          tipo: 'image',
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          wa_message_id: waMessageId,
+        });
+        await leadRef.update({
+          status: 'requiere_atencion',
+          ultima_interaccion: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        const leadDataActual = (await leadRef.get()).data();
+        if (leadDataActual.ai_habilitada !== false) {
+          const respuesta = '¡Recibí tu imagen! Por ahora solo proceso texto automáticamente; nuestro instructor la revisará en breve.';
+          await marcarLeidoYEscribiendo(waMessageId);
+          await enviarMensajeWhatsApp(telefono, respuesta);
+          await leadRef.collection('mensajes').add({
+            from: 'ai',
+            texto: respuesta,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        res.sendStatus(200);
+        return;
+      }
+
       if (message.type !== 'text') {
         console.log(`[WhatsApp Webhook] Mensaje tipo "${message.type}" de ${telefono}:`, JSON.stringify(message));
         await dedupRef.set({
           from: 'lead',
-          texto: `[mensaje de tipo "${message.type}" no soportado]`,
+          texto: `[archivo/mensaje de tipo "${message.type}"]`,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
           wa_message_id: waMessageId,
         });

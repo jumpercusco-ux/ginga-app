@@ -1060,9 +1060,18 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                   runSpacing: 4,
                   children: personas.map((p) {
                     final persona = p as Map<String, dynamic>;
-                    final nombre = persona['nombre'] ?? 'Sin nombre';
-                    final tipo = persona['tipo'] ?? '';
+                    final rawNombre = (persona['nombre'] ?? '').toString().trim();
+                    final esPlaceholder = rawNombre.isEmpty ||
+                        rawNombre.startsWith('[') ||
+                        rawNombre.toLowerCase().contains('nombre de tu') ||
+                        rawNombre.toLowerCase() == 'sin nombre';
+                    final tipo = (persona['tipo'] ?? '').toString().trim();
                     final edad = persona['edad'];
+                    final etiqueta = esPlaceholder
+                        ? (tipo.isNotEmpty
+                            ? '${tipo[0].toUpperCase()}${tipo.substring(1)}${edad != null ? ' ($edad años)' : ''}'
+                            : 'Interesado${edad != null ? ' ($edad años)' : ''}')
+                        : '$rawNombre (${tipo.isNotEmpty ? '$tipo, ' : ''}${edad != null ? '$edad años' : ''})';
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -1071,7 +1080,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                         border: Border.all(color: GingaColors.brandGreen.withOpacity(0.3)),
                       ),
                       child: Text(
-                        '$nombre ($tipo${edad != null ? ', $edad años' : ''})',
+                        etiqueta,
                         style: GoogleFonts.montserrat(
                           fontSize: 12,
                           color: GingaColors.brandGreen,
