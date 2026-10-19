@@ -1695,4 +1695,126 @@ exports.actualizarMiniaturasExistentes = functions.https.onRequest(async (req, r
   }
 });
 
+/**
+ * Callable Function: Genera un plan de clase estructurado pedagógicamente con IA (OpenAI)
+ * tomando en cuenta los drills y recursos que el instructor tiene en su Pizarra de Ideas.
+ */
+exports.generarPlanClaseIA = functions
+  .runWith({ secrets: ['OPENAI_API_KEY'], timeoutSeconds: 60, memory: '256MB' })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Debes haber iniciado sesión como instructor.');
+    }
+
+    const {
+      nivel = 'Adultos',
+      duracion = 60,
+      enfoque = 'Técnica & Movilidad',
+      ideas_seleccionadas = [],
+      instrucciones_adicionales = ''
+    } = data || {};
+
+    let ideasContexto = Array.isArray(ideas_seleccionadas) ? [...ideas_seleccionadas] : [];
+    if (ideasContexto.length === 0) {
+      try {
+        const snap = await admin.firestore()
+          .collection('instructor_ideas')
+          .where('instructor_id', '==', context.auth.uid)
+          .limit(12)
+          .get();
+        ideasContexto = snap.docs.map(d => {
+          const docData = d.data();
+          return {
+            id: d.id,
+            titulo: docData.titulo,
+            categoria: docData.categoria,
+            notas: docData.notas || '',
+            tipo: docData.tipo,
+            url: docData.url || ''
+          };
+        });
+      } catch (e) {
+        console.warn('No se pudieron leer ideas de Firestore:', e.message);
+      }
+    }
+
+    const promptSistema = `Eres un asesor pedagógico y preparador de élite en artes marciales, capoeira (Capoeira FIU Cusco) y entrenamiento de movimiento funcional para el estudio Ginga.
+Tu objetivo es armar un guión de clase estructurado, práctico, realista y motivador para el tatami.
+Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura:
+{
+  "titulo": "Título atractivo y conciso de la clase",
+  "duracion_total": ${duracion},
+  "objetivo": "Objetivo principal de la sesión en 1 frase clara",
+  "bloques": [
+    {
+      "fase": "Calentamiento & Activación",
+      "duracion_min": 10,
+      "ejercicios": [
+        {
+          "nombre": "Nombre del ejercicio o drill",
+          "detalle": "Instrucciones de ejecución, repeticiones, o dinámica en parejas/suelo.",
+          "recurso_relacionado": "Título del recurso del buzón si fue integrado, o null"
+        }
+      ]
+    },
+    {
+      "fase": "Bloque Técnico Principal",
+      "duracion_min": 25,
+      "ejercicios": [...]
+    },
+    {
+      "fase": "Dinámica Aplicada / Juego / Roda",
+      "duracion_min": 15,
+      "ejercicios": [...]
+    },
+    {
+      "fase": "Vuelta a la Calma & Cierre",
+      "duracion_min": 10,
+      "ejercicios": [...]
+    }
+  ],
+  "consejos_instructor": "1 o 2 tips pedagógicos clave para que el instructor guíe la energía del grupo"
+}
+La suma exacta de duracion_min de todos los bloques debe ser igual a ${duracion} minutos.`;
+
+    const promptUsuario = `Arma un plan de clase con estos parámetros:
+- Nivel del grupo: ${nivel}
+- Duración total: ${duracion} minutos
+- Enfoque temático: ${enfoque}
+${instrucciones_adicionales ? `- Instrucciones adicionales del instructor: "${instrucciones_adicionales}"` : ''}
+${ideasContexto && ideasContexto.length > 0 ? `- Ideas / Drills disponibles en la Pizarra del instructor:\n${JSON.stringify(ideasContexto, null, 2)}\n(Integra de forma prioritaria los recursos del buzón que tengan sentido pedagógico con el objetivo).` : '- No hay recursos previos en el buzón, propone los mejores ejercicios específicos para este nivel y objetivo.'}
+`;
+
+    try {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: promptSistema },
+            { role: 'user', content: promptUsuario }
+          ],
+          temperature: 0.7,
+        }),
+      });
+
+      const jsonResp = await resp.json();
+      if (jsonResp.error) {
+        throw new Error(jsonResp.error.message);
+      }
+
+      const contenido = jsonResp.choices?.[0]?.message?.content;
+      return JSON.parse(contenido);
+    } catch (err) {
+      console.error('Error generando plan con IA:', err);
+      throw new functions.https.HttpsError('internal', 'Error al generar la clase con IA: ' + err.message);
+    }
+  });
+
+
 
