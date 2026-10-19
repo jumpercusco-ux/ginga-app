@@ -327,6 +327,63 @@ class _InstructorDashboard extends StatelessWidget {
               },
             ),
 
+            // ── Acceso rápido: Pizarra de Ideas & Entrenamiento ───────
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('instructor_ideas')
+                  .snapshots(),
+              builder: (context, ideasSnapshot) {
+                final totalIdeas = ideasSnapshot.data?.docs.length ?? 0;
+                return InkWell(
+                  borderRadius: BorderRadius.circular(GingaRadius.lg),
+                  onTap: () => context.push('/instructor-pizarra'),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: _kTarjetaOscura,
+                      borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      border: Border.all(color: _kBordeOscuro),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor: GingaColors.accentAmber.withOpacity(0.15),
+                          child: const Icon(Icons.lightbulb_outline, color: GingaColors.accentAmber),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Pizarra de Ideas',
+                                  style: GoogleFonts.montserrat(
+                                      fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+                              Text('Borrador de movimientos, videos y notas',
+                                  style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro)),
+                            ],
+                          ),
+                        ),
+                        if (totalIdeas > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: GingaColors.brandGreen,
+                              borderRadius: BorderRadius.circular(GingaRadius.full),
+                            ),
+                            child: Text('$totalIdeas idea${totalIdeas == 1 ? '' : 's'}',
+                                style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                          )
+                        else
+                          Icon(Icons.chevron_right, color: _kTextoSecundarioOscuro),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('clases')

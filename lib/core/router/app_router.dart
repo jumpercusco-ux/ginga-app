@@ -27,6 +27,7 @@ import 'package:ginga_app/features/instructor/crear_tutorial_screen.dart';
 import 'package:ginga_app/features/eventos/eventos_screen.dart';
 import 'package:ginga_app/features/eventos/evento_detalle_screen.dart';
 import 'package:ginga_app/features/auth/desactivada_screen.dart';
+import 'package:ginga_app/features/instructor/instructor_pizarra_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/splash',
@@ -106,6 +107,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/instructor-leads',
       builder: (context, state) => const InstructorLeadsScreen(),
+    ),
+    GoRoute(
+      path: '/instructor-pizarra',
+      builder: (context, state) => const InstructorPizarraScreen(),
     ),
     GoRoute(
       path: '/tutorial-detail',
