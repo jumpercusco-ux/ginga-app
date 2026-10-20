@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -47,6 +48,47 @@ Color _publicoColor(String pub) {
   }
 }
 
+Future<void> _abrirEnlaceGlobal(BuildContext context, String? urlRaw) async {
+  if (urlRaw == null || urlRaw.trim().isEmpty) return;
+  var clean = urlRaw.trim();
+  if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+    clean = 'https://$clean';
+  }
+  try {
+    final uri = Uri.parse(clean);
+    await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+      webOnlyWindowName: '_blank',
+    );
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo abrir el enlace: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
+
+IconData _detectarIconoLink(String url) {
+  final lower = url.toLowerCase();
+  if (lower.contains('instagram.com')) return Icons.camera_alt_outlined;
+  if (lower.contains('tiktok.com')) return Icons.music_note_outlined;
+  if (lower.contains('youtube.com') || lower.contains('youtu.be')) return Icons.play_arrow;
+  return Icons.link;
+}
+
+String _formatearNombreLink(String url) {
+  final lower = url.toLowerCase();
+  if (lower.contains('instagram.com')) return 'Ver Reel en Instagram';
+  if (lower.contains('tiktok.com')) return 'Ver en TikTok';
+  if (lower.contains('youtube.com') || lower.contains('youtu.be')) return 'Ver en YouTube';
+  return 'Abrir enlace de video';
+}
+
 class InstructorPizarraScreen extends StatefulWidget {
   const InstructorPizarraScreen({super.key});
 
@@ -55,8 +97,10 @@ class InstructorPizarraScreen extends StatefulWidget {
 }
 
 class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
+  int _tabActiva = 0; // 0: Ideas & Recursos, 1: Planes Guardados
   String _filtroPublico = 'Todos';
   String _filtroFase = 'Todos';
+  String _filtroEstado = 'Todos'; // 'Todos' | 'Por Enseñar' | 'Ya Usados'
 
   final List<String> _filtrosPublico = ['Todos', 'Adultos', 'Niños'];
   final List<String> _filtrosFase = [
@@ -67,6 +111,7 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
     'Juegos',
     'Roda',
   ];
+  final List<String> _filtrosEstado = ['Todos', 'Por Enseñar', 'Ya Usados'];
 
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
@@ -93,7 +138,7 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
               ),
             ),
             Text(
-              'Banco de ideas, videos y notas rápidas',
+              'Banco de ideas, videos y planes de clase',
               style: GoogleFonts.montserrat(
                 fontSize: 12,
                 color: _kTextoSecundario,
@@ -107,319 +152,472 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
           constraints: const BoxConstraints(maxWidth: 1400),
           child: Column(
             children: [
-          // ── Botón Destacado: Armar Clase con IA ──
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-            child: InkWell(
-              onTap: () => _mostrarGeneradorClaseIA(context),
-              borderRadius: BorderRadius.circular(GingaRadius.lg),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E3A2F), Color(0xFF13221C)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+              // ── Selector de Pestaña: Ideas vs Planes Guardados ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: _kTarjetaOscura,
+                    borderRadius: BorderRadius.circular(GingaRadius.full),
+                    border: Border.all(color: _kBordeOscuro),
                   ),
-                  borderRadius: BorderRadius.circular(GingaRadius.lg),
-                  border: Border.all(
-                    color: GingaColors.brandGreen.withValues(alpha: 0.5),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: GingaColors.brandGreen.withValues(alpha: 0.15),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: GingaColors.brandGreen.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.auto_awesome, color: GingaColors.brandGreen, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'Armar Clase con IA',
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setState(() => _tabActiva = 0),
+                          borderRadius: BorderRadius.circular(GingaRadius.full),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _tabActiva == 0 ? GingaColors.brandGreen : Colors.transparent,
+                              borderRadius: BorderRadius.circular(GingaRadius.full),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.lightbulb_outline,
+                                  size: 16,
+                                  color: _tabActiva == 0 ? Colors.black : _kTextoSecundario,
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: GingaColors.brandGreen,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  'NUEVO',
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Ideas & Recursos',
                                   style: GoogleFonts.montserrat(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.black,
+                                    fontSize: 12.5,
+                                    fontWeight: _tabActiva == 0 ? FontWeight.w700 : FontWeight.w600,
+                                    color: _tabActiva == 0 ? Colors.black : _kTextoSecundario,
                                   ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setState(() => _tabActiva = 1),
+                          borderRadius: BorderRadius.circular(GingaRadius.full),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _tabActiva == 1 ? GingaColors.brandGreen : Colors.transparent,
+                              borderRadius: BorderRadius.circular(GingaRadius.full),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.sports_kabaddi,
+                                  size: 16,
+                                  color: _tabActiva == 1 ? Colors.black : _kTextoSecundario,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Planes Guardados',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 12.5,
+                                    fontWeight: _tabActiva == 1 ? FontWeight.w700 : FontWeight.w600,
+                                    color: _tabActiva == 1 ? Colors.black : _kTextoSecundario,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // ── Botón Destacado: Armar Clase con IA ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+                child: InkWell(
+                  onTap: () => _mostrarGeneradorClaseIA(context),
+                  borderRadius: BorderRadius.circular(GingaRadius.lg),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1E3A2F), Color(0xFF13221C)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(GingaRadius.lg),
+                      border: Border.all(
+                        color: GingaColors.brandGreen.withValues(alpha: 0.5),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: GingaColors.brandGreen.withValues(alpha: 0.15),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: GingaColors.brandGreen.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.auto_awesome, color: GingaColors.brandGreen, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Armar Clase con IA',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: GingaColors.brandGreen,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'NUEVO',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Planifica 45 a 90 min en segundos con tus recursos',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 11,
+                                  color: _kTextoSecundario,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Planifica 45 a 90 min en segundos con tus recursos',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 11,
-                              color: _kTextoSecundario,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                        const Icon(Icons.chevron_right, color: GingaColors.brandGreen, size: 22),
+                      ],
                     ),
-                    const Icon(Icons.chevron_right, color: GingaColors.brandGreen, size: 22),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
 
-          // ── Selector de Filtros (Grupo y Fase) ──
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              children: [
-                // Grupo Público
-                Text(
-                  'Grupo:',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _kTextoSecundario,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ..._filtrosPublico.map((pub) {
-                  final isSelected = _filtroPublico == pub;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: ChoiceChip(
-                      label: Text(pub),
-                      selected: isSelected,
-                      onSelected: (val) {
-                        if (val) setState(() => _filtroPublico = pub);
-                      },
-                      selectedColor: pub == 'Niños'
-                          ? GingaColors.brandGreen
-                          : (pub == 'Adultos' ? Colors.lightBlueAccent : GingaColors.brandGreen),
-                      backgroundColor: _kTarjetaOscura,
-                      labelStyle: GoogleFonts.montserrat(
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected
-                            ? (pub == 'Adultos' ? Colors.black : Colors.white)
-                            : _kTextoSecundario,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(GingaRadius.full),
-                        side: BorderSide(
-                          color: isSelected
-                              ? (pub == 'Adultos' ? Colors.lightBlueAccent : GingaColors.brandGreen)
-                              : _kBordeOscuro,
+              if (_tabActiva == 0) ...[
+                // ── Selector de Filtros (Grupo, Fase, Estado) ──
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      // Grupo Público
+                      Text(
+                        'Grupo:',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _kTextoSecundario,
                         ),
                       ),
-                    ),
-                  );
-                }),
-
-                // Separador
-                Container(
-                  height: 20,
-                  width: 1.2,
-                  color: _kBordeOscuro,
-                  margin: const EdgeInsets.symmetric(horizontal: 10),
-                ),
-
-                // Fase
-                Text(
-                  'Fase:',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _kTextoSecundario,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ..._filtrosFase.map((fase) {
-                  final isSelected = _filtroFase == fase;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: ChoiceChip(
-                      label: Text(fase),
-                      selected: isSelected,
-                      onSelected: (val) {
-                        if (val) setState(() => _filtroFase = fase);
-                      },
-                      selectedColor: _faseColor(fase),
-                      backgroundColor: _kTarjetaOscura,
-                      labelStyle: GoogleFonts.montserrat(
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? Colors.black : _kTextoSecundario,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(GingaRadius.full),
-                        side: BorderSide(
-                          color: isSelected ? _faseColor(fase) : _kBordeOscuro,
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
-
-          // ── Lista reactiva de ideas desde Firestore ──
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('instructor_ideas')
-                  .orderBy('created_at', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: GingaColors.brandGreen),
-                  );
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                final docs = snapshot.data!.docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final pub = (data['publico'] ?? (data['categoria'] == 'Niños' ? 'Niños' : (data['categoria'] == 'Adultos' ? 'Adultos' : 'Todos'))).toString();
-                  final fase = (data['tipo_ejercicio'] ?? (data['categoria'] != 'Adultos' && data['categoria'] != 'Niños' ? data['categoria'] : 'General')).toString();
-
-                  final matchPublico = _filtroPublico == 'Todos' || pub == _filtroPublico || pub == 'Todos' || pub == 'Mixto';
-                  final matchFase = _filtroFase == 'Todos' || fase.toLowerCase() == _filtroFase.toLowerCase();
-
-                  return matchPublico && matchFase;
-                }).toList();
-
-                if (docs.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'No hay ejercicios para Grupo: "$_filtroPublico" y Fase: "$_filtroFase"',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.montserrat(color: _kTextoSecundario),
-                      ),
-                    ),
-                  );
-                }
-
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final maxWidth = constraints.maxWidth;
-                    int columns = 1;
-                    if (maxWidth >= 1200) {
-                      columns = 4;
-                    } else if (maxWidth >= 850) {
-                      columns = 3;
-                    } else if (maxWidth >= 550) {
-                      columns = 2;
-                    }
-
-                    if (columns == 1) {
-                      return ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
-                        itemCount: docs.length,
-                        itemBuilder: (context, index) {
-                          final doc = docs[index];
-                          final data = doc.data() as Map<String, dynamic>;
-                          return _IdeaCard(
-                            id: doc.id,
-                            data: data,
-                            onToggleCompletado: (val) {
-                              doc.reference.update({'completado': val});
+                      const SizedBox(width: 8),
+                      ..._filtrosPublico.map((pub) {
+                        final isSelected = _filtroPublico == pub;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            label: Text(pub),
+                            selected: isSelected,
+                            onSelected: (val) {
+                              if (val) setState(() => _filtroPublico = pub);
                             },
-                            onEdit: () => _abrirModalEditarIdea(context, doc.id, data),
-                            onDelete: () => _confirmarEliminar(doc.id, data['titulo'] ?? 'esta idea'),
+                            selectedColor: pub == 'Niños'
+                                ? GingaColors.brandGreen
+                                : (pub == 'Adultos' ? Colors.lightBlueAccent : GingaColors.brandGreen),
+                            backgroundColor: _kTarjetaOscura,
+                            labelStyle: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected
+                                  ? (pub == 'Adultos' ? Colors.black : Colors.white)
+                                  : _kTextoSecundario,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.full),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? (pub == 'Adultos' ? Colors.lightBlueAccent : GingaColors.brandGreen)
+                                    : _kBordeOscuro,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+
+                      // Separador
+                      Container(
+                        height: 20,
+                        width: 1.2,
+                        color: _kBordeOscuro,
+                        margin: const EdgeInsets.symmetric(horizontal: 10),
+                      ),
+
+                      // Fase
+                      Text(
+                        'Fase:',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _kTextoSecundario,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ..._filtrosFase.map((fase) {
+                        final isSelected = _filtroFase == fase;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            label: Text(fase),
+                            selected: isSelected,
+                            onSelected: (val) {
+                              if (val) setState(() => _filtroFase = fase);
+                            },
+                            selectedColor: _faseColor(fase),
+                            backgroundColor: _kTarjetaOscura,
+                            labelStyle: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected ? Colors.black : _kTextoSecundario,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.full),
+                              side: BorderSide(
+                                color: isSelected ? _faseColor(fase) : _kBordeOscuro,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+
+                      // Separador
+                      Container(
+                        height: 20,
+                        width: 1.2,
+                        color: _kBordeOscuro,
+                        margin: const EdgeInsets.symmetric(horizontal: 10),
+                      ),
+
+                      // Estado
+                      Text(
+                        'Estado:',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _kTextoSecundario,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ..._filtrosEstado.map((est) {
+                        final isSelected = _filtroEstado == est;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            label: Text(est),
+                            selected: isSelected,
+                            onSelected: (val) {
+                              if (val) setState(() => _filtroEstado = est);
+                            },
+                            selectedColor: est == 'Por Enseñar'
+                                ? GingaColors.brandGreen
+                                : (est == 'Ya Usados' ? Colors.grey[700] : GingaColors.brandGreen),
+                            backgroundColor: _kTarjetaOscura,
+                            labelStyle: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected
+                                  ? (est == 'Ya Usados' ? Colors.white : Colors.black)
+                                  : _kTextoSecundario,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(GingaRadius.full),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? (est == 'Ya Usados' ? Colors.white60 : GingaColors.brandGreen)
+                                    : _kBordeOscuro,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+
+                // ── Lista reactiva de ideas desde Firestore ──
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('instructor_ideas')
+                        .orderBy('created_at', descending: true)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: GingaColors.brandGreen),
+                        );
+                      }
+
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return _buildEmptyState();
+                      }
+
+                      final docs = snapshot.data!.docs.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final pub = (data['publico'] ?? (data['categoria'] == 'Niños' ? 'Niños' : (data['categoria'] == 'Adultos' ? 'Adultos' : 'Todos'))).toString();
+                        final fase = (data['tipo_ejercicio'] ?? (data['categoria'] != 'Adultos' && data['categoria'] != 'Niños' ? data['categoria'] : 'General')).toString();
+                        final completado = data['completado'] == true;
+
+                        final matchPublico = _filtroPublico == 'Todos' || pub == _filtroPublico || pub == 'Todos' || pub == 'Mixto';
+                        final matchFase = _filtroFase == 'Todos' || fase.toLowerCase() == _filtroFase.toLowerCase();
+
+                        bool matchEstado = true;
+                        if (_filtroEstado == 'Por Enseñar') {
+                          matchEstado = !completado;
+                        } else if (_filtroEstado == 'Ya Usados') {
+                          matchEstado = completado;
+                        }
+
+                        return matchPublico && matchFase && matchEstado;
+                      }).toList();
+
+                      if (docs.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              _filtroEstado == 'Por Enseñar'
+                                  ? '¡Excelente! No hay ejercicios pendientes para este filtro 🎉'
+                                  : 'No hay ejercicios para Grupo: "$_filtroPublico", Fase: "$_filtroFase" y Estado: "$_filtroEstado"',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.montserrat(color: _kTextoSecundario),
+                            ),
+                          ),
+                        );
+                      }
+
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          final maxWidth = constraints.maxWidth;
+                          int columns = 1;
+                          if (maxWidth >= 1200) {
+                            columns = 4;
+                          } else if (maxWidth >= 850) {
+                            columns = 3;
+                          } else if (maxWidth >= 550) {
+                            columns = 2;
+                          }
+
+                          if (columns == 1) {
+                            return ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+                              itemCount: docs.length,
+                              itemBuilder: (context, index) {
+                                final doc = docs[index];
+                                final data = doc.data() as Map<String, dynamic>;
+                                return _IdeaCard(
+                                  id: doc.id,
+                                  data: data,
+                                  onToggleCompletado: (val) {
+                                    doc.reference.update({'completado': val});
+                                  },
+                                  onEdit: () => _abrirModalEditarIdea(context, doc.id, data),
+                                  onDelete: () => _confirmarEliminar(doc.id, data['titulo'] ?? 'esta idea'),
+                                );
+                              },
+                            );
+                          }
+
+                          // Masonry grid multi-columna para Desktop y Tablet
+                          final List<List<Widget>> columnItems = List.generate(columns, (_) => []);
+                          for (int i = 0; i < docs.length; i++) {
+                            final doc = docs[i];
+                            final data = doc.data() as Map<String, dynamic>;
+                            final col = i % columns;
+                            columnItems[col].add(
+                              _IdeaCard(
+                                id: doc.id,
+                                data: data,
+                                onToggleCompletado: (val) {
+                                  doc.reference.update({'completado': val});
+                                },
+                                onEdit: () => _abrirModalEditarIdea(context, doc.id, data),
+                                onDelete: () => _confirmarEliminar(doc.id, data['titulo'] ?? 'esta idea'),
+                              ),
+                            );
+                          }
+
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                for (int c = 0; c < columns; c++) ...[
+                                  if (c > 0) const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: columnItems[c],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           );
                         },
                       );
-                    }
-
-                    // Masonry grid multi-columna para Desktop y Tablet
-                    final List<List<Widget>> columnItems = List.generate(columns, (_) => []);
-                    for (int i = 0; i < docs.length; i++) {
-                      final doc = docs[i];
-                      final data = doc.data() as Map<String, dynamic>;
-                      final col = i % columns;
-                      columnItems[col].add(
-                        _IdeaCard(
-                          id: doc.id,
-                          data: data,
-                          onToggleCompletado: (val) {
-                            doc.reference.update({'completado': val});
-                          },
-                          onEdit: () => _abrirModalEditarIdea(context, doc.id, data),
-                          onDelete: () => _confirmarEliminar(doc.id, data['titulo'] ?? 'esta idea'),
-                        ),
-                      );
-                    }
-
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (int c = 0; c < columns; c++) ...[
-                            if (c > 0) const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: columnItems[c],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+                    },
+                  ),
+                ),
+              ] else ...[
+                // ── Vista de Planes de Clase Guardados ──
+                _buildPlanesGuardadosView(),
+              ],
+            ],
           ),
-        ],
+        ),
       ),
-    ),
-  ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: GingaColors.brandGreen,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
+        icon: Icon(_tabActiva == 0 ? Icons.add : Icons.auto_awesome),
         label: Text(
-          'Nueva Idea',
+          _tabActiva == 0 ? 'Nueva Idea' : 'Armar Plan IA',
           style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
         ),
-        onPressed: () => _abrirModalCrearIdea(context),
+        onPressed: () {
+          if (_tabActiva == 0) {
+            _abrirModalCrearIdea(context);
+          } else {
+            _mostrarGeneradorClaseIA(context);
+          }
+        },
       ),
     );
   }
@@ -520,6 +718,205 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
             child: const Text('Eliminar'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _confirmarEliminarPlan(String id, String titulo) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _kTarjetaOscura,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          side: const BorderSide(color: _kBordeOscuro),
+        ),
+        title: Text(
+          '¿Eliminar plan de clase?',
+          style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: Colors.white),
+        ),
+        content: Text(
+          'Se eliminará "$titulo". Esta acción no se puede deshacer.',
+          style: GoogleFonts.montserrat(color: _kTextoSecundario),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.montserrat(color: _kTextoSecundario),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              FirebaseFirestore.instance.collection('instructor_planes_clase').doc(id).delete();
+            },
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanesGuardadosView() {
+    return Expanded(
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('instructor_planes_clase')
+            .where('instructor_id', isEqualTo: _uid)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: GingaColors.brandGreen),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Error cargando planes: ${snapshot.error}',
+                  style: GoogleFonts.montserrat(color: Colors.redAccent),
+                ),
+              ),
+            );
+          }
+
+          final rawDocs = snapshot.data?.docs ?? [];
+          if (rawDocs.isEmpty) {
+            return _buildPlanesEmptyState();
+          }
+
+          // Ordenar en memoria por created_at desc (seguro contra índices ausentes)
+          final docs = List<QueryDocumentSnapshot>.from(rawDocs)
+            ..sort((a, b) {
+              final aData = a.data() as Map<String, dynamic>;
+              final bData = b.data() as Map<String, dynamic>;
+              final aTime = (aData['created_at'] as Timestamp?)?.toDate() ?? DateTime(2000);
+              final bTime = (bData['created_at'] as Timestamp?)?.toDate() ?? DateTime(2000);
+              return bTime.compareTo(aTime);
+            });
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 720;
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final doc = docs[index];
+                  final data = doc.data() as Map<String, dynamic>;
+                  final card = _PlanClaseCard(
+                    planId: doc.id,
+                    data: data,
+                    uid: _uid,
+                    onVerFicha: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (ctx) => _GeneradorClaseModal(
+                          uid: _uid,
+                          initialPlan: data,
+                          initialPlanId: doc.id,
+                        ),
+                      );
+                    },
+                    onIniciarClase: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => _ClaseEnVivoScreen(
+                            planId: doc.id,
+                            planData: data,
+                            uid: _uid,
+                          ),
+                        ),
+                      );
+                    },
+                    onDelete: () => _confirmarEliminarPlan(doc.id, data['titulo'] ?? 'este plan'),
+                  );
+
+                  if (isWide) {
+                    return Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 800),
+                        child: card,
+                      ),
+                    );
+                  }
+                  return card;
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPlanesEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: _kTarjetaOscura,
+                shape: BoxShape.circle,
+                border: Border.all(color: _kBordeOscuro),
+              ),
+              child: const Icon(
+                Icons.assignment_outlined,
+                size: 48,
+                color: GingaColors.brandGreen,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No tienes planes guardados',
+              style: GoogleFonts.montserrat(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Genera una clase estructurada con la IA a partir de tus videos e ideas de la Pizarra.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.montserrat(
+                fontSize: 13,
+                color: _kTextoSecundario,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => _mostrarGeneradorClaseIA(context),
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('✨ Armar Plan de Clase con IA'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: GingaColors.brandGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1077,6 +1474,7 @@ class _IdeaCard extends StatelessWidget {
     final notas = data['notas'] as String?;
     final publico = (data['publico'] ?? (data['categoria'] == 'Niños' ? 'Niños' : (data['categoria'] == 'Adultos' ? 'Adultos' : null))) as String?;
     final tipoEjercicio = (data['tipo_ejercicio'] ?? (data['categoria'] != 'Adultos' && data['categoria'] != 'Niños' ? data['categoria'] : 'General')) as String;
+    final claseUsada = data['clase_usada'] as String?;
 
     // Determinar miniatura visual
     String? miniatura = data['thumbnail_url'] as String?;
@@ -1091,284 +1489,294 @@ class _IdeaCard extends StatelessWidget {
       }
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: _kTarjetaOscura,
-        borderRadius: BorderRadius.circular(GingaRadius.lg),
-        border: Border.all(
-          color: completado ? GingaColors.brandGreen.withValues(alpha: 0.3) : _kBordeOscuro,
+    return Opacity(
+      opacity: completado ? 0.72 : 1.0,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: _kTarjetaOscura,
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          border: Border.all(
+            color: completado ? GingaColors.brandGreen.withValues(alpha: 0.3) : _kBordeOscuro,
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Miniatura visual (tanto si es imagen subida, o si es link con miniatura de Reel/TikTok/YouTube)
-          if (miniatura != null && miniatura.isNotEmpty)
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(GingaRadius.lg)),
-                  child: CachedNetworkImage(
-                    imageUrl: miniatura,
-                    height: 190,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      height: 190,
-                      color: _kFondoOscuro,
-                      child: const Center(
-                        child: CircularProgressIndicator(color: GingaColors.brandGreen, strokeWidth: 2),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      height: 170,
-                      color: _kFondoOscuro,
-                      child: const Icon(Icons.broken_image, color: _kTextoSecundario),
-                    ),
-                  ),
-                ),
-                // Botón Play sobre la miniatura si es un video/link
-                if (tipo == 'link')
-                  InkWell(
-                    onTap: () => _abrirEnlace(context, url),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white70, width: 2),
-                      ),
-                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 36),
-                    ),
-                  ),
-              ],
-            ),
-
-          // Tocar el contenido de la tarjeta abre edición
-          InkWell(
-            onTap: onEdit,
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(GingaRadius.lg)),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Miniatura visual (tanto si es imagen subida, o si es link con miniatura de Reel/TikTok/YouTube)
+            if (miniatura != null && miniatura.isNotEmpty)
+              Stack(
+                alignment: Alignment.center,
                 children: [
-                  // Fila superior: Badges + Botones Editar / Eliminar
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: [
-                            if (publico != null)
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(GingaRadius.lg)),
+                    child: CachedNetworkImage(
+                      imageUrl: miniatura,
+                      height: 190,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        height: 190,
+                        color: _kFondoOscuro,
+                        child: const Center(
+                          child: CircularProgressIndicator(color: GingaColors.brandGreen, strokeWidth: 2),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        height: 170,
+                        color: _kFondoOscuro,
+                        child: const Icon(Icons.broken_image, color: _kTextoSecundario),
+                      ),
+                    ),
+                  ),
+                  // Botón Play sobre la miniatura si es un video/link
+                  if (tipo == 'link')
+                    InkWell(
+                      onTap: () => _abrirEnlaceGlobal(context, url),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white70, width: 2),
+                        ),
+                        child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 36),
+                      ),
+                    ),
+                ],
+              ),
+
+            // Tocar el contenido de la tarjeta abre edición
+            InkWell(
+              onTap: onEdit,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(GingaRadius.lg)),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Fila superior: Badges + Botones Editar / Eliminar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              if (completado)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: GingaColors.brandGreen.withValues(alpha: 0.18),
+                                    borderRadius: BorderRadius.circular(GingaRadius.full),
+                                    border: Border.all(color: GingaColors.brandGreen.withValues(alpha: 0.5)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.check_circle, size: 12, color: GingaColors.brandGreen),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Enseñado',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: GingaColors.brandGreen,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (publico != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: _publicoColor(publico).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(GingaRadius.full),
+                                  ),
+                                  child: Text(
+                                    publico,
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: _publicoColor(publico),
+                                    ),
+                                  ),
+                                ),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: _publicoColor(publico).withValues(alpha: 0.15),
+                                  color: _faseColor(tipoEjercicio).withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(GingaRadius.full),
                                 ),
                                 child: Text(
-                                  publico,
+                                  tipoEjercicio,
                                   style: GoogleFonts.montserrat(
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.w700,
-                                    color: _publicoColor(publico),
+                                    color: _faseColor(tipoEjercicio),
                                   ),
                                 ),
                               ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: _faseColor(tipoEjercicio).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(GingaRadius.full),
-                              ),
-                              child: Text(
-                                tipoEjercicio,
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: _faseColor(tipoEjercicio),
-                                ),
-                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 18, color: _kTextoSecundario),
+                              onPressed: onEdit,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              tooltip: 'Editar ejercicio',
+                            ),
+                            const SizedBox(width: 10),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 18, color: _kTextoSecundario),
+                              onPressed: onDelete,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              tooltip: 'Eliminar',
                             ),
                           ],
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                  // Título con checkbox de completado
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        onTap: () => onToggleCompletado(!completado),
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 2, right: 10),
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: completado ? GingaColors.brandGreen : Colors.transparent,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: completado ? GingaColors.brandGreen : _kTextoSecundario,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: completado
+                              ? const Icon(Icons.check, size: 16, color: Colors.white)
+                              : null,
+                        ),
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 18, color: _kTextoSecundario),
-                            onPressed: onEdit,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            tooltip: 'Editar ejercicio',
+                      Expanded(
+                        child: Text(
+                          titulo,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: completado ? _kTextoSecundario : Colors.white,
+                            decoration: completado ? TextDecoration.lineThrough : null,
                           ),
-                          const SizedBox(width: 10),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 18, color: _kTextoSecundario),
-                            onPressed: onDelete,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            tooltip: 'Eliminar',
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
 
-                // Título con checkbox de completado
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    InkWell(
-                      onTap: () => onToggleCompletado(!completado),
-                      child: Container(
-                        margin: const EdgeInsets.only(top: 2, right: 10),
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          color: completado ? GingaColors.brandGreen : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: completado ? GingaColors.brandGreen : _kTextoSecundario,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: completado
-                            ? const Icon(Icons.check, size: 16, color: Colors.white)
-                            : null,
-                      ),
-                    ),
-                    Expanded(
+                  // Notas opcionales
+                  if (notas != null && notas.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 32),
                       child: Text(
-                        titulo,
+                        notas,
                         style: GoogleFonts.montserrat(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: completado ? _kTextoSecundario : Colors.white,
-                          decoration: completado ? TextDecoration.lineThrough : null,
+                          fontSize: 12.5,
+                          color: _kTextoSecundario,
+                          height: 1.3,
                         ),
                       ),
                     ),
                   ],
-                ),
 
-                // Notas opcionales
-                if (notas != null && notas.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 32),
-                    child: Text(
-                      notas,
-                      style: GoogleFonts.montserrat(
-                        fontSize: 12.5,
-                        color: _kTextoSecundario,
-                        height: 1.3,
-                      ),
-                    ),
-                  ),
-                ],
-
-                // Botón si es Link (Reel / TikTok / YouTube)
-                if (tipo == 'link' && url != null && url.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 32),
-                    child: InkWell(
-                      onTap: () => _abrirEnlace(context, url),
-                      borderRadius: BorderRadius.circular(GingaRadius.md),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: _kFondoOscuro,
-                          borderRadius: BorderRadius.circular(GingaRadius.md),
-                          border: Border.all(color: _kBordeOscuro),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _detectarIconoLink(url),
-                              size: 16,
-                              color: GingaColors.brandGreen,
-                            ),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                _formatearNombreLink(url),
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                  // Detalle de clase donde se utilizó
+                  if (claseUsada != null && claseUsada.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 32),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.history_edu, size: 13, color: _kTextoSecundario),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Usado en: $claseUsada',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic,
+                                color: _kTextoSecundario,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(width: 6),
-                            const Icon(Icons.open_in_new, size: 14, color: _kTextoSecundario),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Botón si es Link (Reel / TikTok / YouTube)
+                  if (tipo == 'link' && url != null && url.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 32),
+                      child: InkWell(
+                        onTap: () => _abrirEnlaceGlobal(context, url),
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _kFondoOscuro,
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            border: Border.all(color: _kBordeOscuro),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _detectarIconoLink(url),
+                                size: 16,
+                                color: GingaColors.brandGreen,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  _formatearNombreLink(url),
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.open_in_new, size: 14, color: _kTextoSecundario),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }
-
-
-  Future<void> _abrirEnlace(BuildContext context, String? urlRaw) async {
-    if (urlRaw == null || urlRaw.trim().isEmpty) return;
-    var clean = urlRaw.trim();
-    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
-      clean = 'https://$clean';
-    }
-    try {
-      final uri = Uri.parse(clean);
-      await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-        webOnlyWindowName: '_blank',
-      );
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('No se pudo abrir el enlace: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  IconData _detectarIconoLink(String url) {
-    final lower = url.toLowerCase();
-    if (lower.contains('instagram.com')) return Icons.camera_alt_outlined;
-    if (lower.contains('tiktok.com')) return Icons.music_note_outlined;
-    if (lower.contains('youtube.com') || lower.contains('youtu.be')) return Icons.play_arrow;
-    return Icons.link;
-  }
-
-  String _formatearNombreLink(String url) {
-    final lower = url.toLowerCase();
-    if (lower.contains('instagram.com')) return 'Ver Reel en Instagram';
-    if (lower.contains('tiktok.com')) return 'Ver en TikTok';
-    if (lower.contains('youtube.com') || lower.contains('youtu.be')) return 'Ver en YouTube';
-    return 'Abrir enlace de video';
-  }
 }
 
 // ─────────────────────────────────────────
@@ -1376,7 +1784,14 @@ class _IdeaCard extends StatelessWidget {
 // ─────────────────────────────────────────
 class _GeneradorClaseModal extends StatefulWidget {
   final String? uid;
-  const _GeneradorClaseModal({required this.uid});
+  final Map<String, dynamic>? initialPlan;
+  final String? initialPlanId;
+
+  const _GeneradorClaseModal({
+    required this.uid,
+    this.initialPlan,
+    this.initialPlanId,
+  });
 
   @override
   State<_GeneradorClaseModal> createState() => _GeneradorClaseModalState();
@@ -1393,6 +1808,7 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
   Map<String, dynamic>? _planGenerado;
   bool _guardandoPlan = false;
   bool _planGuardado = false;
+  String? _savedPlanId;
 
   final List<String> _niveles = ['Adultos', 'Niños', 'Mixto'];
   final List<int> _duraciones = [45, 60, 90];
@@ -1403,6 +1819,25 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
     'Roda & Ritmo',
     'Combate / Táctico',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialPlan != null) {
+      _planGenerado = Map<String, dynamic>.from(widget.initialPlan!);
+      _planGuardado = true;
+      _savedPlanId = widget.initialPlanId;
+      if (widget.initialPlan!['nivel'] != null) {
+        _nivel = widget.initialPlan!['nivel'].toString();
+      }
+      if (widget.initialPlan!['duracion_total'] != null) {
+        _duracion = (widget.initialPlan!['duracion_total'] as num).toInt();
+      }
+      if (widget.initialPlan!['enfoque'] != null) {
+        _enfoque = widget.initialPlan!['enfoque'].toString();
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -1449,7 +1884,7 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
     setState(() => _guardandoPlan = true);
 
     try {
-      await FirebaseFirestore.instance.collection('instructor_planes_clase').add({
+      final docRef = await FirebaseFirestore.instance.collection('instructor_planes_clase').add({
         'instructor_id': widget.uid,
         'titulo': _planGenerado!['titulo'],
         'duracion_total': _planGenerado!['duracion_total'],
@@ -1465,6 +1900,7 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
       setState(() {
         _guardandoPlan = false;
         _planGuardado = true;
+        _savedPlanId = docRef.id;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2125,55 +2561,117 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
             color: _kTarjetaOscura,
             border: Border(top: BorderSide(color: _kBordeOscuro)),
           ),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Copiar
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _copiarAlPortapapeles,
-                  icon: const Icon(Icons.copy, size: 18),
-                  label: const Text('Copiar'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: _kBordeOscuro),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(GingaRadius.md),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Guardar
-              Expanded(
+              // Botón Principal: Iniciar Clase en Vivo
+              SizedBox(
+                width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: _planGuardado ? null : _guardarEnFirestore,
-                  icon: _guardandoPlan
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : Icon(_planGuardado ? Icons.check : Icons.bookmark_border, size: 18),
-                  label: Text(_planGuardado ? 'Guardado' : 'Guardar'),
+                  onPressed: () async {
+                    String? planId = _savedPlanId;
+                    if (!_planGuardado && _planGenerado != null) {
+                      try {
+                        final ref = await FirebaseFirestore.instance.collection('instructor_planes_clase').add({
+                          'instructor_id': widget.uid,
+                          'titulo': _planGenerado!['titulo'],
+                          'duracion_total': _planGenerado!['duracion_total'],
+                          'objetivo': _planGenerado!['objetivo'],
+                          'bloques': _planGenerado!['bloques'],
+                          'consejos_instructor': _planGenerado!['consejos_instructor'],
+                          'nivel': _nivel,
+                          'enfoque': _enfoque,
+                          'created_at': FieldValue.serverTimestamp(),
+                        });
+                        planId = ref.id;
+                        _savedPlanId = planId;
+                        _planGuardado = true;
+                      } catch (e) {
+                        debugPrint('Error auto-guardando plan: $e');
+                      }
+                    }
+                    if (!mounted) return;
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => _ClaseEnVivoScreen(
+                          planId: planId,
+                          planData: _planGenerado!,
+                          uid: widget.uid,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.play_circle_fill_rounded, size: 20),
+                  label: const Text('Iniciar Clase en Vivo ⏱️'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _planGuardado ? Colors.grey[800] : GingaColors.brandGreen,
+                    backgroundColor: GingaColors.brandGreen,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(GingaRadius.md),
+                    ),
+                    textStyle: GoogleFonts.montserrat(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(height: 8),
 
-              // Regenerar
-              IconButton(
-                onPressed: () => setState(() => _planGenerado = null),
-                icon: const Icon(Icons.refresh, color: _kTextoSecundario),
-                tooltip: 'Regenerar o ajustar',
+              Row(
+                children: [
+                  // Copiar
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _copiarAlPortapapeles,
+                      icon: const Icon(Icons.copy, size: 16),
+                      label: const Text('Copiar'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: _kBordeOscuro),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Guardar
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _planGuardado ? null : _guardarEnFirestore,
+                      icon: _guardandoPlan
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : Icon(_planGuardado ? Icons.check : Icons.bookmark_border, size: 16),
+                      label: Text(_planGuardado ? 'Guardado' : 'Guardar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _planGuardado ? Colors.grey[800] : GingaColors.brandGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Regenerar
+                  IconButton(
+                    onPressed: () => setState(() => _planGenerado = null),
+                    icon: const Icon(Icons.refresh, color: _kTextoSecundario),
+                    tooltip: 'Regenerar o ajustar',
+                  ),
+                ],
               ),
             ],
           ),
@@ -2182,4 +2680,1315 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
     );
   }
 }
+
+// ─────────────────────────────────────────
+//  TARJETA DE PLAN DE CLASE GUARDADO
+// ─────────────────────────────────────────
+class _PlanClaseCard extends StatelessWidget {
+  final String planId;
+  final Map<String, dynamic> data;
+  final String? uid;
+  final VoidCallback onVerFicha;
+  final VoidCallback onIniciarClase;
+  final VoidCallback onDelete;
+
+  const _PlanClaseCard({
+    required this.planId,
+    required this.data,
+    required this.uid,
+    required this.onVerFicha,
+    required this.onIniciarClase,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final titulo = data['titulo'] ?? 'Clase de Capoeira';
+    final duracion = data['duracion_total'] ?? 60;
+    final nivel = data['nivel'] ?? 'Adultos';
+    final enfoque = data['enfoque'] ?? 'Técnica & Movilidad';
+    final objetivo = data['objetivo'] ?? '';
+    final bloques = data['bloques'] as List? ?? [];
+    final vecesImpartida = (data['veces_impartida'] as num?)?.toInt() ?? 0;
+
+    // Fecha formateada
+    String fechaStr = '';
+    if (data['created_at'] is Timestamp) {
+      final dt = (data['created_at'] as Timestamp).toDate();
+      fechaStr = '${dt.day}/${dt.month}/${dt.year}';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: _kTarjetaOscura,
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        border: Border.all(color: _kBordeOscuro),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header superior ──
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.02),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(GingaRadius.lg)),
+              border: const Border(bottom: BorderSide(color: _kBordeOscuro)),
+            ),
+            child: Row(
+              children: [
+                // Duración
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: GingaColors.brandGreen,
+                    borderRadius: BorderRadius.circular(GingaRadius.full),
+                  ),
+                  child: Text(
+                    '$duracion MIN',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Nivel
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _publicoColor(nivel).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(GingaRadius.full),
+                  ),
+                  child: Text(
+                    nivel,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: _publicoColor(nivel),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Enfoque
+                Expanded(
+                  child: Text(
+                    enfoque,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 11,
+                      color: _kTextoSecundario,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // Fecha
+                if (fechaStr.isNotEmpty)
+                  Text(
+                    fechaStr,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 11,
+                      color: _kTextoSecundario.withValues(alpha: 0.7),
+                    ),
+                  ),
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 18, color: _kTextoSecundario),
+                  onPressed: onDelete,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Eliminar plan',
+                ),
+              ],
+            ),
+          ),
+
+          // ── Cuerpo del Plan ──
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                if (objetivo.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '🎯 $objetivo',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 12.5,
+                      color: _kTextoSecundario,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+
+                // Resumen de fases/bloques
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: bloques.map((b) {
+                    final bm = Map<String, dynamic>.from(b as Map);
+                    final fase = bm['fase'] ?? 'Bloque';
+                    final min = bm['duracion_min'] ?? 0;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: _kFondoOscuro,
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                        border: Border.all(color: _kBordeOscuro),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.schedule, size: 12, color: _faseColor(fase)),
+                          const SizedBox(width: 5),
+                          Text(
+                            '$fase ($min m)',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+
+                if (vecesImpartida > 0) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Icon(Icons.check_circle_outline, size: 14, color: GingaColors.brandGreen),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Impartida $vecesImpartida ${vecesImpartida == 1 ? "vez" : "veces"} en vivo',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: GingaColors.brandGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+
+                // ── Botones de Acción ──
+                Row(
+                  children: [
+                    // Botón Iniciar Clase en Vivo
+                    Expanded(
+                      flex: 3,
+                      child: ElevatedButton.icon(
+                        onPressed: onIniciarClase,
+                        icon: const Icon(Icons.play_circle_fill_rounded, size: 20),
+                        label: const Text('Iniciar Clase ⏱️'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: GingaColors.brandGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                          ),
+                          textStyle: GoogleFonts.montserrat(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Botón Ver Ficha / Copiar
+                    Expanded(
+                      flex: 2,
+                      child: OutlinedButton.icon(
+                        onPressed: onVerFicha,
+                        icon: const Icon(Icons.description_outlined, size: 16),
+                        label: const Text('Ver Ficha'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: _kBordeOscuro),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                          ),
+                          textStyle: GoogleFonts.montserrat(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+//  PANTALLA: CLASE EN VIVO (ASISTENTE EN TATAMI)
+// ─────────────────────────────────────────
+class _ClaseEnVivoScreen extends StatefulWidget {
+  final String? planId;
+  final Map<String, dynamic> planData;
+  final String? uid;
+
+  const _ClaseEnVivoScreen({
+    this.planId,
+    required this.planData,
+    required this.uid,
+  });
+
+  @override
+  State<_ClaseEnVivoScreen> createState() => _ClaseEnVivoScreenState();
+}
+
+class _ClaseEnVivoScreenState extends State<_ClaseEnVivoScreen> {
+  late List<Map<String, dynamic>> _bloques;
+  int _bloqueActual = 0;
+  int _segundosRestantes = 0;
+  int _segundosTotalesBloque = 0;
+  bool _isCorriendo = false;
+  Timer? _timer;
+  int _totalTranscurridoSeg = 0;
+  final Set<String> _ejerciciosCompletados = {}; // 'bIndex_eIndex'
+  Map<String, Map<String, dynamic>> _ideasInstructor = {};
+
+  @override
+  void initState() {
+    super.initState();
+    final rawBloques = widget.planData['bloques'] as List? ?? [];
+    _bloques = rawBloques.map((b) => Map<String, dynamic>.from(b as Map)).toList();
+    _iniciarBloque(0);
+    _cargarIdeasInstructor();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _iniciarBloque(int index) {
+    if (index < 0 || index >= _bloques.length) return;
+    _bloqueActual = index;
+    final durMin = (_bloques[index]['duracion_min'] as num?)?.toInt() ?? 10;
+    _segundosRestantes = durMin * 60;
+    _segundosTotalesBloque = _segundosRestantes;
+  }
+
+  Future<void> _cargarIdeasInstructor() async {
+    if (widget.uid == null) return;
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('instructor_ideas')
+          .where('instructor_id', isEqualTo: widget.uid)
+          .get();
+      final map = <String, Map<String, dynamic>>{};
+      for (final doc in snap.docs) {
+        map[doc.id] = doc.data();
+      }
+      if (mounted) {
+        setState(() {
+          _ideasInstructor = map;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error cargando ideas para asistente en vivo: $e');
+    }
+  }
+
+  void _toggleTimer() {
+    if (_isCorriendo) {
+      _timer?.cancel();
+      setState(() => _isCorriendo = false);
+    } else {
+      setState(() => _isCorriendo = true);
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        setState(() {
+          _totalTranscurridoSeg++;
+          if (_segundosRestantes > 0) {
+            _segundosRestantes--;
+          } else {
+            _timer?.cancel();
+            _isCorriendo = false;
+            HapticFeedback.heavyImpact();
+            _mostrarAvisoFinBloque();
+          }
+        });
+      });
+    }
+  }
+
+  void _ajustarTiempo(int deltaSegundos) {
+    setState(() {
+      final nuevo = _segundosRestantes + deltaSegundos;
+      _segundosRestantes = nuevo < 0 ? 0 : nuevo;
+      if (deltaSegundos > 0) {
+        _segundosTotalesBloque += deltaSegundos;
+      }
+    });
+  }
+
+  void _reiniciarBloqueActual() {
+    setState(() {
+      _timer?.cancel();
+      _isCorriendo = false;
+      final durMin = (_bloques[_bloqueActual]['duracion_min'] as num?)?.toInt() ?? 10;
+      _segundosRestantes = durMin * 60;
+      _segundosTotalesBloque = _segundosRestantes;
+    });
+  }
+
+  void _cambiarABloque(int index) {
+    if (index < 0 || index >= _bloques.length) return;
+    setState(() {
+      _timer?.cancel();
+      _isCorriendo = false;
+      _iniciarBloque(index);
+    });
+  }
+
+  void _mostrarAvisoFinBloque() {
+    final fase = _bloques[_bloqueActual]['fase'] ?? 'Bloque';
+    final hasNext = _bloqueActual < _bloques.length - 1;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.alarm_on, color: GingaColors.accentAmber),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '¡Tiempo cumplido de "$fase"! ${hasNext ? "¿Pasamos a la siguiente fase?" : "¡Última fase completada!"}',
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        action: hasNext
+            ? SnackBarAction(
+                label: 'Siguiente Bloque',
+                textColor: GingaColors.brandGreen,
+                onPressed: () => _cambiarABloque(_bloqueActual + 1),
+              )
+            : null,
+        backgroundColor: _kTarjetaOscura,
+        duration: const Duration(seconds: 6),
+      ),
+    );
+  }
+
+  Map<String, dynamic>? _buscarIdeaVinculada(Map<String, dynamic> ejercicio) {
+    final refNombre = (ejercicio['recurso_relacionado'] as String?)?.toLowerCase().trim();
+    final ejNombre = (ejercicio['nombre'] as String?)?.toLowerCase().trim();
+    final ejUrl = ejercicio['url_recurso'] as String?;
+
+    if (ejUrl != null && ejUrl.isNotEmpty) {
+      return {'url': ejUrl, 'titulo': ejercicio['nombre'], 'tipo': 'link'};
+    }
+
+    if (refNombre == null && ejNombre == null) return null;
+
+    for (final entry in _ideasInstructor.entries) {
+      final idea = entry.value;
+      final ideaTitulo = (idea['titulo'] as String? ?? '').toLowerCase().trim();
+      final ideaId = entry.key;
+
+      if (refNombre != null && refNombre.isNotEmpty) {
+        if (ideaTitulo.contains(refNombre) || refNombre.contains(ideaTitulo) || ideaId == refNombre) {
+          return idea;
+        }
+      }
+      if (ejNombre != null && ejNombre.isNotEmpty && ideaTitulo.isNotEmpty) {
+        if (ideaTitulo.contains(ejNombre) || ejNombre.contains(ideaTitulo)) {
+          return idea;
+        }
+      }
+    }
+    return null;
+  }
+
+  List<Map<String, dynamic>> _obtenerIdeasUtilizadasEnElPlan() {
+    final List<Map<String, dynamic>> encontradas = [];
+    final Set<String> idsAgregados = {};
+
+    for (final b in _bloques) {
+      final ejercicios = b['ejercicios'] as List? ?? [];
+      for (final ej in ejercicios) {
+        final ejMap = Map<String, dynamic>.from(ej as Map);
+        final refNombre = (ejMap['recurso_relacionado'] as String?)?.toLowerCase().trim();
+        final ejNombre = (ejMap['nombre'] as String?)?.toLowerCase().trim();
+
+        for (final entry in _ideasInstructor.entries) {
+          if (idsAgregados.contains(entry.key)) continue;
+          final idea = entry.value;
+          final ideaTitulo = (idea['titulo'] as String? ?? '').toLowerCase().trim();
+
+          bool coincide = false;
+          if (refNombre != null && refNombre.isNotEmpty && (ideaTitulo.contains(refNombre) || refNombre.contains(ideaTitulo))) {
+            coincide = true;
+          } else if (ejNombre != null && ejNombre.isNotEmpty && ideaTitulo.isNotEmpty && (ideaTitulo.contains(ejNombre) || ejNombre.contains(ideaTitulo))) {
+            coincide = true;
+          }
+
+          if (coincide) {
+            idsAgregados.add(entry.key);
+            encontradas.add({
+              'id': entry.key,
+              'titulo': idea['titulo'] ?? 'Ejercicio de Pizarra',
+              'completado': idea['completado'] == true,
+              'url': idea['url'],
+            });
+          }
+        }
+      }
+    }
+    return encontradas;
+  }
+
+  Future<void> _abrirDialogoFinalizarClase() async {
+    final ideasDetectadas = _obtenerIdeasUtilizadasEnElPlan();
+    final Map<String, bool> seleccionados = {
+      for (final item in ideasDetectadas) item['id'] as String: true,
+    };
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: _kTarjetaOscura,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(GingaRadius.xl),
+                side: const BorderSide(color: _kBordeOscuro),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: GingaColors.brandGreen.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.flag_rounded, color: GingaColors.brandGreen, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Finalizar Sesión',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '¡Excelente entrenamiento! Has estado en sesión por ${(_totalTranscurridoSeg / 60).floor()} minutos.',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 13,
+                        color: _kTextoSecundario,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (ideasDetectadas.isNotEmpty) ...[
+                      Text(
+                        'Marcar ejercicios como "Ya Enseñados":',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Quedarán atenuados en tu Pizarra para que en tus próximas clases la IA proponga recursos nuevos.',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 11.5,
+                          color: _kTextoSecundario,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: _kFondoOscuro,
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                          border: Border.all(color: _kBordeOscuro),
+                        ),
+                        child: Column(
+                          children: ideasDetectadas.map((item) {
+                            final id = item['id'] as String;
+                            final titulo = item['titulo'] as String;
+                            final isChecked = seleccionados[id] ?? false;
+
+                            return CheckboxListTile(
+                              value: isChecked,
+                              dense: true,
+                              activeColor: GingaColors.brandGreen,
+                              checkColor: Colors.black,
+                              title: Text(
+                                titulo,
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              onChanged: (val) {
+                                setDialogState(() {
+                                  seleccionados[id] = val ?? false;
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ] else ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _kFondoOscuro,
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                          border: Border.all(color: _kBordeOscuro),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline, size: 18, color: _kTextoSecundario),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'No se detectaron recursos específicos de tu Pizarra vinculados a este plan.',
+                                style: GoogleFonts.montserrat(fontSize: 11.5, color: _kTextoSecundario),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx, false),
+                  child: Text(
+                    'Seguir en Clase',
+                    style: GoogleFonts.montserrat(color: _kTextoSecundario),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: GingaColors.brandGreen,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(dialogCtx, true),
+                  child: const Text('Finalizar y Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmar != true) return;
+
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      final tituloPlan = widget.planData['titulo'] ?? 'Clase de Capoeira';
+
+      for (final entry in seleccionados.entries) {
+        if (entry.value) {
+          final docRef = FirebaseFirestore.instance.collection('instructor_ideas').doc(entry.key);
+          batch.update(docRef, {
+            'completado': true,
+            'fecha_ultimo_uso': FieldValue.serverTimestamp(),
+            'clase_usada': tituloPlan,
+          });
+        }
+      }
+
+      if (widget.planId != null) {
+        final planRef = FirebaseFirestore.instance.collection('instructor_planes_clase').doc(widget.planId);
+        batch.update(planRef, {
+          'ultima_ejecucion': FieldValue.serverTimestamp(),
+          'veces_impartida': FieldValue.increment(1),
+        });
+      }
+
+      await batch.commit();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🥋 ¡Clase finalizada con éxito! Recursos actualizados en tu Pizarra.'),
+          backgroundColor: GingaColors.brandGreen,
+        ),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error guardando finalización: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  String _formatearTiempo(int totalSegundos) {
+    final minutos = totalSegundos ~/ 60;
+    final segundos = totalSegundos % 60;
+    return '${minutos.toString().padLeft(2, '0')}:${segundos.toString().padLeft(2, '0')}';
+  }
+
+  Color _obtenerColorTimer() {
+    if (_segundosTotalesBloque == 0) return GingaColors.brandGreen;
+    final pct = _segundosRestantes / _segundosTotalesBloque;
+    if (pct > 0.4) return GingaColors.brandGreen;
+    if (pct > 0.15) return GingaColors.accentAmber;
+    return Colors.redAccent;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_bloques.isEmpty) {
+      return Scaffold(
+        backgroundColor: _kFondoOscuro,
+        appBar: AppBar(backgroundColor: _kTarjetaOscura),
+        body: const Center(
+          child: Text('El plan no contiene bloques válidos', style: TextStyle(color: Colors.white)),
+        ),
+      );
+    }
+
+    final bloqueActualData = _bloques[_bloqueActual];
+    final fase = bloqueActualData['fase'] ?? 'Fase Actual';
+    final ejercicios = bloqueActualData['ejercicios'] as List? ?? [];
+    final tituloPlan = widget.planData['titulo'] ?? 'Clase en Vivo';
+    final nivel = widget.planData['nivel'] ?? 'Adultos';
+    final duracionTotalMin = widget.planData['duracion_total'] ?? 60;
+
+    final minutosTranscurridos = _totalTranscurridoSeg ~/ 60;
+    final pctBloque = _segundosTotalesBloque > 0
+        ? (1.0 - (_segundosRestantes / _segundosTotalesBloque)).clamp(0.0, 1.0)
+        : 0.0;
+
+    return Scaffold(
+      backgroundColor: _kFondoOscuro,
+      appBar: AppBar(
+        backgroundColor: _kTarjetaOscura,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            if (_isCorriendo) {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: _kTarjetaOscura,
+                  title: const Text('¿Salir de la clase en vivo?', style: TextStyle(color: Colors.white)),
+                  content: const Text('El temporizador se detendrá.', style: TextStyle(color: _kTextoSecundario)),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Quedarse')),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Salir'),
+                    ),
+                  ],
+                ),
+              );
+            } else {
+              Navigator.pop(context);
+            }
+          },
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tituloPlan,
+              style: GoogleFonts.montserrat(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+            Row(
+              children: [
+                Text(
+                  '$nivel • $duracionTotalMin min',
+                  style: GoogleFonts.montserrat(fontSize: 11, color: _kTextoSecundario),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '• Transcurrido: $minutosTranscurridos min',
+                  style: GoogleFonts.montserrat(fontSize: 11, color: GingaColors.brandGreen),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: _abrirDialogoFinalizarClase,
+            icon: const Icon(Icons.flag_rounded, color: GingaColors.brandGreen, size: 18),
+            label: Text(
+              'Finalizar',
+              style: GoogleFonts.montserrat(
+                fontWeight: FontWeight.w700,
+                color: GingaColors.brandGreen,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Barra Stepper de Fases/Bloques ──
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              color: _kTarjetaOscura,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List.generate(_bloques.length, (i) {
+                    final b = _bloques[i];
+                    final isActivo = i == _bloqueActual;
+                    final isPasado = i < _bloqueActual;
+                    final faseName = b['fase'] ?? 'Bloque ${i + 1}';
+                    final bDur = b['duracion_min'] ?? 0;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: InkWell(
+                        onTap: () => _cambiarABloque(i),
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isActivo
+                                ? GingaColors.brandGreen.withValues(alpha: 0.2)
+                                : (isPasado ? Colors.white.withValues(alpha: 0.04) : _kFondoOscuro),
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            border: Border.all(
+                              color: isActivo
+                                  ? GingaColors.brandGreen
+                                  : (isPasado ? GingaColors.brandGreen.withValues(alpha: 0.4) : _kBordeOscuro),
+                              width: isActivo ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isPasado)
+                                const Padding(
+                                  padding: EdgeInsets.only(right: 4),
+                                  child: Icon(Icons.check, size: 14, color: GingaColors.brandGreen),
+                                )
+                              else if (isActivo)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.only(right: 6),
+                                  decoration: const BoxDecoration(
+                                    color: GingaColors.brandGreen,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              Text(
+                                '${i + 1}. $faseName (${bDur}m)',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 11.5,
+                                  fontWeight: isActivo ? FontWeight.w800 : FontWeight.w500,
+                                  color: isActivo
+                                      ? Colors.white
+                                      : (isPasado ? Colors.white70 : _kTextoSecundario),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ),
+
+            // ── Bloque Principal: Timer Gigante + Ejercicios Scrollables ──
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  // ── Tarjeta del Temporizador Gigante ──
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          _obtenerColorTimer().withValues(alpha: 0.12),
+                          _kTarjetaOscura,
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                      borderRadius: BorderRadius.circular(GingaRadius.xl),
+                      border: Border.all(
+                        color: _obtenerColorTimer().withValues(alpha: 0.4),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        // Nombre de la fase actual
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.sports_kabaddi, size: 16, color: _obtenerColorTimer()),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                fase.toUpperCase(),
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.2,
+                                  color: _obtenerColorTimer(),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Reloj Digital Gigante
+                        Text(
+                          _formatearTiempo(_segundosRestantes),
+                          style: GoogleFonts.montserrat(
+                            fontSize: 54,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 2,
+                            color: Colors.white,
+                          ),
+                        ),
+
+                        // Barra de progreso del bloque
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: pctBloque,
+                            minHeight: 6,
+                            backgroundColor: Colors.white10,
+                            valueColor: AlwaysStoppedAnimation<Color>(_obtenerColorTimer()),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // ── Controles Táctiles Rápidos ──
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // -1 min
+                            OutlinedButton(
+                              onPressed: () => _ajustarTiempo(-60),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white70,
+                                side: const BorderSide(color: _kBordeOscuro),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              ),
+                              child: Text(
+                                '-1 m',
+                                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+
+                            // Play / Pause Grande
+                            GestureDetector(
+                              onTap: _toggleTimer,
+                              child: Container(
+                                width: 62,
+                                height: 62,
+                                decoration: BoxDecoration(
+                                  color: _isCorriendo ? GingaColors.brandGreen : Colors.white12,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: _isCorriendo ? Colors.white : _kBordeOscuro,
+                                    width: 2,
+                                  ),
+                                  boxShadow: _isCorriendo
+                                      ? [
+                                          BoxShadow(
+                                            color: GingaColors.brandGreen.withValues(alpha: 0.4),
+                                            blurRadius: 16,
+                                            spreadRadius: 2,
+                                          )
+                                        ]
+                                      : null,
+                                ),
+                                child: Icon(
+                                  _isCorriendo ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                  size: 38,
+                                  color: _isCorriendo ? Colors.black : Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+
+                            // +1 min
+                            OutlinedButton(
+                              onPressed: () => _ajustarTiempo(60),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white70,
+                                side: const BorderSide(color: _kBordeOscuro),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              ),
+                              child: Text(
+                                '+1 m',
+                                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+
+                            // Reset
+                            IconButton(
+                              onPressed: _reiniciarBloqueActual,
+                              icon: const Icon(Icons.replay, color: _kTextoSecundario, size: 22),
+                              tooltip: 'Reiniciar tiempo del bloque',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ── Encabezado de Ejercicios ──
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Ejercicios & Drills de la Fase',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        '${_ejerciciosCompletados.where((k) => k.startsWith("${_bloqueActual}_")).length} de ${ejercicios.length} listos',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          color: _kTextoSecundario,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // ── Lista de Ejercicios del Bloque Actual ──
+                  ...List.generate(ejercicios.length, (idx) {
+                    final ej = Map<String, dynamic>.from(ejercicios[idx] as Map);
+                    final nombre = ej['nombre'] ?? 'Ejercicio';
+                    final detalle = ej['detalle'] ?? '';
+                    final key = '${_bloqueActual}_$idx';
+                    final isChecked = _ejerciciosCompletados.contains(key);
+
+                    // Buscar si tiene recurso o video vinculado
+                    final ideaVinculada = _buscarIdeaVinculada(ej);
+                    final videoUrl = ideaVinculada?['url'] as String?;
+                    final videoTitulo = ideaVinculada?['titulo'] as String? ?? ej['recurso_relacionado'] as String?;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: isChecked ? _kTarjetaOscura.withValues(alpha: 0.6) : _kTarjetaOscura,
+                        borderRadius: BorderRadius.circular(GingaRadius.lg),
+                        border: Border.all(
+                          color: isChecked ? GingaColors.brandGreen.withValues(alpha: 0.4) : _kBordeOscuro,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Checkbox grande para marcar durante la clase
+                                InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      if (isChecked) {
+                                        _ejerciciosCompletados.remove(key);
+                                      } else {
+                                        _ejerciciosCompletados.add(key);
+                                      }
+                                    });
+                                  },
+                                  child: Container(
+                                    width: 26,
+                                    height: 26,
+                                    margin: const EdgeInsets.only(top: 2, right: 12),
+                                    decoration: BoxDecoration(
+                                      color: isChecked ? GingaColors.brandGreen : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(7),
+                                      border: Border.all(
+                                        color: isChecked ? GingaColors.brandGreen : _kTextoSecundario,
+                                        width: 1.8,
+                                      ),
+                                    ),
+                                    child: isChecked
+                                        ? const Icon(Icons.check, size: 18, color: Colors.white)
+                                        : null,
+                                  ),
+                                ),
+                                // Título y Detalle
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        nombre,
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: isChecked ? _kTextoSecundario : Colors.white,
+                                          decoration: isChecked ? TextDecoration.lineThrough : null,
+                                        ),
+                                      ),
+                                      if (detalle.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          detalle,
+                                          style: GoogleFonts.montserrat(
+                                            fontSize: 12.5,
+                                            color: _kTextoSecundario,
+                                            height: 1.35,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            // ── Botón Rápido para Ver Video de TikTok / Instagram / YouTube ──
+                            if (videoUrl != null && videoUrl.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 38),
+                                child: InkWell(
+                                  onTap: () => _abrirEnlaceGlobal(context, videoUrl),
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: GingaColors.accentAmber.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                                      border: Border.all(color: GingaColors.accentAmber.withValues(alpha: 0.4)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(_detectarIconoLink(videoUrl), size: 16, color: GingaColors.accentAmber),
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            'Ver Video: ${videoTitulo ?? "Ver Drill"}',
+                                            style: GoogleFonts.montserrat(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: GingaColors.accentAmber,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        const Icon(Icons.open_in_new, size: 13, color: GingaColors.accentAmber),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+
+                  // ── Vista previa de la siguiente fase ──
+                  if (_bloqueActual < _bloques.length - 1) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                        border: Border.all(color: _kBordeOscuro),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.skip_next_rounded, size: 18, color: _kTextoSecundario),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Siguiente fase: ${_bloques[_bloqueActual + 1]['fase'] ?? "Bloque"} (${_bloques[_bloqueActual + 1]['duracion_min']} min)',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 12,
+                                color: _kTextoSecundario,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => _cambiarABloque(_bloqueActual + 1),
+                            child: const Text('Saltar ahora', style: TextStyle(fontSize: 11)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // ── Barra Inferior Fija de Navegación entre Bloques ──
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: const BoxDecoration(
+                color: _kTarjetaOscura,
+                border: Border(top: BorderSide(color: _kBordeOscuro)),
+              ),
+              child: Row(
+                children: [
+                  // Botón Anterior
+                  OutlinedButton.icon(
+                    onPressed: _bloqueActual > 0
+                        ? () => _cambiarABloque(_bloqueActual - 1)
+                        : null,
+                    icon: const Icon(Icons.arrow_back_ios, size: 14),
+                    label: const Text('Anterior'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: _kBordeOscuro),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+
+                  // Indicador de Fase
+                  Text(
+                    'Fase ${_bloqueActual + 1} de ${_bloques.length}',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _kTextoSecundario,
+                    ),
+                  ),
+                  const Spacer(),
+
+                  // Botón Siguiente o Finalizar
+                  if (_bloqueActual < _bloques.length - 1)
+                    ElevatedButton.icon(
+                      onPressed: () => _cambiarABloque(_bloqueActual + 1),
+                      icon: const Icon(Icons.arrow_forward_ios, size: 14),
+                      label: const Text('Siguiente'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: GingaColors.brandGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                        ),
+                        textStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+                      ),
+                    )
+                  else
+                    ElevatedButton.icon(
+                      onPressed: _abrirDialogoFinalizarClase,
+                      icon: const Icon(Icons.flag_rounded, size: 16),
+                      label: const Text('Finalizar 🏁'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: GingaColors.accentAmber,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                        ),
+                        textStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 

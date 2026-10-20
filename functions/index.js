@@ -1720,14 +1720,18 @@ exports.generarPlanClaseIA = functions
         const snap = await admin.firestore()
           .collection('instructor_ideas')
           .where('instructor_id', '==', context.auth.uid)
-          .limit(12)
+          .limit(30)
           .get();
-        ideasContexto = snap.docs.map(d => {
+        // Priorizar drills e ideas que aún NO hayan sido enseñados (completado != true)
+        const noUsadas = snap.docs.filter(d => !d.data().completado);
+        const docsAUsar = (noUsadas.length > 0 ? noUsadas : snap.docs).slice(0, 15);
+        ideasContexto = docsAUsar.map(d => {
           const docData = d.data();
           return {
             id: d.id,
             titulo: docData.titulo,
-            categoria: docData.categoria,
+            categoria: docData.categoria || docData.tipo_ejercicio || 'General',
+            publico: docData.publico || 'Todos',
             notas: docData.notas || '',
             tipo: docData.tipo,
             url: docData.url || ''
