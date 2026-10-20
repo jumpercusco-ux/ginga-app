@@ -896,26 +896,56 @@ const AVAILABLE_TOOLS = [
   },
 ];
 
-async function llamarOpenAI(messages) {
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      max_tokens: 250,
-      messages,
-      tools: AVAILABLE_TOOLS.map((t) => t.definition),
-    }),
-  });
-  const data = await resp.json();
-  if (data.error) {
-    console.error('[OpenAI] Error:', data.error);
-    return null;
+async function llamarOpenAI(messages, maxRetries = 2) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          max_tokens: 250,
+          messages,
+          tools: AVAILABLE_TOOLS.map((t) => t.definition),
+        }),
+      });
+
+      const rawText = await resp.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (parseError) {
+        console.error(`[OpenAI] Intento ${attempt + 1}: Respuesta no es JSON válido (Status ${resp.status}):`, rawText.substring(0, 200));
+        if (attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+          continue;
+        }
+        return null;
+      }
+
+      if (!resp.ok || data.error) {
+        console.error(`[OpenAI] Intento ${attempt + 1}: Error API (Status ${resp.status}):`, data.error || rawText.substring(0, 200));
+        if (attempt < maxRetries && (resp.status >= 500 || resp.status === 429)) {
+          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+          continue;
+        }
+        return null;
+      }
+
+      return data.choices?.[0]?.message || null;
+    } catch (networkError) {
+      console.error(`[OpenAI] Intento ${attempt + 1}: Error de red:`, networkError.message);
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+        continue;
+      }
+      return null;
+    }
   }
-  return data.choices?.[0]?.message || null;
+  return null;
 }
 
 /**
@@ -999,6 +1029,7 @@ exports.whatsappWebhook = functions
       return;
     }
 
+    let telefono = null;
     try {
       const change = req.body.entry?.[0]?.changes?.[0]?.value;
       const message = change?.messages?.[0];
@@ -1015,7 +1046,7 @@ exports.whatsappWebhook = functions
       // Meta identifica al remitente por `from` (número de teléfono) normalmente,
       // pero si el lead usa un @username de WhatsApp en vez de compartir su número,
       // manda `from_user_id` (ej. "PE.1058687349840150") como identificador en su lugar.
-      const telefono = message.from || message.from_user_id;
+      telefono = message.from || message.from_user_id;
       const waMessageId = message.id;
       const referral = message.referral || null;
       const nombreContacto = change.contacts?.[0]?.profile?.name
@@ -1217,6 +1248,12 @@ exports.whatsappWebhook = functions
 
       const textoRespuesta = await preguntarIA(telefono, systemPrompt, historial);
       if (!textoRespuesta) {
+        console.error(`[WhatsApp Webhook] IA no devolvió respuesta para ${telefono}. Marcando como requiere atención.`);
+        await leadRef.update({
+          status: 'requiere_atencion',
+          motivo_seguimiento: 'El servicio de IA no devolvió respuesta a tiempo. Se requiere atención manual.',
+          ultima_interaccion: admin.firestore.FieldValue.serverTimestamp(),
+        });
         res.sendStatus(200);
         return;
       }
@@ -1259,6 +1296,16 @@ exports.whatsappWebhook = functions
       res.sendStatus(200);
     } catch (error) {
       console.error('[WhatsApp Webhook] Error procesando el mensaje entrante:', error, JSON.stringify(req.body));
+      try {
+        if (telefono) {
+          const leadRef = admin.firestore().collection('whatsapp_leads').doc(telefono);
+          await leadRef.update({
+            status: 'requiere_atencion',
+            motivo_seguimiento: `Falla técnica: ${error.message || 'Error inesperado'}`,
+            ultima_interaccion: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+      } catch (_) {}
       res.sendStatus(200); // Evita que Meta reintente indefinidamente un evento que ya falló.
     }
   });
