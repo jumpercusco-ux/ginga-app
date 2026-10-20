@@ -17,6 +17,36 @@ const Color _kTarjetaOscura = Color(0xFF1E1E1E);
 const Color _kBordeOscuro = Color(0xFF2C2C2C);
 const Color _kTextoSecundario = Color(0xFFA0A0A0);
 
+Color _faseColor(String fase) {
+  switch (fase) {
+    case 'Calentamiento':
+      return Colors.orangeAccent;
+    case 'Técnica':
+      return Colors.lightBlueAccent;
+    case 'Acrobacias':
+      return GingaColors.accentAmber;
+    case 'Juegos':
+      return GingaColors.brandGreen;
+    case 'Roda':
+      return Colors.purpleAccent;
+    case 'Vuelta a la Calma':
+      return Colors.tealAccent;
+    default:
+      return _kTextoSecundario;
+  }
+}
+
+Color _publicoColor(String pub) {
+  switch (pub) {
+    case 'Niños':
+      return GingaColors.brandGreen;
+    case 'Adultos':
+      return Colors.lightBlueAccent;
+    default:
+      return Colors.cyanAccent;
+  }
+}
+
 class InstructorPizarraScreen extends StatefulWidget {
   const InstructorPizarraScreen({super.key});
 
@@ -25,14 +55,17 @@ class InstructorPizarraScreen extends StatefulWidget {
 }
 
 class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
-  String _filtroCategoria = 'Todos';
-  final List<String> _categorias = [
+  String _filtroPublico = 'Todos';
+  String _filtroFase = 'Todos';
+
+  final List<String> _filtrosPublico = ['Todos', 'Adultos', 'Niños'];
+  final List<String> _filtrosFase = [
     'Todos',
-    'Niños',
-    'Adultos',
-    'Acrobacias',
     'Calentamiento',
-    'Roda'
+    'Técnica',
+    'Acrobacias',
+    'Juegos',
+    'Roda',
   ];
 
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
@@ -162,39 +195,100 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
             ),
           ),
 
-          // ── Selector de categorías ──
+          // ── Selector de Filtros (Grupo y Fase) ──
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
-              children: _categorias.map((cat) {
-                final isSelected = _filtroCategoria == cat;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(cat),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      if (selected) {
-                        setState(() => _filtroCategoria = cat);
-                      }
-                    },
-                    selectedColor: GingaColors.brandGreen,
-                    backgroundColor: _kTarjetaOscura,
-                    labelStyle: GoogleFonts.montserrat(
-                      fontSize: 12.5,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: isSelected ? Colors.white : _kTextoSecundario,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(GingaRadius.full),
-                      side: BorderSide(
-                        color: isSelected ? GingaColors.brandGreen : _kBordeOscuro,
+              children: [
+                // Grupo Público
+                Text(
+                  'Grupo:',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _kTextoSecundario,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ..._filtrosPublico.map((pub) {
+                  final isSelected = _filtroPublico == pub;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(pub),
+                      selected: isSelected,
+                      onSelected: (val) {
+                        if (val) setState(() => _filtroPublico = pub);
+                      },
+                      selectedColor: pub == 'Niños'
+                          ? GingaColors.brandGreen
+                          : (pub == 'Adultos' ? Colors.lightBlueAccent : GingaColors.brandGreen),
+                      backgroundColor: _kTarjetaOscura,
+                      labelStyle: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected
+                            ? (pub == 'Adultos' ? Colors.black : Colors.white)
+                            : _kTextoSecundario,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(GingaRadius.full),
+                        side: BorderSide(
+                          color: isSelected
+                              ? (pub == 'Adultos' ? Colors.lightBlueAccent : GingaColors.brandGreen)
+                              : _kBordeOscuro,
+                        ),
                       ),
                     ),
+                  );
+                }),
+
+                // Separador
+                Container(
+                  height: 20,
+                  width: 1.2,
+                  color: _kBordeOscuro,
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+
+                // Fase
+                Text(
+                  'Fase:',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _kTextoSecundario,
                   ),
-                );
-              }).toList(),
+                ),
+                const SizedBox(width: 8),
+                ..._filtrosFase.map((fase) {
+                  final isSelected = _filtroFase == fase;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(fase),
+                      selected: isSelected,
+                      onSelected: (val) {
+                        if (val) setState(() => _filtroFase = fase);
+                      },
+                      selectedColor: _faseColor(fase),
+                      backgroundColor: _kTarjetaOscura,
+                      labelStyle: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected ? Colors.black : _kTextoSecundario,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(GingaRadius.full),
+                        side: BorderSide(
+                          color: isSelected ? _faseColor(fase) : _kBordeOscuro,
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
             ),
           ),
 
@@ -218,15 +312,24 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
 
                 final docs = snapshot.data!.docs.where((doc) {
                   final data = doc.data() as Map<String, dynamic>;
-                  if (_filtroCategoria == 'Todos') return true;
-                  return data['categoria'] == _filtroCategoria;
+                  final pub = (data['publico'] ?? (data['categoria'] == 'Niños' ? 'Niños' : (data['categoria'] == 'Adultos' ? 'Adultos' : 'Todos'))).toString();
+                  final fase = (data['tipo_ejercicio'] ?? (data['categoria'] != 'Adultos' && data['categoria'] != 'Niños' ? data['categoria'] : 'General')).toString();
+
+                  final matchPublico = _filtroPublico == 'Todos' || pub == _filtroPublico || pub == 'Todos' || pub == 'Mixto';
+                  final matchFase = _filtroFase == 'Todos' || fase.toLowerCase() == _filtroFase.toLowerCase();
+
+                  return matchPublico && matchFase;
                 }).toList();
 
                 if (docs.isEmpty) {
                   return Center(
-                    child: Text(
-                      'No hay ideas en "$_filtroCategoria"',
-                      style: GoogleFonts.montserrat(color: _kTextoSecundario),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'No hay ejercicios para Grupo: "$_filtroPublico" y Fase: "$_filtroFase"',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.montserrat(color: _kTextoSecundario),
+                      ),
                     ),
                   );
                 }
@@ -256,6 +359,7 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
                             onToggleCompletado: (val) {
                               doc.reference.update({'completado': val});
                             },
+                            onEdit: () => _abrirModalEditarIdea(context, doc.id, data),
                             onDelete: () => _confirmarEliminar(doc.id, data['titulo'] ?? 'esta idea'),
                           );
                         },
@@ -275,6 +379,7 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
                           onToggleCompletado: (val) {
                             doc.reference.update({'completado': val});
                           },
+                          onEdit: () => _abrirModalEditarIdea(context, doc.id, data),
                           onDelete: () => _confirmarEliminar(doc.id, data['titulo'] ?? 'esta idea'),
                         ),
                       );
@@ -424,7 +529,20 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _ModalCrearIdea(uid: _uid),
+      builder: (ctx) => _ModalIdea(uid: _uid),
+    );
+  }
+
+  void _abrirModalEditarIdea(BuildContext context, String ideaId, Map<String, dynamic> data) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ModalIdea(
+        uid: _uid,
+        ideaId: ideaId,
+        initialData: data,
+      ),
     );
   }
 
@@ -439,28 +557,67 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
 }
 
 // ─────────────────────────────────────────
-//  MODAL PARA AGREGAR NUEVA IDEA / RECURSO
+//  MODAL PARA CREAR O EDITAR IDEA / RECURSO
 // ─────────────────────────────────────────
-class _ModalCrearIdea extends StatefulWidget {
+class _ModalIdea extends StatefulWidget {
   final String? uid;
-  const _ModalCrearIdea({required this.uid});
+  final String? ideaId;
+  final Map<String, dynamic>? initialData;
+
+  const _ModalIdea({
+    required this.uid,
+    this.ideaId,
+    this.initialData,
+  });
+
+  bool get isEditing => ideaId != null;
 
   @override
-  State<_ModalCrearIdea> createState() => _ModalCrearIdeaState();
+  State<_ModalIdea> createState() => _ModalIdeaState();
 }
 
-class _ModalCrearIdeaState extends State<_ModalCrearIdea> {
+class _ModalIdeaState extends State<_ModalIdea> {
   final _tituloCtrl = TextEditingController();
   final _notasCtrl = TextEditingController();
   final _urlCtrl = TextEditingController();
 
   String _tipo = 'link'; // 'link' | 'imagen' | 'texto'
-  String _categoria = 'Niños';
+  String _publico = 'Adultos';
+  String _tipoEjercicio = 'Técnica';
   XFile? _imagenSeleccionada;
   Uint8List? _webImageBytes;
   bool _subiendo = false;
 
-  final List<String> _categorias = ['Niños', 'Adultos', 'Acrobacias', 'Calentamiento', 'Roda'];
+  final List<String> _publicos = ['Adultos', 'Niños', 'Mixto'];
+  final List<String> _tiposEjercicio = [
+    'Calentamiento',
+    'Técnica',
+    'Acrobacias',
+    'Juegos',
+    'Roda',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialData != null) {
+      final d = widget.initialData!;
+      _tituloCtrl.text = d['titulo'] ?? '';
+      _notasCtrl.text = d['notas'] ?? '';
+      _urlCtrl.text = d['url'] ?? '';
+      _tipo = d['tipo'] ?? 'link';
+      _publico = d['publico'] ?? (d['categoria'] == 'Niños' ? 'Niños' : 'Adultos');
+      _tipoEjercicio = d['tipo_ejercicio'] ?? (d['categoria'] != 'Adultos' && d['categoria'] != 'Niños' ? d['categoria'] : 'Técnica');
+    }
+  }
+
+  @override
+  void dispose() {
+    _tituloCtrl.dispose();
+    _notasCtrl.dispose();
+    _urlCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _seleccionarFoto() async {
     final picker = ImagePicker();
@@ -509,22 +666,46 @@ class _ModalCrearIdeaState extends State<_ModalCrearIdea> {
         mediaUrl = _urlCtrl.text.trim();
       }
 
-      await FirebaseFirestore.instance.collection('instructor_ideas').add({
-        'titulo': titulo,
-        'notas': _notasCtrl.text.trim(),
-        'tipo': _tipo,
-        'url': mediaUrl ?? '',
-        'categoria': _categoria,
-        'completado': false,
-        'instructor_id': widget.uid ?? '',
-        'created_at': FieldValue.serverTimestamp(),
-      });
+      if (widget.isEditing) {
+        final Map<String, dynamic> updateData = {
+          'titulo': titulo,
+          'notas': _notasCtrl.text.trim(),
+          'tipo': _tipo,
+          'publico': _publico,
+          'tipo_ejercicio': _tipoEjercicio,
+          'categoria': _tipoEjercicio,
+        };
+        if (_tipo == 'imagen' && mediaUrl != null) {
+          updateData['url'] = mediaUrl;
+          updateData['thumbnail_url'] = mediaUrl;
+        } else if (_tipo == 'link') {
+          final newUrl = _urlCtrl.text.trim();
+          updateData['url'] = newUrl;
+          if (newUrl != widget.initialData?['url']) {
+            updateData['thumbnail_url'] = FieldValue.delete();
+          }
+        }
+        await FirebaseFirestore.instance.collection('instructor_ideas').doc(widget.ideaId!).update(updateData);
+      } else {
+        await FirebaseFirestore.instance.collection('instructor_ideas').add({
+          'titulo': titulo,
+          'notas': _notasCtrl.text.trim(),
+          'tipo': _tipo,
+          'url': mediaUrl ?? '',
+          'publico': _publico,
+          'tipo_ejercicio': _tipoEjercicio,
+          'categoria': _tipoEjercicio,
+          'completado': false,
+          'instructor_id': widget.uid ?? '',
+          'created_at': FieldValue.serverTimestamp(),
+        });
+      }
 
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Idea guardada en tu pizarra! 💡'),
+          SnackBar(
+            content: Text(widget.isEditing ? '¡Ejercicio actualizado con éxito! ✏️' : '¡Idea guardada en tu pizarra! 💡'),
             backgroundColor: GingaColors.brandGreen,
           ),
         );
@@ -562,7 +743,7 @@ class _ModalCrearIdeaState extends State<_ModalCrearIdea> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Nueva Idea de Entrenamiento',
+                  widget.isEditing ? 'Editar Ejercicio / Idea' : 'Nueva Idea de Entrenamiento',
                   style: GoogleFonts.montserrat(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
@@ -606,7 +787,7 @@ class _ModalCrearIdeaState extends State<_ModalCrearIdea> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
             // Campo dinámico según tipo
             if (_tipo == 'link') ...[
@@ -627,7 +808,7 @@ class _ModalCrearIdeaState extends State<_ModalCrearIdea> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
             ],
 
             if (_tipo == 'imagen') ...[
@@ -649,48 +830,117 @@ class _ModalCrearIdeaState extends State<_ModalCrearIdea> {
                               ? Image.memory(_webImageBytes!, fit: BoxFit.cover)
                               : Image.file(File(_imagenSeleccionada!.path), fit: BoxFit.cover),
                         )
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.add_photo_alternate_outlined, color: GingaColors.brandGreen, size: 36),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Subir captura o foto de pizarra',
-                              style: GoogleFonts.montserrat(color: _kTextoSecundario, fontSize: 13),
-                            ),
-                          ],
-                        ),
+                      : (widget.initialData?['url'] != null && (widget.initialData!['url'] as String).isNotEmpty
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  CachedNetworkImage(
+                                    imageUrl: widget.initialData!['url'],
+                                    width: double.infinity,
+                                    height: 120,
+                                    fit: BoxFit.cover,
+                                  ),
+                                  Container(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    child: Text(
+                                      'Toca para cambiar imagen',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.add_photo_alternate_outlined, color: GingaColors.brandGreen, size: 36),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Subir captura o foto de pizarra',
+                                  style: GoogleFonts.montserrat(color: _kTextoSecundario, fontSize: 13),
+                                ),
+                              ],
+                            )),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
             ],
 
-            // Categoría
+            // 1. Público
             Text(
-              'Categoría / Disciplina',
-              style: GoogleFonts.montserrat(color: _kTextoSecundario, fontSize: 12, fontWeight: FontWeight.w600),
+              '1. ¿Para quién es? (Grupo)',
+              style: GoogleFonts.montserrat(color: _kTextoSecundario, fontSize: 12, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             Wrap(
               spacing: 8,
-              children: _categorias.map((cat) {
-                final isSelected = _categoria == cat;
+              children: _publicos.map((pub) {
+                final isSelected = _publico == pub;
                 return ChoiceChip(
-                  label: Text(cat),
+                  label: Text(pub),
                   selected: isSelected,
                   onSelected: (val) {
-                    if (val) setState(() => _categoria = cat);
+                    if (val) setState(() => _publico = pub);
                   },
-                  selectedColor: GingaColors.brandGreen,
+                  selectedColor: _publicoColor(pub),
                   backgroundColor: _kFondoOscuro,
                   labelStyle: GoogleFonts.montserrat(
                     fontSize: 12,
-                    color: isSelected ? Colors.white : _kTextoSecundario,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? Colors.black : _kTextoSecundario,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                    side: BorderSide(
+                      color: isSelected ? _publicoColor(pub) : _kBordeOscuro,
+                    ),
                   ),
                 );
               }).toList(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+
+            // 2. Tipo / Fase
+            Text(
+              '2. Tipo de Ejercicio / Fase',
+              style: GoogleFonts.montserrat(color: _kTextoSecundario, fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _tiposEjercicio.map((tipo) {
+                final isSelected = _tipoEjercicio == tipo;
+                return ChoiceChip(
+                  label: Text(tipo),
+                  selected: isSelected,
+                  onSelected: (val) {
+                    if (val) setState(() => _tipoEjercicio = tipo);
+                  },
+                  selectedColor: _faseColor(tipo),
+                  backgroundColor: _kFondoOscuro,
+                  labelStyle: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? Colors.black : _kTextoSecundario,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                    side: BorderSide(
+                      color: isSelected ? _faseColor(tipo) : _kBordeOscuro,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
 
             // Notas
             TextField(
@@ -732,7 +982,7 @@ class _ModalCrearIdeaState extends State<_ModalCrearIdea> {
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                       )
                     : Text(
-                        'Guardar en la Pizarra',
+                        widget.isEditing ? 'Guardar Cambios' : 'Guardar en la Pizarra',
                         style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 15),
                       ),
               ),
@@ -787,12 +1037,14 @@ class _IdeaCard extends StatelessWidget {
   final String id;
   final Map<String, dynamic> data;
   final ValueChanged<bool> onToggleCompletado;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _IdeaCard({
     required this.id,
     required this.data,
     required this.onToggleCompletado,
+    required this.onEdit,
     required this.onDelete,
   });
 
@@ -803,7 +1055,8 @@ class _IdeaCard extends StatelessWidget {
     final url = data['url'] as String?;
     final titulo = data['titulo'] ?? '';
     final notas = data['notas'] as String?;
-    final categoria = data['categoria'] ?? 'General';
+    final publico = (data['publico'] ?? (data['categoria'] == 'Niños' ? 'Niños' : (data['categoria'] == 'Adultos' ? 'Adultos' : null))) as String?;
+    final tipoEjercicio = (data['tipo_ejercicio'] ?? (data['categoria'] != 'Adultos' && data['categoria'] != 'Niños' ? data['categoria'] : 'General')) as String;
 
     // Determinar miniatura visual
     String? miniatura = data['thumbnail_url'] as String?;
@@ -880,39 +1133,81 @@ class _IdeaCard extends StatelessWidget {
               ],
             ),
 
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Fila superior: Chip de categoría + Botón de acción / eliminar
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _categoriaColor(categoria).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(GingaRadius.full),
-                      ),
-                      child: Text(
-                        categoria,
-                        style: GoogleFonts.montserrat(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: _categoriaColor(categoria),
+          // Tocar el contenido de la tarjeta abre edición
+          InkWell(
+            onTap: onEdit,
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(GingaRadius.lg)),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Fila superior: Badges + Botones Editar / Eliminar
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            if (publico != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: _publicoColor(publico).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(GingaRadius.full),
+                                ),
+                                child: Text(
+                                  publico,
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: _publicoColor(publico),
+                                  ),
+                                ),
+                              ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: _faseColor(tipoEjercicio).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(GingaRadius.full),
+                              ),
+                              child: Text(
+                                tipoEjercicio,
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: _faseColor(tipoEjercicio),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 20, color: _kTextoSecundario),
-                      onPressed: onDelete,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 18, color: _kTextoSecundario),
+                            onPressed: onEdit,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Editar ejercicio',
+                          ),
+                          const SizedBox(width: 10),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 18, color: _kTextoSecundario),
+                            onPressed: onDelete,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Eliminar',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
 
                 // Título con checkbox de completado
                 Row(
@@ -1019,27 +1314,12 @@ class _IdeaCard extends StatelessWidget {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
-  Color _categoriaColor(String cat) {
-    switch (cat) {
-      case 'Niños':
-        return GingaColors.brandGreen;
-      case 'Adultos':
-        return Colors.lightBlueAccent;
-      case 'Acrobacias':
-        return GingaColors.accentAmber;
-      case 'Calentamiento':
-        return Colors.orangeAccent;
-      case 'Roda':
-        return Colors.purpleAccent;
-      default:
-        return _kTextoSecundario;
-    }
-  }
 
   IconData _detectarIconoLink(String url) {
     final lower = url.toLowerCase();
