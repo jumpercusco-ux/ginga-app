@@ -9,9 +9,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/widgets/video_player_modal.dart';
 
 const Color _kFondoOscuro = Color(0xFF121212);
 const Color _kTarjetaOscura = Color(0xFF1E1E1E);
@@ -45,31 +45,6 @@ Color _publicoColor(String pub) {
       return Colors.lightBlueAccent;
     default:
       return Colors.cyanAccent;
-  }
-}
-
-Future<void> _abrirEnlaceGlobal(BuildContext context, String? urlRaw) async {
-  if (urlRaw == null || urlRaw.trim().isEmpty) return;
-  var clean = urlRaw.trim();
-  if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
-    clean = 'https://$clean';
-  }
-  try {
-    final uri = Uri.parse(clean);
-    await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-      webOnlyWindowName: '_blank',
-    );
-  } catch (e) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No se pudo abrir el enlace: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 }
 
@@ -184,7 +159,12 @@ class _EjercicioRecursoMiniaturaWidget extends StatelessWidget {
           onTap: tieneUrl
               ? () {
                   HapticFeedback.lightImpact();
-                  _abrirEnlaceGlobal(context, url);
+                  mostrarVideoPlayerInApp(
+                    context,
+                    url: url,
+                    titulo: titulo,
+                    tipo: tipo,
+                  );
                 }
               : null,
           borderRadius: BorderRadius.circular(GingaRadius.md),
@@ -326,11 +306,11 @@ class _EjercicioRecursoMiniaturaWidget extends StatelessWidget {
                       if (tieneUrl) ...[
                         const SizedBox(height: 2),
                         Text(
-                          'Toca para ver clip de referencia ↗',
+                          'Toca para reproducir clip ▶',
                           style: GoogleFonts.montserrat(
                             fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: GingaColors.accentAmber.withValues(alpha: 0.9),
+                            fontWeight: FontWeight.w600,
+                            color: GingaColors.accentAmber.withValues(alpha: 0.95),
                           ),
                         ),
                       ],
@@ -1805,9 +1785,17 @@ class _IdeaCard extends StatelessWidget {
                     ),
                   ),
                   // Botón Play sobre la miniatura si es un video/link
-                  if (tipo == 'link')
+                  if ((tipo == 'link' || tipo == 'video') && url != null && url.isNotEmpty)
                     InkWell(
-                      onTap: () => _abrirEnlaceGlobal(context, url),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        mostrarVideoPlayerInApp(
+                          context,
+                          url: url,
+                          titulo: titulo,
+                          tipo: tipo,
+                        );
+                      },
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -1999,13 +1987,21 @@ class _IdeaCard extends StatelessWidget {
                     ),
                   ],
 
-                  // Botón si es Link (Reel / TikTok / YouTube)
-                  if (tipo == 'link' && url != null && url.isNotEmpty) ...[
+                  // Botón si es Link o Video (Reel / TikTok / YouTube / MP4)
+                  if ((tipo == 'link' || tipo == 'video') && url != null && url.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Padding(
                       padding: const EdgeInsets.only(left: 32),
                       child: InkWell(
-                        onTap: () => _abrirEnlaceGlobal(context, url),
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          mostrarVideoPlayerInApp(
+                            context,
+                            url: url,
+                            titulo: titulo,
+                            tipo: tipo,
+                          );
+                        },
                         borderRadius: BorderRadius.circular(GingaRadius.md),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -2036,7 +2032,7 @@ class _IdeaCard extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              const Icon(Icons.open_in_new, size: 14, color: _kTextoSecundario),
+                              const Icon(Icons.play_circle_outline_rounded, size: 15, color: GingaColors.accentAmber),
                             ],
                           ),
                         ),
