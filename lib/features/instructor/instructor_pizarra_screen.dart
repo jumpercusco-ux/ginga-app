@@ -89,6 +89,281 @@ String _formatearNombreLink(String url) {
   return 'Abrir enlace de video';
 }
 
+/// Busca en el mapa de ideas del instructor si este ejercicio está vinculado a un recurso guardado
+Map<String, dynamic>? _buscarIdeaParaEjercicio({
+  required Map<String, dynamic> ejercicio,
+  required Map<String, Map<String, dynamic>> ideasMap,
+}) {
+  final rawRecurso = ejercicio['recurso_relacionado'];
+  final recursoStr = (rawRecurso is String ? rawRecurso : '').trim();
+  final ejNombre = (ejercicio['nombre'] as String? ?? '').toLowerCase().trim();
+  final ejUrl = (ejercicio['url_recurso'] as String? ?? '').trim();
+  final ejThumb = (ejercicio['thumbnail_url'] as String? ?? '').trim();
+
+  // Si el ejercicio trae su propia URL directa
+  if (ejUrl.isNotEmpty) {
+    return {
+      'url': ejUrl,
+      'thumbnail_url': ejThumb.isNotEmpty ? ejThumb : null,
+      'titulo': ejercicio['nombre'] ?? 'Recurso',
+      'tipo': 'link',
+    };
+  }
+
+  // Comprobar si el recurso relacionado es válido (evita 'null' o 'none')
+  final esRecursoValido = recursoStr.isNotEmpty &&
+      recursoStr.toLowerCase() != 'null' &&
+      recursoStr.toLowerCase() != 'none';
+
+  if (!esRecursoValido && ejNombre.isEmpty) {
+    return null;
+  }
+
+  final recursoLower = recursoStr.toLowerCase();
+
+  for (final entry in ideasMap.entries) {
+    final idea = entry.value;
+    final ideaTitulo = (idea['titulo'] as String? ?? '').toLowerCase().trim();
+    final ideaId = entry.key.toLowerCase().trim();
+
+    if (esRecursoValido) {
+      if (ideaId == recursoLower ||
+          ideaTitulo == recursoLower ||
+          ideaTitulo.contains(recursoLower) ||
+          recursoLower.contains(ideaTitulo)) {
+        return idea;
+      }
+    }
+
+    if (ejNombre.isNotEmpty && ideaTitulo.isNotEmpty) {
+      if (ideaTitulo.contains(ejNombre) || ejNombre.contains(ideaTitulo)) {
+        return idea;
+      }
+    }
+  }
+
+  return null;
+}
+
+/// Widget para mostrar la miniatura visual del clip vinculado (igual que en los cards de la pizarra)
+class _EjercicioRecursoMiniaturaWidget extends StatelessWidget {
+  final Map<String, dynamic> ideaData;
+  final String? fallbackTitulo;
+
+  const _EjercicioRecursoMiniaturaWidget({
+    required this.ideaData,
+    this.fallbackTitulo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final url = ideaData['url'] as String?;
+    final tipo = ideaData['tipo'] as String? ?? 'link';
+    final titulo = (ideaData['titulo'] as String? ?? fallbackTitulo ?? 'Recurso').trim();
+
+    // Determinar miniatura visual
+    String? miniatura = ideaData['thumbnail_url'] as String?;
+    if (miniatura == null || miniatura.isEmpty) {
+      if (tipo == 'imagen' && url != null && url.isNotEmpty) {
+        miniatura = url;
+      } else if (url != null && url.isNotEmpty) {
+        final ytMatch = RegExp(r'(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([a-zA-Z0-9_-]{11})').firstMatch(url);
+        if (ytMatch != null) {
+          miniatura = 'https://img.youtube.com/vi/${ytMatch.group(1)}/hqdefault.jpg';
+        }
+      }
+    }
+
+    final tieneUrl = url != null && url.trim().isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: tieneUrl
+              ? () {
+                  HapticFeedback.lightImpact();
+                  _abrirEnlaceGlobal(context, url);
+                }
+              : null,
+          borderRadius: BorderRadius.circular(GingaRadius.md),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161616),
+              borderRadius: BorderRadius.circular(GingaRadius.md),
+              border: Border.all(
+                color: GingaColors.accentAmber.withValues(alpha: 0.35),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // ── Miniatura del Clip (Igual que en la Pizarra de Recursos) ──
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    width: 78,
+                    height: 54,
+                    color: _kFondoOscuro,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      fit: StackFit.expand,
+                      children: [
+                        if (miniatura != null && miniatura.isNotEmpty)
+                          CachedNetworkImage(
+                            imageUrl: miniatura,
+                            fit: BoxFit.cover,
+                            placeholder: (context, _) => Container(
+                              color: Colors.black26,
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: GingaColors.accentAmber,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            errorWidget: (context, _, __) => Container(
+                              color: Colors.white10,
+                              child: Icon(
+                                tieneUrl ? _detectarIconoLink(url) : Icons.video_collection,
+                                color: _kTextoSecundario,
+                                size: 24,
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  GingaColors.accentAmber.withValues(alpha: 0.2),
+                                  Colors.white10,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
+                            child: Icon(
+                              tieneUrl ? _detectarIconoLink(url) : Icons.video_collection,
+                              color: GingaColors.accentAmber,
+                              size: 24,
+                            ),
+                          ),
+                        // Overlay de Botón Play
+                        if (tieneUrl)
+                          Container(
+                            color: Colors.black26,
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.7),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 1.5),
+                                ),
+                                child: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+
+                // ── Información del Recurso ──
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.push_pin, size: 12, color: GingaColors.accentAmber),
+                          const SizedBox(width: 4),
+                          Text(
+                            'De tu pizarra',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: GingaColors.accentAmber,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          if (tieneUrl)
+                            Icon(_detectarIconoLink(url), size: 12, color: _kTextoSecundario),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        titulo,
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (tieneUrl) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Toca para ver clip de referencia ↗',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: GingaColors.accentAmber.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // ── Icono de acción rápida a la derecha ──
+                if (tieneUrl)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 6, right: 2),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: GingaColors.accentAmber.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.open_in_new_rounded,
+                        size: 15,
+                        color: GingaColors.accentAmber,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class InstructorPizarraScreen extends StatefulWidget {
   const InstructorPizarraScreen({super.key});
 
@@ -1809,6 +2084,7 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
   bool _guardandoPlan = false;
   bool _planGuardado = false;
   String? _savedPlanId;
+  Map<String, Map<String, dynamic>> _ideasMap = {};
 
   final List<String> _niveles = ['Adultos', 'Niños', 'Mixto'];
   final List<int> _duraciones = [45, 60, 90];
@@ -1823,6 +2099,7 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
   @override
   void initState() {
     super.initState();
+    _cargarIdeas();
     if (widget.initialPlan != null) {
       _planGenerado = Map<String, dynamic>.from(widget.initialPlan!);
       _planGuardado = true;
@@ -1836,6 +2113,27 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
       if (widget.initialPlan!['enfoque'] != null) {
         _enfoque = widget.initialPlan!['enfoque'].toString();
       }
+    }
+  }
+
+  Future<void> _cargarIdeas() async {
+    if (widget.uid == null) return;
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('instructor_ideas')
+          .where('instructor_id', isEqualTo: widget.uid)
+          .get();
+      final map = <String, Map<String, dynamic>>{};
+      for (final doc in snap.docs) {
+        map[doc.id] = doc.data();
+      }
+      if (mounted) {
+        setState(() {
+          _ideasMap = map;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error cargando ideas en modal: $e');
     }
   }
 
@@ -1932,8 +2230,9 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
       for (final ej in ejercicios) {
         final ejMap = Map<String, dynamic>.from(ej as Map);
         buffer.writeln('• *${ejMap['nombre']}*: ${ejMap['detalle']}');
-        if (ejMap['recurso_relacionado'] != null) {
-          buffer.writeln('  📌 Ref: ${ejMap['recurso_relacionado']}');
+        final rawRef = (ejMap['recurso_relacionado'] as String? ?? '').trim();
+        if (rawRef.isNotEmpty && rawRef.toLowerCase() != 'null' && rawRef.toLowerCase() != 'none') {
+          buffer.writeln('  📌 Ref: $rawRef');
         }
       }
       buffer.writeln();
@@ -2452,7 +2751,16 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
                         final ej = Map<String, dynamic>.from(e as Map);
                         final nombre = ej['nombre'] ?? '';
                         final detalle = ej['detalle'] ?? '';
-                        final recurso = ej['recurso_relacionado'] as String?;
+                        final rawRecurso = ej['recurso_relacionado'];
+                        final recursoStr = (rawRecurso is String ? rawRecurso : '').trim();
+                        final esRecursoValido = recursoStr.isNotEmpty &&
+                            recursoStr.toLowerCase() != 'null' &&
+                            recursoStr.toLowerCase() != 'none';
+
+                        final ideaVinculada = _buscarIdeaParaEjercicio(
+                          ejercicio: ej,
+                          ideasMap: _ideasMap,
+                        );
 
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
@@ -2486,9 +2794,17 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
                                   ),
                                 ],
                               ),
-                              if (recurso != null && recurso.isNotEmpty)
+                              if (ideaVinculada != null)
                                 Padding(
-                                  padding: const EdgeInsets.only(left: 14, top: 4),
+                                  padding: const EdgeInsets.only(left: 14),
+                                  child: _EjercicioRecursoMiniaturaWidget(
+                                    ideaData: ideaVinculada,
+                                    fallbackTitulo: esRecursoValido ? recursoStr : nombre,
+                                  ),
+                                )
+                              else if (esRecursoValido)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 14, top: 6),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
@@ -2501,7 +2817,7 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
                                         const Icon(Icons.push_pin, size: 12, color: GingaColors.accentAmber),
                                         const SizedBox(width: 4),
                                         Text(
-                                          'De tu pizarra: $recurso',
+                                          'De tu pizarra: $recursoStr',
                                           style: GoogleFonts.montserrat(
                                             fontSize: 10.5,
                                             fontWeight: FontWeight.w600,
@@ -2599,6 +2915,7 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
                           planId: planId,
                           planData: _planGenerado!,
                           uid: widget.uid,
+                          ideasInstructor: _ideasMap,
                         ),
                       ),
                     );
@@ -2950,11 +3267,13 @@ class _ClaseEnVivoScreen extends StatefulWidget {
   final String? planId;
   final Map<String, dynamic> planData;
   final String? uid;
+  final Map<String, Map<String, dynamic>>? ideasInstructor;
 
   const _ClaseEnVivoScreen({
     this.planId,
     required this.planData,
     required this.uid,
+    this.ideasInstructor,
   });
 
   @override
@@ -2978,7 +3297,17 @@ class _ClaseEnVivoScreenState extends State<_ClaseEnVivoScreen> {
     final rawBloques = widget.planData['bloques'] as List? ?? [];
     _bloques = rawBloques.map((b) => Map<String, dynamic>.from(b as Map)).toList();
     _iniciarBloque(0);
-    _cargarIdeasInstructor();
+    if (widget.ideasInstructor != null && widget.ideasInstructor!.isNotEmpty) {
+      _ideasInstructor = Map.from(widget.ideasInstructor!);
+    } else {
+      _cargarIdeasInstructor();
+    }
+    // Auto-iniciar el cronómetro al entrar para que corra de inmediato
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_isCorriendo) {
+        _toggleTimer();
+      }
+    });
   }
 
   @override
@@ -3064,10 +3393,14 @@ class _ClaseEnVivoScreenState extends State<_ClaseEnVivoScreen> {
 
   void _cambiarABloque(int index) {
     if (index < 0 || index >= _bloques.length) return;
+    final wasRunning = _isCorriendo;
     setState(() {
       _timer?.cancel();
-      _isCorriendo = false;
       _iniciarBloque(index);
+      if (wasRunning) {
+        _isCorriendo = false;
+        _toggleTimer();
+      }
     });
   }
 
@@ -3101,36 +3434,6 @@ class _ClaseEnVivoScreenState extends State<_ClaseEnVivoScreen> {
     );
   }
 
-  Map<String, dynamic>? _buscarIdeaVinculada(Map<String, dynamic> ejercicio) {
-    final refNombre = (ejercicio['recurso_relacionado'] as String?)?.toLowerCase().trim();
-    final ejNombre = (ejercicio['nombre'] as String?)?.toLowerCase().trim();
-    final ejUrl = ejercicio['url_recurso'] as String?;
-
-    if (ejUrl != null && ejUrl.isNotEmpty) {
-      return {'url': ejUrl, 'titulo': ejercicio['nombre'], 'tipo': 'link'};
-    }
-
-    if (refNombre == null && ejNombre == null) return null;
-
-    for (final entry in _ideasInstructor.entries) {
-      final idea = entry.value;
-      final ideaTitulo = (idea['titulo'] as String? ?? '').toLowerCase().trim();
-      final ideaId = entry.key;
-
-      if (refNombre != null && refNombre.isNotEmpty) {
-        if (ideaTitulo.contains(refNombre) || refNombre.contains(ideaTitulo) || ideaId == refNombre) {
-          return idea;
-        }
-      }
-      if (ejNombre != null && ejNombre.isNotEmpty && ideaTitulo.isNotEmpty) {
-        if (ideaTitulo.contains(ejNombre) || ejNombre.contains(ideaTitulo)) {
-          return idea;
-        }
-      }
-    }
-    return null;
-  }
-
   List<Map<String, dynamic>> _obtenerIdeasUtilizadasEnElPlan() {
     final List<Map<String, dynamic>> encontradas = [];
     final Set<String> idsAgregados = {};
@@ -3139,29 +3442,19 @@ class _ClaseEnVivoScreenState extends State<_ClaseEnVivoScreen> {
       final ejercicios = b['ejercicios'] as List? ?? [];
       for (final ej in ejercicios) {
         final ejMap = Map<String, dynamic>.from(ej as Map);
-        final refNombre = (ejMap['recurso_relacionado'] as String?)?.toLowerCase().trim();
-        final ejNombre = (ejMap['nombre'] as String?)?.toLowerCase().trim();
-
-        for (final entry in _ideasInstructor.entries) {
-          if (idsAgregados.contains(entry.key)) continue;
-          final idea = entry.value;
-          final ideaTitulo = (idea['titulo'] as String? ?? '').toLowerCase().trim();
-
-          bool coincide = false;
-          if (refNombre != null && refNombre.isNotEmpty && (ideaTitulo.contains(refNombre) || refNombre.contains(ideaTitulo))) {
-            coincide = true;
-          } else if (ejNombre != null && ejNombre.isNotEmpty && ideaTitulo.isNotEmpty && (ideaTitulo.contains(ejNombre) || ejNombre.contains(ideaTitulo))) {
-            coincide = true;
-          }
-
-          if (coincide) {
-            idsAgregados.add(entry.key);
-            encontradas.add({
-              'id': entry.key,
-              'titulo': idea['titulo'] ?? 'Ejercicio de Pizarra',
-              'completado': idea['completado'] == true,
-              'url': idea['url'],
-            });
+        final idea = _buscarIdeaParaEjercicio(ejercicio: ejMap, ideasMap: _ideasInstructor);
+        if (idea != null) {
+          for (final entry in _ideasInstructor.entries) {
+            if (entry.value == idea && !idsAgregados.contains(entry.key)) {
+              idsAgregados.add(entry.key);
+              encontradas.add({
+                'id': entry.key,
+                'titulo': idea['titulo'] ?? 'Ejercicio de Pizarra',
+                'completado': idea['completado'] == true,
+                'url': idea['url'],
+              });
+              break;
+            }
           }
         }
       }
@@ -3573,7 +3866,7 @@ class _ClaseEnVivoScreenState extends State<_ClaseEnVivoScreen> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          _obtenerColorTimer().withValues(alpha: 0.12),
+                          _obtenerColorTimer().withValues(alpha: 0.14),
                           _kTarjetaOscura,
                         ],
                         begin: Alignment.topCenter,
@@ -3581,47 +3874,122 @@ class _ClaseEnVivoScreenState extends State<_ClaseEnVivoScreen> {
                       ),
                       borderRadius: BorderRadius.circular(GingaRadius.xl),
                       border: Border.all(
-                        color: _obtenerColorTimer().withValues(alpha: 0.4),
-                        width: 1.5,
+                        color: _obtenerColorTimer().withValues(alpha: 0.5),
+                        width: 1.8,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _obtenerColorTimer().withValues(alpha: 0.15),
+                          blurRadius: 20,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     ),
                     child: Column(
                       children: [
-                        // Nombre de la fase actual
+                        // Encabezado del bloque: Fase + Badge Estado EN VIVO / EN PAUSA
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(Icons.sports_kabaddi, size: 16, color: _obtenerColorTimer()),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                fase.toUpperCase(),
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.2,
-                                  color: _obtenerColorTimer(),
+                            Row(
+                              children: [
+                                Icon(Icons.sports_kabaddi, size: 16, color: _obtenerColorTimer()),
+                                const SizedBox(width: 8),
+                                Text(
+                                  fase.toUpperCase(),
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.2,
+                                    color: _obtenerColorTimer(),
+                                  ),
                                 ),
-                                overflow: TextOverflow.ellipsis,
+                              ],
+                            ),
+                            // Badge Estado
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _isCorriendo
+                                    ? GingaColors.brandGreen.withValues(alpha: 0.2)
+                                    : GingaColors.accentAmber.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _isCorriendo ? GingaColors.brandGreen : GingaColors.accentAmber,
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: BoxDecoration(
+                                      color: _isCorriendo ? GingaColors.brandGreen : GingaColors.accentAmber,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _isCorriendo ? 'EN VIVO' : 'EN PAUSA',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: _isCorriendo ? GingaColors.brandGreen : GingaColors.accentAmber,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 10),
 
-                        // Reloj Digital Gigante
-                        Text(
-                          _formatearTiempo(_segundosRestantes),
-                          style: GoogleFonts.montserrat(
-                            fontSize: 54,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 2,
-                            color: Colors.white,
+                        // Reloj Digital Gigante (Táctil para pausar/reanudar)
+                        InkWell(
+                          onTap: _toggleTimer,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Column(
+                              children: [
+                                Text(
+                                  _formatearTiempo(_segundosRestantes),
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 58,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 2,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      _isCorriendo ? Icons.touch_app_outlined : Icons.play_circle_outline,
+                                      size: 13,
+                                      color: _kTextoSecundario,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _isCorriendo ? 'Toca los números para pausar' : 'Toca los números para reanudar',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 11,
+                                        color: _kTextoSecundario,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
 
                         // Barra de progreso del bloque
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
@@ -3640,80 +4008,115 @@ class _ClaseEnVivoScreenState extends State<_ClaseEnVivoScreen> {
                           children: [
                             // -1 min
                             OutlinedButton(
-                              onPressed: () => _ajustarTiempo(-60),
+                              onPressed: () {
+                                HapticFeedback.selectionClick();
+                                _ajustarTiempo(-60);
+                              },
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white70,
+                                foregroundColor: Colors.white,
                                 side: const BorderSide(color: _kBordeOscuro),
+                                backgroundColor: Colors.white.withValues(alpha: 0.05),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               ),
                               child: Text(
                                 '-1 m',
-                                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13),
+                                style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 13),
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 14),
 
-                            // Play / Pause Grande
-                            GestureDetector(
-                              onTap: _toggleTimer,
-                              child: Container(
-                                width: 62,
-                                height: 62,
-                                decoration: BoxDecoration(
-                                  color: _isCorriendo ? GingaColors.brandGreen : Colors.white12,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: _isCorriendo ? Colors.white : _kBordeOscuro,
-                                    width: 2,
-                                  ),
-                                  boxShadow: _isCorriendo
-                                      ? [
-                                          BoxShadow(
-                                            color: GingaColors.brandGreen.withValues(alpha: 0.4),
-                                            blurRadius: 16,
-                                            spreadRadius: 2,
-                                          )
-                                        ]
-                                      : null,
-                                ),
-                                child: Icon(
-                                  _isCorriendo ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                  size: 38,
+                            // Botón Central PLAY / PAUSA con TEXTO CLARO
+                            ElevatedButton.icon(
+                              onPressed: _toggleTimer,
+                              icon: Icon(
+                                _isCorriendo ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                size: 24,
+                                color: _isCorriendo ? Colors.black : Colors.white,
+                              ),
+                              label: Text(
+                                _isCorriendo ? 'PAUSAR' : 'REANUDAR',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
                                   color: _isCorriendo ? Colors.black : Colors.white,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _isCorriendo ? GingaColors.brandGreen : GingaColors.accentAmber,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.full),
+                                ),
+                                elevation: 4,
+                                shadowColor: (_isCorriendo ? GingaColors.brandGreen : GingaColors.accentAmber).withValues(alpha: 0.5),
+                              ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 14),
 
                             // +1 min
                             OutlinedButton(
-                              onPressed: () => _ajustarTiempo(60),
+                              onPressed: () {
+                                HapticFeedback.selectionClick();
+                                _ajustarTiempo(60);
+                              },
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white70,
+                                foregroundColor: Colors.white,
                                 side: const BorderSide(color: _kBordeOscuro),
+                                backgroundColor: Colors.white.withValues(alpha: 0.05),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(GingaRadius.md),
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               ),
                               child: Text(
                                 '+1 m',
-                                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 13),
+                                style: GoogleFonts.montserrat(fontWeight: FontWeight.w800, fontSize: 13),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 8),
 
                             // Reset
                             IconButton(
-                              onPressed: _reiniciarBloqueActual,
+                              onPressed: () {
+                                HapticFeedback.lightImpact();
+                                _reiniciarBloqueActual();
+                              },
                               icon: const Icon(Icons.replay, color: _kTextoSecundario, size: 22),
                               tooltip: 'Reiniciar tiempo del bloque',
                             ),
                           ],
                         ),
+
+                        // Botón de paso a la siguiente fase si el tiempo concluyó
+                        if (_segundosRestantes == 0 && _bloqueActual < _bloques.length - 1) ...[
+                          const SizedBox(height: 14),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _cambiarABloque(_bloqueActual + 1),
+                              icon: const Icon(Icons.skip_next_rounded, size: 20),
+                              label: Text(
+                                'Pasar a: ${_bloques[_bloqueActual + 1]["fase"] ?? "Siguiente Fase"} ⏭',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: GingaColors.brandGreen,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -3751,10 +4154,17 @@ class _ClaseEnVivoScreenState extends State<_ClaseEnVivoScreen> {
                     final key = '${_bloqueActual}_$idx';
                     final isChecked = _ejerciciosCompletados.contains(key);
 
-                    // Buscar si tiene recurso o video vinculado
-                    final ideaVinculada = _buscarIdeaVinculada(ej);
-                    final videoUrl = ideaVinculada?['url'] as String?;
-                    final videoTitulo = ideaVinculada?['titulo'] as String? ?? ej['recurso_relacionado'] as String?;
+                    // Buscar recurso o video vinculado en la pizarra
+                    final ideaVinculada = _buscarIdeaParaEjercicio(
+                      ejercicio: ej,
+                      ideasMap: _ideasInstructor,
+                    );
+
+                    final rawRecurso = ej['recurso_relacionado'];
+                    final recursoStr = (rawRecurso is String ? rawRecurso : '').trim();
+                    final esRecursoValido = recursoStr.isNotEmpty &&
+                        recursoStr.toLowerCase() != 'null' &&
+                        recursoStr.toLowerCase() != 'none';
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
@@ -3832,41 +4242,38 @@ class _ClaseEnVivoScreenState extends State<_ClaseEnVivoScreen> {
                               ],
                             ),
 
-                            // ── Botón Rápido para Ver Video de TikTok / Instagram / YouTube ──
-                            if (videoUrl != null && videoUrl.isNotEmpty) ...[
-                              const SizedBox(height: 12),
+                            // ── Miniatura Visual de Video de TikTok / Instagram / YouTube ──
+                            if (ideaVinculada != null) ...[
                               Padding(
                                 padding: const EdgeInsets.only(left: 38),
-                                child: InkWell(
-                                  onTap: () => _abrirEnlaceGlobal(context, videoUrl),
-                                  borderRadius: BorderRadius.circular(GingaRadius.md),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: GingaColors.accentAmber.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(GingaRadius.md),
-                                      border: Border.all(color: GingaColors.accentAmber.withValues(alpha: 0.4)),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(_detectarIconoLink(videoUrl), size: 16, color: GingaColors.accentAmber),
-                                        const SizedBox(width: 8),
-                                        Flexible(
-                                          child: Text(
-                                            'Ver Video: ${videoTitulo ?? "Ver Drill"}',
-                                            style: GoogleFonts.montserrat(
-                                              fontSize: 11.5,
-                                              fontWeight: FontWeight.w700,
-                                              color: GingaColors.accentAmber,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
+                                child: _EjercicioRecursoMiniaturaWidget(
+                                  ideaData: ideaVinculada,
+                                  fallbackTitulo: esRecursoValido ? recursoStr : nombre,
+                                ),
+                              ),
+                            ] else if (esRecursoValido) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(left: 38, top: 6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: GingaColors.accentAmber.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.push_pin, size: 12, color: GingaColors.accentAmber),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'De tu pizarra: $recursoStr',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: GingaColors.accentAmber,
                                         ),
-                                        const SizedBox(width: 6),
-                                        const Icon(Icons.open_in_new, size: 13, color: GingaColors.accentAmber),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
