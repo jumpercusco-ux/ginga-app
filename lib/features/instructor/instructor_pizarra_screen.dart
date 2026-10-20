@@ -69,8 +69,11 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
           ],
         ),
       ),
-      body: Column(
-        children: [
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1400),
+          child: Column(
+            children: [
           // ── Botón Destacado: Armar Clase con IA ──
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
@@ -228,19 +231,71 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) {
-                    final doc = docs[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    return _IdeaCard(
-                      id: doc.id,
-                      data: data,
-                      onToggleCompletado: (val) {
-                        doc.reference.update({'completado': val});
-                      },
-                      onDelete: () => _confirmarEliminar(doc.id, data['titulo'] ?? 'esta idea'),
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxWidth = constraints.maxWidth;
+                    int columns = 1;
+                    if (maxWidth >= 1200) {
+                      columns = 4;
+                    } else if (maxWidth >= 850) {
+                      columns = 3;
+                    } else if (maxWidth >= 550) {
+                      columns = 2;
+                    }
+
+                    if (columns == 1) {
+                      return ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+                        itemCount: docs.length,
+                        itemBuilder: (context, index) {
+                          final doc = docs[index];
+                          final data = doc.data() as Map<String, dynamic>;
+                          return _IdeaCard(
+                            id: doc.id,
+                            data: data,
+                            onToggleCompletado: (val) {
+                              doc.reference.update({'completado': val});
+                            },
+                            onDelete: () => _confirmarEliminar(doc.id, data['titulo'] ?? 'esta idea'),
+                          );
+                        },
+                      );
+                    }
+
+                    // Masonry grid multi-columna para Desktop y Tablet
+                    final List<List<Widget>> columnItems = List.generate(columns, (_) => []);
+                    for (int i = 0; i < docs.length; i++) {
+                      final doc = docs[i];
+                      final data = doc.data() as Map<String, dynamic>;
+                      final col = i % columns;
+                      columnItems[col].add(
+                        _IdeaCard(
+                          id: doc.id,
+                          data: data,
+                          onToggleCompletado: (val) {
+                            doc.reference.update({'completado': val});
+                          },
+                          onDelete: () => _confirmarEliminar(doc.id, data['titulo'] ?? 'esta idea'),
+                        ),
+                      );
+                    }
+
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (int c = 0; c < columns; c++) ...[
+                            if (c > 0) const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: columnItems[c],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     );
                   },
                 );
@@ -249,6 +304,8 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
           ),
         ],
       ),
+    ),
+  ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: GingaColors.brandGreen,
         foregroundColor: Colors.white,
@@ -762,7 +819,7 @@ class _IdeaCard extends StatelessWidget {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: _kTarjetaOscura,
         borderRadius: BorderRadius.circular(GingaRadius.lg),
@@ -782,11 +839,11 @@ class _IdeaCard extends StatelessWidget {
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(GingaRadius.lg)),
                   child: CachedNetworkImage(
                     imageUrl: miniatura,
-                    height: 170,
+                    height: 190,
                     width: double.infinity,
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(
-                      height: 170,
+                      height: 190,
                       color: _kFondoOscuro,
                       child: const Center(
                         child: CircularProgressIndicator(color: GingaColors.brandGreen, strokeWidth: 2),
