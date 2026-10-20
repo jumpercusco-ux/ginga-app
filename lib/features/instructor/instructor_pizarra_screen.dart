@@ -640,12 +640,25 @@ class _ModalIdeaState extends State<_ModalIdea> {
   }
 
   Future<void> _guardarIdea() async {
-    final titulo = _tituloCtrl.text.trim();
+    var titulo = _tituloCtrl.text.trim();
     if (titulo.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor escribe un título o nombre del movimiento')),
-      );
-      return;
+      if (_tipo == 'link' && _urlCtrl.text.trim().isNotEmpty) {
+        final u = _urlCtrl.text.trim().toLowerCase();
+        if (u.contains('tiktok.com')) {
+          titulo = 'Ejercicio TikTok ($_tipoEjercicio)';
+        } else if (u.contains('instagram.com')) {
+          titulo = 'Reel Instagram ($_tipoEjercicio)';
+        } else if (u.contains('youtube.com') || u.contains('youtu.be')) {
+          titulo = 'Video YouTube ($_tipoEjercicio)';
+        } else {
+          titulo = 'Ejercicio $_tipoEjercicio';
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Por favor escribe un título o nombre del movimiento')),
+        );
+        return;
+      }
     }
 
     setState(() => _subiendo = true);
@@ -663,7 +676,11 @@ class _ModalIdeaState extends State<_ModalIdea> {
         }
         mediaUrl = await storageRef.getDownloadURL();
       } else if (_tipo == 'link') {
-        mediaUrl = _urlCtrl.text.trim();
+        var rawUrl = _urlCtrl.text.trim();
+        if (rawUrl.isNotEmpty && !rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+          rawUrl = 'https://$rawUrl';
+        }
+        mediaUrl = rawUrl;
       }
 
       if (widget.isEditing) {
@@ -679,7 +696,10 @@ class _ModalIdeaState extends State<_ModalIdea> {
           updateData['url'] = mediaUrl;
           updateData['thumbnail_url'] = mediaUrl;
         } else if (_tipo == 'link') {
-          final newUrl = _urlCtrl.text.trim();
+          var newUrl = _urlCtrl.text.trim();
+          if (newUrl.isNotEmpty && !newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+            newUrl = 'https://$newUrl';
+          }
           updateData['url'] = newUrl;
           if (newUrl != widget.initialData?['url']) {
             updateData['thumbnail_url'] = FieldValue.delete();
@@ -1112,14 +1132,7 @@ class _IdeaCard extends StatelessWidget {
                 // Botón Play sobre la miniatura si es un video/link
                 if (tipo == 'link')
                   InkWell(
-                    onTap: () async {
-                      if (url != null && url.isNotEmpty) {
-                        final uri = Uri.parse(url);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
-                      }
-                    },
+                    onTap: () => _abrirEnlace(context, url),
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -1268,12 +1281,7 @@ class _IdeaCard extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(left: 32),
                     child: InkWell(
-                      onTap: () async {
-                        final uri = Uri.parse(url);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
-                      },
+                      onTap: () => _abrirEnlace(context, url),
                       borderRadius: BorderRadius.circular(GingaRadius.md),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1320,6 +1328,31 @@ class _IdeaCard extends StatelessWidget {
   );
 }
 
+
+  Future<void> _abrirEnlace(BuildContext context, String? urlRaw) async {
+    if (urlRaw == null || urlRaw.trim().isEmpty) return;
+    var clean = urlRaw.trim();
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = 'https://$clean';
+    }
+    try {
+      final uri = Uri.parse(clean);
+      await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+        webOnlyWindowName: '_blank',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No se pudo abrir el enlace: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   IconData _detectarIconoLink(String url) {
     final lower = url.toLowerCase();
