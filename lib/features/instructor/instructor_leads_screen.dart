@@ -427,6 +427,70 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
     );
   }
 
+  Future<void> _marcarAsistenciaChecklist(
+    DocumentSnapshot doc,
+    Map<String, dynamic> data,
+    bool asistio,
+  ) async {
+    final leadId = doc.id;
+    final reservaId = data['reserva_id'] as String?;
+    final personas = (data['perfil_personas'] as List?) ?? [];
+    String nombrePersona = '';
+    if (personas.isNotEmpty && personas.first is Map) {
+      nombrePersona = (personas.first['nombre'] ?? '').toString().trim();
+    }
+    if (nombrePersona.isEmpty) {
+      nombrePersona = (data['nombre'] ?? 'Alumno').toString().trim();
+    }
+
+    await doc.reference.update({
+      'status': asistio ? 'asistio' : 'perdido',
+      'asistio': asistio,
+      'asistio_at': asistio ? FieldValue.serverTimestamp() : null,
+      'ultima_interaccion': FieldValue.serverTimestamp(),
+    });
+
+    if (reservaId != null && reservaId.isNotEmpty) {
+      try {
+        await FirebaseFirestore.instance.collection('reservas').doc(reservaId).update({
+          'status': asistio ? 'asistio' : 'no_asistio',
+          'asistio_at': asistio ? FieldValue.serverTimestamp() : null,
+        });
+      } catch (e) {
+        debugPrint('Error actualizando reserva $reservaId: $e');
+      }
+    }
+
+    if (asistio) {
+      final fechaTs = data['fecha_clase_reservada'] as Timestamp?;
+      final f = fechaTs?.toDate() ?? DateTime.now();
+      final fechaStr = '${f.year}-${f.month.toString().padLeft(2, '0')}-${f.day.toString().padLeft(2, '0')}';
+      try {
+        final check = await FirebaseFirestore.instance
+            .collection('asistencias')
+            .where('lead_id', isEqualTo: leadId)
+            .where('fecha', isEqualTo: fechaStr)
+            .get();
+
+        if (check.docs.isEmpty) {
+          await FirebaseFirestore.instance.collection('asistencias').add({
+            'sesion_id': 'prueba_whatsapp',
+            'clase_id': data['clase_reservada_id'] ?? '',
+            'lead_id': leadId,
+            'user_name': nombrePersona,
+            'user_email': 'lead_${leadId}@whatsapp',
+            'tipo': 'prueba',
+            'fecha': fechaStr,
+            'hora': '18:00',
+            'created_at': FieldValue.serverTimestamp(),
+          });
+        }
+      } catch (e) {
+        debugPrint('Error creando asistencia: $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
@@ -435,7 +499,27 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
           .where('status', isEqualTo: 'reservado')
           .snapshots(),
       builder: (context, snapshot) {
-        final docs = snapshot.data?.docs ?? [];
+        final docs = (snapshot.data?.docs ?? []).toList();
+
+        // Ordenar: clases de hoy primero, luego por fecha ascendente
+        final ahora = DateTime.now();
+        docs.sort((a, b) {
+          final aData = a.data() as Map<String, dynamic>;
+          final bData = b.data() as Map<String, dynamic>;
+          final aTs = aData['fecha_clase_reservada'] as Timestamp?;
+          final bTs = bData['fecha_clase_reservada'] as Timestamp?;
+          if (aTs == null && bTs == null) return 0;
+          if (aTs == null) return 1;
+          if (bTs == null) return -1;
+          final aDate = aTs.toDate();
+          final bDate = bTs.toDate();
+          final aEsHoy = aDate.year == ahora.year && aDate.month == ahora.month && aDate.day == ahora.day;
+          final bEsHoy = bDate.year == ahora.year && bDate.month == ahora.month && bDate.day == ahora.day;
+          if (aEsHoy && !bEsHoy) return -1;
+          if (!aEsHoy && bEsHoy) return 1;
+          return aDate.compareTo(bDate);
+        });
+
         return Container(
           margin: const EdgeInsets.fromLTRB(GingaSpacing.md, 0, GingaSpacing.md, GingaSpacing.sm),
           padding: const EdgeInsets.all(GingaSpacing.md),
@@ -499,7 +583,7 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
                   )
                 else
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 220),
+                    constraints: const BoxConstraints(maxHeight: 320),
                     child: ListView.builder(
                       shrinkWrap: true,
                       padding: EdgeInsets.zero,
@@ -516,6 +600,9 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
                             .join(', ');
                         final etiqueta = nombresPersonas.isNotEmpty ? '$nombreLead ($nombresPersonas)' : nombreLead;
                         final fechaReservada = data['fecha_clase_reservada'] as Timestamp?;
+                        final fr = fechaReservada?.toDate();
+                        final esHoy = fr != null && fr.year == ahora.year && fr.month == ahora.month && fr.day == ahora.day;
+
                         return Padding(
                           padding: const EdgeInsets.only(top: GingaSpacing.sm),
                           child: InkWell(
@@ -530,26 +617,53 @@ class _ChecklistPruebasHoyState extends State<_ChecklistPruebasHoy> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(etiqueta,
-                                            style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white, decoration: TextDecoration.underline, decorationColor: Colors.white54)),
+                                        Row(
+                                          children: [
+                                            if (esHoy) ...[
+                                              Container(
+                                                margin: const EdgeInsets.only(right: 6),
+                                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                decoration: BoxDecoration(
+                                                  color: GingaColors.accentAmber,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  'HOY 🔔',
+                                                  style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.black),
+                                                ),
+                                              ),
+                                            ],
+                                            Expanded(
+                                              child: Text(
+                                                etiqueta,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: GoogleFonts.montserrat(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.white,
+                                                  decoration: TextDecoration.underline,
+                                                  decorationColor: Colors.white54,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                         if (fechaReservada != null)
                                           Text(_formatearFechaCorta(fechaReservada),
-                                              style: GoogleFonts.montserrat(fontSize: 11, color: _kTextoSecundarioOscuro)),
+                                              style: GoogleFonts.montserrat(fontSize: 11, color: esHoy ? GingaColors.accentAmber : _kTextoSecundarioOscuro)),
                                       ],
                                     ),
                                   ),
-                              TextButton(
-                                onPressed: () => doc.reference
-                                    .update({'status': 'asistio', 'ultima_interaccion': FieldValue.serverTimestamp()}),
-                                style: TextButton.styleFrom(foregroundColor: GingaColors.brandGreen, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                                child: Text('Asistió', style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700)),
-                              ),
-                              TextButton(
-                                onPressed: () => doc.reference
-                                    .update({'status': 'perdido', 'ultima_interaccion': FieldValue.serverTimestamp()}),
-                                style: TextButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                                child: Text('No asistió', style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700)),
-                              ),
+                                  TextButton(
+                                    onPressed: () => _marcarAsistenciaChecklist(doc, data, true),
+                                    style: TextButton.styleFrom(foregroundColor: GingaColors.brandGreen, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                                    child: Text('Asistió', style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700)),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => _marcarAsistenciaChecklist(doc, data, false),
+                                    style: TextButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                                    child: Text('No asistió', style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700)),
+                                  ),
                                 ],
                               ),
                             ),
@@ -777,7 +891,7 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                     final picked = await showDatePicker(
                       context: dialogContext,
                       initialDate: ahora,
-                      firstDate: ahora,
+                      firstDate: ahora.subtract(const Duration(days: 7)),
                       lastDate: ahora.add(const Duration(days: 90)),
                       // Las clases (incluida la de prueba) son solo martes y jueves.
                       selectableDayPredicate: (d) => d.weekday == DateTime.tuesday || d.weekday == DateTime.thursday,
@@ -919,6 +1033,89 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
     }
   }
 
+  Future<void> _marcarAsistencia(
+    BuildContext context,
+    DocumentReference leadRef,
+    Map<String, dynamic> data,
+    bool asistio,
+  ) async {
+    final reservaId = data['reserva_id'] as String?;
+    final personas = (data['perfil_personas'] as List?) ?? [];
+    String nombreAsistente = '';
+    if (personas.isNotEmpty && personas.first is Map) {
+      nombreAsistente = (personas.first['nombre'] ?? '').toString().trim();
+    }
+    if (nombreAsistente.isEmpty) {
+      nombreAsistente = (data['nombre'] ?? 'Alumno').toString().trim();
+    }
+
+    try {
+      await leadRef.update({
+        'status': asistio ? 'asistio' : 'perdido',
+        'asistio': asistio,
+        'asistio_at': asistio ? FieldValue.serverTimestamp() : null,
+        'ultima_interaccion': FieldValue.serverTimestamp(),
+      });
+
+      if (reservaId != null && reservaId.isNotEmpty) {
+        try {
+          await FirebaseFirestore.instance.collection('reservas').doc(reservaId).update({
+            'status': asistio ? 'asistio' : 'no_asistio',
+            'asistio_at': asistio ? FieldValue.serverTimestamp() : null,
+          });
+        } catch (e) {
+          debugPrint('Error actualizando reserva $reservaId: $e');
+        }
+      }
+
+      if (asistio) {
+        final ts = data['fecha_clase_reservada'] as Timestamp?;
+        final f = ts?.toDate() ?? DateTime.now();
+        final fechaStr = '${f.year}-${f.month.toString().padLeft(2, '0')}-${f.day.toString().padLeft(2, '0')}';
+
+        final check = await FirebaseFirestore.instance
+            .collection('asistencias')
+            .where('lead_id', isEqualTo: widget.leadId)
+            .where('fecha', isEqualTo: fechaStr)
+            .get();
+
+        if (check.docs.isEmpty) {
+          await FirebaseFirestore.instance.collection('asistencias').add({
+            'sesion_id': 'prueba_whatsapp',
+            'clase_id': data['clase_reservada_id'] ?? '',
+            'lead_id': widget.leadId,
+            'user_name': nombreAsistente,
+            'user_email': 'lead_${widget.leadId}@whatsapp',
+            'tipo': 'prueba',
+            'fecha': fechaStr,
+            'hora': '18:00',
+            'created_at': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              asistio
+                  ? '¡Asistencia registrada para $nombreAsistente! 🎉'
+                  : 'Marcado como no asistió.',
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, color: Colors.white),
+            ),
+            backgroundColor: asistio ? GingaColors.brandGreen : Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final leadRef = FirebaseFirestore.instance.collection('whatsapp_leads').doc(widget.leadId);
@@ -935,163 +1132,253 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(widget.leadData['nombre'] ?? 'Lead',
-                    style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
-              ),
-              StreamBuilder<DocumentSnapshot>(
-                stream: leadRef.snapshots(),
-                builder: (context, snapshot) {
-                  final data = snapshot.data?.data() as Map<String, dynamic>?;
-                  final aiHabilitada = (data?['ai_habilitada'] ?? true) != false;
-                  return Row(
-                    children: [
-                      Text('IA', style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro)),
-                      Switch(
-                        value: aiHabilitada,
-                        activeThumbColor: GingaColors.brandGreen,
-                        activeTrackColor: GingaColors.brandGreen.withOpacity(0.3),
-                        inactiveThumbColor: Colors.white70,
-                        inactiveTrackColor: _kBordeOscuro,
-                        onChanged: (value) => leadRef.update({'ai_habilitada': value}),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
           StreamBuilder<DocumentSnapshot>(
             stream: leadRef.snapshots(),
             builder: (context, snapshot) {
-              final data = snapshot.data?.data() as Map<String, dynamic>?;
-              final status = data?['status'] as String?;
-              if (status == 'reservado') {
-                final ts = data?['fecha_clase_reservada'] as Timestamp?;
-                final dateStr = ts != null ? ' (${_formatearFechaCorta(ts)})' : '';
-                return Padding(
-                  padding: const EdgeInsets.only(top: GingaSpacing.xs),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _marcarComoReservado(context, leadRef),
-                      icon: const Icon(Icons.edit_calendar, size: 16, color: GingaColors.accentAmber),
-                      label: Text('Cambiar fecha de reserva$dateStr', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.accentAmber)),
-                      style: OutlinedButton.styleFrom(side: const BorderSide(color: GingaColors.accentAmber)),
+              final data = snapshot.data?.data() as Map<String, dynamic>? ?? widget.leadData;
+              final status = (data['status'] as String?) ?? 'nuevo';
+              final aiHabilitada = (data['ai_habilitada'] ?? true) != false;
+              final convertidoUid = data['convertido_uid'] as String?;
+              final ts = data['fecha_clase_reservada'] as Timestamp?;
+              final personas = data['perfil_personas'] as List<dynamic>?;
+
+              String nombreAsistente = '';
+              if (personas != null && personas.isNotEmpty && personas.first is Map) {
+                nombreAsistente = (personas.first['nombre'] ?? '').toString().trim();
+              }
+              if (nombreAsistente.isEmpty) {
+                nombreAsistente = (data['nombre'] ?? 'Lead').toString().trim();
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(data['nombre'] ?? widget.leadData['nombre'] ?? 'Lead',
+                            style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
+                      ),
+                      Row(
+                        children: [
+                          Text('IA', style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro)),
+                          Switch(
+                            value: aiHabilitada,
+                            activeThumbColor: GingaColors.brandGreen,
+                            activeTrackColor: GingaColors.brandGreen.withOpacity(0.3),
+                            inactiveThumbColor: Colors.white70,
+                            inactiveTrackColor: _kBordeOscuro,
+                            onChanged: (value) => leadRef.update({'ai_habilitada': value}),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  // Perfiles detectados
+                  if (personas != null && personas.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(top: GingaSpacing.xs),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: personas.map((p) {
+                          final persona = p as Map<String, dynamic>;
+                          final rawNombre = (persona['nombre'] ?? '').toString().trim();
+                          final esPlaceholder = rawNombre.isEmpty ||
+                              rawNombre.startsWith('[') ||
+                              rawNombre.toLowerCase().contains('nombre de tu') ||
+                              rawNombre.toLowerCase() == 'sin nombre';
+                          final tipo = (persona['tipo'] ?? '').toString().trim();
+                          final edad = persona['edad'];
+                          final etiqueta = esPlaceholder
+                              ? (tipo.isNotEmpty
+                                  ? '${tipo[0].toUpperCase()}${tipo.substring(1)}${edad != null ? ' ($edad años)' : ''}'
+                                  : 'Interesado${edad != null ? ' ($edad años)' : ''}')
+                              : '$rawNombre (${tipo.isNotEmpty ? '$tipo, ' : ''}${edad != null ? '$edad años' : ''})';
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: GingaColors.brandGreen.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: GingaColors.brandGreen.withOpacity(0.3)),
+                            ),
+                            child: Text(
+                              etiqueta,
+                              style: GoogleFonts.montserrat(
+                                fontSize: 12,
+                                color: GingaColors.brandGreen,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
-                  ),
-                );
-              }
-              return Padding(
-                padding: const EdgeInsets.only(top: GingaSpacing.xs),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _marcarComoReservado(context, leadRef),
-                    icon: const Icon(Icons.event_available, size: 16, color: GingaColors.accentAmber),
-                    label: Text('Marcar como reservado', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.accentAmber)),
-                    style: OutlinedButton.styleFrom(side: const BorderSide(color: GingaColors.accentAmber)),
-                  ),
-                ),
-              );
-            },
-          ),
-          StreamBuilder<DocumentSnapshot>(
-            stream: leadRef.snapshots(),
-            builder: (context, snapshot) {
-              final data = snapshot.data?.data() as Map<String, dynamic>?;
-              final status = data?['status'] as String?;
-              if (status != 'requiere_atencion') return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.only(top: GingaSpacing.xs),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton.icon(
-                    onPressed: () => leadRef.update({'status': 'conversando'}),
-                    icon: const Icon(Icons.check_circle_outline, size: 16, color: Colors.deepOrange),
-                    label: Text('Marcar como resuelto', style: GoogleFonts.montserrat(fontSize: 12, color: Colors.deepOrange)),
-                    style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.deepOrange)),
-                  ),
-                ),
-              );
-            },
-          ),
-          StreamBuilder<DocumentSnapshot>(
-            stream: leadRef.snapshots(),
-            builder: (context, snapshot) {
-              final data = snapshot.data?.data() as Map<String, dynamic>?;
-              final convertidoUid = data?['convertido_uid'] as String?;
-              if (convertidoUid != null) {
-                return Padding(
-                  padding: const EdgeInsets.only(top: GingaSpacing.xs),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.check_circle, size: 16, color: GingaColors.brandGreen),
-                      const SizedBox(width: 4),
-                      Text('Ya convertido en alumno', style: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundarioOscuro)),
-                    ],
-                  ),
-                );
-              }
-              return Padding(
-                padding: const EdgeInsets.only(top: GingaSpacing.xs),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _convertirEnAlumno(context, leadRef),
-                    icon: const Icon(Icons.school_outlined, size: 16, color: GingaColors.brandGreen),
-                    label: Text('Convertir en alumno', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.brandGreen)),
-                    style: OutlinedButton.styleFrom(side: const BorderSide(color: GingaColors.brandGreen)),
-                  ),
-                ),
-              );
-            },
-          ),
-          StreamBuilder<DocumentSnapshot>(
-            stream: leadRef.snapshots(),
-            builder: (context, snapshot) {
-              final data = snapshot.data?.data() as Map<String, dynamic>?;
-              final personas = data?['perfil_personas'] as List<dynamic>?;
-              if (personas == null || personas.isEmpty) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.only(top: GingaSpacing.xs),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: personas.map((p) {
-                    final persona = p as Map<String, dynamic>;
-                    final rawNombre = (persona['nombre'] ?? '').toString().trim();
-                    final esPlaceholder = rawNombre.isEmpty ||
-                        rawNombre.startsWith('[') ||
-                        rawNombre.toLowerCase().contains('nombre de tu') ||
-                        rawNombre.toLowerCase() == 'sin nombre';
-                    final tipo = (persona['tipo'] ?? '').toString().trim();
-                    final edad = persona['edad'];
-                    final etiqueta = esPlaceholder
-                        ? (tipo.isNotEmpty
-                            ? '${tipo[0].toUpperCase()}${tipo.substring(1)}${edad != null ? ' ($edad años)' : ''}'
-                            : 'Interesado${edad != null ? ' ($edad años)' : ''}')
-                        : '$rawNombre (${tipo.isNotEmpty ? '$tipo, ' : ''}${edad != null ? '$edad años' : ''})';
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  ],
+
+                  // Tarjeta de Asistencia / Reserva
+                  if (status == 'reservado') ...[
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: GingaColors.brandGreen.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: GingaColors.brandGreen.withOpacity(0.3)),
+                        color: GingaColors.accentAmber.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                        border: Border.all(color: GingaColors.accentAmber.withOpacity(0.4)),
                       ),
-                      child: Text(
-                        etiqueta,
-                        style: GoogleFonts.montserrat(
-                          fontSize: 12,
-                          color: GingaColors.brandGreen,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.event_available, color: GingaColors.accentAmber, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Reserva: $nombreAsistente${ts != null ? ' (${_formatearFechaCorta(ts)})' : ''}',
+                                  style: GoogleFonts.montserrat(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: () => _marcarAsistencia(context, leadRef, data, true),
+                                icon: const Icon(Icons.check_circle, size: 16),
+                                label: const Text('Asistió a clase'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: GingaColors.brandGreen,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  textStyle: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () => _marcarAsistencia(context, leadRef, data, false),
+                                icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.redAccent),
+                                label: Text('No asistió', style: GoogleFonts.montserrat(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w600)),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.redAccent),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => _marcarComoReservado(context, leadRef),
+                                icon: const Icon(Icons.edit_calendar, size: 14, color: GingaColors.accentAmber),
+                                label: Text('Cambiar fecha', style: GoogleFonts.montserrat(color: GingaColors.accentAmber, fontSize: 11)),
+                                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    );
-                  }).toList(),
-                ),
+                    ),
+                  ] else if (status == 'asistio') ...[
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: GingaColors.brandGreen.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                        border: Border.all(color: GingaColors.brandGreen.withOpacity(0.4)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.check_circle, color: GingaColors.brandGreen, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '¡Asistió a la clase de prueba! 🎉 ($nombreAsistente)',
+                                  style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => _marcarAsistencia(context, leadRef, data, false),
+                                child: Text('Desmarcar', style: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro, fontSize: 11)),
+                              ),
+                            ],
+                          ),
+                          if (convertidoUid == null) ...[
+                            const SizedBox(height: 8),
+                            ElevatedButton.icon(
+                              onPressed: () => _convertirEnAlumno(context, leadRef),
+                              icon: const Icon(Icons.school, size: 16),
+                              label: const Text('Convertir en alumno oficial'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: GingaColors.brandGreen,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                textStyle: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ] else ...[
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text('✓ Ya matriculado en la app', style: GoogleFonts.montserrat(color: GingaColors.brandGreen, fontSize: 12, fontWeight: FontWeight.w600)),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ] else if (status == 'perdido') ...[
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                        border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.cancel, color: Colors.redAccent, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text('Marcado como: No asistió a la clase', style: GoogleFonts.montserrat(color: Colors.white70, fontSize: 12)),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => _marcarComoReservado(context, leadRef),
+                            icon: const Icon(Icons.replay, size: 14, color: GingaColors.accentAmber),
+                            label: Text('Reprogramar', style: GoogleFonts.montserrat(color: GingaColors.accentAmber, fontSize: 11, fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    Padding(
+                      padding: const EdgeInsets.only(top: GingaSpacing.xs),
+                      child: OutlinedButton.icon(
+                        onPressed: () => _marcarComoReservado(context, leadRef),
+                        icon: const Icon(Icons.event_available, size: 16, color: GingaColors.accentAmber),
+                        label: Text('Marcar como reservado', style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.accentAmber)),
+                        style: OutlinedButton.styleFrom(side: const BorderSide(color: GingaColors.accentAmber)),
+                      ),
+                    ),
+                  ],
+
+                  if (status == 'requiere_atencion')
+                    Padding(
+                      padding: const EdgeInsets.only(top: GingaSpacing.xs),
+                      child: OutlinedButton.icon(
+                        onPressed: () => leadRef.update({'status': 'conversando'}),
+                        icon: const Icon(Icons.check_circle_outline, size: 16, color: Colors.deepOrange),
+                        label: Text('Marcar como resuelto', style: GoogleFonts.montserrat(fontSize: 12, color: Colors.deepOrange)),
+                        style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.deepOrange)),
+                      ),
+                    ),
+                ],
               );
             },
           ),

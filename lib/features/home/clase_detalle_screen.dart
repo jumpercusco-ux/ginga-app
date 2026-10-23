@@ -524,6 +524,67 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
     );
   }
 
+  Future<void> _marcarAsistenciaReserva(String reservaId, Map<String, dynamic> data, bool asistio) async {
+    final String leadId = (data['lead_id'] ?? '').toString().trim();
+    final String nombre = (data['nombre_persona'] ?? 'Alumno').toString().trim();
+    final Timestamp? fechaTs = data['fecha_clase'] as Timestamp?;
+    final f = fechaTs?.toDate() ?? DateTime.now();
+    final fechaStr = '${f.year}-${f.month.toString().padLeft(2, '0')}-${f.day.toString().padLeft(2, '0')}';
+
+    try {
+      await FirebaseFirestore.instance.collection('reservas').doc(reservaId).update({
+        'status': asistio ? 'asistio' : 'no_asistio',
+        'asistio_at': asistio ? FieldValue.serverTimestamp() : null,
+      });
+
+      if (leadId.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('whatsapp_leads').doc(leadId).update({
+          'status': asistio ? 'asistio' : 'perdido',
+          'asistio': asistio,
+          'asistio_at': asistio ? FieldValue.serverTimestamp() : null,
+          'ultima_interaccion': FieldValue.serverTimestamp(),
+        });
+      }
+
+      if (asistio) {
+        final check = await FirebaseFirestore.instance
+            .collection('asistencias')
+            .where('lead_id', isEqualTo: leadId)
+            .where('fecha', isEqualTo: fechaStr)
+            .get();
+
+        if (check.docs.isEmpty) {
+          await FirebaseFirestore.instance.collection('asistencias').add({
+            'sesion_id': 'clase_detalle',
+            'clase_id': data['clase_id'] ?? widget.claseId,
+            'lead_id': leadId,
+            'user_name': nombre,
+            'user_email': leadId.isNotEmpty ? 'lead_$leadId@whatsapp' : 'sin_correo',
+            'tipo': 'prueba',
+            'fecha': fechaStr,
+            'hora': data['hora'] ?? '18:00',
+            'created_at': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(asistio ? '¡Asistencia registrada para $nombre! 🎉' : 'Marcado como no asistió.'),
+            backgroundColor: asistio ? GingaColors.brandGreen : Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Future<void> _registrarAsistenciaEvento(
       Map<String, dynamic> claseData, String userNombre, String uid) async {
     setState(() => _isLoading = true);
@@ -1844,85 +1905,153 @@ class _ClaseDetalleScreenState extends State<ClaseDetalleScreen> {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: reservas.length,
               itemBuilder: (context, index) {
-                final reservaData = reservas[index].data() as Map<String, dynamic>;
-                final String userId = reservaData['user_id'] ?? '';
-                final String status = reservaData['status'] ?? 'confirmado';
+                final doc = reservas[index];
+                final reservaData = doc.data() as Map<String, dynamic>;
+                final String userId = (reservaData['user_id'] ?? '').toString().trim();
+                final String nombrePersona = (reservaData['nombre_persona'] ?? '').toString().trim();
+                final String leadId = (reservaData['lead_id'] ?? '').toString().trim();
+                final String status = (reservaData['status'] ?? 'confirmado').toString().toLowerCase();
                 final String tipo = reservaData['tipo'] ?? 'prueba';
+                final Timestamp? fechaClase = reservaData['fecha_clase'] as Timestamp?;
+
+                Widget buildCard(String nombre, String corda) {
+                  final bool isPrueba = tipo == 'prueba';
+                  final bool asistio = status == 'asistio';
+                  final bool noAsistio = status == 'no_asistio' || status == 'perdido';
+                  final Color badgeColor = asistio
+                      ? GingaColors.brandGreen
+                      : (noAsistio ? Colors.redAccent : (isPrueba ? GingaColors.accentAmber : Colors.blue));
+
+                  String fechaTexto = '';
+                  if (fechaClase != null) {
+                    final f = fechaClase.toDate();
+                    fechaTexto = ' • ${f.day}/${f.month}/${f.year}';
+                  }
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: badgeColor.withOpacity(0.12),
+                              child: Icon(
+                                asistio
+                                    ? Icons.check
+                                    : (isPrueba ? Icons.star_border : Icons.event),
+                                color: badgeColor,
+                                size: 16,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    nombre,
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: GingaColors.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    isPrueba ? 'Clase de Prueba — $corda$fechaTexto' : 'Evento / Roda Especial$fechaTexto',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 11,
+                                      color: GingaColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: badgeColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                status.toUpperCase(),
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: badgeColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (asistio) ...[
+                              Text('✓ Asistencia confirmada',
+                                  style: GoogleFonts.montserrat(fontSize: 11, color: GingaColors.brandGreen, fontWeight: FontWeight.w600)),
+                              const SizedBox(width: 8),
+                              TextButton(
+                                onPressed: () => _marcarAsistenciaReserva(doc.id, reservaData, false),
+                                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2)),
+                                child: Text('Desmarcar', style: GoogleFonts.montserrat(fontSize: 11, color: GingaColors.textSecondary)),
+                              ),
+                            ] else ...[
+                              OutlinedButton.icon(
+                                onPressed: () => _marcarAsistenciaReserva(doc.id, reservaData, false),
+                                icon: const Icon(Icons.close, size: 12, color: Colors.redAccent),
+                                label: Text('No asistió', style: GoogleFonts.montserrat(fontSize: 11, color: Colors.redAccent)),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.redAccent, width: 0.8),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  minimumSize: const Size(0, 28),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
+                                onPressed: () => _marcarAsistenciaReserva(doc.id, reservaData, true),
+                                icon: const Icon(Icons.check, size: 14),
+                                label: Text('Marcar asistió', style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: GingaColors.brandGreen,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  minimumSize: const Size(0, 28),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                if (userId.isEmpty) {
+                  final fallbackName = nombrePersona.isNotEmpty ? nombrePersona : (leadId.isNotEmpty ? 'Lead WhatsApp' : 'Invitado');
+                  return buildCard(fallbackName, 'Prueba sin app');
+                }
 
                 return FutureBuilder<DocumentSnapshot>(
                   future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
                   builder: (context, userSnapshot) {
-                    String nombre = 'Cargando...';
-                    String corda = '...';
+                    String nombre = nombrePersona.isNotEmpty ? nombrePersona : 'Cargando...';
+                    String corda = 'Crua';
                     if (userSnapshot.hasData && userSnapshot.data!.exists) {
                       final udata = userSnapshot.data!.data() as Map<String, dynamic>;
-                      nombre = udata['nombre'] ?? 'Sin nombre';
+                      nombre = udata['nombre'] ?? (nombrePersona.isNotEmpty ? nombrePersona : 'Sin nombre');
                       corda = udata['corda'] ?? 'Crua';
                     }
-
-                    final bool isPrueba = tipo == 'prueba';
-                    final Color badgeColor = isPrueba ? GingaColors.accentAmber : Colors.blue;
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(GingaRadius.md),
-                        border: Border.all(color: borderColor),
-                      ),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 16,
-                            backgroundColor: badgeColor.withOpacity(0.1),
-                            child: Icon(
-                              isPrueba ? Icons.star_border : Icons.event,
-                              color: badgeColor,
-                              size: 16,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  nombre,
-                                  style: GoogleFonts.montserrat(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: GingaColors.textPrimary,
-                                  ),
-                                ),
-                                Text(
-                                  isPrueba ? 'Clase de Prueba — Grado: $corda' : 'Evento / Roda Especial',
-                                  style: GoogleFonts.montserrat(
-                                    fontSize: 11,
-                                    color: GingaColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: badgeColor.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              status.toUpperCase(),
-                              style: GoogleFonts.montserrat(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: badgeColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
+                    return buildCard(nombre, 'Grado: $corda');
                   },
                 );
               },

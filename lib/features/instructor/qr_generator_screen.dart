@@ -102,6 +102,57 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
     }
   }
 
+  Future<void> _marcarAsistenciaPrueba(String reservaId, Map<String, dynamic> data) async {
+    final leadId = (data['lead_id'] ?? '').toString().trim();
+    final nombre = (data['nombre_persona'] ?? 'Alumno de prueba').toString().trim();
+    final fechaTs = data['fecha_clase'] as Timestamp?;
+    final f = fechaTs?.toDate() ?? DateTime.now();
+    final fechaStr = '${f.year}-${f.month.toString().padLeft(2, '0')}-${f.day.toString().padLeft(2, '0')}';
+
+    try {
+      await FirebaseFirestore.instance.collection('reservas').doc(reservaId).update({
+        'status': 'asistio',
+        'asistio_at': FieldValue.serverTimestamp(),
+      });
+
+      if (leadId.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('whatsapp_leads').doc(leadId).update({
+          'status': 'asistio',
+          'asistio': true,
+          'asistio_at': FieldValue.serverTimestamp(),
+          'ultima_interaccion': FieldValue.serverTimestamp(),
+        });
+      }
+
+      await FirebaseFirestore.instance.collection('asistencias').add({
+        'sesion_id': _sesionId,
+        'clase_id': widget.claseId,
+        'lead_id': leadId,
+        'user_name': nombre,
+        'user_email': leadId.isNotEmpty ? 'lead_$leadId@whatsapp' : 'sin_correo',
+        'tipo': 'prueba',
+        'fecha': fechaStr,
+        'hora': widget.hora,
+        'created_at': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('¡Asistencia confirmada para $nombre! 🎉'),
+            backgroundColor: GingaColors.brandGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -231,7 +282,104 @@ class _QrGeneratorScreenState extends State<QrGeneratorScreen> {
                           fontSize: 13, color: _kTextoSecundarioOscuro),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+
+                    // ── Reservas de clase de prueba para hoy ──
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('reservas')
+                          .where('clase_id', isEqualTo: widget.claseId)
+                          .snapshots(),
+                      builder: (context, resSnap) {
+                        if (!resSnap.hasData) return const SizedBox.shrink();
+                        final ahora = DateTime.now();
+                        final reservasHoy = resSnap.data!.docs.where((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          final ts = data['fecha_clase'] as Timestamp?;
+                          if (ts == null) return false;
+                          final f = ts.toDate();
+                          return f.year == ahora.year && f.month == ahora.month && f.day == ahora.day;
+                        }).toList();
+
+                        if (reservasHoy.isEmpty) return const SizedBox.shrink();
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: GingaColors.accentAmber.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(GingaRadius.md),
+                            border: Border.all(color: GingaColors.accentAmber.withOpacity(0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.star, color: GingaColors.accentAmber, size: 16),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Pruebas reservadas hoy (${reservasHoy.length})',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ...reservasHoy.map((rdoc) {
+                                final rdata = rdoc.data() as Map<String, dynamic>;
+                                final nombre = (rdata['nombre_persona'] ?? 'Alumno de prueba').toString();
+                                final status = (rdata['status'] ?? 'confirmado').toString().toLowerCase();
+                                final asistio = status == 'asistio';
+
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          nombre,
+                                          style: GoogleFonts.montserrat(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                      if (asistio)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: GingaColors.brandGreen.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            'ASISTIÓ ✓',
+                                            style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: GingaColors.brandGreen),
+                                          ),
+                                        )
+                                      else
+                                        ElevatedButton(
+                                          onPressed: () => _marcarAsistenciaPrueba(rdoc.id, rdata),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: GingaColors.brandGreen,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            minimumSize: const Size(0, 28),
+                                          ),
+                                          child: Text(
+                                            'Check-in ✓',
+                                            style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
 
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
