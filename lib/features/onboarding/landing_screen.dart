@@ -215,27 +215,43 @@ class _PillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ElevatedButton.icon(
+    final btnStyle = ElevatedButton.styleFrom(
+      backgroundColor: background,
+      foregroundColor: foreground,
+      minimumSize: const Size(0, 40),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.full)),
+      elevation: 0,
+    );
+
+    final textWidget = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+      style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700),
+    );
+
+    Widget btn;
+    if (icon != null) {
+      btn = ElevatedButton.icon(
         onPressed: onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: background,
-          foregroundColor: foreground,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GingaRadius.full)),
-          elevation: 0,
-        ),
-        icon: icon != null ? Icon(icon, size: 16) : const SizedBox.shrink(),
-        label: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          softWrap: false,
-          style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700),
-        ),
-      ),
+        style: btnStyle,
+        icon: Icon(icon, size: 16),
+        label: textWidget,
+      );
+    } else {
+      btn = ElevatedButton(
+        onPressed: onTap,
+        style: btnStyle,
+        child: textWidget,
+      );
+    }
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 40, maxHeight: 40),
+      child: btn,
     );
   }
 }
