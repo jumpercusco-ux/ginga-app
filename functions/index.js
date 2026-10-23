@@ -1769,9 +1769,12 @@ exports.generarPlanClaseIA = functions
           .where('instructor_id', '==', context.auth.uid)
           .limit(30)
           .get();
-        // Priorizar drills e ideas que aún NO hayan sido enseñados (completado != true)
-        const noUsadas = snap.docs.filter(d => !d.data().completado);
-        const docsAUsar = (noUsadas.length > 0 ? noUsadas : snap.docs).slice(0, 15);
+        // Priorizar drills e ideas que aún NO hayan sido enseñados o usados en clases
+        const noUsadas = snap.docs.filter(d => {
+          const dat = d.data();
+          return !dat.completado && (!dat.clase_usada || dat.clase_usada.toString().trim() === '');
+        });
+        const docsAUsar = (noUsadas.length > 0 ? noUsadas : snap.docs).slice(0, 18);
         ideasContexto = docsAUsar.map(d => {
           const docData = d.data();
           return {
@@ -1781,7 +1784,9 @@ exports.generarPlanClaseIA = functions
             publico: docData.publico || 'Todos',
             notas: docData.notas || '',
             tipo: docData.tipo,
-            url: docData.url || ''
+            url: docData.url || '',
+            usado_previamente: !!docData.clase_usada || !!docData.completado,
+            clase_usada: docData.clase_usada || null
           };
         });
       } catch (e) {
@@ -1789,51 +1794,60 @@ exports.generarPlanClaseIA = functions
       }
     }
 
-    const promptSistema = `Eres un asesor pedagógico y preparador de élite en artes marciales, capoeira (Capoeira FIU Cusco) y entrenamiento de movimiento funcional para el estudio Ginga.
-Tu objetivo es armar un guión de clase estructurado, práctico, realista y motivador para el tatami.
-Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura:
+    const esNinos = nivel === 'Niños';
+
+    const promptSistema = `Eres un maestro preparador y asesor pedagógico de élite en Capoeira (Capoeira FIU Cusco) y movimiento funcional para el estudio Ginga.
+Tu misión es diseñar un guión de clase estructurado, dinámico, realista y pedagógicamente impecable para el tatami.
+
+REGLA PEDAGÓGICA CRÍTICA DE CAPOEIRA:
+Una clase de Capoeira NO puede mezclar acrobacias con técnicas básicas en un bloque genérico. Debe seguir rigurosamente la secuencia formativa según el público (${nivel}):
+
+${esNinos ? `ESTRUCTURA OBLIGATORIA PARA NIÑOS (Capoeira Infantil):
+1. "Calentamiento Lúdico & Juegos Motores" (~10-15 min): Dinámicas motrices de reacción, animales de capoeira (macaco, sapo, onça, caranguejo), juegos de persecución con esquivas lúdicas.
+2. "Fundamentos & Técnica Básica" (~15-20 min): Ginga limpia, esquivas protectoras (cocorinha, esquiva lateral), patadas básicas (bênção, meia lua) en dinámicas en parejas.
+3. "Acrobacias & Floreios Adaptados" (~10-15 min): Progresiones seguras y motrices (aú/estrella, puente, macaco, bananeira asistida, borboleta adaptada con progresiones). NUNCA mezclar esto con la técnica marcial de combate.
+4. "Roda Infantil & Musicalidad" (~10 min): Palmas de terreiro, cantos de capoeira responsoriales, ritmo con pandeiro/atabaque y aplicación del juego lúdico en la roda.
+5. "Vuelta a la Calma & Valores" (~5 min): Estiramiento suave, respiración y reflexión breve de compañerismo, respeto y disciplina.` : `ESTRUCTURA OBLIGATORIA PARA ADULTOS / JÓVENES:
+1. "Movilidad Articular & Activación Funcional" (~10-15 min): Preparación de muñecas, hombros, caderas, fuerza funcional para apoyos invertidos y ginga progresiva.
+2. "Técnica Marcial & Secuencias en Parejas" (~20-25 min): Ataque, defensa, esquivas bajas, transiciones de pie al suelo (negativa, rolê) y contragolpes en parejas.
+3. "Acrobacias, Floreios & Movimientos de Suelo" (~10-15 min): Bloque dedicado y diferenciado para acrobacias (queda de rins, aú batido, s-dobrado, borboleta, parada de mãos). NUNCA agrupar las acrobacias dentro del bloque técnico de combate.
+4. "Roda de Treino & Jogo Guiado" (~10-15 min): Aplicación práctica al ritmo del berimbau (Benguela cadenciado o São Bento Grande), juego por turnos, musicalidad y diálogo corporal.
+5. "Vuelta a la Calma & Cierre" (~5 min): Descompresión muscular, estiramiento profundo y feedback técnico del instructor.`}
+
+Ajuste por Enfoque: Si el enfoque es "${enfoque}", dale mayor peso temporal y ejercicios más profundos al bloque que le corresponde.
+
+Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura exacta:
 {
-  "titulo": "Título atractivo y conciso de la clase",
+  "titulo": "Título motivador y descriptivo de la sesión",
   "duracion_total": ${duracion},
-  "objetivo": "Objetivo principal de la sesión en 1 frase clara",
+  "objetivo": "Objetivo pedagógico principal de la sesión en 1 frase clara",
   "bloques": [
     {
-      "fase": "Calentamiento & Activación",
+      "fase": "Nombre de la fase (según la estructura de 5 fases descrita arriba)",
       "duracion_min": 10,
       "ejercicios": [
         {
-          "nombre": "Nombre del ejercicio o drill",
-          "detalle": "Instrucciones de ejecución, repeticiones, o dinámica en parejas/suelo.",
-          "recurso_relacionado": "Título del recurso del buzón si fue integrado, o null"
+          "nombre": "Nombre del ejercicio, drill o juego",
+          "detalle": "Instrucciones de ejecución paso a paso, número de repeticiones o dinámica en parejas/suelo.",
+          "recurso_relacionado": "Título exacto del recurso de la pizarra si fue integrado, o null"
         }
       ]
-    },
-    {
-      "fase": "Bloque Técnico Principal",
-      "duracion_min": 25,
-      "ejercicios": [...]
-    },
-    {
-      "fase": "Dinámica Aplicada / Juego / Roda",
-      "duracion_min": 15,
-      "ejercicios": [...]
-    },
-    {
-      "fase": "Vuelta a la Calma & Cierre",
-      "duracion_min": 10,
-      "ejercicios": [...]
     }
   ],
-  "consejos_instructor": "1 o 2 tips pedagógicos clave para que el instructor guíe la energía del grupo"
+  "consejos_instructor": "1 o 2 recomendaciones clave para que el instructor guíe la energía, seguridad y ritmo del grupo"
 }
-La suma exacta de duracion_min de todos los bloques debe ser igual a ${duracion} minutos.`;
 
-    const promptUsuario = `Arma un plan de clase con estos parámetros:
+REGLAS MATEMÁTICAS Y DE RECURSOS:
+1. La suma exacta de duracion_min de todos los bloques DEBE ser igual a exactamente ${duracion} minutos.
+2. Cada bloque debe tener entre 1 y 3 ejercicios bien explicados.
+3. Si hay recursos en la pizarra del instructor, intégralos en la fase correspondiente (ej. acrobacias en el bloque de acrobacias, movilidad en el calentamiento, reversada o patadas en técnica).`;
+
+    const promptUsuario = `Diseña el plan de clase con estos parámetros:
 - Nivel del grupo: ${nivel}
 - Duración total: ${duracion} minutos
 - Enfoque temático: ${enfoque}
 ${instrucciones_adicionales ? `- Instrucciones adicionales del instructor: "${instrucciones_adicionales}"` : ''}
-${ideasContexto && ideasContexto.length > 0 ? `- Ideas / Drills disponibles en la Pizarra del instructor:\n${JSON.stringify(ideasContexto, null, 2)}\n(Integra de forma prioritaria los recursos del buzón que tengan sentido pedagógico con el objetivo).` : '- No hay recursos previos en el buzón, propone los mejores ejercicios específicos para este nivel y objetivo.'}
+${ideasContexto && ideasContexto.length > 0 ? `- Ideas / Clips disponibles en la Pizarra del instructor:\n${JSON.stringify(ideasContexto, null, 2)}\n(Integra de forma prioritaria los recursos del buzón en su bloque pedagógico correcto).` : '- No hay recursos previos en el buzón, propone los mejores ejercicios específicos para este nivel y objetivo.'}
 `;
 
     try {

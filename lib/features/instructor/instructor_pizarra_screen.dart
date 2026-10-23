@@ -106,13 +106,13 @@ Map<String, dynamic>? _buscarIdeaParaEjercicio({
           ideaTitulo == recursoLower ||
           ideaTitulo.contains(recursoLower) ||
           recursoLower.contains(ideaTitulo)) {
-        return idea;
+        return {'id': entry.key, ...idea};
       }
     }
 
     if (ejNombre.isNotEmpty && ideaTitulo.isNotEmpty) {
       if (ideaTitulo.contains(ejNombre) || ejNombre.contains(ideaTitulo)) {
-        return idea;
+        return {'id': entry.key, ...idea};
       }
     }
   }
@@ -355,7 +355,7 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
   int _tabActiva = 0; // 0: Ideas & Recursos, 1: Planes Guardados
   String _filtroPublico = 'Todos';
   String _filtroFase = 'Todos';
-  String _filtroEstado = 'Todos'; // 'Todos' | 'Por Enseñar' | 'Ya Usados'
+  String _filtroEstado = 'Todos'; // 'Todos' | '✨ Nuevos' | '🥋 En Clases'
 
   final List<String> _filtrosPublico = ['Todos', 'Adultos', 'Niños'];
   final List<String> _filtrosFase = [
@@ -366,7 +366,7 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
     'Juegos',
     'Roda',
   ];
-  final List<String> _filtrosEstado = ['Todos', 'Por Enseñar', 'Ya Usados'];
+  final List<String> _filtrosEstado = ['Todos', '✨ Nuevos', '🥋 En Clases'];
 
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
@@ -752,11 +752,15 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
                         final matchPublico = _filtroPublico == 'Todos' || pub == _filtroPublico || pub == 'Todos' || pub == 'Mixto';
                         final matchFase = _filtroFase == 'Todos' || fase.toLowerCase() == _filtroFase.toLowerCase();
 
+                        final clUsada = data['clase_usada'] as String?;
+                        final vUsada = (data['veces_usada'] as num?)?.toInt() ?? 0;
+                        final tieneUsoClase = (clUsada != null && clUsada.trim().isNotEmpty) || vUsada > 0;
+
                         bool matchEstado = true;
-                        if (_filtroEstado == 'Por Enseñar') {
-                          matchEstado = !completado;
-                        } else if (_filtroEstado == 'Ya Usados') {
-                          matchEstado = completado;
+                        if (_filtroEstado == '✨ Nuevos') {
+                          matchEstado = !completado && !tieneUsoClase;
+                        } else if (_filtroEstado == '🥋 En Clases') {
+                          matchEstado = completado || tieneUsoClase;
                         }
 
                         return matchPublico && matchFase && matchEstado;
@@ -1730,6 +1734,8 @@ class _IdeaCard extends StatelessWidget {
     final publico = (data['publico'] ?? (data['categoria'] == 'Niños' ? 'Niños' : (data['categoria'] == 'Adultos' ? 'Adultos' : null))) as String?;
     final tipoEjercicio = (data['tipo_ejercicio'] ?? (data['categoria'] != 'Adultos' && data['categoria'] != 'Niños' ? data['categoria'] : 'General')) as String;
     final claseUsada = data['clase_usada'] as String?;
+    final int vecesUsada = (data['veces_usada'] as num?)?.toInt() ?? 0;
+    final bool tieneUsoEnClase = (claseUsada != null && claseUsada.trim().isNotEmpty) || vecesUsada > 0;
 
     // Determinar miniatura visual
     String? miniatura = data['thumbnail_url'] as String?;
@@ -1744,17 +1750,15 @@ class _IdeaCard extends StatelessWidget {
       }
     }
 
-    return Opacity(
-      opacity: completado ? 0.72 : 1.0,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: _kTarjetaOscura,
-          borderRadius: BorderRadius.circular(GingaRadius.lg),
-          border: Border.all(
-            color: completado ? GingaColors.brandGreen.withValues(alpha: 0.3) : _kBordeOscuro,
-          ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: _kTarjetaOscura,
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        border: Border.all(
+          color: completado ? GingaColors.brandGreen.withValues(alpha: 0.4) : _kBordeOscuro,
         ),
+      ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1827,6 +1831,55 @@ class _IdeaCard extends StatelessWidget {
                             spacing: 6,
                             runSpacing: 4,
                             children: [
+                              // Badge de Estado en Clase (Historial)
+                              if (tieneUsoEnClase)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: GingaColors.accentAmber.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(GingaRadius.full),
+                                    border: Border.all(color: GingaColors.accentAmber.withValues(alpha: 0.5)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.bookmark_added_rounded, size: 12, color: GingaColors.accentAmber),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        vecesUsada > 1 ? 'Usado $vecesUsada veces' : 'En plan: ${claseUsada ?? "Clase"}',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: GingaColors.accentAmber,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF00E676).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(GingaRadius.full),
+                                    border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.4)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.star_rounded, size: 12, color: Color(0xFF00E676)),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        'Nuevo',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF00E676),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               if (completado)
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -2045,9 +2098,8 @@ class _IdeaCard extends StatelessWidget {
           ),
         ],
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 // ─────────────────────────────────────────
@@ -2081,6 +2133,13 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
   bool _planGuardado = false;
   String? _savedPlanId;
   Map<String, Map<String, dynamic>> _ideasMap = {};
+  Set<String> _ideasSeleccionadasIds = {};
+
+  // Modo Edición
+  bool _editando = false;
+  TextEditingController? _tituloEditCtrl;
+  TextEditingController? _objetivoEditCtrl;
+  List<Map<String, dynamic>> _bloquesEditables = [];
 
   final List<String> _niveles = ['Adultos', 'Niños', 'Mixto'];
   final List<int> _duraciones = [45, 60, 90];
@@ -2136,6 +2195,8 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
   @override
   void dispose() {
     _notasCtrl.dispose();
+    _tituloEditCtrl?.dispose();
+    _objetivoEditCtrl?.dispose();
     super.dispose();
   }
 
@@ -2144,6 +2205,7 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
       _cargando = true;
       _error = null;
       _planGuardado = false;
+      _editando = false;
     });
 
     try {
@@ -2152,18 +2214,42 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
         options: HttpsCallableOptions(timeout: const Duration(seconds: 60)),
       );
 
-      final result = await callable.call({
+      final payload = <String, dynamic>{
         'nivel': _nivel,
         'duracion': _duracion,
         'enfoque': _enfoque,
         'instrucciones_adicionales': _notasCtrl.text.trim(),
-      });
+      };
+
+      if (_ideasSeleccionadasIds.isNotEmpty) {
+        payload['ideas_seleccionadas'] = _ideasSeleccionadasIds.map((id) {
+          final dat = _ideasMap[id];
+          return {
+            'id': id,
+            'titulo': dat?['titulo'] ?? '',
+            'categoria': dat?['categoria'] ?? dat?['tipo_ejercicio'] ?? 'General',
+            'publico': dat?['publico'] ?? 'Todos',
+            'notas': dat?['notas'] ?? '',
+            'tipo': dat?['tipo'] ?? 'link',
+            'url': dat?['url'] ?? '',
+            'usado_previamente': (dat?['clase_usada'] != null && dat?['clase_usada'].toString().trim().isNotEmpty == true) || dat?['completado'] == true,
+            'clase_usada': dat?['clase_usada'],
+          };
+        }).toList();
+      }
+
+      final result = await callable.call(payload);
 
       if (!mounted) return;
+      final parsedPlan = Map<String, dynamic>.from(result.data as Map);
       setState(() {
-        _planGenerado = Map<String, dynamic>.from(result.data as Map);
+        _planGenerado = parsedPlan;
         _cargando = false;
       });
+
+      // Trazabilidad automática inmediata al generar el plan
+      final tituloGenerado = parsedPlan['titulo'] ?? 'Clase de Capoeira';
+      _vincularRecursosAClase(tituloGenerado);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -2173,14 +2259,59 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
     }
   }
 
+  Future<void> _vincularRecursosAClase(String tituloPlan) async {
+    if (_planGenerado == null || widget.uid == null) return;
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      final bloques = _planGenerado!['bloques'] as List? ?? [];
+      final Set<String> ideasIdsModificados = {};
+
+      for (final b in bloques) {
+        final mapa = Map<String, dynamic>.from(b as Map);
+        final ejercicios = mapa['ejercicios'] as List? ?? [];
+        for (final ej in ejercicios) {
+          final ejMap = Map<String, dynamic>.from(ej as Map);
+          final idea = _buscarIdeaParaEjercicio(ejercicio: ejMap, ideasMap: _ideasMap);
+          if (idea != null && idea['id'] != null) {
+            final id = idea['id'].toString();
+            if (!ideasIdsModificados.contains(id)) {
+              ideasIdsModificados.add(id);
+              final docRef = FirebaseFirestore.instance.collection('instructor_ideas').doc(id);
+              batch.update(docRef, {
+                'clase_usada': tituloPlan,
+                'clases_asociadas': FieldValue.arrayUnion([tituloPlan]),
+                'veces_usada': FieldValue.increment(1),
+                'fecha_ultimo_uso': FieldValue.serverTimestamp(),
+              });
+              if (_ideasMap.containsKey(id)) {
+                final current = _ideasMap[id]!;
+                final int v = (current['veces_usada'] as num?)?.toInt() ?? 0;
+                current['clase_usada'] = tituloPlan;
+                current['veces_usada'] = v + 1;
+              }
+            }
+          }
+        }
+      }
+
+      if (ideasIdsModificados.isNotEmpty) {
+        await batch.commit();
+        if (mounted) setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Error vinculando recursos a la clase: $e');
+    }
+  }
+
   Future<void> _guardarEnFirestore() async {
     if (_planGenerado == null || _planGuardado) return;
     setState(() => _guardandoPlan = true);
 
     try {
+      final titulo = _planGenerado!['titulo'] ?? 'Clase de Capoeira';
       final docRef = await FirebaseFirestore.instance.collection('instructor_planes_clase').add({
         'instructor_id': widget.uid,
-        'titulo': _planGenerado!['titulo'],
+        'titulo': titulo,
         'duracion_total': _planGenerado!['duracion_total'],
         'objetivo': _planGenerado!['objetivo'],
         'bloques': _planGenerado!['bloques'],
@@ -2189,6 +2320,9 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
         'enfoque': _enfoque,
         'created_at': FieldValue.serverTimestamp(),
       });
+
+      // Trazabilidad automática de recursos
+      await _vincularRecursosAClase(titulo);
 
       if (!mounted) return;
       setState(() {
@@ -2210,6 +2344,861 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
         SnackBar(content: Text('Error guardando plan: $e'), backgroundColor: Colors.red),
       );
     }
+  }
+
+  void _iniciarEdicion() {
+    if (_planGenerado == null) return;
+    _tituloEditCtrl?.dispose();
+    _objetivoEditCtrl?.dispose();
+
+    _tituloEditCtrl = TextEditingController(text: _planGenerado!['titulo'] ?? '');
+    _objetivoEditCtrl = TextEditingController(text: _planGenerado!['objetivo'] ?? '');
+
+    final rawBloques = _planGenerado!['bloques'] as List? ?? [];
+    _bloquesEditables = rawBloques.map((b) {
+      final bMap = Map<String, dynamic>.from(b as Map);
+      final rawEjs = bMap['ejercicios'] as List? ?? [];
+      return {
+        'fase': bMap['fase']?.toString() ?? 'Fase',
+        'duracion_min': (bMap['duracion_min'] as num?)?.toInt() ?? 10,
+        'ejercicios': rawEjs.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+      };
+    }).toList();
+
+    setState(() {
+      _editando = true;
+    });
+  }
+
+  void _cancelarEdicion() {
+    setState(() {
+      _editando = false;
+    });
+  }
+
+  Future<void> _guardarEdicion() async {
+    if (_planGenerado == null) return;
+
+    final nuevoTitulo = _tituloEditCtrl?.text.trim().isNotEmpty == true
+        ? _tituloEditCtrl!.text.trim()
+        : (_planGenerado!['titulo'] ?? 'Clase de Capoeira');
+    final nuevoObjetivo = _objetivoEditCtrl?.text.trim() ?? '';
+
+    int duracionTotalCalculada = 0;
+    for (final b in _bloquesEditables) {
+      duracionTotalCalculada += ((b['duracion_min'] as num?)?.toInt() ?? 0);
+    }
+    if (duracionTotalCalculada <= 0) duracionTotalCalculada = _duracion;
+
+    final planActualizado = Map<String, dynamic>.from(_planGenerado!);
+    planActualizado['titulo'] = nuevoTitulo;
+    planActualizado['objetivo'] = nuevoObjetivo;
+    planActualizado['duracion_total'] = duracionTotalCalculada;
+    planActualizado['bloques'] = _bloquesEditables;
+
+    setState(() {
+      _planGenerado = planActualizado;
+      _editando = false;
+    });
+
+    if (_savedPlanId != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('instructor_planes_clase')
+            .doc(_savedPlanId)
+            .update({
+          'titulo': nuevoTitulo,
+          'objetivo': nuevoObjetivo,
+          'duracion_total': duracionTotalCalculada,
+          'bloques': _bloquesEditables,
+          'updated_at': FieldValue.serverTimestamp(),
+        });
+        await _vincularRecursosAClase(nuevoTitulo);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ ¡Cambios guardados en tu plan de clase!'),
+              backgroundColor: GingaColors.brandGreen,
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error actualizando plan en Firestore: $e');
+      }
+    } else {
+      await _guardarEnFirestore();
+    }
+  }
+
+  void _moverBloque(int index, int delta) {
+    final newIndex = index + delta;
+    if (newIndex < 0 || newIndex >= _bloquesEditables.length) return;
+    setState(() {
+      final item = _bloquesEditables.removeAt(index);
+      _bloquesEditables.insert(newIndex, item);
+    });
+  }
+
+  void _eliminarBloque(int index) {
+    if (_bloquesEditables.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Debe haber al menos 1 fase en la clase'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _bloquesEditables.removeAt(index);
+    });
+  }
+
+  void _agregarNuevoBloque() {
+    setState(() {
+      _bloquesEditables.add({
+        'fase': 'Nueva Fase',
+        'duracion_min': 10,
+        'ejercicios': <Map<String, dynamic>>[
+          {
+            'nombre': 'Nuevo Ejercicio',
+            'detalle': 'Describe la técnica, drill o dinámica',
+            'recurso_relacionado': null,
+          }
+        ],
+      });
+    });
+  }
+
+  void _mostrarPickerRecursos(Map<String, dynamic> ejercicio) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        String query = '';
+        return StatefulBuilder(
+          builder: (bottomCtx, setSheetState) {
+            final todasLasIdeas = _ideasMap.entries.toList();
+            final ideasFiltradas = todasLasIdeas.where((entry) {
+              final d = entry.value;
+              final t = (d['titulo'] as String? ?? '').toLowerCase();
+              final n = (d['notas'] as String? ?? '').toLowerCase();
+              final c = (d['categoria'] as String? ?? '').toLowerCase();
+              final q = query.toLowerCase().trim();
+              if (q.isEmpty) return true;
+              return t.contains(q) || n.contains(q) || c.contains(q);
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: const BoxDecoration(
+                color: _kTarjetaOscura,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.xl)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.video_library_rounded, color: GingaColors.brandGreen, size: 22),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Vincular Clip de tu Pizarra',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: _kTextoSecundario),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: TextField(
+                      style: GoogleFonts.montserrat(fontSize: 13, color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Buscar por nombre, categoría o nota...',
+                        hintStyle: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundario),
+                        prefixIcon: const Icon(Icons.search, color: _kTextoSecundario, size: 20),
+                        filled: true,
+                        fillColor: _kFondoOscuro,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                          borderSide: const BorderSide(color: _kBordeOscuro),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        setSheetState(() => query = val);
+                      },
+                    ),
+                  ),
+                  const Divider(color: _kBordeOscuro, height: 1),
+                  Expanded(
+                    child: ideasFiltradas.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                'No se encontraron recursos en tu Pizarra',
+                                style: GoogleFonts.montserrat(color: _kTextoSecundario),
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: ideasFiltradas.length,
+                            itemBuilder: (context, i) {
+                              final item = ideasFiltradas[i];
+                              final idea = item.value;
+                              final titulo = idea['titulo'] as String? ?? 'Sin título';
+                              final tipo = idea['tipo'] as String? ?? 'link';
+                              final url = idea['url'] as String? ?? '';
+                              final thumb = idea['thumbnail_url'] as String?;
+                              final clUsada = idea['clase_usada'] as String?;
+                              final vUsada = (idea['veces_usada'] as num?)?.toInt() ?? 0;
+                              final bool yaUsada = (clUsada != null && clUsada.trim().isNotEmpty) || vUsada > 0;
+
+                              return InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    ejercicio['recurso_relacionado'] = titulo;
+                                    ejercicio['url_recurso'] = url;
+                                    ejercicio['thumbnail_url'] = thumb;
+                                  });
+                                  Navigator.pop(ctx);
+                                },
+                                borderRadius: BorderRadius.circular(GingaRadius.md),
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: _kFondoOscuro,
+                                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                                    border: Border.all(color: _kBordeOscuro),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: (thumb != null && thumb.isNotEmpty)
+                                            ? CachedNetworkImage(
+                                                imageUrl: thumb,
+                                                width: 50,
+                                                height: 50,
+                                                fit: BoxFit.cover,
+                                                placeholder: (c, u) => Container(width: 50, height: 50, color: Colors.white10),
+                                                errorWidget: (c, u, e) => Container(
+                                                  width: 50,
+                                                  height: 50,
+                                                  color: Colors.white10,
+                                                  child: const Icon(Icons.broken_image, size: 20, color: _kTextoSecundario),
+                                                ),
+                                              )
+                                            : Container(
+                                                width: 50,
+                                                height: 50,
+                                                color: Colors.white10,
+                                                child: Icon(
+                                                  tipo == 'video' || tipo == 'link' ? Icons.play_circle_outline : Icons.lightbulb_outline,
+                                                  color: GingaColors.brandGreen,
+                                                ),
+                                              ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              titulo,
+                                              style: GoogleFonts.montserrat(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.white,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                if (yaUsada)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: GingaColors.accentAmber.withValues(alpha: 0.15),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: Text(
+                                                      vUsada > 1 ? 'Usado $vUsada veces' : 'En plan: ${clUsada ?? "Clase"}',
+                                                      style: GoogleFonts.montserrat(
+                                                        fontSize: 9.5,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: GingaColors.accentAmber,
+                                                      ),
+                                                    ),
+                                                  )
+                                                else
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFF00E676).withValues(alpha: 0.15),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: Text(
+                                                      '✨ Nuevo',
+                                                      style: GoogleFonts.montserrat(
+                                                        fontSize: 9.5,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: const Color(0xFF00E676),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Icon(Icons.add_link_rounded, color: GingaColors.brandGreen),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildEditorPlan() {
+    int totalMinutos = 0;
+    for (final b in _bloquesEditables) {
+      totalMinutos += ((b['duracion_min'] as num?)?.toInt() ?? 0);
+    }
+    final bool coincideTiempo = totalMinutos == _duracion;
+
+    return Column(
+      children: [
+        // ── Banner Superior de Edición ──
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: GingaColors.accentAmber.withValues(alpha: 0.12),
+            border: Border(bottom: BorderSide(color: GingaColors.accentAmber.withValues(alpha: 0.3))),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.edit_note_rounded, color: GingaColors.accentAmber, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Modo Edición del Plan',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      'Personaliza fases, minutos, ejercicios y clips',
+                      style: GoogleFonts.montserrat(fontSize: 10.5, color: _kTextoSecundario),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: coincideTiempo ? GingaColors.brandGreen.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(GingaRadius.full),
+                  border: Border.all(
+                    color: coincideTiempo ? GingaColors.brandGreen : Colors.orange,
+                  ),
+                ),
+                child: Text(
+                  '$totalMinutos / $_duracion min',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: coincideTiempo ? GingaColors.brandGreen : Colors.orange,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ── Formulario de Edición ──
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            children: [
+              // Título
+              Text(
+                'Título de la Clase',
+                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _tituloEditCtrl,
+                style: GoogleFonts.montserrat(fontSize: 13.5, color: Colors.white, fontWeight: FontWeight.w600),
+                decoration: InputDecoration(
+                  hintText: 'Ej. Clase de Fundamentos & Floreios',
+                  hintStyle: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundario),
+                  filled: true,
+                  fillColor: _kFondoOscuro,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                    borderSide: const BorderSide(color: _kBordeOscuro),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                    borderSide: const BorderSide(color: GingaColors.brandGreen),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Objetivo
+              Text(
+                'Objetivo de la Sesión',
+                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _objetivoEditCtrl,
+                maxLines: 2,
+                style: GoogleFonts.montserrat(fontSize: 12.5, color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Ej. Coordinar transiciones de negativa a rolê y progresión de aú',
+                  hintStyle: GoogleFonts.montserrat(fontSize: 12, color: _kTextoSecundario),
+                  filled: true,
+                  fillColor: _kFondoOscuro,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                    borderSide: const BorderSide(color: _kBordeOscuro),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(GingaRadius.md),
+                    borderSide: const BorderSide(color: GingaColors.brandGreen),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Fases y Bloques
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Fases de la Clase (${_bloquesEditables.length})',
+                    style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                  ),
+                  TextButton.icon(
+                    onPressed: _agregarNuevoBloque,
+                    icon: const Icon(Icons.add, size: 16, color: GingaColors.brandGreen),
+                    label: Text(
+                      'Añadir Fase',
+                      style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: GingaColors.brandGreen),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Lista de Bloques
+              ...List.generate(_bloquesEditables.length, (bIndex) {
+                final bloque = _bloquesEditables[bIndex];
+                final ejercicios = bloque['ejercicios'] as List? ?? [];
+                final durMin = (bloque['duracion_min'] as num?)?.toInt() ?? 10;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: _kFondoOscuro,
+                    borderRadius: BorderRadius.circular(GingaRadius.lg),
+                    border: Border.all(color: _kBordeOscuro),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header del bloque con reordenamiento y tiempo
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.03),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(GingaRadius.lg)),
+                          border: const Border(bottom: BorderSide(color: _kBordeOscuro)),
+                        ),
+                        child: Row(
+                          children: [
+                            // Flechas arriba/abajo
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              icon: Icon(Icons.arrow_upward, size: 18, color: bIndex > 0 ? Colors.white : Colors.white24),
+                              onPressed: bIndex > 0 ? () => _moverBloque(bIndex, -1) : null,
+                              tooltip: 'Mover arriba',
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              icon: Icon(Icons.arrow_downward, size: 18, color: bIndex < _bloquesEditables.length - 1 ? Colors.white : Colors.white24),
+                              onPressed: bIndex < _bloquesEditables.length - 1 ? () => _moverBloque(bIndex, 1) : null,
+                              tooltip: 'Mover abajo',
+                            ),
+                            const SizedBox(width: 4),
+
+                            // Nombre de la fase editable
+                            Expanded(
+                              child: TextFormField(
+                                initialValue: bloque['fase']?.toString() ?? '',
+                                style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  border: InputBorder.none,
+                                  hintText: 'Nombre de la fase',
+                                  hintStyle: TextStyle(color: _kTextoSecundario, fontSize: 12),
+                                ),
+                                onChanged: (val) => bloque['fase'] = val,
+                              ),
+                            ),
+
+                            // Control de minutos (- / +)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(Icons.remove_circle_outline, size: 20, color: _kTextoSecundario),
+                                  onPressed: () {
+                                    setState(() {
+                                      final cur = (bloque['duracion_min'] as num?)?.toInt() ?? 10;
+                                      bloque['duracion_min'] = cur > 5 ? cur - 5 : 5;
+                                    });
+                                  },
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  child: Text(
+                                    '$durMin m',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: GingaColors.brandGreen,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(Icons.add_circle_outline, size: 20, color: GingaColors.brandGreen),
+                                  onPressed: () {
+                                    setState(() {
+                                      final cur = (bloque['duracion_min'] as num?)?.toInt() ?? 10;
+                                      bloque['duracion_min'] = cur + 5;
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+
+                            // Eliminar bloque
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                              onPressed: () => _eliminarBloque(bIndex),
+                              tooltip: 'Eliminar fase',
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Lista de ejercicios del bloque
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            ...List.generate(ejercicios.length, (eIndex) {
+                              final ej = ejercicios[eIndex] as Map<String, dynamic>;
+                              final rawRecurso = ej['recurso_relacionado'];
+                              final recursoStr = (rawRecurso is String ? rawRecurso : '').trim();
+                              final bool tieneClip = recursoStr.isNotEmpty && recursoStr.toLowerCase() != 'null';
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: _kTarjetaOscura,
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                  border: Border.all(color: _kBordeOscuro),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Fila de Nombre + Botón Eliminar
+                                    Row(
+                                      children: [
+                                        Container(
+                                          width: 20,
+                                          height: 20,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: GingaColors.brandGreen.withValues(alpha: 0.15),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Text(
+                                            '${eIndex + 1}',
+                                            style: GoogleFonts.montserrat(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              color: GingaColors.brandGreen,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: TextFormField(
+                                            initialValue: ej['nombre']?.toString() ?? '',
+                                            style: GoogleFonts.montserrat(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                            ),
+                                            decoration: const InputDecoration(
+                                              isDense: true,
+                                              border: InputBorder.none,
+                                              hintText: 'Nombre del ejercicio...',
+                                              hintStyle: TextStyle(color: _kTextoSecundario, fontSize: 12),
+                                            ),
+                                            onChanged: (val) => ej['nombre'] = val,
+                                          ),
+                                        ),
+                                        IconButton(
+                                          visualDensity: VisualDensity.compact,
+                                          padding: EdgeInsets.zero,
+                                          icon: const Icon(Icons.close, size: 16, color: _kTextoSecundario),
+                                          onPressed: () {
+                                            setState(() {
+                                              ejercicios.removeAt(eIndex);
+                                            });
+                                          },
+                                          tooltip: 'Quitar ejercicio',
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(color: _kBordeOscuro, height: 12),
+
+                                    // Detalle / Repeticiones
+                                    TextFormField(
+                                      initialValue: ej['detalle']?.toString() ?? '',
+                                      maxLines: 2,
+                                      style: GoogleFonts.montserrat(fontSize: 11.5, color: _kTextoSecundario),
+                                      decoration: const InputDecoration(
+                                        isDense: true,
+                                        border: InputBorder.none,
+                                        hintText: 'Instrucciones paso a paso, número de repeticiones o dinámicas...',
+                                        hintStyle: TextStyle(color: Colors.white24, fontSize: 11),
+                                      ),
+                                      onChanged: (val) => ej['detalle'] = val,
+                                    ),
+                                    const SizedBox(height: 6),
+
+                                    // Recurso Vinculado
+                                    if (tieneClip)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: GingaColors.accentAmber.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: GingaColors.accentAmber.withValues(alpha: 0.3)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.attach_file, size: 14, color: GingaColors.accentAmber),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                'Clip: $recursoStr',
+                                                style: GoogleFonts.montserrat(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: GingaColors.accentAmber,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            InkWell(
+                                              onTap: () => _mostrarPickerRecursos(ej),
+                                              child: Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                child: Text(
+                                                  'Cambiar',
+                                                  style: GoogleFonts.montserrat(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  ej['recurso_relacionado'] = null;
+                                                  ej['url_recurso'] = null;
+                                                  ej['thumbnail_url'] = null;
+                                                });
+                                              },
+                                              child: const Padding(
+                                                padding: EdgeInsets.only(left: 6),
+                                                child: Icon(Icons.close, size: 14, color: Colors.white70),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    else
+                                      InkWell(
+                                        onTap: () => _mostrarPickerRecursos(ej),
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 4),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.add_link_rounded, size: 14, color: GingaColors.brandGreen),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Vincular clip de tu Pizarra',
+                                                style: GoogleFonts.montserrat(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: GingaColors.brandGreen,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }),
+
+                            // Botón Añadir Ejercicio
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  ejercicios.add({
+                                    'nombre': 'Nuevo Ejercicio',
+                                    'detalle': '',
+                                    'recurso_relacionado': null,
+                                  });
+                                });
+                              },
+                              icon: const Icon(Icons.add, size: 14),
+                              label: const Text('Añadir Ejercicio'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white70,
+                                side: const BorderSide(color: _kBordeOscuro),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                textStyle: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+
+        // ── Barra de Botones Inferiores del Editor ──
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          decoration: const BoxDecoration(
+            color: _kTarjetaOscura,
+            border: Border(top: BorderSide(color: _kBordeOscuro)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _cancelarEdicion,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: _kBordeOscuro),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                    ),
+                  ),
+                  child: const Text('Cancelar'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: _guardarEdicion,
+                  icon: const Icon(Icons.save_rounded, size: 18),
+                  label: const Text('Guardar Cambios'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: GingaColors.brandGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                    ),
+                    textStyle: GoogleFonts.montserrat(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   void _copiarAlPortapapeles() {
@@ -2556,6 +3545,200 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
         ),
         const SizedBox(height: 24),
 
+        // ── Selector de Recursos de la Pizarra ──
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                '4. Drills o Clips a integrar (${_ideasSeleccionadasIds.length} seleccionados)',
+                style: GoogleFonts.montserrat(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            if (_ideasMap.isNotEmpty)
+              PopupMenuButton<String>(
+                color: _kTarjetaOscura,
+                icon: const Icon(Icons.more_vert, color: _kTextoSecundario, size: 20),
+                onSelected: (val) {
+                  setState(() {
+                    if (val == 'nuevos') {
+                      _ideasSeleccionadasIds = _ideasMap.entries
+                          .where((e) {
+                            final d = e.value;
+                            final bool completado = d['completado'] == true;
+                            final cl = d['clase_usada'] as String?;
+                            final int v = (d['veces_usada'] as num?)?.toInt() ?? 0;
+                            final bool usada = (cl != null && cl.trim().isNotEmpty) || v > 0;
+                            return !completado && !usada;
+                          })
+                          .map((e) => e.key)
+                          .toSet();
+                    } else if (val == 'todos') {
+                      _ideasSeleccionadasIds = _ideasMap.keys.toSet();
+                    } else if (val == 'limpiar') {
+                      _ideasSeleccionadasIds.clear();
+                    }
+                  });
+                },
+                itemBuilder: (ctx) => [
+                  PopupMenuItem(
+                    value: 'nuevos',
+                    child: Text('✨ Seleccionar solo Nuevos', style: GoogleFonts.montserrat(color: Colors.white, fontSize: 12.5)),
+                  ),
+                  PopupMenuItem(
+                    value: 'todos',
+                    child: Text('Seleccionar Todos', style: GoogleFonts.montserrat(color: Colors.white, fontSize: 12.5)),
+                  ),
+                  PopupMenuItem(
+                    value: 'limpiar',
+                    child: Text('Limpiar selección', style: GoogleFonts.montserrat(color: Colors.white, fontSize: 12.5)),
+                  ),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Elige qué ejercicios quieres que la IA incorpore en la clase. Puedes ver cuáles son nuevos ✨ y cuáles ya has utilizado antes 🥋:',
+          style: GoogleFonts.montserrat(fontSize: 11, color: _kTextoSecundario, height: 1.3),
+        ),
+        const SizedBox(height: 10),
+        if (_ideasMap.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _kFondoOscuro,
+              borderRadius: BorderRadius.circular(GingaRadius.md),
+              border: Border.all(color: _kBordeOscuro),
+            ),
+            child: Text(
+              'Aún no tienes ideas en tu pizarra. La IA creará una sesión desde cero con ejercicios técnicos recomendados.',
+              style: GoogleFonts.montserrat(fontSize: 11.5, color: _kTextoSecundario),
+            ),
+          )
+        else
+          SizedBox(
+            height: 135,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _ideasMap.length,
+              itemBuilder: (ctx, index) {
+                final entry = _ideasMap.entries.elementAt(index);
+                final id = entry.key;
+                final idea = entry.value;
+                final isSelected = _ideasSeleccionadasIds.contains(id);
+                final titulo = idea['titulo'] as String? ?? 'Ejercicio';
+                final clUsada = idea['clase_usada'] as String?;
+                final vUsada = (idea['veces_usada'] as num?)?.toInt() ?? 0;
+                final bool yaUsada = (clUsada != null && clUsada.trim().isNotEmpty) || vUsada > 0;
+                final thumb = idea['thumbnail_url'] as String?;
+
+                return InkWell(
+                  onTap: () {
+                    setState(() {
+                      if (isSelected) {
+                        _ideasSeleccionadasIds.remove(id);
+                      } else {
+                        _ideasSeleccionadasIds.add(id);
+                      }
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 170,
+                    margin: const EdgeInsets.only(right: 10),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? GingaColors.brandGreen.withValues(alpha: 0.12) : _kFondoOscuro,
+                      borderRadius: BorderRadius.circular(GingaRadius.md),
+                      border: Border.all(
+                        color: isSelected ? GingaColors.brandGreen : _kBordeOscuro,
+                        width: isSelected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: yaUsada
+                                  ? Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: GingaColors.accentAmber.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        vUsada > 1 ? 'Usado $vUsada veces' : 'En plan: ${clUsada ?? "Clase"}',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700,
+                                          color: GingaColors.accentAmber,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    )
+                                  : Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF00E676).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        '✨ Nuevo',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF00E676),
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                            Icon(
+                              isSelected ? Icons.check_circle : Icons.circle_outlined,
+                              size: 16,
+                              color: isSelected ? GingaColors.brandGreen : _kTextoSecundario,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Expanded(
+                          child: Text(
+                            titulo,
+                            style: GoogleFonts.montserrat(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              height: 1.25,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (thumb != null && thumb.isNotEmpty)
+                          Row(
+                            children: [
+                              const Icon(Icons.image, size: 12, color: _kTextoSecundario),
+                              const SizedBox(width: 4),
+                              Text('Con clip', style: GoogleFonts.montserrat(fontSize: 9.5, color: _kTextoSecundario)),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        const SizedBox(height: 20),
+
         // ── Tarjeta Informativa sobre el buzón ──
         Container(
           padding: const EdgeInsets.all(12),
@@ -2603,6 +3786,10 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
   }
 
   Widget _buildPlanResultado() {
+    if (_editando) {
+      return _buildEditorPlan();
+    }
+
     final titulo = _planGenerado!['titulo'] ?? 'Clase de Entrenamiento';
     final objetivo = _planGenerado!['objetivo'] ?? '';
     final duracionTotal = _planGenerado!['duracion_total'] ?? _duracion;
@@ -2661,6 +3848,34 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        InkWell(
+                          onTap: _iniciarEdicion,
+                          borderRadius: BorderRadius.circular(GingaRadius.full),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(GingaRadius.full),
+                              border: Border.all(color: Colors.white30),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.edit, size: 12, color: Colors.white),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Editar Plan',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -2936,11 +4151,29 @@ class _GeneradorClaseModalState extends State<_GeneradorClaseModal> {
 
               Row(
                 children: [
+                  // Editar
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _iniciarEdicion,
+                      icon: const Icon(Icons.edit_outlined, size: 15),
+                      label: const Text('Editar'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: _kBordeOscuro),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(GingaRadius.md),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+
                   // Copiar
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _copiarAlPortapapeles,
-                      icon: const Icon(Icons.copy, size: 16),
+                      icon: const Icon(Icons.copy, size: 15),
                       label: const Text('Copiar'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white,
@@ -3523,7 +4756,7 @@ class _ClaseEnVivoScreenState extends State<_ClaseEnVivoScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Quedarán atenuados en tu Pizarra para que en tus próximas clases la IA proponga recursos nuevos.',
+                        'Se registrarán con la etiqueta "🥋 En plan" en tu Pizarra para que lleves el historial de lo impartido, manteniéndose siempre listos para volver a enseñarse.',
                         style: GoogleFonts.montserrat(
                           fontSize: 11.5,
                           color: _kTextoSecundario,
@@ -3629,6 +4862,8 @@ class _ClaseEnVivoScreenState extends State<_ClaseEnVivoScreen> {
             'completado': true,
             'fecha_ultimo_uso': FieldValue.serverTimestamp(),
             'clase_usada': tituloPlan,
+            'clases_asociadas': FieldValue.arrayUnion([tituloPlan]),
+            'veces_usada': FieldValue.increment(1),
           });
         }
       }
