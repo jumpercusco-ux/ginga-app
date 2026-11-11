@@ -644,12 +644,15 @@ async function reprogramarClasePruebaLead(leadId, reservaId, nuevaFecha, motivo 
     const fechaAnteriorTimestamp = reservaData.fecha_clase;
     const nuevaFechaTimestamp = admin.firestore.Timestamp.fromDate(nuevaFecha);
     const ahora = admin.firestore.FieldValue.serverTimestamp();
+    const ahoraTimestamp = admin.firestore.Timestamp.now
+      ? admin.firestore.Timestamp.now()
+      : admin.firestore.Timestamp.fromDate(new Date());
 
     const entradaAuditoria = {
       fecha_anterior: fechaAnteriorTimestamp,
       nueva_fecha: nuevaFechaTimestamp,
       motivo: motivo || 'Solicitud de reprogramación del lead',
-      fecha_reprogramacion: ahora,
+      fecha_reprogramacion: ahoraTimestamp,
       origen: 'whatsapp_agent',
     };
 
@@ -926,7 +929,7 @@ async function enviarRecordatorioWhatsApp(to, nombreLead) {
  * invoque explícitamente una consulta de verificación separada.
  */
 
-const TELEMETRY_SALT = process.env.TELEMETRY_SALT || 'ginga_telemetry_salt_local_v1';
+const TELEMETRY_SALT = process.env.TELEMETRY_SALT || crypto.randomBytes(32).toString('hex');
 
 function hashLeadId(leadId) {
   if (!leadId) return 'anon';

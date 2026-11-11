@@ -8,8 +8,12 @@
 
 - **Proyecto:** `/Users/jumper/ginga_app`
 - **Rama Activa:** `fix/real-whatsapp-logic`
-- **Commit Base:** `bd36b9a` (`docs: refine Decision 5 on dynamic venue resolution and anti-hallucination`)
-- **Estado de Trabajo:** Cierre de seguridad de **P1A: Runtime Guard y Trazabilidad de Tools (Zero PII)** completado y verificado al 100% (**27/27 tests PASS**, total suites: **82/82 PASS**, baseline: **9/9 OK, 0 defectos**).
+- **Commit Base:** `847d3be` (`feat(agent): runtime mutation guard and tool execution audit`)
+- **Estado de Trabajo:** **Release Candidate (RC) Gate Evaluado — Estado CONDITIONAL**.
+  - 82/82 pruebas offline PASS.
+  - 8/8 pruebas reales en Firestore Emulator (Java 21) PASS.
+  - Total: **90 de 90 pruebas superadas (100% PASS)**.
+  - Bloqueo para producción: Protección de auto-deploy en GitHub Actions, secrets y QA con OpenAI real.
 - **Producción:** Google Cloud Function `whatsappWebhook v67` (asociada a `main` en commit `3058ada`). **Producción NO ha sido tocada.**
 
 ---
@@ -67,7 +71,13 @@ node real_agent_harness/test_p01_recognition.js
 # 6. Ejecutar la suite de línea base (9 escenarios de auditoría)
 node real_agent_harness/suite_runner.js
 
-# 7. Verificar integridad de git
+# 7. Ejecutar la suite real de Firestore Emulator (Java 21, puerto 8080)
+PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" JAVA_HOME="/opt/homebrew/opt/openjdk@21" firebase emulators:exec --only firestore "node real_agent_harness/test_emulator_integration.js" --project demo-ginga-test
+
+# 8. Ejecutar el QA Runner aislado (Dry-Run offline con Firestore Emulator)
+PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" JAVA_HOME="/opt/homebrew/opt/openjdk@21" firebase emulators:exec --only firestore "node real_agent_harness/qa_openai_runner.js" --project demo-ginga-test
+
+# 9. Verificar integridad de git
 git status
 git diff functions/index.js
 ```
@@ -76,9 +86,9 @@ git diff functions/index.js
 
 ## 4. Qué Sigue Exactamente (Siguiente Tarea)
 
-1. **Revisión y autorización del usuario de los entregables P1A.**
-2. Crear commit local para P1A.
-3. Avanzar hacia **P1B / Agent Control Center & Dashboard de visualización en Staging.**
+1. **Revisión del usuario del informe del Release Candidate Gate.**
+2. Decisión sobre ejecución de QA conversacional con OpenAI real (`gpt-4o-mini`, 12 escenarios, presupuesto máx $0.25 USD).
+3. Preparación de migración segura y checklist de despliegue controlado (`whatsappWebhook v68`).
 
 ---
 

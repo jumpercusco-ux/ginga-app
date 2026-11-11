@@ -3,8 +3,9 @@
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-11  
 > **Rama Actual:** `fix/real-whatsapp-logic`  
-> **Commit HEAD:** `bd36b9a` (+ P1A local listo para revisión)
-> **Producción Intacta:** `3058ada` (main, `whatsappWebhook v67`)
+> **Commit HEAD:** `847d3be` (`feat(agent): runtime mutation guard and tool execution audit`)  
+> **Producción Intacta:** `3058ada` (main, `whatsappWebhook v67`)  
+> **Estado RC:** CONDITIONAL (Apto para Staging / QA Real, Bloqueado para Despliegue Directo a Producción)
 
 ---
 
@@ -314,21 +315,61 @@ Para facilitar la telemetría del futuro Agent Control Center y la API de DANEV:
 
 ---
 
-## 7. Roadmap Priorizado
+## 7. Evaluación del Release Candidate (RC) & Integration Gate
+
+> [!IMPORTANT]
+> **Veredicto del Release Candidate:** **CONDITIONAL**
+> - **Aprobado para:** Pruebas de integración, emulación real y Staging con OpenAI real.
+> - **Bloqueado para:** Despliegue directo a producción en Google Cloud.
+
+### 7.1. Matriz de Validación de Suites (90/90 Pruebas PASS)
+1. **Suites Offline Aisladas (82/82 PASS):**
+   - `test_p1a_runtime_guard.js`: 27/27 PASS (100%).
+   - `test_p01_recognition.js`: 14/14 PASS (100%).
+   - `test_p02a_rescheduling.js`: 22/22 PASS (100%).
+   - `test_p02b_family_identity.js`: 10/10 PASS (100%).
+   - `suite_runner.js` (Baseline 3058ada): 9/9 PASS (100%, 0 defectos).
+2. **Suite Real de Firestore Emulator (8/8 PASS):**
+   - Ejecutada sobre OpenJDK 21.0.7 y Firebase CLI 15.29.0 (`real_agent_harness/test_emulator_integration.js`).
+   - Probó transacciones reales, exclusión mutua, auto-reconciliación legacy y consultas compuestas.
+   - **Defecto Crítico Corregido:** Firestore real prohíbe `FieldValue.serverTimestamp()` dentro de elementos de un array (`reprogramaciones: [...]`). Se corrigió a `Timestamp.now()`.
+
+### 7.2. Auditoría de Seguridad y Secretos
+- **`TELEMETRY_SALT`:** Se eliminó cualquier valor fijo hardcodeado. En runtime se utiliza `process.env.TELEMETRY_SALT || crypto.randomBytes(32).toString('hex')`. Cada proceso genera un salt criptográfico efímero e impredecible si no se provee vía Secret Manager.
+- **Zero PII Estricto:** La telemetría ofusca teléfonos con HMAC-SHA256 (`lead_hash`), menores con `persona_ref` (`p_` + hash) y elimina conversaciones y tokens.
+- **Riesgo CI/CD Crítico:** `.github/workflows/deploy.yml` despliega automáticamente todas las funciones si se hace push a `main`. Prohibido mergear sin desactivar o condicionar ese job.
+
+### 7.3. QA Conversacional con OpenAI Real Aislado (`qa_openai_runner.js`)
+- **Script Implementado y Verificado:** `real_agent_harness/qa_openai_runner.js`.
+- **Modo por defecto:** **DRY-RUN OFFLINE** (`ENABLE_REAL_OPENAI_QA=false`). 0 llamadas externas, $0.0000 USD de gasto.
+- **Resultado en Dry-Run con Firestore Emulator:** **12 de 12 escenarios PASS (100%)**.
+- **Controles de Seguridad y Presupuesto Activos:**
+  * Techo duro de llamadas: 30 requests HTTP máximo.
+  * Límite presupuestario estricto: $0.25 USD máximo (`gpt-4o-mini`).
+  * Zero PII: Hashing HMAC-SHA256 para lead IDs (`hashLeadId`) y nombres (`hashPersona`), sin números telefónicos en consola.
+  * Verificación Dinámica de Sedes: Lee directamente desde la colección `/sedes` en Firestore Emulator para asegurar que el agente no invente ubicaciones ni referencias geográficas.
+- **Activación para QA Real:** Requiere ejecución explícita con `ENABLE_REAL_OPENAI_QA=true OPENAI_API_KEY="..." node real_agent_harness/qa_openai_runner.js` únicamente tras autorización expresa. 12 escenarios de prueba con `gpt-4o-mini`.
+- Techo de gasto máximo: **$0.25 USD** (30 requests máx).
+- Toggle explícito de seguridad: `ENABLE_REAL_OPENAI_QA=true`.
+
+---
+
+## 8. Roadmap Actualizado
 
 ```mermaid
 flowchart TD
-    P01["P0.1: Memoria de Reservas en Prompt (COMPLETADO - 9c53417)"] --> P02["P0.2: Reprogramación, Duplicados y Multi-Hijo (SIGUIENTE)"]
-    P02 --> P1["P1: Instrumentación & Detección de Alucinación"]
-    P1 --> P2["P2: Visualización en Staging"]
-    P2 --> P3["P3: QA Conversacional con OpenAI Real"]
-    P3 --> P4["P4: Agent Control Center en Producción"]
-    P4 --> P5["P5: Integración con DANEV API"]
+    P01["P0.1: Memoria de Reservas (COMPLETADO - 9c53417)"] --> P02A["P0.2A: Reprogramación & Duplicados (COMPLETADO - df2650e)"]
+    P02A --> P02B["P0.2B: Identidad Familiar (COMPLETADO - ae75ee6)"]
+    P02B --> P1A["P1A: Runtime Guard & Telemetría Zero PII (COMPLETADO - 847d3be)"]
+    P1A --> RC["RC Integration & Security Gate (ACTUAL - CONDITIONAL)"]
+    RC --> P1B["P1B: QA Conversacional con OpenAI Real (gpt-4o-mini)"]
+    P1B --> P2["P2: Agent Control Center & Staging Dashboard"]
+    P2 --> PROD["P3: Despliegue Controlado a Producción (whatsappWebhook v68)"]
 ```
 
 ---
 
-## 8. Riesgos de Seguridad y Operación
+## 9. Riesgos de Seguridad y Operación
 
 1. **Riesgo de Falsa Promesa (False Confirmation):** Mitigado en P0.1 a nivel de prompt y se blindará en P0.2 al proveer la tool `reprogramar_reserva`.
 2. **Concurrencia en Webhooks:** Si un usuario envía dos mensajes en menos de 2 segundos, el debounce de 5.0s mitiga la duplicidad de llamadas, pero P0.2 incluirá el chequeo de duplicados dentro de la transacción Firestore como defensa en profundidad.

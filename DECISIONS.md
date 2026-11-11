@@ -130,3 +130,18 @@ Cada decisión se clasifica estrictamente en uno de tres estados:
      - Buffer en memoria volátil (`MAX_TELEMETRY_BUFFER_SIZE = 100`) sin persistencia productiva prematura en esta fase.
   5. **Límite Semántico Intrínseco Documentado:** El clasificador se apoya en reglas heurísticas y expresiones regulares robustas. Modismos coloquiales atípicos sin verbos estándar de acción (ej. "ya te apunté en la libreta") representan un límite semántico intrínseco, mitigado por las instrucciones de tono y claridad del prompt de sistema.
 
+---
+
+### 15. Salvaguardas de Integración, Firestore Real y Release Candidate
+- **Estado:** `[APROBADA]`
+- **Contexto:** Antes de considerar un despliegue de las correcciones de GINGA, era imperativo auditar la compatibilidad con el motor real de Google Cloud Firestore, evaluar la seguridad de secretos y revisar los pipelines de CI/CD.
+- **Decisión:**
+  1. **Compatibilidad Estricta con el Motor de Firestore:**
+     - En Firestore real, las sentinelas `FieldValue.serverTimestamp()` están estrictamente prohibidas dentro de arrays. En el array de auditoría `reprogramaciones`, se debe utilizar `Timestamp.now()`.
+  2. **Política de Secretos y Salt:**
+     - Prohibición de strings o llaves fijas en el código fuente para funciones criptográficas. Si `TELEMETRY_SALT` no se inyecta por Secret Manager, el sistema genera automáticamente un salt efímero de 32 bytes (`crypto.randomBytes(32).toString('hex')`) por instancia.
+  3. **Control de Despliegue CI/CD:**
+     - El flujo `.github/workflows/deploy.yml` despliega automáticamente al fusionar con `main`. Se establece como regla estricta no fusionar ni pushear a `main` sin control manual de release.
+  4. **Criterio de Aprobación de Release Candidate:**
+     - Ninguna fase de integración se considera aprobada si únicamente ha sido probada con mocks en memoria. El Release Candidate requiere pruebas en Firestore Emulator oficial con Java 21 y evaluación conversacional real previa al despliegue.
+

@@ -48,8 +48,28 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
-## [P1A Local] — 2026-11-11
-### [PROBADO LOCALMENTE] (Rama `fix/real-whatsapp-logic`)
+## [Release Candidate Gate] — 2026-11-11
+### [PROBADO LOCALMENTE] (Rama `fix/real-whatsapp-logic`, HEAD `847d3be`)
+- **Evaluación de Release Candidate & Security Gate:**
+  - **Pruebas en Firestore Emulator Real (Java 21):**
+    - Suite de integración `test_emulator_integration.js` ejecutada contra emulador oficial de Firestore (8 de 8 pruebas PASS).
+    - Detección y corrección de defecto crítico: Firestore rechaza `FieldValue.serverTimestamp()` dentro de arrays (`reprogramaciones`); se reemplazó por `Timestamp.now()`.
+  - **Auditoría Criptográfica y Secretos:**
+    - `TELEMETRY_SALT` actualizado a fallback dinámico `crypto.randomBytes(32).toString('hex')` eliminando cualquier secreto estático en el código fuente.
+  - **Auditoría CI/CD:**
+    - Detección de riesgo crítico en `.github/workflows/deploy.yml`: auto-deploy a producción al mergear a `main`. Prohibido merge sin protección de rama o aprobación manual.
+  - **Runner de QA Conversacional Real Preparado (`qa_openai_runner.js`):**
+    - Suite de 12 escenarios de conversación real sobre Firestore Emulator (`demo-ginga-test`).
+    - Verificación dinámica de sedes desde la colección `/sedes`.
+    - Controles de seguridad y presupuesto: Flag `ENABLE_REAL_OPENAI_QA=false` por defecto, límite de $0.25 USD y 30 llamadas máximo, registro Zero PII sin teléfonos ni datos privados.
+    - Modo Dry-Run offline verificado al 100% (12 de 12 escenarios PASS).
+  - **Veredicto RC:** **CONDITIONAL** (Apto para Staging y QA Real, Bloqueado para Despliegue Directo a Producción).
+  - **Total de pruebas verificadas:** **90 de 90 pruebas PASS** (82 offline + 8 emulator).
+
+---
+
+## [847d3be] — 2026-11-11
+### [COMMIT LOCAL: 847d3be] (Rama `fix/real-whatsapp-logic`)
 - **P1A: Runtime Guard Determinista y Telemetría Segura Zero PII:**
   - **Runtime Guard Determinista en `functions/index.js`:**
     - Inspección post-generación obligatoria en `preguntarIA` antes del envío de texto a WhatsApp o al cliente.
