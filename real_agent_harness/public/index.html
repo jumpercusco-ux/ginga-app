@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GINGA Real Agent — Entorno de Pruebas Conversacionales (3058ada)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-main: #f8fafc;
+      --bg-card: #ffffff;
+      --border: #e2e8f0;
+      --border-focus: #10b981;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --primary: #059669;
+      --primary-hover: #047857;
+      --primary-light: #ecfdf5;
+      --danger: #ef4444;
+      --danger-light: #fef2f2;
+      --warning: #f59e0b;
+      --warning-light: #fffbeb;
+      --dark-header: #0f172a;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--sans);
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--dark-header);
+      color: #fff;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #1e293b;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-badge {
+      background: #10b981;
+      color: #042f2e;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .brand h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .commit-tag {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #94a3b8;
+      background: #1e293b;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 380px 1fr 400px;
+      gap: 20px;
+      padding: 20px;
+      flex: 1;
+      max-width: 1700px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 1200px) {
+      .container { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fafafa;
+    }
+
+    .card-header h2 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-body {
+      padding: 16px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* Scenarios list */
+    .scenario-btn {
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+      transition: all 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .scenario-btn:hover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .scenario-btn .sc-title {
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .scenario-btn .sc-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Chat timeline */
+    .chat-box {
+      display: flex;
+      flex-direction: column;
+      height: 480px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #fdfdfd;
+    }
+
+    .msg {
+      max-width: 82%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13.5px;
+      line-height: 1.45;
+    }
+
+    .msg-user {
+      align-self: flex-end;
+      background: #10b981;
+      color: #fff;
+      border-bottom-right-radius: 2px;
+    }
+
+    .msg-ai {
+      align-self: flex-start;
+      background: #f1f5f9;
+      color: #0f172a;
+      border-bottom-left-radius: 2px;
+      border: 1px solid var(--border);
+    }
+
+    .msg-meta {
+      font-size: 10px;
+      margin-top: 4px;
+      opacity: 0.75;
+    }
+
+    .chat-input-bar {
+      display: flex;
+      padding: 12px;
+      border-top: 1px solid var(--border);
+      gap: 8px;
+      background: #fff;
+    }
+
+    .chat-input-bar input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: var(--sans);
+      font-size: 13.5px;
+      outline: none;
+    }
+
+    .chat-input-bar input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .btn-send {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 0 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--sans);
+    }
+
+    .btn-send:hover {
+      background: var(--primary-hover);
+    }
+
+    /* Tools & Telemetry */
+    .tool-card {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+    }
+
+    .tool-header {
+      display: flex;
+      justify-content: space-between;
+      color: #0f766e;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .tool-args {
+      color: #334155;
+      background: #fff;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 6px;
+      white-space: pre-wrap;
+    }
+
+    .tool-result {
+      color: #047857;
+      background: #ecfdf5;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border: 1px solid #a7f3d0;
+      white-space: pre-wrap;
+    }
+
+    /* DB Inspector Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      padding: 0 12px;
+      background: #f8fafc;
+    }
+
+    .tab-btn {
+      padding: 8px 12px;
+      border: none;
+      background: none;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      background: #fff;
+    }
+
+    .tab-content {
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      overflow-x: auto;
+      max-height: 280px;
+    }
+
+    /* Test runner table */
+    .test-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .test-table th, .test-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .test-table th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .badge-ok {
+      background: #dcfce7;
+      color: #15803d;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+
+    .badge-bug {
+      background: #fee2e2;
+      color: #b91c1c;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="brand-badge">Harness Local</span>
+      <h1>GINGA — Entorno de Pruebas Conversacionales</h1>
+    </div>
+    <div class="commit-tag">HEAD: 3058ada (main) | Rama: fix/real-whatsapp-logic</div>
+  </header>
+
+  <div class="container">
+    <!-- PANEL 1: Escenarios y Pruebas Automatizadas -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Casos de Prueba (Fase B)</h2>
+        <button id="btnRunSuite" style="background:#0f172a;color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">Ejecutar 9 Pruebas</button>
+      </div>
+      <div class="card-body">
+        <div id="scenariosList"></div>
+
+        <div style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px;">
+          <h3 style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text-muted);text-transform:uppercase;">Resultados Automatizados</h3>
+          <div id="suiteResultsBox" style="font-size:11px;color:var(--text-muted);">Haz clic en "Ejecutar 9 Pruebas" para auditar el backend real.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 2: Chat Interactivo en Vivo -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Simulación de WhatsApp (Lead: <span id="currentLeadId" style="font-family:var(--mono);color:#0f766e;">+51984000001</span>)</h2>
+        <button id="btnResetDB" style="background:#fff;border:1px solid var(--border);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">Reiniciar DB</button>
+      </div>
+      <div class="chat-box">
+        <div class="chat-messages" id="chatMessages">
+          <div class="msg msg-ai">
+            ¡Hola! Bienvenido a Capoeira FIU / Ginga Cusco. Selecciona un escenario a la izquierda o escribe un mensaje.
+            <div class="msg-meta">Sistema</div>
+          </div>
+        </div>
+        <div class="chat-input-bar">
+          <input type="text" id="inputMsg" placeholder="Escribe un mensaje de WhatsApp (ej. 'Quiero cambiar para el jueves')...">
+          <button class="btn-send" id="btnSend">Enviar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 3: Herramientas Ejecutadas y Base de Datos Firestore -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Actividad de Herramientas & Firestore</h2>
+      </div>
+
+      <div style="padding: 12px; border-bottom: 1px solid var(--border); background: #fdfdfd; max-height: 250px; overflow-y: auto;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Herramientas Reales Invocadas</div>
+        <div id="toolsActivity">
+          <div style="font-size:12px;color:var(--text-muted);font-style:italic;">No hay herramientas ejecutadas en este turno.</div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('tabReservas')">Reservas (/reservas)</button>
+        <button class="tab-btn" onclick="switchTab('tabLeads')">Leads (/whatsapp_leads)</button>
+        <button class="tab-btn" onclick="switchTab('tabPrompt')">System Prompt</button>
+      </div>
+
+      <div id="tabReservas" class="tab-content">
+        <pre id="reservasDump">{}</pre>
+      </div>
+      <div id="tabLeads" class="tab-content" style="display:none;">
+        <pre id="leadsDump">{}</pre>
+      </div>
+      <div id="tabPrompt" class="tab-content" style="display:none;">
+        <pre id="promptDump">Cargando...</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentLeadId = '+51984000001';
+
+    const scenarios = [
+      { id: 'case_1', title: 'Caso 1: Consulta de Horarios', msg: 'Hola, quisiera saber los horarios de capoeira para niños de 9 años', leadId: '+51984000001' },
+      { id: 'case_2', title: 'Caso 2: Reserva Vigente (Amnesia)', msg: 'Hola, ¿qué ropa debe llevar Valentina a la clase?', leadId: '+51984000002', setup: 'vigente' },
+      { id: 'case_3', title: 'Caso 3: Reserva Cancelada', msg: 'Hola, quisiéramos retomar y agendar la clase de prueba para Valentina', leadId: '+51984000003', setup: 'cancelada' },
+      { id: 'case_4', title: 'Caso 4: Reserva Pasada', msg: 'Hola, quisiéramos volver a probar una clase de prueba para Valentina', leadId: '+51984000004', setup: 'pasada' },
+      { id: 'case_5', title: 'Caso 5: Dos Hijos (Mateo y Lucía)', msg: 'Hola, quiero agendar clase de prueba para mis dos hijos: Mateo de 12 y Lucía de 7', leadId: '+51984000005' },
+      { id: 'case_6', title: 'Caso 6: Reprogramación Martes a Jueves', msg: 'Hola, teníamos agendado para el martes pero no podemos ir, ¿podemos cambiar para el jueves?', leadId: '+51984000006', setup: 'reprogramar' },
+      { id: 'case_8', title: 'Caso 8: Falsa Confirmación Textual', msg: 'Cámbiame para el jueves por favor', leadId: '+51984000008', setup: 'falsa' },
+      { id: 'case_9', title: 'Caso 9: Solicitar Humano', msg: 'Quiero hablar con un profesor humano, por favor', leadId: '+51984000009' }
+    ];
+
+    function renderScenarios() {
+      const container = document.getElementById('scenariosList');
+      container.innerHTML = scenarios.map(sc => `
+        <button class="scenario-btn" onclick="triggerScenario('${sc.id}')">
+          <div class="sc-title"><span>${sc.title}</span></div>
+          <div class="sc-desc">"${sc.msg}"</div>
+        </button>
+      `).join('');
+    }
+
+    async function triggerScenario(id) {
+      const sc = scenarios.find(s => s.id === id);
+      if (!sc) return;
+      currentLeadId = sc.leadId;
+      document.getElementById('currentLeadId').innerText = currentLeadId;
+
+      if (sc.setup) {
+        await fetch('/api/setup-scenario', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenario: sc.setup, leadId: currentLeadId })
+        });
+      }
+
+      document.getElementById('inputMsg').value = sc.msg;
+      sendMessage();
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('inputMsg');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+
+      appendMessage('user', text);
+
+      const res = await fetch('/api/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: currentLeadId, text })
+      });
+      const data = await res.json();
+
+      appendMessage('ai', data.replyText || '(Sin respuesta de texto)');
+      renderTools(data.executedTools || []);
+      renderDBState(data.dbState);
+      document.getElementById('promptDump').innerText = data.systemPrompt || '';
+    }
+
+    function appendMessage(from, text) {
+      const box = document.getElementById('chatMessages');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `msg msg-${from}`;
+      msgDiv.innerHTML = `${text}<div class="msg-meta">${from === 'user' ? 'Cliente' : 'Agente GINGA'} • Ahora</div>`;
+      box.appendChild(msgDiv);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function renderTools(tools) {
+      const box = document.getElementById('toolsActivity');
+      if (!tools || tools.length === 0) {
+        box.innerHTML = '<div style="font-size:12px;color:var(--text-muted);font-style:italic;">No se ejecutaron herramientas en este turno.</div>';
+        return;
+      }
+      box.innerHTML = tools.map(t => `
+        <div class="tool-card">
+          <div class="tool-header"><span>[TOOL] ${t.name}</span><span>OK</span></div>
+          <div class="tool-args">args: ${JSON.stringify(t.args, null, 2)}</div>
+          <div class="tool-result">res: ${t.result}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderDBState(state) {
+      if (!state) return;
+      document.getElementById('reservasDump').innerText = JSON.stringify(state.reservas || {}, null, 2);
+      document.getElementById('leadsDump').innerText = JSON.stringify(state.whatsapp_leads || {}, null, 2);
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).style.display = 'block';
+      event.target.classList.add('active');
+    }
+
+    async function runSuite() {
+      const box = document.getElementById('suiteResultsBox');
+      box.innerHTML = 'Ejecutando las 9 pruebas de línea base...';
+      const res = await fetch('/api/run-suite');
+      const data = await res.json();
+
+      box.innerHTML = `
+        <table class="test-table">
+          <thead>
+            <tr><th>Estado</th><th>Caso</th><th>Categoría</th></tr>
+          </thead>
+          <tbody>
+            ${data.map(r => `
+              <tr>
+                <td><span class="${r.baselineBug ? 'badge-bug' : 'badge-ok'}">${r.baselineBug ? 'DEFECTO' : 'OK'}</span></td>
+                <td><strong>${r.nombre.split(':')[0]}</strong><br><span style="color:#64748b;font-size:10px;">${r.diagnostico}</span></td>
+                <td>${r.categoria}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    document.getElementById('btnSend').onclick = sendMessage;
+    document.getElementById('inputMsg').onkeydown = (e) => { if (e.key === 'Enter') sendMessage(); };
+    document.getElementById('btnRunSuite').onclick = runSuite;
+    document.getElementById('btnResetDB').onclick = async () => {
+      await fetch('/api/reset', { method: 'POST' });
+      document.getElementById('chatMessages').innerHTML = '';
+      appendMessage('ai', 'Base de datos reiniciada al estado de fábrica.');
+      const res = await fetch('/api/state');
+      const data = await res.json();
+      renderDBState(data);
+    };
+
+    renderScenarios();
+    fetch('/api/state').then(r => r.json()).then(renderDBState);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('autorun') === 'true') {
+      runSuite();
+    }
+    if (urlParams.get('scenario')) {
+      setTimeout(() => triggerScenario(urlParams.get('scenario')), 400);
+    }
+  </script>
+</body>
+</html>
+
