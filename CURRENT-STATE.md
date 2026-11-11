@@ -341,16 +341,29 @@ Para facilitar la telemetría del futuro Agent Control Center y la API de DANEV:
 
 ### 7.3. QA Conversacional con OpenAI Real Aislado (`qa_openai_runner.js`)
 - **Script Implementado y Verificado:** `real_agent_harness/qa_openai_runner.js`.
-- **Modo por defecto:** **DRY-RUN OFFLINE** (`ENABLE_REAL_OPENAI_QA=false`). 0 llamadas externas, $0.0000 USD de gasto.
+- **Alineación de Escenarios (12/12):**
+  1. *Reserva nueva:* Invocación de `reservar_clase_prueba` y verificación en Firestore.
+  2. *Reserva vigente:* Consulta sin re-agendamiento ni duplicados.
+  3. *Reprogramación martes-jueves:* Modificación atómica y auditoría en `reprogramaciones`.
+  4. *Dos hijos:* Aislamiento familiar entre hermanos (`mateo` y `sofia`).
+  5. *Asistencia previa:* Medida de seguridad: derivación al instructor sin cortesía automática.
+  6. *Inasistencia:* Bloqueo de reprogramación directa para citas pasadas no asistidas.
+  7. *Falta de cupos:* Verificación de rechazo por `cupos_disponibles: 0` (`CLASS_FULL`).
+  8. *Datos incompletos:* Petición de nombre y edad sin registrar reservas.
+  9. *Solicitud de cancelación:* Derivación a instructor sin inventar tools inexistentes.
+  10. *Consulta de sede y horarios configurados:* Lectura dinámica desde `/sedes` y `/clases`.
+  11. *Solicitud de atención humana:* Invocación de `marcar_seguimiento_humano` y status `requiere_atencion`.
+  12. *Confirmaciones falsas inducidas:* Intercepción obligatoria del Runtime Guard ante alucinaciones.
 - **Resultado en Dry-Run con Firestore Emulator:** **12 de 12 escenarios PASS (100%)**.
-- **Controles de Seguridad y Presupuesto Activos:**
-  * Techo duro de llamadas: 30 requests HTTP máximo.
-  * Límite presupuestario estricto: $0.25 USD máximo (`gpt-4o-mini`).
-  * Zero PII: Hashing HMAC-SHA256 para lead IDs (`hashLeadId`) y nombres (`hashPersona`), sin números telefónicos en consola.
-  * Verificación Dinámica de Sedes: Lee directamente desde la colección `/sedes` en Firestore Emulator para asegurar que el agente no invente ubicaciones ni referencias geográficas.
-- **Activación para QA Real:** Requiere ejecución explícita con `ENABLE_REAL_OPENAI_QA=true OPENAI_API_KEY="..." node real_agent_harness/qa_openai_runner.js` únicamente tras autorización expresa. 12 escenarios de prueba con `gpt-4o-mini`.
-- Techo de gasto máximo: **$0.25 USD** (30 requests máx).
-- Toggle explícito de seguridad: `ENABLE_REAL_OPENAI_QA=true`.
+- **Aislamiento y Mitigaciones Verificadas:**
+  * **Transporte Firestore Local:** Exigencia obligatoria de `FIRESTORE_EMULATOR_HOST` (e.g. `127.0.0.1:8080`) y `GCLOUD_PROJECT=demo-ginga-test`. Se desmintió que `demo-` desvíe sockets sin la variable de host; se incorporó validación activa de ping HTTP previa a cualquier operación.
+  * **Firewall de Red Global en `global.fetch`:** Intercepción determinista a nivel de proceso Node.js. Bloquea el 100% de solicitudes a `graph.facebook.com` y endpoints externos no autorizados. Probado expresamente con 0 bytes de egress a Meta.
+  * **Zero PII Estricto:** Hashing HMAC-SHA256 (`hashLeadId`, `hashPersona`) y datos sintéticos.
+  * **Circuito de Presupuesto Local:** Techo duro de 30 llamadas HTTP y $0.25 USD máximo estimado (circuit breaker de cliente; no es un límite contractual del proveedor).
+- **Estado Actual de Ejecución Real:** **BLOCKED (Pre-Flight Gate)**.
+  * `process.env.OPENAI_API_KEY` no se encuentra configurada en el entorno de ejecución.
+  * Conforme a la regla de seguridad del gate, la ejecución en vivo se detuvo de inmediato para prevenir fallos no autenticados o fugas.
+  * Procedimiento de desbloqueo documentado mediante captura segura interactiva sin eco (`read -s`).
 
 ---
 

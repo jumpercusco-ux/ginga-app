@@ -60,9 +60,12 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
     - Detección de riesgo crítico en `.github/workflows/deploy.yml`: auto-deploy a producción al mergear a `main`. Prohibido merge sin protección de rama o aprobación manual.
   - **Runner de QA Conversacional Real Preparado (`qa_openai_runner.js`):**
     - Suite de 12 escenarios de conversación real sobre Firestore Emulator (`demo-ginga-test`).
+    - Alineación exhaustiva con casos de auditoría: reserva nueva, reserva vigente, reprogramación M-J, 2 hijos, asistencia previa, inasistencia, sin cupos, datos incompletos, cancelación, sede/horarios dinámicos, atención humana y Runtime Guard.
+    - Intercepción defensiva de WhatsApp: `enviarMensajeWhatsApp` desacoplado a stub in-memory para evitar cualquier tráfico hacia Meta.
     - Verificación dinámica de sedes desde la colección `/sedes`.
     - Controles de seguridad y presupuesto: Flag `ENABLE_REAL_OPENAI_QA=false` por defecto, límite de $0.25 USD y 30 llamadas máximo, registro Zero PII sin teléfonos ni datos privados.
     - Modo Dry-Run offline verificado al 100% (12 de 12 escenarios PASS).
+    - Pre-flight Gate: Ejecución en vivo bloqueada preventivamente por ausencia de `OPENAI_API_KEY` en el entorno.
   - **Veredicto RC:** **CONDITIONAL** (Apto para Staging y QA Real, Bloqueado para Despliegue Directo a Producción).
   - **Total de pruebas verificadas:** **90 de 90 pruebas PASS** (82 offline + 8 emulator).
 

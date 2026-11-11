@@ -86,9 +86,21 @@ git diff functions/index.js
 
 ## 4. Qué Sigue Exactamente (Siguiente Tarea)
 
-1. **Revisión del usuario del informe del Release Candidate Gate.**
-2. Decisión sobre ejecución de QA conversacional con OpenAI real (`gpt-4o-mini`, 12 escenarios, presupuesto máx $0.25 USD).
-3. Preparación de migración segura y checklist de despliegue controlado (`whatsappWebhook v68`).
+1. **Desbloqueo Seguro de QA Conversacional Real:** Capturar interactivamente la clave de pruebas sin eco y sin dejarla en el historial de comandos (`~/.zsh_history`):
+   ```bash
+   # 1. Ingreso interactivo oculto (no deja rastro en historial ni logs):
+   read -s "OPENAI_API_KEY?Ingrese su OpenAI API Key de pruebas: " && export OPENAI_API_KEY
+
+   # 2. Ejecutar QA en vivo contra gpt-4o-mini y Firestore Emulator:
+   PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" JAVA_HOME="/opt/homebrew/opt/openjdk@21" \
+   ENABLE_REAL_OPENAI_QA=true \
+   firebase emulators:exec --only firestore "node real_agent_harness/qa_openai_runner.js" --project demo-ginga-test
+
+   # 3. Limpiar la variable inmediatamente tras la prueba:
+   unset OPENAI_API_KEY
+   ```
+2. **Auditar métricas reales:** Verificar latencia por turno, llamadas efectivas a tools, tokens consumidos y costo real (< $0.25 USD).
+3. **Decisión de Gate:** Con los resultados de OpenAI real, evaluar transición de CONDITIONAL a READY para staging/despliegue quirúrgico.
 
 ---
 

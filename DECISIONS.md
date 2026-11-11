@@ -145,3 +145,19 @@ Cada decisión se clasifica estrictamente en uno de tres estados:
   4. **Criterio de Aprobación de Release Candidate:**
      - Ninguna fase de integración se considera aprobada si únicamente ha sido probada con mocks en memoria. El Release Candidate requiere pruebas en Firestore Emulator oficial con Java 21 y evaluación conversacional real previa al despliegue.
 
+---
+
+### 16. Aislamiento Estricto de Red, Firewall Global y Credenciales Seguras de QA
+- **Estado:** `[APROBADA]`
+- **Contexto:** La ejecución de pruebas contra el LLM real (`gpt-4o-mini`) con el backend de producción emulado exige garantías absolutas de no-regresión hacia infraestructura productiva (Meta WhatsApp Cloud API y Google Cloud Firestore).
+- **Decisión:**
+  1. **Aislamiento de Transporte de Firestore:**
+     - Se establece formalmente que `GCLOUD_PROJECT=demo-...` no desvía el socket de red por sí solo. Es obligatorio exigir `FIRESTORE_EMULATOR_HOST` (e.g. `127.0.0.1:8080`) antes de inicializar el SDK de Firebase Admin, junto con un ping HTTP de conectividad activa antes de iniciar cualquier prueba.
+  2. **Firewall de Red Global en `global.fetch`:**
+     - Se prohíbe confiar en el monkey-patching de objetos exportados en módulos con referencias léxicas internas. La intercepción de solicitudes a Meta WhatsApp se implementa a nivel del transporte global de Node.js (`global.fetch`), bloqueando de forma absoluta cualquier salida hacia `graph.facebook.com` o endpoints remotos no autorizados.
+  3. **Política de Credenciales Sin Eco ni Historial:**
+     - Prohibición estricta de pasar claves API como argumentos literales de shell (`OPENAI_API_KEY="sk-..."`). Se estandariza el uso del comando interactivo sin eco `read -s` de zsh/bash, impidiendo que la clave se guarde en `~/.zsh_history` o archivos de disco.
+  4. **Naturaleza del Techo Presupuestario Local:**
+     - El cálculo de tokens y costo local ($0.25 USD) es un circuit-breaker de cliente y no un límite contractual garantizado por el proveedor. Para límites financieros duros se exige configurar presupuestos de proyecto en OpenAI Platform.
+
+

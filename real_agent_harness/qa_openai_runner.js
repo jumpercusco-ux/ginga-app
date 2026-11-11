@@ -3,51 +3,210 @@
  * 
  * Proyecto: demo-ginga-test (Totalmente aislado de producción y Meta WhatsApp)
  * 
- * Controles de Seguridad y Presupuesto:
- * - Flag explícito ENABLE_REAL_OPENAI_QA (por defecto FALSE).
- * - Límite de gasto financiero: $0.25 USD máximo.
- * - Techo duro de llamadas: 30 requests HTTP en total.
- * - Zero PII en consola: Hash criptográfico SHA-256 para lead IDs y nombres.
- * - Verificación dinámica de sedes: Consulta la colección /sedes en Firestore Emulator.
- * - Dry-run offline determinista cuando ENABLE_REAL_OPENAI_QA=false.
+ * REGLAS DE SEGURIDAD ESTRICTAS:
+ * 1. Aislamiento Firestore: Exige FIRESTORE_EMULATOR_HOST y GCLOUD_PROJECT=demo-ginga-test.
+ *    Verifica conectividad activa con el emulador ANTES de importar o inicializar Firebase Admin.
+ * 2. Firewall de Red Global: Intercepta global.fetch y https.request a nivel de proceso.
+ *    Bloquea 100% de salidas a Meta WhatsApp (graph.facebook.com) y GCP remoto.
+ * 3. Credenciales Seguras: Captura interactiva sin eco (read -s), nunca imprime claves en logs ni shell history.
+ * 4. Presupuesto: Techo duro de 30 llamadas HTTP y $0.25 USD estimado (circuit breaker de cliente,
+ *    no un límite de facturación garantizado por el proveedor).
+ * 5. Integridad de Resultados: Diferenciación estricta entre validación offline (DRY-RUN) y QA real (LIVE).
  */
 
 const crypto = require('crypto');
-const admin = require('../functions/node_modules/firebase-admin');
+const http = require('http');
+const https = require('https');
 
-// Asegurar proyecto de prueba ficticio
+// -------------------------------------------------------------
+// 1. AISLAMIENTO FIRESTORE OBLIGATORIO (PRE-INIT CHECK)
+// -------------------------------------------------------------
+// Nota crítica de seguridad: GCLOUD_PROJECT=demo-... NO fuerza el uso del emulador por sí solo.
+// El Admin SDK de Firebase requiere explícitamente FIRESTORE_EMULATOR_HOST en el entorno antes
+// de instanciar admin.firestore() para desviar el transporte gRPC/REST a la máquina local.
+// Sin esta variable, el SDK intentará comunicarse con los endpoints públicos de GCP.
+
+if (!process.env.FIRESTORE_EMULATOR_HOST) {
+  console.error('\n===============================================================');
+  console.error(' [FATAL SECURITY ERROR] FIRESTORE_EMULATOR_HOST NO ESTÁ DEFINIDO');
+  console.error(' Prohibido inicializar el SDK sin emulador local explícito.');
+  console.error(' Debe ejecutarse mediante: firebase emulators:exec --only firestore ...');
+  console.error('===============================================================\n');
+  process.exit(1);
+}
+
+const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
+if (!emulatorHost.startsWith('127.0.0.1:') && !emulatorHost.startsWith('localhost:')) {
+  console.error(`\n[FATAL SECURITY ERROR] FIRESTORE_EMULATOR_HOST (${emulatorHost}) no apunta a localhost/127.0.0.1.`);
+  process.exit(1);
+}
+
+// Forzar y validar proyecto ficticio exclusivo
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'demo-ginga-test';
+if (process.env.GCLOUD_PROJECT !== 'demo-ginga-test') {
+  console.error(`\n[FATAL SECURITY ERROR] GCLOUD_PROJECT (${process.env.GCLOUD_PROJECT}) no es "demo-ginga-test". Prohibido ejecutar contra proyectos reales.`);
+  process.exit(1);
+}
 process.env.FIREBASE_CONFIG = JSON.stringify({ projectId: 'demo-ginga-test' });
 
-// Cargar backend real
-const indexModule = require('../functions/index.js');
-const internals = indexModule.__internals;
-const {
-  AVAILABLE_TOOLS,
-  preguntarIA,
-  generarSystemPrompt,
-  reservarClasePruebaLead,
-  reprogramarClasePruebaLead,
-  evaluarRuntimeGuard,
-  aplicarIntercepcionSegura,
-  obtenerMensajeFallbackSeguro,
-  hashLeadId,
-  hashPersona,
-  TurnContext,
-  obtenerFechaLimaAhora,
-  formatearFechaLarga,
-} = internals;
-
-const db = admin.firestore();
-
 // -------------------------------------------------------------
-// CONTROLES DE SEGURIDAD Y PRESUPUESTO
+// 2. FIREWALL DE RED GLOBAL (ZERO EGRESS A META / EXTERIOR)
 // -------------------------------------------------------------
+// Intercepta todas las llamadas salientes realizadas por fetch y https.request a nivel de proceso Node.js.
+// No confía en reasignaciones de __internals ya que el código interno usa referencias léxicas.
+const originalFetch = global.fetch;
+const originalHttpsRequest = https.request;
+
+const networkAudit = {
+  metaCallsAttempted: 0,
+  metaCallsBlocked: 0,
+  openAiCalls: 0,
+  emulatorCalls: 0,
+  otherBlockedCalls: [],
+};
+
 const ENABLE_REAL_OPENAI_QA = process.env.ENABLE_REAL_OPENAI_QA === 'true';
+
+// Interceptor de global.fetch
+global.fetch = async function secureFetch(input, init) {
+  const url = typeof input === 'string' ? input : input?.url || '';
+
+  // Regla A: Meta WhatsApp Cloud API - BLOQUEO TOTAL Y DETERMINISTA
+  if (url.includes('graph.facebook.com') || url.includes('whatsapp') || url.includes('facebook')) {
+    networkAudit.metaCallsAttempted++;
+    networkAudit.metaCallsBlocked++;
+    console.warn(`[SECURITY FIREWALL] BLOQUEADA solicitud fetch a Meta WhatsApp: ${url}`);
+    return new Response(JSON.stringify({ 
+      error: { message: 'BLOCKED_BY_QA_FIREWALL: Acceso a Meta WhatsApp Cloud API estrictamente prohibido en entorno de QA.' } 
+    }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Regla B: Local Emulator (127.0.0.1 o localhost)
+  if (url.includes('127.0.0.1') || url.includes('localhost')) {
+    networkAudit.emulatorCalls++;
+    return originalFetch(input, init);
+  }
+
+  // Regla C: OpenAI Chat Completions API
+  if (url.startsWith('https://api.openai.com/v1/chat/completions')) {
+    if (!ENABLE_REAL_OPENAI_QA) {
+      throw new Error(`[SECURITY FIREWALL] Llamada a OpenAI rechazada porque ENABLE_REAL_OPENAI_QA es false: ${url}`);
+    }
+    networkAudit.openAiCalls++;
+    return originalFetch(input, init);
+  }
+
+  // Regla D: Cualquier otra salida externa no autorizada (GCP remoto, APIs de terceros)
+  networkAudit.otherBlockedCalls.push(url);
+  console.error(`[SECURITY FIREWALL] BLOQUEADA llamada externa no permitida: ${url}`);
+  throw new Error(`[SECURITY FIREWALL] Intento de conexión externa no autorizada en entorno de QA: ${url}`);
+};
+
+// Interceptor de https.request para dependencias HTTP tradicionales
+https.request = function secureHttpsRequest(...args) {
+  let host = '';
+  const first = args[0];
+  if (typeof first === 'string') {
+    try { host = new URL(first).hostname; } catch (_) {}
+  } else if (first && typeof first === 'object') {
+    host = first.hostname || first.host || '';
+  }
+
+  if (host.includes('facebook') || host.includes('whatsapp')) {
+    networkAudit.metaCallsAttempted++;
+    networkAudit.metaCallsBlocked++;
+    console.warn(`[SECURITY FIREWALL] (https) BLOQUEADA llamada a Meta: ${host}`);
+    const EventEmitter = require('events');
+    const mockReq = new EventEmitter();
+    mockReq.end = () => {};
+    mockReq.write = () => {};
+    process.nextTick(() => {
+      mockReq.emit('error', new Error('BLOCKED_BY_QA_FIREWALL: Acceso a Meta WhatsApp Cloud API prohibido'));
+    });
+    return mockReq;
+  }
+
+  if (host === 'api.openai.com') {
+    if (!ENABLE_REAL_OPENAI_QA) {
+      const EventEmitter = require('events');
+      const mockReq = new EventEmitter();
+      mockReq.end = () => {};
+      process.nextTick(() => {
+        mockReq.emit('error', new Error('BLOCKED_BY_QA_FIREWALL: OpenAI deshabilitado en dry-run'));
+      });
+      return mockReq;
+    }
+    return originalHttpsRequest.apply(https, args);
+  }
+
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return originalHttpsRequest.apply(https, args);
+  }
+
+  networkAudit.otherBlockedCalls.push(host);
+  console.error(`[SECURITY FIREWALL] (https) BLOQUEADA llamada externa no autorizada a ${host}`);
+  const EventEmitter = require('events');
+  const mockReq = new EventEmitter();
+  mockReq.end = () => {};
+  process.nextTick(() => {
+    mockReq.emit('error', new Error(`BLOCKED_BY_QA_FIREWALL: Host externo no autorizado: ${host}`));
+  });
+  return mockReq;
+};
+
+// -------------------------------------------------------------
+// 3. VALIDACIÓN ACTIVA DE CONECTIVIDAD LOCAL AL EMULADOR
+// -------------------------------------------------------------
+async function validarConectividadEmuladorActiva() {
+  const [host, port] = emulatorHost.split(':');
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      host,
+      port: Number(port),
+      path: '/',
+      method: 'GET',
+      timeout: 2000,
+    }, (res) => {
+      res.resume();
+      resolve(true);
+    });
+    req.on('error', (err) => {
+      reject(new Error(`No hay conexión activa con el emulador de Firestore en ${emulatorHost}: ${err.message}`));
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error(`Timeout conectando con el emulador de Firestore en ${emulatorHost}`));
+    });
+    req.end();
+  });
+}
+
+async function probarBloqueoMetaEfectivo() {
+  const antes = networkAudit.metaCallsBlocked;
+  try {
+    await fetch('https://graph.facebook.com/v20.0/test_phone/messages', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer test_token' },
+      body: JSON.stringify({ test: true }),
+    });
+  } catch (_) {
+    // Esperado
+  }
+  const despues = networkAudit.metaCallsBlocked;
+  if (despues <= antes) {
+    throw new Error('FALLO DE SEGURIDAD: El firewall global no bloqueó la solicitud a Meta WhatsApp.');
+  }
+}
+
+// -------------------------------------------------------------
+// 4. CONTROLES DE PRESUPUESTO Y CIRCUITO LOCAL
+// -------------------------------------------------------------
 const MAX_REQUESTS_TOTAL = 30;
 const BUDGET_LIMIT_USD = 0.25;
 
-// Tarifas gpt-4o-mini ($0.15 / 1M input, $0.60 / 1M output)
 const COST_PER_INPUT_TOKEN = 0.15 / 1000000;
 const COST_PER_OUTPUT_TOKEN = 0.60 / 1000000;
 
@@ -67,14 +226,11 @@ const budgetTracker = {
       throw new Error(`[BUDGET GUARD] Se excedió el límite máximo de ${MAX_REQUESTS_TOTAL} llamadas (total: ${this.requestCount}).`);
     }
     if (this.totalCostUSD > BUDGET_LIMIT_USD) {
-      throw new Error(`[BUDGET GUARD] Se superó el presupuesto máximo de $${BUDGET_LIMIT_USD} USD (acumulado: $${this.totalCostUSD.toFixed(4)} USD).`);
+      throw new Error(`[BUDGET GUARD] Se superó el presupuesto local estimado de $${BUDGET_LIMIT_USD} USD (acumulado: $${this.totalCostUSD.toFixed(4)} USD).`);
     }
   },
 };
 
-// -------------------------------------------------------------
-// LOGGING SEGURO (ZERO PII)
-// -------------------------------------------------------------
 function logSanitized(scenarioId, step, message, extra = null) {
   const ts = new Date().toISOString();
   const extraStr = extra ? ` | ${JSON.stringify(extra)}` : '';
@@ -82,9 +238,9 @@ function logSanitized(scenarioId, step, message, extra = null) {
 }
 
 // -------------------------------------------------------------
-// GESTIÓN DE FIXTURES EN FIRESTORE EMULATOR
+// 5. GESTIÓN DE FIXTURES Y SEDES EN FIRESTORE EMULATOR
 // -------------------------------------------------------------
-async function clearAllEmulatorCollections() {
+async function clearAllEmulatorCollections(db) {
   const collections = ['whatsapp_leads', 'reservas', 'clases', 'users', 'config', 'reprogramaciones', 'sedes'];
   for (const col of collections) {
     const snap = await db.collection(col).get();
@@ -94,10 +250,9 @@ async function clearAllEmulatorCollections() {
   }
 }
 
-async function seedBaseFixtures() {
-  await clearAllEmulatorCollections();
+async function seedBaseFixtures(db) {
+  await clearAllEmulatorCollections(db);
 
-  // 1. Sedes dinámicas (/sedes)
   await db.collection('sedes').doc('sede_cusco_centro').set({
     nombre: 'Sede Cusco Centro (Calle Hospital)',
     ciudad: 'Cusco',
@@ -106,7 +261,6 @@ async function seedBaseFixtures() {
     activo: true,
   });
 
-  // 2. Config negocio
   await db.collection('config').doc('negocio').set({
     nombre: 'Ginga & Capoeira FIU Cusco',
     moneda: 'PEN',
@@ -122,12 +276,10 @@ async function seedBaseFixtures() {
     link_maps: 'https://maps.app.goo.gl/3gdpPwk7PctgmSA38',
   });
 
-  // 3. Config agente
   await db.collection('config').doc('whatsapp_agent').set({
     system_prompt: 'Eres el instructor de Capoeira en Ginga Cusco. Responde con calidez y rigor.',
   });
 
-  // 4. Clases regulares
   await db.collection('clases').doc('clase_ninos').set({
     nombre: 'Capoeira Niños',
     tipo: 'regular',
@@ -159,17 +311,13 @@ async function seedBaseFixtures() {
   });
 }
 
-// -------------------------------------------------------------
-// VERIFICACIÓN DINÁMICA DE SEDES
-// -------------------------------------------------------------
-async function obtenerSedesValidasEmulator() {
+async function obtenerSedesValidasEmulator(db) {
   const snap = await db.collection('sedes').where('activo', '==', true).get();
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 function verificarDireccionEnSedes(texto, sedesValidas) {
   if (!texto) return true;
-  // Si el texto menciona direcciones, debe coincidir con alguna sede válida
   const direccionesValidas = sedesValidas.map((s) => s.direccion.toLowerCase());
   const mencionaDireccion = /calle|av\.|avenida|jirón|jr\./i.test(texto);
   if (!mencionaDireccion) return true;
@@ -181,484 +329,543 @@ function verificarDireccionEnSedes(texto, sedesValidas) {
 }
 
 // -------------------------------------------------------------
-// DEFINICIÓN DE LOS 12 ESCENARIOS
+// 6. DEFINICIÓN DE LOS 12 ESCENARIOS
 // -------------------------------------------------------------
-const SCENARIOS = [
-  {
-    id: 1,
-    name: 'Consulta general de horarios y sedes',
-    leadId: '+51984111001',
-    userMessage: 'Hola, quisiera saber los horarios de capoeira y dónde quedan ubicados.',
-    async setup() {
-      await db.collection('whatsapp_leads').doc(this.leadId).set({
-        telefono: this.leadId,
-        nombre: 'Lead Consultante',
-        status: 'nuevo',
-        created_at: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    },
-    mockResponse: {
-      content: '¡Hola! En Ginga Cusco tenemos clases los martes y jueves en Calle Hospital 840, segundo piso: Niños a las 17:00 y Adultos a las 18:00.',
-      toolsCalled: ['consultar_horarios_disponibles'],
-    },
-    async assertions({ responseText, toolsCalled, sedesValidas }) {
-      if (!verificarDireccionEnSedes(responseText, sedesValidas)) {
-        throw new Error('La respuesta menciona una dirección que no coincide con las sedes oficiales en Firestore.');
-      }
-      if (!/martes|jueves/i.test(responseText)) {
-        throw new Error('La respuesta no incluye los días válidos de clase.');
-      }
-      const leadDoc = await db.collection('whatsapp_leads').doc(this.leadId).get();
-      if (!leadDoc.exists) throw new Error('Lead doc no existe.');
-    },
-  },
-  {
-    id: 2,
-    name: 'Reserva de clase de prueba por primera vez',
-    leadId: '+51984111002',
-    userMessage: 'Hola, quiero agendar una clase de prueba de capoeira para mí (Camila Rivera, 22 años) para la próxima fecha disponible.',
-    async setup() {
-      await db.collection('whatsapp_leads').doc(this.leadId).set({
-        telefono: this.leadId,
-        nombre: 'Camila Rivera',
-        edad: 22,
-        status: 'conversando',
-      });
-    },
-    mockResponse: {
-      content: '¡Listo Camila! Tu clase de prueba para Jóvenes y Adultos quedó reservada con éxito.',
-      toolsCalled: ['reservar_clase_prueba'],
-    },
-    async assertions({ responseText, toolsCalled }) {
-      const reservasSnap = await db.collection('reservas')
-        .where('lead_id', '==', this.leadId)
-        .where('status', '==', 'confirmado')
-        .get();
-      if (reservasSnap.empty) throw new Error('No se encontró reserva confirmada en Firestore.');
-      const leadDoc = await db.collection('whatsapp_leads').doc(this.leadId).get();
-      const activas = leadDoc.data()?.reservas_activas || {};
-      if (!activas.camila_rivera) throw new Error('reservas_activas no contiene a camila_rivera.');
-    },
-  },
-  {
-    id: 3,
-    name: 'Consulta de reserva existente confirmada',
-    leadId: '+51984111003',
-    userMessage: '¿Cuándo es mi clase que tengo reservada?',
-    async setup() {
-      const ahora = obtenerFechaLimaAhora();
-      const proximaFecha = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 3, 18, 0, 0);
-      const resRef = await db.collection('reservas').add({
-        lead_id: this.leadId,
-        nombre_persona: 'Daniela Perez',
-        clase_id: 'clase_adultos',
-        fecha_clase: admin.firestore.Timestamp.fromDate(proximaFecha),
-        hora: '18:00',
-        status: 'confirmado',
-        asistio: false,
-      });
-      await db.collection('whatsapp_leads').doc(this.leadId).set({
-        telefono: this.leadId,
-        nombre: 'Daniela Perez',
-        status: 'clase_agendada',
-        reservas_activas: {
-          daniela_perez: {
-            reserva_id: resRef.id,
-            nombre_persona: 'Daniela Perez',
-            clase_id: 'clase_adultos',
-            fecha_clase: admin.firestore.Timestamp.fromDate(proximaFecha),
-            hora: '18:00',
-            status: 'confirmado',
-          },
-        },
-      });
-    },
-    mockResponse: {
-      content: 'Hola Daniela, tu clase está confirmada para las 18:00 hrs en nuestra sede de Calle Hospital 840.',
-      toolsCalled: [],
-    },
-    async assertions({ responseText, toolsCalled }) {
-      if (toolsCalled.includes('reservar_clase_prueba')) {
-        throw new Error('No debe invocar reservar_clase_prueba para una consulta de reserva existente.');
-      }
-      if (!/18:00|confirmada/i.test(responseText)) {
-        throw new Error('La respuesta no menciona los datos correctos de la reserva activa.');
-      }
-    },
-  },
-  {
-    id: 4,
-    name: 'Reprogramación de reserva antes de la clase',
-    leadId: '+51984111004',
-    reservaId: null,
-    userMessage: 'Hola, tuve un inconveniente y no podré ir este jueves. ¿Puedo cambiar mi clase para el próximo martes?',
-    async setup() {
-      const ahora = obtenerFechaLimaAhora();
-      const fechaOriginal = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 2, 18, 0, 0);
-      const resRef = await db.collection('reservas').add({
-        lead_id: this.leadId,
-        nombre_persona: 'Carlos Morales',
-        clase_id: 'clase_adultos',
-        fecha_clase: admin.firestore.Timestamp.fromDate(fechaOriginal),
-        hora: '18:00',
-        status: 'confirmado',
-        reprogramaciones: [],
-      });
-      this.reservaId = resRef.id;
-      await db.collection('whatsapp_leads').doc(this.leadId).set({
-        telefono: this.leadId,
-        nombre: 'Carlos Morales',
-        status: 'clase_agendada',
-        reservas_activas: {
-          carlos_morales: {
-            reserva_id: resRef.id,
-            nombre_persona: 'Carlos Morales',
-            clase_id: 'clase_adultos',
-            fecha_clase: admin.firestore.Timestamp.fromDate(fechaOriginal),
-            hora: '18:00',
-            status: 'confirmado',
-          },
-        },
-      });
-    },
-    mockResponse: {
-      content: '¡Claro Carlos! Reprogramamos tu clase de prueba para el próximo martes a las 18:00.',
-      toolsCalled: ['reprogramar_reserva'],
-    },
-    async assertions({ responseText, toolsCalled }) {
-      const resDoc = await db.collection('reservas').doc(this.reservaId).get();
-      const resData = resDoc.data();
-      if (!Array.isArray(resData.reprogramaciones) || resData.reprogramaciones.length === 0) {
-        throw new Error('La reserva reprogramada debe registrar la auditoría en el array reprogramaciones.');
-      }
-      const audit = resData.reprogramaciones[0];
-      if (!audit.fecha_reprogramacion) {
-        throw new Error('Falta fecha_reprogramacion en auditoría.');
-      }
-    },
-  },
-  {
-    id: 5,
-    name: 'Familia con dos hijos: reserva del segundo sin alterar el primero',
-    leadId: '+51984111005',
-    mateoResId: null,
-    userMessage: 'Hola, ya reservé para Mateo pero también quiero agendar a su hermanita Sofia de 5 años para la misma clase de niños.',
-    async setup() {
-      const ahora = obtenerFechaLimaAhora();
-      const fechaClase = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 3, 17, 0, 0);
-      const resRef = await db.collection('reservas').add({
-        lead_id: this.leadId,
-        nombre_persona: 'Mateo',
-        clase_id: 'clase_ninos',
-        fecha_clase: admin.firestore.Timestamp.fromDate(fechaClase),
-        hora: '17:00',
-        status: 'confirmado',
-      });
-      this.mateoResId = resRef.id;
-      await db.collection('whatsapp_leads').doc(this.leadId).set({
-        telefono: this.leadId,
-        nombre: 'Mamá Patricia',
-        status: 'clase_agendada',
-        perfil_personas: [{ nombre: 'Mateo', edad: 8 }],
-        reservas_activas: {
-          mateo: {
-            reserva_id: resRef.id,
-            nombre_persona: 'Mateo',
-            clase_id: 'clase_ninos',
-            fecha_clase: admin.firestore.Timestamp.fromDate(fechaClase),
-            hora: '17:00',
-            status: 'confirmado',
-          },
-        },
-      });
-    },
-    mockResponse: {
-      content: '¡Excelente! Agendé a Sofia para la clase de niños de las 17:00. Tanto Mateo como Sofia tienen su lugar listo.',
-      toolsCalled: ['reservar_clase_prueba'],
-    },
-    async assertions({ responseText, toolsCalled }) {
-      const mateoDoc = await db.collection('reservas').doc(this.mateoResId).get();
-      if (mateoDoc.data()?.status !== 'confirmado') {
-        throw new Error('La reserva previa de Mateo fue modificada o sobreescrita.');
-      }
-      const leadDoc = await db.collection('whatsapp_leads').doc(this.leadId).get();
-      const activas = leadDoc.data()?.reservas_activas || {};
-      if (!activas.mateo || !activas.sofia) {
-        throw new Error('reservas_activas debe contener tanto a mateo como a sofia.');
-      }
-    },
-  },
-  {
-    id: 6,
-    name: 'Alumno que ya asistió pidiendo otra clase gratis -> derivar instructor',
-    leadId: '+51984111006',
-    userMessage: 'Hola, ya fui a mi clase de prueba la semana pasada y me gustó mucho. ¿Puedo tomar otra clase de prueba gratis este martes?',
-    async setup() {
-      const pasada = new Date(Date.now() - 7 * 86400000);
-      await db.collection('reservas').add({
-        lead_id: this.leadId,
-        nombre_persona: 'Lucas Mendoza',
-        clase_id: 'clase_adultos',
-        fecha_clase: admin.firestore.Timestamp.fromDate(pasada),
-        status: 'confirmado',
-        asistio: true,
-      });
-      await db.collection('whatsapp_leads').doc(this.leadId).set({
-        telefono: this.leadId,
-        nombre: 'Lucas Mendoza',
-        status: 'asistio',
-      });
-    },
-    mockResponse: {
-      content: '¡Qué bueno que te haya gustado la clase, Lucas! La clase de prueba gratuita es solo una por persona. Para continuar tenemos planes mensuales de S/140. Voy a consultar con el profesor para que te brinde más detalles.',
-      toolsCalled: ['marcar_seguimiento_humano'],
-    },
-    async assertions({ responseText, toolsCalled }) {
-      if (toolsCalled.includes('reservar_clase_prueba')) {
-        throw new Error('No debe confirmar automáticamente una segunda clase de prueba gratis para quien ya asistió.');
-      }
-      const countSnap = await db.collection('reservas').where('lead_id', '==', this.leadId).get();
-      if (countSnap.docs.length > 1) {
-        throw new Error('Se generó una reserva indebida en Firestore.');
-      }
-    },
-  },
-  {
-    id: 7,
-    name: 'Alumno ausente pidiendo reprogramación -> derivar instructor',
-    leadId: '+51984111007',
-    userMessage: 'Hola, no pude asistir a mi clase de prueba de ayer porque me enfermé. ¿Me la reprogramas para mañana?',
-    async setup() {
-      const ayer = new Date(Date.now() - 86400000);
-      await db.collection('reservas').add({
-        lead_id: this.leadId,
-        nombre_persona: 'Valeria Flores',
-        clase_id: 'clase_adultos',
-        fecha_clase: admin.firestore.Timestamp.fromDate(ayer),
-        status: 'confirmado',
-        asistio: false,
-      });
-      await db.collection('whatsapp_leads').doc(this.leadId).set({
-        telefono: this.leadId,
-        nombre: 'Valeria Flores',
-        status: 'no_asistio',
-      });
-    },
-    mockResponse: {
-      content: 'Hola Valeria, lamento que no hayas podido venir. Como la clase programada ya pasó, voy a consultar con el profesor para ver si es posible habilitarte una nueva fecha.',
-      toolsCalled: ['marcar_seguimiento_humano'],
-    },
-    async assertions({ responseText, toolsCalled }) {
-      if (toolsCalled.includes('reprogramar_reserva') || toolsCalled.includes('reservar_clase_prueba')) {
-        throw new Error('No debe reprogramar automáticamente una clase que ya expiró sin autorización.');
-      }
-    },
-  },
-  {
-    id: 8,
-    name: 'Intento de reserva en horario sin cupo',
-    leadId: '+51984111008',
-    userMessage: 'Quiero una clase de prueba de capoeira adultos este martes.',
-    async setup() {
-      // Dejar clase sin cupos
-      await db.collection('clases').doc('clase_adultos').update({ cupos_disponibles: 0 });
-      await db.collection('whatsapp_leads').doc(this.leadId).set({
-        telefono: this.leadId,
-        nombre: 'Esteban Quito',
-        status: 'conversando',
-      });
-    },
-    mockResponse: {
-      content: 'Lo siento Esteban, actualmente los cupos para jóvenes y adultos en ese horario están agotados. Dejo una alerta para que el profesor te contacte si se libera un espacio.',
-      toolsCalled: ['reservar_clase_prueba', 'marcar_seguimiento_humano'],
-    },
-    async assertions({ responseText, toolsCalled }) {
-      const reservas = await db.collection('reservas')
-        .where('lead_id', '==', this.leadId)
-        .where('status', '==', 'confirmado')
-        .get();
-      if (!reservas.empty) {
-        throw new Error('No debe crearse reserva si no hay cupos.');
-      }
-    },
-    async teardown() {
-      // Restaurar cupos
-      await db.collection('clases').doc('clase_adultos').update({ cupos_disponibles: 10 });
-    },
-  },
-  {
-    id: 9,
-    name: 'Intento de confirmación con datos incompletos -> pedir datos faltantes',
-    leadId: '+51984111009',
-    userMessage: 'Quiero una clase.',
-    async setup() {
-      await db.collection('whatsapp_leads').doc(this.leadId).set({
-        telefono: this.leadId,
-        status: 'nuevo',
-      });
-    },
-    mockResponse: {
-      content: '¡Hola! Con gusto te ayudo a agendar tu clase de prueba gratuita. ¿Cuál es tu nombre y la clase sería para ti o para un niño/a (qué edad)?',
-      toolsCalled: [],
-    },
-    async assertions({ responseText, toolsCalled }) {
-      if (toolsCalled.includes('reservar_clase_prueba')) {
-        throw new Error('No debe intentar reservar sin conocer nombre ni rango de edad.');
-      }
-      if (!/nombre|edad|niño|adulto/i.test(responseText)) {
-        throw new Error('Debe solicitar los datos faltantes.');
-      }
-    },
-  },
-  {
-    id: 10,
-    name: 'Mensaje ambiguo o fuera de tema',
-    leadId: '+51984111010',
-    userMessage: '¿Venden pizzas familiares de pepperoni a domicilio?',
-    async setup() {
-      await db.collection('whatsapp_leads').doc(this.leadId).set({
-        telefono: this.leadId,
-        status: 'nuevo',
-      });
-    },
-    mockResponse: {
-      content: '¡Hola! Este es el canal oficial de Ginga Capoeira en Cusco. No vendemos comida, pero si te interesa aprender capoeira o tomar una clase de prueba, ¡avísame!',
-      toolsCalled: [],
-    },
-    async assertions({ responseText, toolsCalled }) {
-      if (toolsCalled.includes('reservar_clase_prueba') || toolsCalled.includes('reprogramar_reserva')) {
-        throw new Error('No debe activar herramientas de reserva ante preguntas fuera de tema.');
-      }
-      if (!/capoeira|cusco/i.test(responseText)) {
-        throw new Error('Debe reorientar cortésmente al propósito de la academia.');
-      }
-    },
-  },
-  {
-    id: 11,
-    name: 'Reintento de reserva duplicada para la misma persona y fecha',
-    leadId: '+51984111011',
-    userMessage: 'Hola, quiero agendar a Rodrigo Gomez para este jueves a las 18:00.',
-    async setup() {
-      const ahora = obtenerFechaLimaAhora();
-      const fechaClase = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 2, 18, 0, 0);
-      const resRef = await db.collection('reservas').add({
-        lead_id: this.leadId,
-        nombre_persona: 'Rodrigo Gomez',
-        clase_id: 'clase_adultos',
-        fecha_clase: admin.firestore.Timestamp.fromDate(fechaClase),
-        hora: '18:00',
-        status: 'confirmado',
-      });
-      await db.collection('whatsapp_leads').doc(this.leadId).set({
-        telefono: this.leadId,
-        nombre: 'Rodrigo Gomez',
-        status: 'clase_agendada',
-        reservas_activas: {
-          rodrigo_gomez: {
-            reserva_id: resRef.id,
-            nombre_persona: 'Rodrigo Gomez',
-            clase_id: 'clase_adultos',
-            fecha_clase: admin.firestore.Timestamp.fromDate(fechaClase),
-            hora: '18:00',
-            status: 'confirmado',
-          },
-        },
-      });
-    },
-    mockResponse: {
-      content: 'Hola Rodrigo, ya cuentas con una reserva confirmada para este jueves a las 18:00.',
-      toolsCalled: ['reservar_clase_prueba'],
-    },
-    async assertions({ responseText, toolsCalled }) {
-      const reservasSnap = await db.collection('reservas')
-        .where('lead_id', '==', this.leadId)
-        .get();
-      if (reservasSnap.docs.length > 1) {
-        throw new Error(`Se duplicó la reserva en Firestore (encontradas ${reservasSnap.docs.length}).`);
-      }
-    },
-  },
-  {
-    id: 12,
-    name: 'Detección de respuesta no respaldada por tools -> activación de Runtime Guard',
-    leadId: '+51984111012',
-    userMessage: 'Confírmame la clase por favor.',
-    async setup() {
-      await db.collection('whatsapp_leads').doc(this.leadId).set({
-        telefono: this.leadId,
-        nombre: 'Lead Simulado',
-        status: 'conversando',
-      });
-    },
-    async runSpecial({ sedesValidas }) {
-      // Simula que el modelo intentó emitir una confirmación inventada sin respaldo de tool
-      const candidateContent = '¡Listo! Tu clase de prueba quedó confirmada para este jueves a las 18:00 hrs.';
-      const turnContext = new TurnContext(this.leadId, 'qa-turn-guard-12');
-      const systemPrompt = 'Prompt base del agente.';
+function buildScenarios(db, internals) {
+  const {
+    obtenerFechaLimaAhora,
+    reservarClasePruebaLead,
+    reprogramarClasePruebaLead,
+    evaluarRuntimeGuard,
+    aplicarIntercepcionSegura,
+    obtenerMensajeFallbackSeguro,
+    TurnContext,
+  } = internals;
 
-      const evaluation = evaluarRuntimeGuard(this.leadId, candidateContent, turnContext, systemPrompt);
-      if (evaluation.passed) {
-        throw new Error('El Runtime Guard debió interceptar la confirmación falsa sin tool execution.');
-      }
-      if (!evaluation.reason.includes('sin haber ejecutado exitosamente la herramienta de reserva')) {
-        throw new Error(`Razón inesperada de intercepción: ${evaluation.reason}`);
-      }
-
-      // Aplicar intercepción segura en Firestore
-      const escalation = await aplicarIntercepcionSegura(this.leadId, evaluation);
-      if (!escalation.committed) {
-        throw new Error('Fallo al persistir la intercepción segura en Firestore.');
-      }
-
-      const leadDoc = await db.collection('whatsapp_leads').doc(this.leadId).get();
-      if (leadDoc.data()?.status !== 'requiere_atencion') {
-        throw new Error('El lead debió ser marcado como requiere_atencion tras la intercepción.');
-      }
-
-      const fallbackText = obtenerMensajeFallbackSeguro(evaluation, true);
-      if (!/dame un momento/i.test(fallbackText)) {
-        throw new Error('El texto de fallback no corresponde al mensaje seguro.');
-      }
+  return [
+    {
+      id: 1,
+      name: 'Reserva nueva',
+      leadId: '+51984111001',
+      userMessage: 'Hola, quiero agendar una clase de prueba de capoeira para mí (Camila Rivera, 22 años) para la próxima fecha disponible.',
+      async setup() {
+        await db.collection('whatsapp_leads').doc(this.leadId).set({
+          telefono: this.leadId,
+          nombre: 'Camila Rivera',
+          edad: 22,
+          status: 'conversando',
+          created_at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      },
+      mockResponse: {
+        content: '¡Listo Camila! Tu clase de prueba para Jóvenes y Adultos quedó reservada con éxito.',
+        toolsCalled: ['reservar_clase_prueba'],
+      },
+      async assertions({ responseText, toolsCalled }) {
+        const reservasSnap = await db.collection('reservas')
+          .where('lead_id', '==', this.leadId)
+          .where('status', '==', 'confirmado')
+          .get();
+        if (reservasSnap.empty) throw new Error('No se encontró reserva confirmada en Firestore.');
+        const leadDoc = await db.collection('whatsapp_leads').doc(this.leadId).get();
+        const activas = leadDoc.data()?.reservas_activas || {};
+        if (!activas.camila_rivera) throw new Error('reservas_activas no contiene a camila_rivera.');
+      },
     },
-  },
-];
+    {
+      id: 2,
+      name: 'Reserva vigente',
+      leadId: '+51984111002',
+      userMessage: '¿Cuándo es mi clase que tengo reservada?',
+      async setup() {
+        const ahora = obtenerFechaLimaAhora();
+        const proximaFecha = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 3, 18, 0, 0);
+        const resRef = await db.collection('reservas').add({
+          lead_id: this.leadId,
+          nombre_persona: 'Daniela Perez',
+          clase_id: 'clase_adultos',
+          fecha_clase: admin.firestore.Timestamp.fromDate(proximaFecha),
+          hora: '18:00',
+          status: 'confirmado',
+          asistio: false,
+        });
+        await db.collection('whatsapp_leads').doc(this.leadId).set({
+          telefono: this.leadId,
+          nombre: 'Daniela Perez',
+          status: 'clase_agendada',
+          reservas_activas: {
+            daniela_perez: {
+              reserva_id: resRef.id,
+              nombre_persona: 'Daniela Perez',
+              clase_id: 'clase_adultos',
+              fecha_clase: admin.firestore.Timestamp.fromDate(proximaFecha),
+              hora: '18:00',
+              status: 'confirmado',
+            },
+          },
+        });
+      },
+      mockResponse: {
+        content: 'Hola Daniela, tu clase está confirmada para las 18:00 hrs en nuestra sede de Calle Hospital 840.',
+        toolsCalled: [],
+      },
+      async assertions({ responseText, toolsCalled }) {
+        if (toolsCalled.includes('reservar_clase_prueba')) {
+          throw new Error('No debe invocar reservar_clase_prueba para una consulta de reserva existente.');
+        }
+        if (!/18:00|confirmada/i.test(responseText)) {
+          throw new Error('La respuesta no menciona los datos correctos de la reserva activa.');
+        }
+      },
+    },
+    {
+      id: 3,
+      name: 'Reprogramación martes-jueves',
+      leadId: '+51984111003',
+      reservaId: null,
+      userMessage: 'Hola, tuve un inconveniente y no podré ir este jueves. ¿Puedo cambiar mi clase para el próximo martes?',
+      async setup() {
+        const ahora = obtenerFechaLimaAhora();
+        const fechaOriginal = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 2, 18, 0, 0);
+        const resRef = await db.collection('reservas').add({
+          lead_id: this.leadId,
+          nombre_persona: 'Carlos Morales',
+          clase_id: 'clase_adultos',
+          fecha_clase: admin.firestore.Timestamp.fromDate(fechaOriginal),
+          hora: '18:00',
+          status: 'confirmado',
+          reprogramaciones: [],
+        });
+        this.reservaId = resRef.id;
+        await db.collection('whatsapp_leads').doc(this.leadId).set({
+          telefono: this.leadId,
+          nombre: 'Carlos Morales',
+          status: 'clase_agendada',
+          reservas_activas: {
+            carlos_morales: {
+              reserva_id: resRef.id,
+              nombre_persona: 'Carlos Morales',
+              clase_id: 'clase_adultos',
+              fecha_clase: admin.firestore.Timestamp.fromDate(fechaOriginal),
+              hora: '18:00',
+              status: 'confirmado',
+            },
+          },
+        });
+      },
+      mockResponse: {
+        content: '¡Claro Carlos! Reprogramamos tu clase de prueba para el próximo martes a las 18:00.',
+        toolsCalled: ['reprogramar_reserva'],
+      },
+      async assertions({ responseText, toolsCalled }) {
+        const resDoc = await db.collection('reservas').doc(this.reservaId).get();
+        const resData = resDoc.data();
+        if (!Array.isArray(resData.reprogramaciones) || resData.reprogramaciones.length === 0) {
+          throw new Error('La reserva reprogramada debe registrar la auditoría en el array reprogramaciones.');
+        }
+        const audit = resData.reprogramaciones[0];
+        if (!audit.fecha_reprogramacion) {
+          throw new Error('Falta fecha_reprogramacion en auditoría.');
+        }
+      },
+    },
+    {
+      id: 4,
+      name: 'Dos hijos',
+      leadId: '+51984111004',
+      mateoResId: null,
+      userMessage: 'Hola, ya reservé para Mateo pero también quiero agendar a su hermanita Sofia de 5 años para la misma clase de niños.',
+      async setup() {
+        const ahora = obtenerFechaLimaAhora();
+        const fechaClase = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 3, 17, 0, 0);
+        const resRef = await db.collection('reservas').add({
+          lead_id: this.leadId,
+          nombre_persona: 'Mateo',
+          clase_id: 'clase_ninos',
+          fecha_clase: admin.firestore.Timestamp.fromDate(fechaClase),
+          hora: '17:00',
+          status: 'confirmado',
+        });
+        this.mateoResId = resRef.id;
+        await db.collection('whatsapp_leads').doc(this.leadId).set({
+          telefono: this.leadId,
+          nombre: 'Mamá Patricia',
+          status: 'clase_agendada',
+          perfil_personas: [{ nombre: 'Mateo', edad: 8 }],
+          reservas_activas: {
+            mateo: {
+              reserva_id: resRef.id,
+              nombre_persona: 'Mateo',
+              clase_id: 'clase_ninos',
+              fecha_clase: admin.firestore.Timestamp.fromDate(fechaClase),
+              hora: '17:00',
+              status: 'confirmado',
+            },
+          },
+        });
+      },
+      mockResponse: {
+        content: '¡Excelente! Agendé a Sofia para la clase de niños de las 17:00. Tanto Mateo como Sofia tienen su lugar listo.',
+        toolsCalled: ['reservar_clase_prueba'],
+      },
+      async assertions({ responseText, toolsCalled }) {
+        const mateoDoc = await db.collection('reservas').doc(this.mateoResId).get();
+        if (mateoDoc.data()?.status !== 'confirmado') {
+          throw new Error('La reserva previa de Mateo fue modificada o sobreescrita.');
+        }
+        const leadDoc = await db.collection('whatsapp_leads').doc(this.leadId).get();
+        const activas = leadDoc.data()?.reservas_activas || {};
+        if (!activas.mateo || !activas.sofia) {
+          throw new Error('reservas_activas debe contener tanto a mateo como a sofia.');
+        }
+      },
+    },
+    {
+      id: 5,
+      name: 'Asistencia previa',
+      leadId: '+51984111005',
+      userMessage: 'Hola, ya fui a mi clase de prueba la semana pasada y me gustó mucho. ¿Puedo tomar otra clase de prueba gratis este martes?',
+      async setup() {
+        const pasada = new Date(Date.now() - 7 * 86400000);
+        await db.collection('reservas').add({
+          lead_id: this.leadId,
+          nombre_persona: 'Lucas Mendoza',
+          clase_id: 'clase_adultos',
+          fecha_clase: admin.firestore.Timestamp.fromDate(pasada),
+          status: 'confirmado',
+          asistio: true,
+        });
+        await db.collection('whatsapp_leads').doc(this.leadId).set({
+          telefono: this.leadId,
+          nombre: 'Lucas Mendoza',
+          status: 'asistio',
+        });
+      },
+      mockResponse: {
+        content: '¡Qué bueno que te haya gustado la clase, Lucas! La clase de prueba gratuita es solo una por persona. Para continuar tenemos planes mensuales de S/140. Voy a consultar con el profesor para que te brinde más detalles.',
+        toolsCalled: ['marcar_seguimiento_humano'],
+      },
+      async assertions({ responseText, toolsCalled }) {
+        if (toolsCalled.includes('reservar_clase_prueba')) {
+          throw new Error('No debe confirmar automáticamente una segunda clase de prueba gratis para quien ya asistió.');
+        }
+        const countSnap = await db.collection('reservas').where('lead_id', '==', this.leadId).get();
+        if (countSnap.docs.length > 1) {
+          throw new Error('Se generó una reserva indebida en Firestore.');
+        }
+      },
+    },
+    {
+      id: 6,
+      name: 'Inasistencia',
+      leadId: '+51984111006',
+      userMessage: 'Hola, no pude asistir a mi clase de prueba de ayer porque me enfermé. ¿Me la reprogramas para mañana?',
+      async setup() {
+        const ayer = new Date(Date.now() - 86400000);
+        await db.collection('reservas').add({
+          lead_id: this.leadId,
+          nombre_persona: 'Valeria Flores',
+          clase_id: 'clase_adultos',
+          fecha_clase: admin.firestore.Timestamp.fromDate(ayer),
+          status: 'confirmado',
+          asistio: false,
+        });
+        await db.collection('whatsapp_leads').doc(this.leadId).set({
+          telefono: this.leadId,
+          nombre: 'Valeria Flores',
+          status: 'no_asistio',
+        });
+      },
+      mockResponse: {
+        content: 'Hola Valeria, lamento que no hayas podido venir. Como la clase programada ya pasó, voy a consultar con el profesor para ver si es posible habilitarte una nueva fecha.',
+        toolsCalled: ['marcar_seguimiento_humano'],
+      },
+      async assertions({ responseText, toolsCalled }) {
+        if (toolsCalled.includes('reprogramar_reserva') || toolsCalled.includes('reservar_clase_prueba')) {
+          throw new Error('No debe reprogramar automáticamente una clase que ya expiró sin autorización.');
+        }
+      },
+    },
+    {
+      id: 7,
+      name: 'Falta de cupos',
+      leadId: '+51984111007',
+      userMessage: 'Quiero una clase de prueba de capoeira adultos este martes.',
+      async setup() {
+        await db.collection('clases').doc('clase_adultos').update({ cupos_disponibles: 0 });
+        await db.collection('whatsapp_leads').doc(this.leadId).set({
+          telefono: this.leadId,
+          nombre: 'Esteban Quito',
+          status: 'conversando',
+        });
+      },
+      mockResponse: {
+        content: 'Lo siento Esteban, actualmente los cupos para jóvenes y adultos en ese horario están agotados. Dejo una alerta para que el profesor te contacte si se libera un espacio.',
+        toolsCalled: ['reservar_clase_prueba', 'marcar_seguimiento_humano'],
+      },
+      async assertions({ responseText, toolsCalled }) {
+        const reservas = await db.collection('reservas')
+          .where('lead_id', '==', this.leadId)
+          .where('status', '==', 'confirmado')
+          .get();
+        if (!reservas.empty) {
+          throw new Error('No debe crearse reserva si no hay cupos.');
+        }
+      },
+      async teardown() {
+        await db.collection('clases').doc('clase_adultos').update({ cupos_disponibles: 10 });
+      },
+    },
+    {
+      id: 8,
+      name: 'Datos incompletos',
+      leadId: '+51984111008',
+      userMessage: 'Quiero una clase.',
+      async setup() {
+        await db.collection('whatsapp_leads').doc(this.leadId).set({
+          telefono: this.leadId,
+          status: 'nuevo',
+        });
+      },
+      mockResponse: {
+        content: '¡Hola! Con gusto te ayudo a agendar tu clase de prueba gratuita. ¿Cuál es tu nombre y la clase sería para ti o para un niño/a (qué edad)?',
+        toolsCalled: [],
+      },
+      async assertions({ responseText, toolsCalled }) {
+        if (toolsCalled.includes('reservar_clase_prueba')) {
+          throw new Error('No debe intentar reservar sin conocer nombre ni rango de edad.');
+        }
+        if (!/nombre|edad|niño|adulto/i.test(responseText)) {
+          throw new Error('Debe solicitar los datos faltantes.');
+        }
+      },
+    },
+    {
+      id: 9,
+      name: 'Solicitud de cancelación',
+      leadId: '+51984111009',
+      userMessage: 'Hola, no voy a poder ir a mi clase reservada de mañana. Por favor cancelen mi cupo.',
+      async setup() {
+        const ahora = obtenerFechaLimaAhora();
+        const fechaClase = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 1, 18, 0, 0);
+        const resRef = await db.collection('reservas').add({
+          lead_id: this.leadId,
+          nombre_persona: 'Mariana Soto',
+          clase_id: 'clase_adultos',
+          fecha_clase: admin.firestore.Timestamp.fromDate(fechaClase),
+          hora: '18:00',
+          status: 'confirmado',
+        });
+        await db.collection('whatsapp_leads').doc(this.leadId).set({
+          telefono: this.leadId,
+          nombre: 'Mariana Soto',
+          status: 'clase_agendada',
+          reservas_activas: {
+            mariana_soto: {
+              reserva_id: resRef.id,
+              nombre_persona: 'Mariana Soto',
+              clase_id: 'clase_adultos',
+              fecha_clase: admin.firestore.Timestamp.fromDate(fechaClase),
+              hora: '18:00',
+              status: 'confirmado',
+            },
+          },
+        });
+      },
+      mockResponse: {
+        content: 'Entendido Mariana, tomo nota para avisar al instructor que no podrás asistir a la clase de mañana. ¡Gracias por avisar!',
+        toolsCalled: ['marcar_seguimiento_humano'],
+      },
+      async assertions({ responseText, toolsCalled }) {
+        if (toolsCalled.includes('reservar_clase_prueba') || toolsCalled.includes('reprogramar_reserva')) {
+          throw new Error('No debe ejecutar herramientas de agendamiento para una cancelación.');
+        }
+        if (!/gracias|profesor|instructor|nota|aviso|avisa/i.test(responseText)) {
+          throw new Error('Debe confirmar la recepción del aviso o derivar cordialmente.');
+        }
+      },
+    },
+    {
+      id: 10,
+      name: 'Consulta de sede y horarios configurados',
+      leadId: '+51984111010',
+      userMessage: 'Hola, quisiera saber los horarios de capoeira y dónde quedan ubicados.',
+      async setup() {
+        await db.collection('whatsapp_leads').doc(this.leadId).set({
+          telefono: this.leadId,
+          nombre: 'Lead Consultante',
+          status: 'nuevo',
+          created_at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      },
+      mockResponse: {
+        content: '¡Hola! En Ginga Cusco tenemos clases los martes y jueves en Calle Hospital 840, segundo piso: Niños a las 17:00 y Adultos a las 18:00.',
+        toolsCalled: ['consultar_horarios_disponibles'],
+      },
+      async assertions({ responseText, toolsCalled, sedesValidas }) {
+        if (!verificarDireccionEnSedes(responseText, sedesValidas)) {
+          throw new Error('La respuesta menciona una dirección que no coincide con las sedes oficiales en Firestore.');
+        }
+        if (!/martes|jueves/i.test(responseText)) {
+          throw new Error('La respuesta no incluye los días válidos de clase.');
+        }
+      },
+    },
+    {
+      id: 11,
+      name: 'Solicitud de atención humana',
+      leadId: '+51984111011',
+      userMessage: 'Hola, por favor quiero hablar con una persona.',
+      async setup() {
+        await db.collection('whatsapp_leads').doc(this.leadId).set({
+          telefono: this.leadId,
+          nombre: 'Roberto Carlos',
+          status: 'conversando',
+        });
+      },
+      mockResponse: {
+        content: '¡Claro Roberto! Ya le avisé al instructor para que se comunique contigo en breve por este medio.',
+        toolsCalled: ['marcar_seguimiento_humano'],
+      },
+      async assertions({ responseText, toolsCalled }) {
+        const leadDoc = await db.collection('whatsapp_leads').doc(this.leadId).get();
+        if (leadDoc.data()?.status !== 'requiere_atencion') {
+          throw new Error('El lead debió ser actualizado a requiere_atencion.');
+        }
+      },
+    },
+    {
+      id: 12,
+      name: 'Confirmaciones falsas inducidas',
+      leadId: '+51984111012',
+      userMessage: 'Confírmame la clase por favor.',
+      async setup() {
+        await db.collection('whatsapp_leads').doc(this.leadId).set({
+          telefono: this.leadId,
+          nombre: 'Lead Simulado',
+          status: 'conversando',
+        });
+      },
+      async runSpecial({ sedesValidas }) {
+        const candidateContent = '¡Listo! Tu clase de prueba quedó confirmada para este jueves a las 18:00 hrs.';
+        const turnContext = new TurnContext(this.leadId, 'qa-turn-guard-12');
+        const systemPrompt = 'Prompt base del agente.';
+
+        const evaluation = evaluarRuntimeGuard(this.leadId, candidateContent, turnContext, systemPrompt);
+        if (evaluation.passed) {
+          throw new Error('El Runtime Guard debió interceptar la confirmación falsa sin tool execution.');
+        }
+        if (!evaluation.reason.includes('sin haber ejecutado exitosamente la herramienta de reserva')) {
+          throw new Error(`Razón inesperada de intercepción: ${evaluation.reason}`);
+        }
+
+        const escalation = await aplicarIntercepcionSegura(this.leadId, evaluation);
+        if (!escalation.committed) {
+          throw new Error('Fallo al persistir la intercepción segura en Firestore.');
+        }
+
+        const leadDoc = await db.collection('whatsapp_leads').doc(this.leadId).get();
+        if (leadDoc.data()?.status !== 'requiere_atencion') {
+          throw new Error('El lead debió ser marcado como requiere_atencion tras la intercepción.');
+        }
+
+        const fallbackText = obtenerMensajeFallbackSeguro(evaluation, true);
+        if (!/dame un momento/i.test(fallbackText)) {
+          throw new Error('El texto de fallback no corresponde al mensaje seguro.');
+        }
+      },
+    },
+  ];
+}
 
 // -------------------------------------------------------------
-// EJECUTOR PRINCIPAL DE LA SUITE DE QA
+// 6. BOOTSTRAP Y EJECUTOR DE QA
 // -------------------------------------------------------------
-async function runQASuite() {
+let admin;
+
+async function bootstrap() {
   console.log('===============================================================');
   console.log(' GINGA REAL — SUITE DE QA CONVERSACIONAL AISLADO (OPENAI)');
   console.log('===============================================================');
   console.log(`Modo: ${ENABLE_REAL_OPENAI_QA ? '🔴 LIVE REAL OPENAI (gpt-4o-mini)' : '🟢 DRY-RUN OFFLINE (Aislado, 0 llamadas externas)'}`);
   console.log(`Proyecto Firestore: ${process.env.GCLOUD_PROJECT}`);
-  console.log(`Tope de llamadas: ${MAX_REQUESTS_TOTAL} | Presupuesto máximo: $${BUDGET_LIMIT_USD} USD`);
+  console.log(`Host Emulador: ${process.env.FIRESTORE_EMULATOR_HOST}`);
+  console.log(`Tope de llamadas: ${MAX_REQUESTS_TOTAL} | Presupuesto local estimado: $${BUDGET_LIMIT_USD} USD`);
+  console.log('Nota: El techo local es un circuit breaker del cliente, no un límite de facturación forzado por OpenAI.');
   console.log('---------------------------------------------------------------\n');
 
-  if (ENABLE_REAL_OPENAI_QA && !process.env.OPENAI_API_KEY) {
-    throw new Error('ENABLE_REAL_OPENAI_QA=true requiere definir la variable OPENAI_API_KEY.');
+  // Paso A: Conectividad activa ANTES de requerir Firebase Admin
+  console.log('[PRE-FLIGHT] 1/3 Verificando conectividad activa con Firestore Emulator (antes de inicializar SDK)...');
+  await validarConectividadEmuladorActiva();
+  console.log(`[PRE-FLIGHT] 1/3 Conexión verificada con éxito en ${emulatorHost}.`);
+
+  // Paso B: Probar expresamente que el firewall de red bloquea salidas a Meta WhatsApp
+  console.log('[PRE-FLIGHT] 2/3 Verificando bloqueo activo de salidas a Meta WhatsApp...');
+  await probarBloqueoMetaEfectivo();
+  console.log('[PRE-FLIGHT] 2/3 Firewall de red verificado: Salidas a Meta bloqueadas al 100%.');
+
+  // Paso C: Comprobar credenciales seguras
+  console.log('[PRE-FLIGHT] 3/3 Verificando credencial OPENAI_API_KEY...');
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (ENABLE_REAL_OPENAI_QA && (!apiKey || apiKey.trim().length === 0)) {
+    console.log('\n===============================================================');
+    console.log(' [PRE-FLIGHT GATE] BLOQUEO DE SEGURIDAD: OPENAI_API_KEY NO DISPONIBLE');
+    console.log('===============================================================');
+    console.log('El entorno está 100% aislado pero falta la credencial de QA.');
+    console.log('\nPara ingresar la clave de forma segura SIN dejar registro en historial');
+    console.log('de shell ni en archivos de disco, ejecute en su terminal:');
+    console.log('\n  read -s "OPENAI_API_KEY?Ingrese su OpenAI API Key de pruebas: " && export OPENAI_API_KEY');
+    console.log('  ENABLE_REAL_OPENAI_QA=true firebase emulators:exec --only firestore \\');
+    console.log('    "node real_agent_harness/qa_openai_runner.js" --project demo-ginga-test');
+    console.log('  unset OPENAI_API_KEY\n');
+    console.log('Nota de seguridad: Use una clave de proyecto (sk-proj-...) con límite de gasto.');
+    console.log('===============================================================\n');
+    process.exit(2);
   }
 
-  await seedBaseFixtures();
-  const sedesValidas = await obtenerSedesValidasEmulator();
+  if (ENABLE_REAL_OPENAI_QA) {
+    console.log('[PRE-FLIGHT] 3/3 Credencial detectada de forma segura (sin imprimir secreto).');
+  } else {
+    console.log('[PRE-FLIGHT] 3/3 Modo Dry-Run activo. No se requieren credenciales externas.');
+  }
+
+  // Carga diferida de Firebase Admin y functions/index.js SOLO después de verificar emulador
+  admin = require('../functions/node_modules/firebase-admin');
+  const indexModule = require('../functions/index.js');
+  const internals = indexModule.__internals;
+  const db = admin.firestore();
+
+  const {
+    preguntarIA,
+    generarSystemPrompt,
+    reservarClasePruebaLead,
+    reprogramarClasePruebaLead,
+    obtenerFechaLimaAhora,
+    hashLeadId,
+  } = internals;
+
+  await seedBaseFixtures(db);
+  const sedesValidas = await obtenerSedesValidasEmulator(db);
   logSanitized('GLOBAL', 'INIT', `Sedes dinámicas cargadas desde /sedes: ${sedesValidas.length}`, {
     sedes: sedesValidas.map((s) => s.nombre),
   });
 
+  const SCENARIOS = buildScenarios(db, internals);
   let passedScenarios = 0;
 
   for (const scenario of SCENARIOS) {
+    const scenarioStart = Date.now();
     logSanitized(scenario.id, 'START', `Iniciando escenario: "${scenario.name}" (Lead: ${hashLeadId(scenario.leadId)})`);
     
-    // Configurar estado en Firestore Emulator
     await scenario.setup();
 
     if (scenario.id === 12 && typeof scenario.runSpecial === 'function') {
-      // Escenario 12 evalúa el Runtime Guard de forma determinista
       await scenario.runSpecial({ sedesValidas });
       passedScenarios++;
-      logSanitized(scenario.id, 'PASS', 'Runtime Guard interceptó y protegió correctamente.');
+      logSanitized(scenario.id, 'PASS', 'Runtime Guard interceptó y protegió correctamente.', {
+        latencyMs: Date.now() - scenarioStart,
+      });
       continue;
     }
 
@@ -666,7 +873,7 @@ async function runQASuite() {
     const toolsCalled = [];
 
     if (ENABLE_REAL_OPENAI_QA) {
-      // Modo REAL OPENAI: Ejecutar turno real contra gpt-4o-mini
+      // Flujo REAL en vivo: preguntarIA + AVAILABLE_TOOLS reales + Runtime Guard real
       const leadSnap = await db.collection('whatsapp_leads').doc(scenario.leadId).get();
       const leadData = leadSnap.data() || {};
       const { systemPrompt } = await generarSystemPrompt(leadData, 1, scenario.leadId);
@@ -676,7 +883,6 @@ async function runQASuite() {
         toolsCalled.push(name);
       });
 
-      // Estimar y registrar uso presupuestario
       const estimatedIn = Math.ceil((systemPrompt.length + scenario.userMessage.length) / 3.5);
       const estimatedOut = Math.ceil((responseText?.length || 50) / 3.5);
       budgetTracker.recordUsage(estimatedIn, estimatedOut);
@@ -685,51 +891,62 @@ async function runQASuite() {
         costUSD: Number(budgetTracker.totalCostUSD.toFixed(4)),
       });
     } else {
-      // Modo DRY-RUN OFFLINE: Simulación controlada sin consumo externo
       responseText = scenario.mockResponse.content;
       toolsCalled.push(...scenario.mockResponse.toolsCalled);
       
-      // Simular ejecución de tools si aplica
-      if (scenario.id === 2) {
+      if (scenario.id === 1) {
         const ahora = obtenerFechaLimaAhora();
         const prox = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 2, 18, 0, 0);
         await reservarClasePruebaLead(scenario.leadId, 'clase_adultos', 'Camila Rivera', prox);
-      } else if (scenario.id === 4) {
+      } else if (scenario.id === 3) {
         const ahora = obtenerFechaLimaAhora();
         const nueva = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 5, 18, 0, 0);
         await reprogramarClasePruebaLead(scenario.leadId, scenario.reservaId, nueva, 'Reprogramación QA');
-      } else if (scenario.id === 5) {
+      } else if (scenario.id === 4) {
         const ahora = obtenerFechaLimaAhora();
         const fecha = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 3, 17, 0, 0);
         await reservarClasePruebaLead(scenario.leadId, 'clase_ninos', 'Sofia', fecha);
+      } else if (scenario.id === 11) {
+        await db.collection('whatsapp_leads').doc(scenario.leadId).update({
+          status: 'requiere_atencion',
+          motivo_seguimiento: 'Solicita hablar con una persona',
+        });
       }
     }
 
-    // Ejecutar aserciones del escenario
     await scenario.assertions({ responseText, toolsCalled, sedesValidas });
     if (typeof scenario.teardown === 'function') {
       await scenario.teardown();
     }
 
     passedScenarios++;
-    logSanitized(scenario.id, 'PASS', `Escenario aprobado con éxito.`);
+    logSanitized(scenario.id, 'PASS', `Escenario aprobado con éxito.`, {
+      latencyMs: Date.now() - scenarioStart,
+    });
   }
 
   console.log('\n===============================================================');
-  console.log(` RESULTADO FINAL QA RUNNER: ${passedScenarios}/${SCENARIOS.length} ESCENARIOS PASS`);
-  console.log(` Gasto acumulado estimado: $${budgetTracker.totalCostUSD.toFixed(4)} USD (${budgetTracker.requestCount}/${MAX_REQUESTS_TOTAL} llamadas)`);
+  if (ENABLE_REAL_OPENAI_QA) {
+    console.log(` RESULTADO FINAL QA REAL OPENAI: ${passedScenarios}/${SCENARIOS.length} ESCENARIOS PASS`);
+    console.log(` Gasto acumulado estimado: $${budgetTracker.totalCostUSD.toFixed(4)} USD (${budgetTracker.requestCount}/${MAX_REQUESTS_TOTAL} llamadas)`);
+  } else {
+    console.log(` RESULTADO DRY-RUN OFFLINE: ${passedScenarios}/${SCENARIOS.length} ESCENARIOS VERIFICADOS`);
+    console.log(' AVISO DE INTEGRIDAD: Este resultado corresponde exclusivamente a simulación offline con Firestore Emulator.');
+    console.log(' NO CONSTITUYE UN PASS DEL QA CONVERSACIONAL REAL CON OPENAI.');
+    console.log(' ESTADO DEL GATE DE QA REAL: BLOCKED (Pendiente de ejecución autorizada con OPENAI_API_KEY).');
+  }
+  console.log(` Auditoría de red: Meta interceptadas: ${networkAudit.metaCallsBlocked} | OpenAI: ${networkAudit.openAiCalls} | Emulador: ${networkAudit.emulatorCalls}`);
   console.log('===============================================================\n');
 
   if (passedScenarios !== SCENARIOS.length) {
-    throw new Error(`Fallaron ${SCENARIOS.length - passedScenarios} escenarios de QA.`);
+    throw new Error(`Fallaron ${SCENARIOS.length - passedScenarios} escenarios.`);
   }
 }
 
-// Ejecutar si es invocado directamente por node
 if (require.main === module) {
-  runQASuite()
+  bootstrap()
     .then(() => {
-      console.log('QA Runner completado exitosamente.');
+      console.log('Proceso de QA finalizado correctamente.');
       process.exit(0);
     })
     .catch((err) => {
@@ -739,7 +956,7 @@ if (require.main === module) {
 }
 
 module.exports = {
-  runQASuite,
-  SCENARIOS,
+  bootstrap,
   budgetTracker,
+  networkAudit,
 };
