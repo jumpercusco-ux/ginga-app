@@ -3,7 +3,7 @@
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-11  
 > **Rama Actual:** `fix/real-whatsapp-logic`  
-> **Commit HEAD:** `847d3be` (`feat(agent): runtime mutation guard and tool execution audit`)  
+> **Commit HEAD:** `b536a0b` (`fix(agent): deterministic human/cancel escalation, runtime guard refinement and qa regressions`)  
 > **Producción Intacta:** `3058ada` (main, `whatsappWebhook v67`)  
 > **Estado RC:** CONDITIONAL (Apto para Staging / QA Real, Bloqueado para Despliegue Directo a Producción)
 
@@ -355,15 +355,23 @@ Para facilitar la telemetría del futuro Agent Control Center y la API de DANEV:
   11. *Solicitud de atención humana:* Invocación de `marcar_seguimiento_humano` y status `requiere_atencion`.
   12. *Confirmaciones falsas inducidas:* Intercepción obligatoria del Runtime Guard ante alucinaciones.
 - **Resultado en Dry-Run con Firestore Emulator:** **12 de 12 escenarios PASS (100%)**.
+- **Resultado del Primer QA OpenAI Real (`runId: qa_run_1794437359075_vmx6tf`):**
+  * **Score:** 9/12 PASS, 3 FAIL.
+  * **Costo Real:** US$0.0016 (muy por debajo del límite de $0.25).
+  * **Métricas Reconciliadas:** 14 solicitudes HTTP OpenAI registradas por la auditoría de red frente a 11 turnos conversacionales en el budget tracker (3 escenarios con tool calls requirieron 2 peticiones HTTP cada uno; 8 escenarios resolvieron en 1 sola petición).
+  * **Análisis de Fallas y Correcciones Aplicadas:**
+    1. *Escenario 2 (Recordatorio de Reserva Vigente):* Runtime Guard interceptó falsamente porque exigía coincidencia del nombre completo "Daniela Perez" y el modelo saludó con "¡Hola Daniela!". **Corrección:** Se reconoció `primerNombre` (longitud >= 3) y slug, manteniendo la prohibición estricta de afirmar mutaciones nuevas ("ya te agendé", "otra clase") o discrepancias de persona/fecha (validado con Test 26).
+    2. *Escenario 9 (Cancelación Definitiva):* El modelo respondió amablemente pero omitió invocar tools. Además, `seedBaseFixtures` sobrescribía el prompt eliminando la regla 7. **Corrección:** Se eliminó la sobreescritura de prompt en fixtures y se añadió `detectarSolicitudCancelacion(texto)` con derivación forzosa en `preguntarIA` a `marcar_seguimiento_humano` (`status: 'requiere_atencion'`).
+    3. *Escenario 11 (Solicitud de Atención Humana):* El modelo respondió invitando a coordinar pero no invocó la tool. **Corrección:** Se implementó `detectarSolicitudExplicitaAtencionHumana(texto)` con filtros de exclusión informativa, forzando la ejecución de `marcar_seguimiento_humano` en `preguntarIA`.
+    4. *Runner Shell (`run_live_qa.sh`):* Corrección de `$pipestatus` y validación cruzada de `"suiteStatus"` en `scratch/qa_report_latest.json` para garantizar que nunca se reporte éxito cuando la suite falla o sale con error.
+  * **Suite de Regresiones (`test_qa_regressions.js`):** 18/18 pruebas PASS cubriendo las correcciones, verificación de persistencia efectiva en Firestore, deduplicación de alertas a instructores en reintentos, fallback técnico seguro y pruebas negativas.
+  * **Validación Total:** 108/108 pruebas automatizadas aprobadas (100 offline + 8 Firestore Emulator) y 12/12 escenarios dry-run superados.
 - **Aislamiento y Mitigaciones Verificadas:**
   * **Transporte Firestore Local:** Exigencia obligatoria de `FIRESTORE_EMULATOR_HOST` (e.g. `127.0.0.1:8080`) y `GCLOUD_PROJECT=demo-ginga-test`. Se desmintió que `demo-` desvíe sockets sin la variable de host; se incorporó validación activa de ping HTTP previa a cualquier operación.
   * **Firewall de Red Global en `global.fetch`:** Intercepción determinista a nivel de proceso Node.js. Bloquea el 100% de solicitudes a `graph.facebook.com` y endpoints externos no autorizados. Probado expresamente con 0 bytes de egress a Meta.
   * **Zero PII Estricto:** Hashing HMAC-SHA256 (`hashLeadId`, `hashPersona`) y datos sintéticos.
   * **Circuito de Presupuesto Local:** Techo duro de 30 llamadas HTTP y $0.25 USD máximo estimado (circuit breaker de cliente; no es un límite contractual del proveedor).
-- **Estado Actual de Ejecución Real:** **BLOCKED (Pre-Flight Gate)**.
-  * `process.env.OPENAI_API_KEY` no se encuentra configurada en el entorno de ejecución.
-  * Conforme a la regla de seguridad del gate, la ejecución en vivo se detuvo de inmediato para prevenir fallos no autenticados o fugas.
-  * Procedimiento de desbloqueo documentado mediante captura segura interactiva sin eco (`read -s`).
+- **Estado Actual de Ejecución Real:** **READY PARA REINTENTO SEGURO CON DIAGNÓSTICO AUDITABLE**.
 
 ---
 

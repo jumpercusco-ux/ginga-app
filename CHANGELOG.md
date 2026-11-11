@@ -48,6 +48,51 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
+## [b536a0b] — 2026-11-11
+### [COMMIT LOCAL: b536a0b] (Rama `fix/real-whatsapp-logic`)
+- **Análisis y Corrección de Defectos del Primer QA OpenAI Real (`gpt-4o-mini`):**
+  - **Evidencia del QA Real Auditada:**
+    - `runId`: `qa_run_1794437359075_vmx6tf`, modo `LIVE_REAL_OPENAI`.
+    - Resultado: 9/12 PASS, 3 FAIL (Escenarios 2, 9 y 11 fallaron; Escenario 12 fue intercepción inducida local).
+    - Costo real auditado: US$0.0016 (dentro del límite de seguridad).
+    - Reconciliación métrica HTTP vs. turnos: 14 solicitudes HTTP a OpenAI corresponden exactamente a 11 turnos conversacionales (3 turnos con tool-calling requirieron 2 peticiones HTTP cada uno: ronda 1 tool call + ronda 2 síntesis, más 8 turnos de una sola petición = 14 peticiones HTTP).
+  - **Corrección Escenario 2 (Recordatorio de Reserva Vigente):**
+    - `evaluarRuntimeGuard` ahora valida `primerNombre` (longitud >= 3) y slug de reservas preexistentes, permitiendo saludos cordiales legítimos ("¡Hola Daniela!") sin falsos positivos de intercepción.
+    - Se mantuvo protección estricta contra alucinaciones de nuevas acciones ("ya te agendé", "otra clase", "nueva clase") y discrepancias de persona entre hermanos (verificado con Test 26).
+  - **Corrección Escenario 9 (Cancelación Definitiva):**
+    - Se eliminó la sobreescritura de `config/whatsapp_agent` con prompt dummy en `seedBaseFixtures`, restaurando la regla de negocio 7 de `DEFAULT_SYSTEM_PROMPT`.
+    - Se implementó `detectarSolicitudCancelacion(texto)` con distinción clara frente a reprogramaciones, asegurando que `preguntarIA` escale deterministamente a `marcar_seguimiento_humano` si el LLM omite invocar la tool.
+  - **Corrección Escenario 11 (Solicitud Explícita de Atención Humana):**
+    - Se implementó `detectarSolicitudExplicitaAtencionHumana(texto)` con filtros de exclusión para preguntas informativas ("¿cuántas personas van?"), garantizando escalación determinista a `marcar_seguimiento_humano`.
+  - **Corrección de Código de Salida en Runner Shell (`run_live_qa.sh`):**
+    - Captura inmediata de `$pipestatus` antes de cualquier evaluación de shell condicional.
+    - Verificación cruzada con `"suiteStatus"` en `scratch/qa_report_latest.json` para garantizar que nunca se imprima `[EXITO]` cuando el exit code o el reporte indiquen fallas.
+  - **Suite de Regresiones Offline (`test_qa_regressions.js`):**
+    - 18 de 18 pruebas PASS cubriendo los defectos de los Casos 2, 9 y 11, verificación de escritura efectiva en Firestore, no-duplicación de alertas a profesores ante reintentos (`alreadyEscalated`), fallback técnico ante fallo de base de datos y tests negativos (distinción de consultas informativas sobre cancelaciones o profesores frente a solicitudes de derivación).
+  - **Total de Cobertura:** 108 pruebas automatizadas aprobadas (100 offline + 8 Firestore Emulator) y 12/12 escenarios dry-run PASS.
+
+- **Diagnóstico y Robustecimiento de Resiliencia en QA Runner (`qa_openai_runner.js`):**
+  - **Identificación de Causa Comprobada:** En el commit `70a6c2d`, la persistencia del archivo JSON estaba tras el bucle sin `try/catch` envolvente en las aserciones. Cualquier excepción funcional o de API causaba `process.exit(1)` antes de escribir el archivo JSON.
+  - **Incertidumbre Documentada:** La falta de redirección de stdout/stderr a archivo en la corrida previa impidió aislar el error específico devuelto por OpenAI o la primera aserción en el intento de las 17:33.
+  - **Aislamiento Funcional vs. Crítico:** Las aserciones funcionales de cada escenario se capturan de forma independiente, registrándose como `status: 'FAIL'` y permitiendo continuar con los demás escenarios. Errores críticos de sistema (401 Auth, 403 Permisos, 429 Cuota, límite de presupuesto o desconexión) detienen inmediatamente la suite.
+  - **Trazabilidad y Rotación Inequívoca:** Asignación de `runId` y timestamp únicos por corrida. Rotación preventiva automática de `scratch/qa_report_latest.json` a `scratch/qa_report_previous.json` para garantizar que un reporte antiguo jamás se interprete como nuevo.
+  - **Sanitización Zero PII:** Ofuscación estricta de teléfonos a `[PHONE]` y truncado de snippets de respuesta a 120 caracteres en los reportes JSON.
+  - **Captura Integral de Ejecución (`run_live_qa.sh`):** Registro simultáneo a consola y a `scratch/qa_execution.log` vía `tee`, con captura estricta de `$EXIT_CODE` y compatibilidad dual para lectura silenciosa en shells zsh y bash.
+
+---
+
+## [70a6c2d] — 2026-11-11
+### [COMMIT LOCAL: 70a6c2d] (Rama `fix/real-whatsapp-logic`)
+- **Pre-Flight de QA Conversacional y Aislamiento de Red:**
+  - Verificación estricta de `FIRESTORE_EMULATOR_HOST` y `GCLOUD_PROJECT=demo-ginga-test` antes de importar Firebase Admin SDK.
+  - Instalación de Firewall de Red Global en `global.fetch` y `https.request`, con bloqueo determinista de salidas a Meta WhatsApp (`graph.facebook.com`) y GCP remoto.
+  - Validación activa de conectividad local al emulador y prueba de intercepción de Meta previas a la ejecución de pruebas.
+  - Script temporal interactivo `scratch/run_live_qa.sh` (fuera de Git) con captura sin eco `read -s` y trap de limpieza de credenciales.
+  - Generación de reporte estructurado de telemetría y resultados en `scratch/qa_report_latest.json`.
+  - Dry-run: 12/12 escenarios PASS en Firestore Emulator. QA en vivo: BLOCKED a la espera de introducción interactiva de clave de pruebas.
+
+---
+
 ## [Release Candidate Gate] — 2026-11-11
 ### [PROBADO LOCALMENTE] (Rama `fix/real-whatsapp-logic`, HEAD `847d3be`)
 - **Evaluación de Release Candidate & Security Gate:**

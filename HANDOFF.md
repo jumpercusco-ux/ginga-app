@@ -8,12 +8,15 @@
 
 - **Proyecto:** `/Users/jumper/ginga_app`
 - **Rama Activa:** `fix/real-whatsapp-logic`
-- **Commit Base:** `847d3be` (`feat(agent): runtime mutation guard and tool execution audit`)
+- **Commit Base:** `b536a0b` (`fix(agent): deterministic human/cancel escalation, runtime guard refinement and qa regressions`)
 - **Estado de Trabajo:** **Release Candidate (RC) Gate Evaluado — Estado CONDITIONAL**.
-  - 82/82 pruebas offline PASS.
+  - Primer QA OpenAI real ejecutado (`qa_run_1794437359075_vmx6tf`): 9/12 PASS, 3 FAIL (Casos 2, 9 y 11), US$0.0016 de costo.
+  - Correcciones funcionales aplicadas en `functions/index.js`, `real_agent_harness/qa_openai_runner.js` y `scratch/run_live_qa.sh`.
+  - Nueva suite de regresiones: `test_qa_regressions.js` (18/18 PASS).
+  - 100/100 pruebas offline PASS (14 P0.1 + 22 P0.2A + 10 P0.2B + 27 P1A + 9 baseline + 18 regresiones).
   - 8/8 pruebas reales en Firestore Emulator (Java 21) PASS.
-  - Total: **90 de 90 pruebas superadas (100% PASS)**.
-  - Bloqueo para producción: Protección de auto-deploy en GitHub Actions, secrets y QA con OpenAI real.
+  - Total: **108 de 108 pruebas superadas (100% PASS)** y 12/12 escenarios dry-run verificados.
+  - Bloqueo para producción: Mantener CONDITIONAL hasta validar 12/12 PASS en reintento real de QA con OpenAI.
 - **Producción:** Google Cloud Function `whatsappWebhook v67` (asociada a `main` en commit `3058ada`). **Producción NO ha sido tocada.**
 
 ---
@@ -71,13 +74,16 @@ node real_agent_harness/test_p01_recognition.js
 # 6. Ejecutar la suite de línea base (9 escenarios de auditoría)
 node real_agent_harness/suite_runner.js
 
-# 7. Ejecutar la suite real de Firestore Emulator (Java 21, puerto 8080)
+# 7. Ejecutar la suite de regresiones QA (18 pruebas Casos 2, 9 y 11, persistencia y tests negativos)
+node real_agent_harness/test_qa_regressions.js
+
+# 8. Ejecutar la suite real de Firestore Emulator (Java 21, puerto 8080)
 PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" JAVA_HOME="/opt/homebrew/opt/openjdk@21" firebase emulators:exec --only firestore "node real_agent_harness/test_emulator_integration.js" --project demo-ginga-test
 
-# 8. Ejecutar el QA Runner aislado (Dry-Run offline con Firestore Emulator)
+# 9. Ejecutar el QA Runner aislado (Dry-Run offline con Firestore Emulator)
 PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" JAVA_HOME="/opt/homebrew/opt/openjdk@21" firebase emulators:exec --only firestore "node real_agent_harness/qa_openai_runner.js" --project demo-ginga-test
 
-# 9. Verificar integridad de git
+# 10. Verificar integridad de git
 git status
 git diff functions/index.js
 ```
@@ -86,21 +92,14 @@ git diff functions/index.js
 
 ## 4. Qué Sigue Exactamente (Siguiente Tarea)
 
-1. **Desbloqueo Seguro de QA Conversacional Real:** Capturar interactivamente la clave de pruebas sin eco y sin dejarla en el historial de comandos (`~/.zsh_history`):
+1. **Reintento Seguro del QA Conversacional Real (Acción Mínima del Usuario):**
+   Ejecutar en la terminal interactiva de macOS el script robustecido con diagnóstico:
    ```bash
-   # 1. Ingreso interactivo oculto (no deja rastro en historial ni logs):
-   read -s "OPENAI_API_KEY?Ingrese su OpenAI API Key de pruebas: " && export OPENAI_API_KEY
-
-   # 2. Ejecutar QA en vivo contra gpt-4o-mini y Firestore Emulator:
-   PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" JAVA_HOME="/opt/homebrew/opt/openjdk@21" \
-   ENABLE_REAL_OPENAI_QA=true \
-   firebase emulators:exec --only firestore "node real_agent_harness/qa_openai_runner.js" --project demo-ginga-test
-
-   # 3. Limpiar la variable inmediatamente tras la prueba:
-   unset OPENAI_API_KEY
+   ./scratch/run_live_qa.sh
    ```
-2. **Auditar métricas reales:** Verificar latencia por turno, llamadas efectivas a tools, tokens consumidos y costo real (< $0.25 USD).
-3. **Decisión de Gate:** Con los resultados de OpenAI real, evaluar transición de CONDITIONAL a READY para staging/despliegue quirúrgico.
+   *El script solicita la clave `ginga-qa-local` mediante `read -s` (compatible zsh/bash, sin eco), ejecuta la suite de 12 escenarios en el emulador, canaliza logs en vivo a `scratch/qa_execution.log`, limpia la memoria con trap y exporta el reporte auditado a `scratch/qa_report_latest.json` con `runId` único y distinción clara de fallos.*
+2. **Auditar métricas reales en el reporte generado:** Leer `scratch/qa_report_latest.json` y verificar `runId`, `mode: "LIVE_REAL_OPENAI"`, latencia por turno, tools ejecutadas, tokens y costo real consumido (< $0.25 USD).
+3. **Decisión de Gate:** Con los resultados de OpenAI real verificados, evaluar transición de CONDITIONAL a READY para staging/despliegue quirúrgico.
 
 ---
 

@@ -63,6 +63,8 @@ const networkAudit = {
   openAiCalls: 0,
   emulatorCalls: 0,
   otherBlockedCalls: [],
+  lastOpenAiStatus: null,
+  criticalError: null,
 };
 
 const ENABLE_REAL_OPENAI_QA = process.env.ENABLE_REAL_OPENAI_QA === 'true';
@@ -96,7 +98,23 @@ global.fetch = async function secureFetch(input, init) {
       throw new Error(`[SECURITY FIREWALL] Llamada a OpenAI rechazada porque ENABLE_REAL_OPENAI_QA es false: ${url}`);
     }
     networkAudit.openAiCalls++;
-    return originalFetch(input, init);
+    try {
+      const resp = await originalFetch(input, init);
+      networkAudit.lastOpenAiStatus = resp.status;
+      if (resp.status === 401) {
+        networkAudit.criticalError = 'CRITICAL_AUTH_ERROR: OpenAI API Key inválida o no autorizada (HTTP 401 Unauthorized)';
+      } else if (resp.status === 403) {
+        networkAudit.criticalError = 'CRITICAL_PERMISSION_ERROR: Permiso denegado para el modelo o proyecto en OpenAI (HTTP 403 Forbidden)';
+      } else if (resp.status === 429) {
+        networkAudit.criticalError = 'CRITICAL_QUOTA_ERROR: Cuota insuficiente o límite de tasa alcanzado en OpenAI (HTTP 429 Too Many Requests)';
+      } else if (!resp.ok && resp.status >= 400 && resp.status < 500) {
+        networkAudit.criticalError = `CRITICAL_CLIENT_ERROR: Error cliente en solicitud a OpenAI (HTTP ${resp.status})`;
+      }
+      return resp;
+    } catch (netErr) {
+      networkAudit.criticalError = `CRITICAL_NETWORK_ERROR: Falla de red conectando con OpenAI: ${netErr.message}`;
+      throw netErr;
+    }
   }
 
   // Regla D: Cualquier otra salida externa no autorizada (GCP remoto, APIs de terceros)
@@ -274,10 +292,6 @@ async function seedBaseFixtures(db) {
     yape_titular: 'Instructor Ginga Cusco',
     direccion: 'Calle Hospital 840, Cusco (segundo piso)',
     link_maps: 'https://maps.app.goo.gl/3gdpPwk7PctgmSA38',
-  });
-
-  await db.collection('config').doc('whatsapp_agent').set({
-    system_prompt: 'Eres el instructor de Capoeira en Ginga Cusco. Responde con calidez y rigor.',
   });
 
   await db.collection('clases').doc('clase_ninos').set({
@@ -680,7 +694,14 @@ function buildScenarios(db, internals) {
         if (toolsCalled.includes('reservar_clase_prueba') || toolsCalled.includes('reprogramar_reserva')) {
           throw new Error('No debe ejecutar herramientas de agendamiento para una cancelación.');
         }
-        if (!/gracias|profesor|instructor|nota|aviso|avisa/i.test(responseText)) {
+        if (!toolsCalled.includes('marcar_seguimiento_humano')) {
+          throw new Error('Debe derivar la solicitud de cancelación a seguimiento humano.');
+        }
+        const leadDoc = await db.collection('whatsapp_leads').doc(this.leadId).get();
+        if (leadDoc.data()?.status !== 'requiere_atencion') {
+          throw new Error('El lead debió ser actualizado a requiere_atencion.');
+        }
+        if (!/gracias|profesor|instructor|nota|aviso|avisa|lamento|asistir/i.test(responseText)) {
           throw new Error('Debe confirmar la recepción del aviso o derivar cordialmente.');
         }
       },
@@ -728,6 +749,9 @@ function buildScenarios(db, internals) {
         toolsCalled: ['marcar_seguimiento_humano'],
       },
       async assertions({ responseText, toolsCalled }) {
+        if (!toolsCalled.includes('marcar_seguimiento_humano')) {
+          throw new Error('Debe invocarse la herramienta marcar_seguimiento_humano.');
+        }
         const leadDoc = await db.collection('whatsapp_leads').doc(this.leadId).get();
         if (leadDoc.data()?.status !== 'requiere_atencion') {
           throw new Error('El lead debió ser actualizado a requiere_atencion.');
@@ -851,79 +875,216 @@ async function bootstrap() {
     sedes: sedesValidas.map((s) => s.nombre),
   });
 
+  const runId = `qa_run_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const startTime = new Date().toISOString();
+
+  // Rotar o limpiar reporte anterior para que jamás se confunda con uno nuevo
+  const fs = require('fs');
+  const path = require('path');
+  const reportDir = path.join(__dirname, '../scratch');
+  if (!fs.existsSync(reportDir)) fs.mkdirSync(reportDir, { recursive: true });
+  const reportPath = path.join(reportDir, 'qa_report_latest.json');
+  const previousReportPath = path.join(reportDir, 'qa_report_previous.json');
+  if (fs.existsSync(reportPath)) {
+    try {
+      if (fs.existsSync(previousReportPath)) fs.unlinkSync(previousReportPath);
+      fs.renameSync(reportPath, previousReportPath);
+    } catch (_) {
+      try { fs.unlinkSync(reportPath); } catch (_) {}
+    }
+  }
+
   const SCENARIOS = buildScenarios(db, internals);
   let passedScenarios = 0;
+  const reportScenarios = [];
+  let fatalError = null;
+
+  const persistReport = (suiteStatus, criticalReason = null) => {
+    try {
+      const reportData = {
+        runId,
+        startTime,
+        endTime: new Date().toISOString(),
+        mode: ENABLE_REAL_OPENAI_QA ? 'LIVE_REAL_OPENAI' : 'DRY_RUN_OFFLINE',
+        isLiveRealOpenAI: Boolean(ENABLE_REAL_OPENAI_QA),
+        suiteStatus, // 'PASSED' | 'FAILED' | 'ABORTED_CRITICAL'
+        criticalReason: criticalReason || null,
+        projectId: process.env.GCLOUD_PROJECT,
+        emulatorHost: process.env.FIRESTORE_EMULATOR_HOST,
+        passedCount: passedScenarios,
+        totalCount: SCENARIOS.length,
+        metrics: {
+          totalCalls: budgetTracker.requestCount,
+          promptTokens: budgetTracker.promptTokens,
+          completionTokens: budgetTracker.completionTokens,
+          totalCostUSD: Number(budgetTracker.totalCostUSD.toFixed(4)),
+        },
+        networkAudit: {
+          metaCallsBlocked: networkAudit.metaCallsBlocked,
+          openAiCalls: networkAudit.openAiCalls,
+          emulatorCalls: networkAudit.emulatorCalls,
+          lastOpenAiStatus: networkAudit.lastOpenAiStatus,
+          criticalError: networkAudit.criticalError,
+        },
+        scenarios: reportScenarios,
+      };
+      fs.writeFileSync(reportPath, JSON.stringify(reportData, null, 2));
+      console.log(`[REPORTE] Resultados guardados (${suiteStatus}): ${reportPath}`);
+    } catch (reportErr) {
+      console.warn(`[REPORTE] No se pudo escribir reporte JSON: ${reportErr.message}`);
+    }
+  };
 
   for (const scenario of SCENARIOS) {
+    // Si se detectó un error crítico de credencial, cuota, facturación o red, detener de inmediato la suite
+    if (networkAudit.criticalError) {
+      fatalError = networkAudit.criticalError;
+      logSanitized(scenario.id, 'ABORT', `Suite detenida de inmediato por error crítico previo: ${fatalError}`);
+      break;
+    }
+
     const scenarioStart = Date.now();
     logSanitized(scenario.id, 'START', `Iniciando escenario: "${scenario.name}" (Lead: ${hashLeadId(scenario.leadId)})`);
     
-    await scenario.setup();
-
-    if (scenario.id === 12 && typeof scenario.runSpecial === 'function') {
-      await scenario.runSpecial({ sedesValidas });
-      passedScenarios++;
-      logSanitized(scenario.id, 'PASS', 'Runtime Guard interceptó y protegió correctamente.', {
-        latencyMs: Date.now() - scenarioStart,
-      });
-      continue;
-    }
-
+    let scenarioError = null;
     let responseText = '';
     const toolsCalled = [];
 
-    if (ENABLE_REAL_OPENAI_QA) {
-      // Flujo REAL en vivo: preguntarIA + AVAILABLE_TOOLS reales + Runtime Guard real
-      const leadSnap = await db.collection('whatsapp_leads').doc(scenario.leadId).get();
-      const leadData = leadSnap.data() || {};
-      const { systemPrompt } = await generarSystemPrompt(leadData, 1, scenario.leadId);
-      const historial = [{ role: 'user', content: scenario.userMessage }];
+    try {
+      await scenario.setup();
 
-      responseText = await preguntarIA(scenario.leadId, systemPrompt, historial, ({ name }) => {
-        toolsCalled.push(name);
-      });
-
-      const estimatedIn = Math.ceil((systemPrompt.length + scenario.userMessage.length) / 3.5);
-      const estimatedOut = Math.ceil((responseText?.length || 50) / 3.5);
-      budgetTracker.recordUsage(estimatedIn, estimatedOut);
-      logSanitized(scenario.id, 'USAGE', 'Llamada real OpenAI completada.', {
-        totalCalls: budgetTracker.requestCount,
-        costUSD: Number(budgetTracker.totalCostUSD.toFixed(4)),
-      });
-    } else {
-      responseText = scenario.mockResponse.content;
-      toolsCalled.push(...scenario.mockResponse.toolsCalled);
-      
-      if (scenario.id === 1) {
-        const ahora = obtenerFechaLimaAhora();
-        const prox = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 2, 18, 0, 0);
-        await reservarClasePruebaLead(scenario.leadId, 'clase_adultos', 'Camila Rivera', prox);
-      } else if (scenario.id === 3) {
-        const ahora = obtenerFechaLimaAhora();
-        const nueva = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 5, 18, 0, 0);
-        await reprogramarClasePruebaLead(scenario.leadId, scenario.reservaId, nueva, 'Reprogramación QA');
-      } else if (scenario.id === 4) {
-        const ahora = obtenerFechaLimaAhora();
-        const fecha = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 3, 17, 0, 0);
-        await reservarClasePruebaLead(scenario.leadId, 'clase_ninos', 'Sofia', fecha);
-      } else if (scenario.id === 11) {
-        await db.collection('whatsapp_leads').doc(scenario.leadId).update({
-          status: 'requiere_atencion',
-          motivo_seguimiento: 'Solicita hablar con una persona',
+      if (scenario.id === 12 && typeof scenario.runSpecial === 'function') {
+        await scenario.runSpecial({ sedesValidas });
+        passedScenarios++;
+        const latencyMs = Date.now() - scenarioStart;
+        reportScenarios.push({
+          id: scenario.id,
+          name: scenario.name,
+          status: 'PASS',
+          userMessageSnippet: scenario.userMessage.substring(0, 80),
+          responseTextSnippet: '[Runtime Guard Interception: candidate blocked]',
+          toolsCalled: [],
+          latencyMs,
         });
+        logSanitized(scenario.id, 'PASS', 'Runtime Guard interceptó y protegió correctamente.', {
+          latencyMs,
+        });
+        continue;
+      }
+
+      if (ENABLE_REAL_OPENAI_QA) {
+        // Flujo REAL en vivo: preguntarIA + AVAILABLE_TOOLS reales + Runtime Guard real
+        const leadSnap = await db.collection('whatsapp_leads').doc(scenario.leadId).get();
+        const leadData = leadSnap.data() || {};
+        const { systemPrompt } = await generarSystemPrompt(leadData, 1, scenario.leadId);
+        const historial = [{ role: 'user', content: scenario.userMessage }];
+
+        responseText = await preguntarIA(scenario.leadId, systemPrompt, historial, ({ name }) => {
+          toolsCalled.push(name);
+        });
+
+        // Verificar si ocurrió un error crítico durante las llamadas a OpenAI
+        if (networkAudit.criticalError) {
+          throw new Error(networkAudit.criticalError);
+        }
+
+        const estimatedIn = Math.ceil((systemPrompt.length + scenario.userMessage.length) / 3.5);
+        const estimatedOut = Math.ceil((responseText?.length || 50) / 3.5);
+        budgetTracker.recordUsage(estimatedIn, estimatedOut);
+        logSanitized(scenario.id, 'USAGE', 'Llamada real OpenAI completada.', {
+          totalCalls: budgetTracker.requestCount,
+          costUSD: Number(budgetTracker.totalCostUSD.toFixed(4)),
+        });
+      } else {
+        responseText = scenario.mockResponse.content;
+        toolsCalled.push(...scenario.mockResponse.toolsCalled);
+        
+        if (scenario.id === 1) {
+          const ahora = obtenerFechaLimaAhora();
+          const prox = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 2, 18, 0, 0);
+          await reservarClasePruebaLead(scenario.leadId, 'clase_adultos', 'Camila Rivera', prox);
+        } else if (scenario.id === 3) {
+          const ahora = obtenerFechaLimaAhora();
+          const nueva = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 5, 18, 0, 0);
+          await reprogramarClasePruebaLead(scenario.leadId, scenario.reservaId, nueva, 'Reprogramación QA');
+        } else if (scenario.id === 4) {
+          const ahora = obtenerFechaLimaAhora();
+          const fecha = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 3, 17, 0, 0);
+          await reservarClasePruebaLead(scenario.leadId, 'clase_ninos', 'Sofia', fecha);
+        } else if (scenario.id === 9) {
+          await db.collection('whatsapp_leads').doc(scenario.leadId).update({
+            status: 'requiere_atencion',
+            motivo_seguimiento: 'Solicitud de cancelación de reserva',
+          });
+        } else if (scenario.id === 11) {
+          await db.collection('whatsapp_leads').doc(scenario.leadId).update({
+            status: 'requiere_atencion',
+            motivo_seguimiento: 'Solicita hablar con una persona',
+          });
+        }
+      }
+
+      await scenario.assertions({ responseText, toolsCalled, sedesValidas });
+      passedScenarios++;
+      logSanitized(scenario.id, 'PASS', `Escenario aprobado con éxito.`);
+    } catch (err) {
+      scenarioError = err.message;
+      logSanitized(scenario.id, 'FAIL', `Escenario falló: ${err.message}`, {
+        toolsCalled,
+        responseTextSnippet: responseText ? responseText.slice(0, 80) : null,
+      });
+
+      // Errores críticos detienen toda la suite inmediatamente
+      const isCritical = networkAudit.criticalError ||
+        err.message.startsWith('CRITICAL_') ||
+        err.message.includes('[BUDGET GUARD]') ||
+        err.message.includes('[SECURITY FIREWALL]');
+
+      if (isCritical) {
+        fatalError = networkAudit.criticalError || err.message;
+        const latencyMs = Date.now() - scenarioStart;
+        reportScenarios.push({
+          id: scenario.id,
+          name: scenario.name,
+          status: 'FAIL',
+          error: scenarioError,
+          userMessageSnippet: scenario.userMessage.substring(0, 80),
+          responseTextSnippet: responseText ? responseText.substring(0, 120).replace(/\+?[0-9]{8,}/g, '[PHONE]') : null,
+          toolsCalled,
+          latencyMs,
+        });
+        logSanitized(scenario.id, 'ABORT', `Detención inmediata por error crítico: ${fatalError}`);
+        break;
+      }
+    } finally {
+      if (typeof scenario.teardown === 'function') {
+        try {
+          await scenario.teardown();
+        } catch (_) {}
       }
     }
 
-    await scenario.assertions({ responseText, toolsCalled, sedesValidas });
-    if (typeof scenario.teardown === 'function') {
-      await scenario.teardown();
-    }
-
-    passedScenarios++;
-    logSanitized(scenario.id, 'PASS', `Escenario aprobado con éxito.`, {
-      latencyMs: Date.now() - scenarioStart,
+    const latencyMs = Date.now() - scenarioStart;
+    reportScenarios.push({
+      id: scenario.id,
+      name: scenario.name,
+      status: scenarioError ? 'FAIL' : 'PASS',
+      error: scenarioError || undefined,
+      userMessageSnippet: scenario.userMessage.substring(0, 80),
+      responseTextSnippet: responseText ? responseText.substring(0, 120).replace(/\+?[0-9]{8,}/g, '[PHONE]') : null,
+      toolsCalled,
+      latencyMs,
     });
   }
+
+  // Generar reporte estructurado en scratch/ (ignorado por Git, cero PII)
+  const suiteStatus = fatalError
+    ? 'ABORTED_CRITICAL'
+    : passedScenarios === SCENARIOS.length
+      ? 'PASSED'
+      : 'FAILED';
+
+  persistReport(suiteStatus, fatalError);
 
   console.log('\n===============================================================');
   if (ENABLE_REAL_OPENAI_QA) {
@@ -936,10 +1097,16 @@ async function bootstrap() {
     console.log(' ESTADO DEL GATE DE QA REAL: BLOCKED (Pendiente de ejecución autorizada con OPENAI_API_KEY).');
   }
   console.log(` Auditoría de red: Meta interceptadas: ${networkAudit.metaCallsBlocked} | OpenAI: ${networkAudit.openAiCalls} | Emulador: ${networkAudit.emulatorCalls}`);
+  if (fatalError) {
+    console.error(` ERROR CRÍTICO DETECTADO: ${fatalError}`);
+  }
   console.log('===============================================================\n');
 
-  if (passedScenarios !== SCENARIOS.length) {
-    throw new Error(`Fallaron ${SCENARIOS.length - passedScenarios} escenarios.`);
+  if (passedScenarios !== SCENARIOS.length || fatalError) {
+    const errorMsg = fatalError 
+      ? `Ejecución abortada por error crítico: ${fatalError}`
+      : `Fallaron ${SCENARIOS.length - passedScenarios} escenarios.`;
+    throw new Error(errorMsg);
   }
 }
 

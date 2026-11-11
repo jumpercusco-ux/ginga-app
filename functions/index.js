@@ -1183,7 +1183,7 @@ function analizarAfirmacionesRespuesta(texto) {
 
     // Afirmaciones de reserva / agendamiento (singular y plural)
     const patronReservar =
-      /\b(?:he|te\s+he|hemos|acabo\s+de|ya\s+te|ya)\s+(?:reservado|agendado|programado|registrado)\b/i.test(s) ||
+      /\b(?:he|te\s+he|hemos|acabo\s+de|te\s+acabo\s+de|ya\s+te|ya)\s+(?:reservado|agendado|programado|registrado|reservar|agendar|programar|registrar)\b/i.test(s) ||
       /\b(?:quedo|quedaron|queda|quedan|esta|estan)\s+(?:confirmad[ao]s?|agendad[ao]s?|registrad[ao]s?|programad[ao]s?|reservad[ao]s?)\b/i.test(s) ||
       /\b(?:tu|tus|su|sus|la|las)\s+(?:clase|clases|reserva|reservas|cita|citas)\s+(?:de\s+prueba\s+)?(?:ha\s+sido|fueron|fue|quedo|quedaron|esta|estan)\s+(?:confirmad[ao]s?|agendad[ao]s?|registrad[ao]s?|programad[ao]s?|reservad[ao]s?)\b/i.test(s) ||
       /\b(?:clases?|reservas?)\s+confirmad[ao]s?\b/i.test(s) ||
@@ -1244,6 +1244,80 @@ async function aplicarIntercepcionSegura(leadId, evaluation) {
   }
 }
 
+/**
+ * Detecta si el mensaje del usuario constituye una solicitud explícita de atención humana.
+ * Excluye falsos positivos en preguntas informativas sobre cupos o precios por persona.
+ */
+function detectarSolicitudExplicitaAtencionHumana(texto) {
+  if (!texto || typeof texto !== 'string') return false;
+  const tNorm = texto.toLowerCase()
+    .replace(/[áàäâ]/g, 'a')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[óòöô]/g, 'o')
+    .replace(/[úùüû]/g, 'u')
+    .trim();
+
+  // Excluir preguntas informativas comunes sobre cupos, cantidad, precios o profesores
+  if (
+    /\bcuant[ao]s?\s+personas?\b/i.test(tNorm) ||
+    /\b(?:para|por)\s+(?:una|dos|tres)\s+personas?\b/i.test(tNorm) ||
+    /\b(?:quien|como)\s+es\s+el\s+(?:profesor|instructor)\b/i.test(tNorm) ||
+    /\b(?:quien\s+ensena|quien\s+dicta|como\s+se\s+llama\s+el\s+profesor)\b/i.test(tNorm)
+  ) {
+    return false;
+  }
+
+  const patrones = [
+    /\b(?:quiero|deseo|necesito|solicito|favor|por\s+favor|podria|puedo|pasame|comunicame|transfiereme)\s+(?:de\s+una\s+vez\s+)?(?:hablar|contactar(?:me)?|comunicar(?:me)?|tratar)\s+con\s+(?:un[ao]?|el|la|al)?\s*(?:persona(?: real)?|humano|asesor|profesor|instructor|recepcionista|agente)\b/i,
+    /\b(?:hablar|chatear|contactar(?:me)?|comunicar(?:me)?)\s+con\s+(?:un[ao]?|el|la|al)?\s*(?:persona(?: real)?|humano|asesor|profesor|instructor)\b/i,
+    /\b(?:atencion|contacto)\s+(?:humana|personal)\s*(?:por\s+favor)?\b/i,
+    /\b(?:pasame|comunicame)\s+con\s+(?:un[ao]?|el|la|al)?\s*(?:humano|persona|asesor|profesor|instructor)\b/i,
+    /\bno\s+quiero\s+(?:un\s+)?(?:bot|ia|robot|inteligencia\s+artificial)\b/i,
+  ];
+
+  return patrones.some((p) => p.test(tNorm));
+}
+
+/**
+ * Detecta si el mensaje del usuario constituye una solicitud de cancelación definitiva de reserva.
+ * Distingue cancelaciones de reprogramaciones (donde el usuario pide mover a otra fecha)
+ * y excluye consultas informativas generales o hipotéticas sobre políticas de cancelación.
+ */
+function detectarSolicitudCancelacion(texto) {
+  if (!texto || typeof texto !== 'string') return false;
+  const tNorm = texto.toLowerCase()
+    .replace(/[áàäâ]/g, 'a')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[óòöô]/g, 'o')
+    .replace(/[úùüû]/g, 'u')
+    .trim();
+
+  // Si pide reprogramar ("no puedo ir hoy, cambienmela para el martes"), es reprogramación, NO cancelación definitiva
+  if (/\b(?:reprograma|cambia|traslada|mueve|pasa)\s+(?:mi|la)?\s*(?:clase|reserva|fecha)\b/i.test(tNorm)) {
+    return false;
+  }
+
+  // Excluir preguntas informativas o hipotéticas sobre políticas, costos o dudas generales
+  if (
+    /\b(?:como\s+funcionan?|que\s+pasa\s+si|cobran|costo|penalidad|politica|terminos|condiciones|se\s+puede\s+cancelar|como\s+(?:puedo|hago\s+para)\s+cancelar)\b/i.test(tNorm) ||
+    /\b(?:si\s+(?:deseo|quiero|tengo\s+que|quisiera)\s+cancelar)\b/i.test(tNorm)
+  ) {
+    return false;
+  }
+
+  const patrones = [
+    /\b(?:cancelen?|anulen?|eliminen?|dar\s+de\s+baja)\s+(?:mi|el)?\s*(?:cupo|reserva|clase|cita|asistencia)\b/i,
+    /\bno\s+(?:voy\s+a\s+poder|puedo|podre)\s+ir\b.*?\b(?:cancelen?|anulen?|dar\s+de\s+baja)\b/i,
+    /\bpor\s+favor\s+(?:cancelen|anulen)\b/i,
+    /\bdeseo\s+cancelar\s+(?:mi\s+)?(?:reserva|clase|cupo)\b/i,
+    /\bquiero\s+cancelar\s+(?:mi\s+)?(?:reserva|clase|cupo)\b/i,
+  ];
+
+  return patrones.some((p) => p.test(tNorm));
+}
+
 function evaluarRuntimeGuard(leadId, candidateText, turnContext, systemPrompt = '') {
   if (!candidateText || typeof candidateText !== 'string') {
     return {
@@ -1297,10 +1371,35 @@ function evaluarRuntimeGuard(leadId, candidateText, turnContext, systemPrompt = 
 
     if (successfulBookings.length === 0 && successfulReschedules.length === 0) {
       const isReferencingPreexisting = preexistentes.some((pre) => {
-        const mentionsPersona = !pre.persona || textNorm.includes(pre.persona.toLowerCase());
-        const mentionsExistingDate = pre.fechaTexto && textNorm.includes(pre.fechaTexto.toLowerCase());
-        const assertsNewAction = /\b(?:acabo\s+de|he\s+agendado|he\s+reservado|te\s+agende|te\s+reserve|agende|reserve)\b/i.test(candidateText);
-        return mentionsPersona && (mentionsExistingDate || textNorm.includes('ya esta confirmada') || textNorm.includes('ya está confirmada')) && !assertsNewAction;
+        // Coincidencia de persona: nombre completo, primer nombre, slug, o lead con reserva previa si no menciona a otra persona
+        const primerNombre = pre.persona ? pre.persona.split(/\s+/)[0].toLowerCase() : '';
+        const slug = pre.persona_slug || '';
+
+        // Si el texto menciona explícitamente a otra persona (ej. "para Lucía", "a Lucía", "hijo Tomás", etc.),
+        // no debe considerarse que se refiere a una reserva previa con distinto nombre.
+        const mentionsDifferentName = Boolean(
+          primerNombre &&
+          /\b(?:para|a|de|hijo|hija|hermano|hermana|pequeno|pequena|nino|nina)\s+([a-z]{3,})\b/i.test(textNorm) &&
+          !textNorm.includes(primerNombre) &&
+          (!slug || !textNorm.includes(slug))
+        );
+
+        const mentionsPersona = !mentionsDifferentName && (
+          !pre.persona ||
+          textNorm.includes(pre.persona.toLowerCase()) ||
+          (primerNombre.length >= 3 && textNorm.includes(primerNombre)) ||
+          (slug && textNorm.includes(slug)) ||
+          preexistentes.length === 1
+        );
+
+        // Coincidencia de fecha: no debe contradecir la fecha confirmada previa
+        const checkFecha = verificarCorrespondenciaFecha(candidateText, pre.fechaTexto);
+        const fechaMatches = checkFecha.matches;
+
+        // Prohibir afirmaciones de que se acaba de crear una NUEVA reserva en este turno sin tool
+        const assertsNewAction = /\b(?:acabo\s+de|te\s+acabo\s+de|he\s+agendado|he\s+reservado|te\s+he\s+agendado|te\s+he\s+reservado|ya\s+te\s+(?:agende|reserve)|te\s+(?:agende|reserve)|otra\s+clase|nueva\s+clase|segunda\s+clase)\b/i.test(candidateText);
+
+        return mentionsPersona && fechaMatches && !assertsNewAction;
       });
 
       if (!isReferencingPreexisting) {
@@ -2149,7 +2248,7 @@ const AVAILABLE_TOOLS = [
       type: 'function',
       function: {
         name: 'marcar_seguimiento_humano',
-        description: 'Marca la conversación para que un instructor humano la revise y responda personalmente. Úsala cuando no puedas resolver la consulta tú mismo (negociaciones, salud/lesiones, o si piden explícitamente hablar con una persona).',
+        description: 'Marca la conversación para que un instructor humano la revise y responda personalmente. Úsala cuando el lead solicite cancelar una reserva, cuando no puedas resolver la consulta tú mismo (negociaciones, salud/lesiones), o si piden explícitamente hablar con una persona/humano.',
         parameters: {
           type: 'object',
           properties: {
@@ -2162,49 +2261,70 @@ const AVAILABLE_TOOLS = [
     handler: async (leadId, args, turnContext = null) => {
       const motivo = args?.motivo || 'No especificado';
       const leadRef = admin.firestore().collection('whatsapp_leads').doc(leadId);
-      const [leadDoc] = await Promise.all([
-        leadRef.get(),
-        leadRef.update({ status: 'requiere_atencion', motivo_seguimiento: motivo }),
-      ]);
-      const nombreLead = leadDoc.data()?.nombre || leadId;
+      const leadDoc = await leadRef.get();
+      const leadData = leadDoc.exists ? leadDoc.data() : {};
+      const alreadyEscalated = leadData?.status === 'requiere_atencion';
+
+      const updatePayload = {
+        status: 'requiere_atencion',
+        motivo_seguimiento: motivo,
+      };
+      if (admin.firestore.FieldValue?.serverTimestamp) {
+        updatePayload.ultima_interaccion = admin.firestore.FieldValue.serverTimestamp();
+      }
+
+      if (leadDoc.exists) {
+        await leadRef.update(updatePayload);
+      } else {
+        await leadRef.set(updatePayload, { merge: true });
+      }
+
+      // Verificación de escritura efectiva en Firestore
+      const verifyDoc = await leadRef.get();
+      if (!verifyDoc.exists || verifyDoc.data()?.status !== 'requiere_atencion') {
+        throw new Error(`WRITE_FAILED: No se pudo verificar la actualización de status en whatsapp_leads para ${leadId}`);
+      }
+
+      const nombreLead = leadData?.nombre || leadId;
 
       turnContext?.recordToolExecution({
         tool_name: 'marcar_seguimiento_humano',
         operation: 'human_escalation',
         status: 'success',
-        reason_code: 'OK',
+        reason_code: alreadyEscalated ? 'ALREADY_ESCALATED' : 'OK',
         mutation_committed: true,
-        details: { motivo },
+        details: { motivo, alreadyEscalated },
       });
 
-      const profesoresSnap = await admin.firestore().collection('users').where('rol', '==', 'profesor').get();
-      const batch = admin.firestore().batch();
-      profesoresSnap.docs.forEach((profDoc) => {
-        const notifRef = admin.firestore().collection('users').doc(profDoc.id)
-          .collection('notificaciones').doc();
-        batch.set(notifRef, {
-          titulo: 'Un lead de WhatsApp necesita atención humana 🙋',
-          mensaje: `${nombreLead} (${leadId}) — Motivo: ${motivo}`,
-          fecha: admin.firestore.FieldValue.serverTimestamp(),
-          leido: false,
-          tipo: 'bienvenida',
+      // Deduplicación estricta: si el lead YA estaba escalado en requiere_atencion (reintento del mismo mensaje),
+      // no enviar ráfagas duplicadas de notificaciones a profesores ni alertas por WhatsApp
+      if (!alreadyEscalated) {
+        const profesoresSnap = await admin.firestore().collection('users').where('rol', '==', 'profesor').get();
+        const batch = admin.firestore().batch();
+        profesoresSnap.docs.forEach((profDoc) => {
+          const notifRef = admin.firestore().collection('users').doc(profDoc.id)
+            .collection('notificaciones').doc();
+          batch.set(notifRef, {
+            titulo: 'Un lead de WhatsApp necesita atención humana 🙋',
+            mensaje: `${nombreLead} (${leadId}) — Motivo: ${motivo}`,
+            fecha: admin.firestore.FieldValue.serverTimestamp ? admin.firestore.FieldValue.serverTimestamp() : new Date(),
+            leido: false,
+            tipo: 'bienvenida',
+          });
         });
-      });
-      await batch.commit();
+        await batch.commit();
 
-      // Alerta directa por WhatsApp al instructor, además de la notificación in-app,
-      // usando el número configurado en config/negocio.telefono_instructor. Se manda
-      // como plantilla aprobada (no texto libre) para que llegue siempre, sin
-      // depender de si el instructor le escribió al número de Ginga en las
-      // últimas 24h.
-      try {
-        const negocioDoc = await admin.firestore().collection('config').doc('negocio').get();
-        const telefonoInstructor = negocioDoc.data()?.telefono_instructor;
-        if (telefonoInstructor) {
-          await enviarAlertaSeguimientoHumano(telefonoInstructor, nombreLead, leadId, motivo);
+        // Alerta directa por WhatsApp al instructor, además de la notificación in-app,
+        // usando el número configurado en config/negocio.telefono_instructor.
+        try {
+          const negocioDoc = await admin.firestore().collection('config').doc('negocio').get();
+          const telefonoInstructor = negocioDoc.data()?.telefono_instructor;
+          if (telefonoInstructor) {
+            await enviarAlertaSeguimientoHumano(telefonoInstructor, nombreLead, leadId, motivo);
+          }
+        } catch (e) {
+          console.error('[marcar_seguimiento_humano] Error avisando por WhatsApp al instructor:', e.message);
         }
-      } catch (e) {
-        console.error('[marcar_seguimiento_humano] Error avisando por WhatsApp al instructor:', e.message);
       }
 
       return 'Se notificó a un instructor, que se comunicará pronto. Informa esto al lead de forma tranquila y cordial.';
@@ -2281,7 +2401,49 @@ async function preguntarIA(leadId, systemPrompt, historial, onToolCall = null, c
 
     const llamadasHerramienta = respuesta.tool_calls || [];
     if (llamadasHerramienta.length === 0) {
-      const candidateContent = respuesta.content;
+      let candidateContent = respuesta.content;
+
+      // Política determinista de escalación para solicitudes explícitas de atención humana o cancelación
+      const ultimoMsg = Array.isArray(historial) && historial.length > 0 ? historial[historial.length - 1] : null;
+      const ultimoTexto = (ultimoMsg && ultimoMsg.role === 'user') ? String(ultimoMsg.content || '') : '';
+      const esHumanoExplicito = detectarSolicitudExplicitaAtencionHumana(ultimoTexto);
+      const esCancelacionExplicita = detectarSolicitudCancelacion(ultimoTexto);
+
+      let deterministicEscalationCommitted = null;
+      if ((esHumanoExplicito || esCancelacionExplicita) && !turnContext.executedToolNames.includes('marcar_seguimiento_humano')) {
+        const motivo = esCancelacionExplicita ? 'Solicitud de cancelación de reserva' : 'Solicitud explícita del cliente de hablar con una persona';
+        const toolHumano = AVAILABLE_TOOLS.find((t) => t.name === 'marcar_seguimiento_humano');
+        if (toolHumano) {
+          try {
+            await toolHumano.handler(leadId, { motivo }, turnContext);
+            deterministicEscalationCommitted = true;
+            if (onToolCall) {
+              onToolCall({
+                name: 'marcar_seguimiento_humano',
+                args: { motivo },
+                result: 'Derivado a instructor.',
+                turnContext,
+              });
+            }
+          } catch (escErr) {
+            console.error('[preguntarIA] Error en escalación humana determinista:', escErr.message);
+            deterministicEscalationCommitted = false;
+          }
+        }
+
+        // Si falló la persistencia en base de datos, NO prometer intervención humana ni confirmar
+        if (deterministicEscalationCommitted === false) {
+          return obtenerMensajeFallbackSeguro(null, false);
+        }
+
+        // Si la persistencia fue verificada exitosamente:
+        if (esHumanoExplicito) {
+          candidateContent = '¡Claro que sí! Ya le avisé al instructor para que se comunique contigo en breve por este medio y te atienda personalmente.';
+        } else if (esCancelacionExplicita) {
+          candidateContent = 'Entendido, tomo nota de tu solicitud para avisar al instructor que no podrás asistir. ¡Gracias por avisar!';
+        }
+      }
+
       const evaluation = evaluarRuntimeGuard(leadId, candidateContent, turnContext, systemPrompt);
 
       emitTelemetryEvent({
@@ -3361,6 +3523,8 @@ module.exports.__internals = {
   evaluarRuntimeGuard,
   aplicarIntercepcionSegura,
   obtenerMensajeFallbackSeguro,
+  detectarSolicitudExplicitaAtencionHumana,
+  detectarSolicitudCancelacion,
 };
 
 
