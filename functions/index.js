@@ -1244,7 +1244,7 @@ exports.whatsappWebhook = functions
       });
 
       const docsAsc = historialSnapshot.docs;
-      const { systemPrompt, preciosValidos } = await generarSystemPrompt(leadDataActual, docsAsc.length);
+      const { systemPrompt, preciosValidos } = await generarSystemPrompt(leadDataActual, docsAsc.length, telefono);
 
       const textoRespuesta = await preguntarIA(telefono, systemPrompt, historial);
       if (!textoRespuesta) {
@@ -1417,7 +1417,7 @@ exports.migrarMensajesHistoricos = functions.https.onRequest(async (req, res) =>
 /**
  * Genera el System Prompt contextualizado para un lead (fecha, calendario, precios, sede).
  */
-async function generarSystemPrompt(leadData = {}, numMensajesPrevios = 0) {
+async function generarSystemPrompt(leadData = {}, numMensajesPrevios = 0, leadId = null) {
   let systemPrompt = await obtenerSystemPrompt();
   
   const diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -1453,7 +1453,103 @@ ${listaProximas}
 Usa el formato AAAA-MM-DD provisto ahí si necesitas llenar el campo fecha_solicitada de tu herramienta.${hoyEsDiaDeClasePeroYaPasoMediodia ? ' AVISO: hoy es día de clase pero ya pasó el mediodía, por eso la fecha de arriba no es hoy. Si el lead insiste específicamente en venir HOY MISMO a pesar de eso, no se lo niegues de plano — usa marcar_seguimiento_humano (motivo: "Quiere venir hoy mismo, fuera del horario límite") para que un instructor decida en el momento si alcanza, y dile a la persona que un instructor le va a confirmar si alcanza para hoy.' : ''}`;
 
   if (numMensajesPrevios >= 2) {
-    systemPrompt += `\n\nAVISO: cualquier mención de "hoy", "mañana" o una fecha específica en mensajes ANTERIORES de este historial (incluso si la escribió el profesor manualmente, o vino de un mensaje automático previo) puede estar DESACTUALIZADA por el paso del tiempo — NO la repitas ni la des por vigente bajo ninguna circunstancia. Para cualquier referencia de fecha en tu respuesta, usa EXCLUSIVAMENTE la fecha_proxima_clase indicada arriba, recalculada para el momento actual.`;
+    systemPrompt += `\n\nAVISO: cualquier mención de "hoy", "mañana" o una fecha específica en mensajes ANTERIORES de este historial (incluso si la escribió el profesor manualmente, o vino de un mensaje automático previo) puede estar DESACTUALIZADA por el paso del tiempo — NO la repitas ni la des por vigente bajo ninguna circunstancia (EXCEPTO si el lead cuenta con una RESERVA CONFIRMADA VIGENTE indicada explícitamente en el bloque de abajo, cuya fecha y hora sí es la oficial vigente). Para cualquier referencia a una nueva fecha en tu respuesta, usa EXCLUSIVAMENTE la fecha_proxima_clase indicada arriba, recalculada para el momento actual.`;
+  }
+
+  // Consulta acotada y segura de reservas asociadas a este lead
+  let infoReservasContexto = '';
+  const effectiveLeadId = leadId || leadData.telefono || leadData.id || null;
+  if (effectiveLeadId) {
+    try {
+      const reservasSnap = await admin.firestore().collection('reservas')
+        .where('lead_id', '==', effectiveLeadId)
+        .where('status', '==', 'confirmado')
+        .limit(20)
+        .get();
+
+      if (!reservasSnap.empty) {
+        const reservasVigentes = [];
+        const hoyMedianoche = new Date(limaDate.getFullYear(), limaDate.getMonth(), limaDate.getDate(), 0, 0, 0, 0);
+
+        for (const doc of reservasSnap.docs) {
+          const r = doc.data();
+
+          let fechaDate = null;
+          if (r.fecha_clase && typeof r.fecha_clase.toDate === 'function') {
+            fechaDate = r.fecha_clase.toDate();
+          } else if (r.fecha_clase) {
+            fechaDate = new Date(r.fecha_clase);
+          }
+
+          if (!fechaDate || Number.isNaN(fechaDate.getTime())) continue;
+
+          const fechaClaseLima = new Date(fechaDate.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+          const fechaClaseMedianoche = new Date(fechaClaseLima.getFullYear(), fechaClaseLima.getMonth(), fechaClaseLima.getDate(), 0, 0, 0, 0);
+
+          // Si el día calendario ya pasó, no es vigente
+          if (fechaClaseMedianoche < hoyMedianoche) continue;
+
+          // Si es hoy, verificar si la hora de inicio de la clase ya pasó
+          const esMismoDia = fechaClaseMedianoche.getTime() === hoyMedianoche.getTime();
+          if (esMismoDia && r.hora) {
+            const match = String(r.hora).match(/(\d{1,2}):(\d{2})/);
+            if (match) {
+              const horaC = parseInt(match[1], 10);
+              const minC = parseInt(match[2], 10);
+              const minutosActuales = horaHoy * 60 + limaDate.getMinutes();
+              const minutosInicioClase = horaC * 60 + (Number.isNaN(minC) ? 0 : minC);
+              if (minutosActuales >= minutosInicioClase) {
+                // La clase de hoy ya inició o terminó
+                continue;
+              }
+            }
+          }
+
+          const nombrePersona = (r.nombre_persona || '').trim() || leadData.nombre || 'Persona registrada';
+          const fechaFormateada = `${esMismoDia ? 'HOY ' : ''}${diasSemana[fechaClaseLima.getDay()]} ${fechaClaseLima.getDate()} de ${meses[fechaClaseLima.getMonth()]}`;
+          const nivel = r.nivel || 'Clase regular';
+          const hora = r.hora || '18:00';
+
+          reservasVigentes.push({
+            id: doc.id,
+            nombrePersona,
+            fechaTexto: fechaFormateada,
+            nivel,
+            hora,
+            esHoy: esMismoDia,
+            fechaClaseMillis: fechaDate.getTime(),
+          });
+        }
+
+        if (reservasVigentes.length > 0) {
+          // Ordenar cronológicamente las reservas activas
+          reservasVigentes.sort((a, b) => a.fechaClaseMillis - b.fechaClaseMillis);
+
+          const lineas = reservasVigentes.map(
+            (rv) => `- Asistente: ${rv.nombrePersona} | Nivel: ${rv.nivel} | Fecha: ${rv.fechaTexto} a las ${rv.hora}.`
+          );
+
+          infoReservasContexto = `\n\n[RESERVAS CONFIRMADAS VIGENTES DE ESTE LEAD]:
+Este lead YA TIENE ${reservasVigentes.length === 1 ? 'una clase de prueba confirmada' : `${reservasVigentes.length} clases de prueba confirmadas`} en el sistema. NO es un lead nuevo:
+${lineas.join('\n')}
+REGLAS OBLIGATORIAS ANTE ESTE LEAD CON RESERVA CONFIRMADA VIGENTE:
+1. NUNCA le vuelvas a preguntar el nombre, edad ni datos de registro de las personas que ya cuentan con reserva confirmada.
+2. NUNCA le ofrezcas agendar clase de prueba desde cero ni le preguntes si le gustaría agendar — la clase ya está confirmada en el sistema.
+3. Si la persona saluda o consulta sobre su cita, reconoce su reserva con calidez (ej. "¡Hola! Claro, la clase de [nombre] ya está confirmada para el [fecha] a las [hora]..."). Trata a cada persona por su nombre propio, sin asumir género por el nombre.
+4. Responde con amabilidad cualquier duda sobre su asistencia usando ÚNICAMENTE información verificada del negocio: para dirección usa siempre la DIRECCIÓN REAL y el enlace oficial de Google Maps provistos abajo; para horarios o precios de acompañantes usa consultar_horarios_disponibles. NUNCA inventes requisitos de vestimenta, minutos obligatorios de anticipación ni políticas comerciales no verificadas.
+5. Si el cliente solicita reprogramar, cambiar de fecha o cancelar su reserva: NUNCA confirmes que el cambio ya está realizado de palabra si no ejecutaste una herramienta de persistencia. Infórmale que un instructor confirmará la nueva fecha o procesará la solicitud, y usa de inmediato marcar_seguimiento_humano.
+6. La fecha y hora de su reserva confirmada está PLENAMENTE VIGENTE — no apliques para ella ninguna advertencia de desactualización de fechas del historial.`;
+        }
+      }
+    } catch (errReservas) {
+      console.error(`[generarSystemPrompt] Error consultando reservas para lead ${effectiveLeadId}:`, errReservas.message);
+      infoReservasContexto = `\n\nAVISO DE SEGURIDAD (ERROR DE LECTURA DE RESERVAS): No se pudo verificar en base de datos si este lead tiene reservas existentes debido a un error temporal.
+REGLA ESTRICTA: NO afirmes que tiene ni que no tiene reserva confirmada. Si el lead menciona que ya tenía una cita agendada o pide consultar/cambiar su reserva, NO intentes crear una nueva reserva a ciegas ni confirmes cambios; indícale con amabilidad que estás coordinando con el equipo docente para verificar su ficha y usa de inmediato marcar_seguimiento_humano.`;
+    }
+  }
+
+  if (infoReservasContexto) {
+    systemPrompt += infoReservasContexto;
   }
 
   const personasConocidas = leadData.perfil_personas;

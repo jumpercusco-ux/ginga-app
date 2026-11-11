@@ -171,8 +171,20 @@ module.exports.__internals = {
     // Generate real System Prompt using index.js logic
     const { systemPrompt, preciosValidos } = await this.internals.generarSystemPrompt(
       leadData,
-      histSnap.docs.length
+      histSnap.docs.length,
+      leadId
     );
+
+    // Minimal safe telemetry (P0.1) without PII
+    const hasReservationBlock = systemPrompt.includes('[RESERVAS CONFIRMADAS VIGENTES DE ESTE LEAD]');
+    const reservationMatch = systemPrompt.match(/YA TIENE (\d+) clase\(?s\)? de prueba confirmada/);
+    const countFound = reservationMatch ? parseInt(reservationMatch[1], 10) : (hasReservationBlock ? 1 : 0);
+    this.lastReservationTelemetry = {
+      queried: Boolean(leadId),
+      contextInjected: hasReservationBlock,
+      countFound,
+      status: hasReservationBlock ? 'injected' : 'none_or_ineligible',
+    };
 
     // Call preguntarIA with tool execution instrumentation
     const executedTools = [];
@@ -209,6 +221,7 @@ module.exports.__internals = {
       leadData: updatedLead,
       reservations,
       conversationHistory: historial,
+      reservationTelemetry: this.lastReservationTelemetry || null,
     };
   }
 }
