@@ -39,17 +39,29 @@ Cada decisión se clasifica estrictamente en uno de tres estados:
 - **Justificación:** Mantiene un único identificador de reserva (`reservaId`) vinculado al lead en la app del instructor, evitando registros huérfanos o confusión visual en la lista de asistencia.
 
 ### 5. Preparación Multisede Retrocompatible
-- **Estado:** `[PROPUESTA]`
-- **Contexto:** Posible apertura de sedes futuras en Cusco (Magisterio, Larapa, etc.) o en otras ciudades.
-- **Decisión:** Incorporar campos opcionales `sede_id` y `session_id` en las entidades de reserva y clases, manteniendo fallback a los campos actuales (`sede`, `ubicacion`, `dias`, `hora`).
+- **Estado:** `[APROBADA]`
+- **Contexto:** Apertura de sedes futuras en Cusco (Magisterio, Larapa, etc.) o en otras ciudades.
+- **Decisión:** Soportar campos `sede_id`, `sede` y `ubicacion` con retrocompatibilidad 100% ante documentos legacy que carecen de `sede_id`. Fallback determinista a la sede principal de Cusco (`Av. de la Cultura E-4`).
 - **Restricción:** No crear sedes ni horarios ficticios como configuración real de producción mientras no existan físicamente.
 
-### 6. Agent Control Center
+### 6. Concurrencia e Idempotencia Transaccional vía Lock Optimista
+- **Estado:** `[APROBADA]`
+- **Contexto:** Riesgo de reservas duplicadas cuando un lead envía múltiples mensajes en ráfaga o Meta reintenta el webhook en milisegundos.
+- **Decisión:** Mover la verificación de duplicados DENTRO de `runTransaction` mediante el mapa `reservas_activas: { [slug]: ... }` en `whatsapp_leads/{leadId}`. Si dos transacciones compiten, la concurrencia optimista de Firestore aborta la segunda transacción con `DUPLICATE_ACTIVE_RESERVATION`.
+- **Justificación:** Garantiza consistencia estricta ACID a nivel de base de datos, independiente de la capa de debounce de red.
+
+### 7. Fusión No Destructiva de Perfiles Familiares en `guardar_perfil_lead`
+- **Estado:** `[APROBADA]`
+- **Contexto:** Cuando un padre menciona a un primer hijo (ej. Mateo de 8) y luego a un segundo hijo (ej. Sofía de 6), la versión base sobrescribía el arreglo eliminando al primero.
+- **Decisión:** Implementar fusión inteligente por slug (`slugifyPersona`), combinando el arreglo previo con los nuevos perfiles.
+- **Justificación:** Previene pérdida de contexto familiar durante la conversación.
+
+### 8. Agent Control Center
 - **Estado:** `[PROPUESTA]`
 - **Contexto:** Necesidad de los instructores y administradores de monitorear la salud de las herramientas del agente.
 - **Decisión:** Diseñar una pantalla administrativa con interruptores (toggles) dinámicos para habilitar/deshabilitar herramientas para el LLM, con la restricción estricta de que el panel **no puede desactivar validaciones críticas de backend**.
 
-### 7. Integración con Plataforma DANEV mediante API/Eventos
+### 9. Integración con Plataforma DANEV mediante API/Eventos
 - **Estado:** `[PROPUESTA]`
 - **Contexto:** Futura sincronización de leads calificados y reservas con el CRM y analítica central de DANEV.
 - **Decisión:** Diseñar contratos de eventos auditables normalizados en JSON Schema (`event_id`, `timestamp`, `tool_name`, `lead_hash`, `diff`), listos para emitirse vía HTTP webhook cuando se apruebe la integración.
@@ -59,21 +71,23 @@ Cada decisión se clasifica estrictamente en uno de tres estados:
 
 ## Decisiones Comerciales y de Negocio
 
-### 8. Diferenciación Formal entre Reserva, Asistencia y Matrícula
+### 10. Diferenciación Formal entre Reserva, Asistencia y Matrícula
 - **Estado:** `[APROBADA]`
 - **Decisión:** Establecer claramente los tres conceptos dentro del sistema:
   - **Reserva (`/reservas`):** Intención comercial previa de asistir a una clase de prueba gratuita. Estado: `confirmado`.
   - **Asistencia (`/asistencias`):** Verificación física presencial en el tatami (check-in QR o manual del profesor). Actualiza la reserva a `asistio`.
   - **Matrícula (`/users` rol alumno / `/pagos`):** Alumno regular con mensualidad o plan multimes pagado. Deja de ser prospecto de WhatsApp y pasa a gestión de alumno en la app móvil.
 
-### 9. Política sobre Segunda Clase de Prueba Gratuita
-- **Estado:** `[PENDIENTE]`
+### 11. Política sobre Segunda Clase de Prueba Gratuita
+- **Estado:** `[PENDIENTE]` (Medida de Seguridad Provisional en Backend)
 - **Contexto:** Un alumno que ya asistió a su clase de prueba gratuita vuelve a escribir solicitando otra clase sin costo.
-- **Propuesta Técnica:** Permitir **únicamente 1 clase de prueba gratuita por persona de por vida**. Si el lead ya cuenta con estado `asistio`, el agente debe agradecer su participación previa, ofrecer los planes de membresía mensual vigentes (S/140 regular, S/260 promo acompañados) y, si el cliente insiste en una segunda prueba, invocar `marcar_seguimiento_humano` para que el profesor autorice la excepción.
+- **Medida Provisional Actual:** El backend intercepta cualquier intento de nueva reserva o reprogramación cuando existe historial `asistio` y deriva obligatoriamente a `marcar_seguimiento_humano`. Esto **NO constituye una política comercial aprobada**, sino una salvaguarda de contención para evitar que el bot otorgue beneficios o comprometa al negocio sin autorización del instructor.
+- **Propuesta Técnica:** Permitir **únicamente 1 clase de prueba gratuita por persona**. Si el lead solicita otra, derivar a profesor para evaluar caso o venta de membresía.
 - **Acción Requerida:** Aprobación o ajuste formal por parte de los directores comerciales de GINGA.
 
-### 10. Política de Reprogramación tras Inasistencia (No-Show)
-- **Estado:** `[PENDIENTE]`
+### 12. Política de Reprogramación tras Inasistencia (No-Show)
+- **Estado:** `[PENDIENTE]` (Medida de Seguridad Provisional en Backend)
 - **Contexto:** Un alumno que reservó su clase no asistió (el profesor marcó `no_asistio` o la fecha transcurrió sin check-in).
-- **Propuesta Técnica:** Permitir **un (1) reagendamiento automático** de cortesía si el cliente se comunica para justificar la inasistencia. Si incurre en una segunda falta consecutiva, el agente deriva automáticamente a contacto humano con el profesor.
+- **Medida Provisional Actual:** El backend bloquea el reagendamiento automático desatendido y deriva a `marcar_seguimiento_humano`. Es una salvaguarda provisional para evitar reprogramaciones infinitas sin justificación.
+- **Propuesta Técnica:** Permitir **un (1) reagendamiento automático** de cortesía si el cliente se comunica para justificar la inasistencia. Si incurre en una segunda falta, derivar al profesor.
 - **Acción Requerida:** Aprobación o ajuste formal por parte de los directores comerciales de GINGA.

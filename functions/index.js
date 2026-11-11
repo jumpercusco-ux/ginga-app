@@ -357,6 +357,37 @@ const MESES_LARGO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'jul
 // Convención estándar de abreviaturas de día en español, usada en el campo `dias` de `clases` (ej. "M, J").
 const DIA_LETRA_A_NUMERO = { D: 0, L: 1, M: 2, X: 3, J: 4, V: 5, S: 6 };
 
+const PLACEHOLDERS_GENERICOS = new Set([
+  'hijo', 'hija', 'hijos', 'hijas', 'mi_hijo', 'mi_hija', 'mis_hijos',
+  'el_nino', 'la_nina', 'el_niño', 'la_niña', 'nino', 'nina', 'niño', 'niña',
+  'bebe', 'bebé', 'pequeno', 'pequeño', 'pequena', 'pequeña', 'nombre', 'lead',
+  'alumno', 'alumna', 'persona', 'asistente', 'chico', 'chica', 'hermano', 'hermana',
+  'principal', 'hijo_mayor', 'hija_mayor', 'hijo_menor', 'hija_menor'
+]);
+
+function slugifyPersona(nombre) {
+  if (!nombre) return 'principal';
+  return String(nombre)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'principal';
+}
+
+function esNombreValidoPersona(nombre) {
+  if (!nombre) return false;
+  const n = String(nombre).trim();
+  if (!n || n.startsWith('[') || n.endsWith(']')) return false;
+  const slug = slugifyPersona(n);
+  if (PLACEHOLDERS_GENERICOS.has(slug)) return false;
+  if (slug.includes('nombre_de') || slug.includes('hijo_mayor') || slug.includes('hijo_menor') || slug.includes('nombre_del')) {
+    return false;
+  }
+  return true;
+}
+
 function obtenerFechaLimaAhora() {
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
 }
@@ -417,22 +448,82 @@ function validarFechaSolicitada(fechaStr, diasPatron) {
 
 /**
  * Reserva una clase de prueba para un lead de WhatsApp (sin cuenta de Firebase Auth).
- * Misma lógica transaccional que `_reservarClasePrueba` en clase_detalle_screen.dart,
- * portada a Node y usando `lead_id` en vez de `user_id`. `fechaClase` es la fecha real
- * (calculada o pedida por el lead) para la que queda agendada esta clase de prueba.
+ * Ejecución 100% transaccional con verificación de idempotencia y lock optimista en `whatsapp_leads`.
+ * Registra `reservas_activas[slug]` para soportar múltiples personas por lead sin sobreescrituras.
  */
 async function reservarClasePruebaLead(leadId, claseId, nombrePersona, fechaClase) {
   return admin.firestore().runTransaction(async (transaction) => {
     const claseRef = admin.firestore().collection('clases').doc(claseId);
-    const claseDoc = await transaction.get(claseRef);
+    const leadRef = admin.firestore().collection('whatsapp_leads').doc(leadId);
+
+    const [claseDoc, leadDoc] = await Promise.all([
+      transaction.get(claseRef),
+      transaction.get(leadRef),
+    ]);
+
     if (!claseDoc.exists) throw new Error('Clase no encontrada');
 
     const claseData = claseDoc.data();
-    // Las clases de prueba por WhatsApp no restan del cupo compartido con los
-    // alumnos regulares — el instructor las gestiona de forma flexible/presencial.
-    const fechaClaseTimestamp = admin.firestore.Timestamp.fromDate(fechaClase);
 
+    // Verificación de capacidad global en la clase dentro de la transacción
+    if (claseData.cupos_disponibles !== undefined && claseData.cupos_disponibles <= 0) {
+      throw new Error(`CLASS_FULL: No hay cupos disponibles en la clase seleccionada (cupos: ${claseData.cupos_disponibles})`);
+    }
+
+    const slug = slugifyPersona(nombrePersona);
+    const reservasActivas = (leadDoc.exists && leadDoc.data()?.reservas_activas)
+      ? { ...leadDoc.data().reservas_activas }
+      : {};
+
+    // Verificación de idempotencia / concurrencia dentro de la transacción
+    let activaPrevia = reservasActivas[slug];
+
+    // Compatibilidad con leads legacy que no tienen mapa reservas_activas pero tienen reserva_id escalar
+    if (!activaPrevia && leadDoc.exists && leadDoc.data()?.reserva_id) {
+      const legacyReservaDoc = await transaction.get(
+        admin.firestore().collection('reservas').doc(leadDoc.data().reserva_id)
+      );
+      if (legacyReservaDoc.exists) {
+        const legData = legacyReservaDoc.data();
+        if (legData.status === 'confirmado') {
+          const legSlug = slugifyPersona(legData.nombre_persona);
+          if (legSlug === slug || !legData.nombre_persona) {
+            activaPrevia = {
+              reserva_id: legacyReservaDoc.id,
+              fecha_clase: legData.fecha_clase,
+              status: legData.status,
+            };
+          }
+        }
+      }
+    }
+
+    if (activaPrevia && activaPrevia.status === 'confirmado') {
+      let fechaActivaDate = null;
+      if (activaPrevia.fecha_clase && typeof activaPrevia.fecha_clase.toDate === 'function') {
+        fechaActivaDate = activaPrevia.fecha_clase.toDate();
+      } else if (activaPrevia.fecha_clase) {
+        fechaActivaDate = new Date(activaPrevia.fecha_clase);
+      }
+      if (fechaActivaDate && !Number.isNaN(fechaActivaDate.getTime())) {
+        const ahoraLima = obtenerFechaLimaAhora();
+        const hoyMedianoche = new Date(ahoraLima.getFullYear(), ahoraLima.getMonth(), ahoraLima.getDate());
+        const activaLima = new Date(fechaActivaDate.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+        const activaMedianoche = new Date(activaLima.getFullYear(), activaLima.getMonth(), activaLima.getDate());
+        if (activaMedianoche >= hoyMedianoche) {
+          throw new Error(`DUPLICATE_ACTIVE_RESERVATION: ${nombrePersona || 'Lead'} ya cuenta con una reserva activa (${activaPrevia.reserva_id})`);
+        }
+      }
+    }
+
+    const fechaClaseTimestamp = admin.firestore.Timestamp.fromDate(fechaClase);
     const reservaRef = admin.firestore().collection('reservas').doc();
+    const ahora = admin.firestore.FieldValue.serverTimestamp();
+
+    // Solo persistir sede y ubicación si existen de forma verificada en el documento de clase
+    const sedeVerificada = claseData.sede ? String(claseData.sede).trim() : null;
+    const ubicacionVerificada = claseData.ubicacion ? String(claseData.ubicacion).trim() : null;
+
     transaction.set(reservaRef, {
       lead_id: leadId,
       clase_id: claseId,
@@ -444,16 +535,36 @@ async function reservarClasePruebaLead(leadId, claseId, nombrePersona, fechaClas
       status: 'confirmado',
       tipo: 'prueba',
       origen: 'whatsapp',
-      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      sede_id: claseData.sede_id || null,
+      sede: sedeVerificada,
+      ubicacion: ubicacionVerificada,
+      created_at: ahora,
+      updated_at: ahora,
     });
 
-    const leadRef = admin.firestore().collection('whatsapp_leads').doc(leadId);
-    transaction.update(leadRef, {
+    reservasActivas[slug] = {
+      reserva_id: reservaRef.id,
+      clase_id: claseId,
+      nombre_persona: nombrePersona || null,
+      fecha_clase: fechaClaseTimestamp,
+      status: 'confirmado',
+      hora: claseData.hora || '',
+      updated_at: ahora,
+    };
+
+    const updateLead = {
       status: 'reservado',
       clase_reservada_id: claseId,
       reserva_id: reservaRef.id,
       fecha_clase_reservada: fechaClaseTimestamp,
-    });
+      reservas_activas: reservasActivas,
+    };
+
+    if (leadDoc.exists) {
+      transaction.update(leadRef, updateLead);
+    } else {
+      transaction.set(leadRef, updateLead, { merge: true });
+    }
 
     const instructorId = claseData.instructor_id;
     if (instructorId) {
@@ -463,7 +574,7 @@ async function reservarClasePruebaLead(leadId, claseId, nombrePersona, fechaClas
       transaction.set(instNotifRef, {
         titulo: 'Nuevo lead de WhatsApp reservó clase de prueba 🥋',
         mensaje: `${nombrePersona || 'Un lead de WhatsApp'} reservó una clase de prueba de ${claseData.nivel || ''} para el ${formatearFechaLarga(fechaClase)} a las ${claseData.hora || ''}.`,
-        fecha: admin.firestore.FieldValue.serverTimestamp(),
+        fecha: ahora,
         leido: false,
         tipo: 'bienvenida',
         clase_id: claseId,
@@ -471,6 +582,117 @@ async function reservarClasePruebaLead(leadId, claseId, nombrePersona, fechaClas
     }
 
     return claseData;
+  });
+}
+
+/**
+ * Reprograma de forma atómica una clase de prueba existente para un lead de WhatsApp.
+ * Modifica la fecha en la reserva, registra auditoría en `reprogramaciones`,
+ * y actualiza `reservas_activas` en `whatsapp_leads`.
+ */
+async function reprogramarClasePruebaLead(leadId, reservaId, nuevaFecha, motivo = null) {
+  return admin.firestore().runTransaction(async (transaction) => {
+    const reservaRef = admin.firestore().collection('reservas').doc(reservaId);
+    const leadRef = admin.firestore().collection('whatsapp_leads').doc(leadId);
+
+    const [reservaDoc, leadDoc] = await Promise.all([
+      transaction.get(reservaRef),
+      transaction.get(leadRef),
+    ]);
+
+    if (!reservaDoc.exists) throw new Error('Reserva no encontrada');
+
+    const reservaData = reservaDoc.data();
+    if (reservaData.status !== 'confirmado') {
+      throw new Error(`No se puede reprogramar una reserva con estado ${reservaData.status}`);
+    }
+
+    const claseRef = admin.firestore().collection('clases').doc(reservaData.clase_id);
+    const claseDoc = await transaction.get(claseRef);
+    const claseData = claseDoc.exists ? claseDoc.data() : reservaData;
+
+    // Verificación de capacidad global en la clase dentro de la transacción
+    if (claseData.cupos_disponibles !== undefined && claseData.cupos_disponibles <= 0) {
+      throw new Error(`CLASS_FULL: No hay cupos disponibles en la clase seleccionada (cupos: ${claseData.cupos_disponibles})`);
+    }
+
+    const fechaAnteriorTimestamp = reservaData.fecha_clase;
+    const nuevaFechaTimestamp = admin.firestore.Timestamp.fromDate(nuevaFecha);
+    const ahora = admin.firestore.FieldValue.serverTimestamp();
+
+    const entradaAuditoria = {
+      fecha_anterior: fechaAnteriorTimestamp,
+      nueva_fecha: nuevaFechaTimestamp,
+      motivo: motivo || 'Solicitud de reprogramación del lead',
+      fecha_reprogramacion: ahora,
+      origen: 'whatsapp_agent',
+    };
+
+    const reprogramacionesPrevias = Array.isArray(reservaData.reprogramaciones)
+      ? reservaData.reprogramaciones
+      : [];
+
+    const updatesReserva = {
+      fecha_clase: nuevaFechaTimestamp,
+      hora: claseData.hora || reservaData.hora || '',
+      updated_at: ahora,
+      reprogramaciones: [...reprogramacionesPrevias, entradaAuditoria],
+    };
+    if (claseData.sede) updatesReserva.sede = String(claseData.sede).trim();
+    if (claseData.ubicacion) updatesReserva.ubicacion = String(claseData.ubicacion).trim();
+    if (claseData.sede_id) updatesReserva.sede_id = claseData.sede_id;
+
+    transaction.update(reservaRef, updatesReserva);
+
+    const slug = slugifyPersona(reservaData.nombre_persona);
+    const reservasActivas = (leadDoc.exists && leadDoc.data()?.reservas_activas)
+      ? { ...leadDoc.data().reservas_activas }
+      : {};
+
+    reservasActivas[slug] = {
+      reserva_id: reservaId,
+      clase_id: reservaData.clase_id,
+      nombre_persona: reservaData.nombre_persona || null,
+      fecha_clase: nuevaFechaTimestamp,
+      status: 'confirmado',
+      hora: claseData.hora || reservaData.hora || '',
+      updated_at: ahora,
+    };
+
+    const updateLead = {
+      fecha_clase_reservada: nuevaFechaTimestamp,
+      reservas_activas: reservasActivas,
+      status: 'reservado',
+    };
+
+    if (leadDoc.exists) {
+      transaction.update(leadRef, updateLead);
+    } else {
+      transaction.set(leadRef, updateLead, { merge: true });
+    }
+
+    const instructorId = claseData.instructor_id;
+    if (instructorId) {
+      const instNotifRef = admin.firestore()
+        .collection('users').doc(instructorId)
+        .collection('notificaciones').doc();
+      transaction.set(instNotifRef, {
+        titulo: 'Clase de prueba reprogramada 📅',
+        mensaje: `${reservaData.nombre_persona || 'Un lead'} reprogramó su clase de prueba al ${formatearFechaLarga(nuevaFecha)} a las ${claseData.hora || reservaData.hora || ''}. Motivo: ${motivo || 'Cambio solicitado por WhatsApp'}.`,
+        fecha: ahora,
+        leido: false,
+        tipo: 'reprogramacion',
+        clase_id: reservaData.clase_id,
+        reserva_id: reservaId,
+      });
+    }
+
+    return {
+      reservaData,
+      claseData,
+      nuevaFecha,
+      nombrePersona: reservaData.nombre_persona,
+    };
   });
 }
 
@@ -676,8 +898,8 @@ const AVAILABLE_TOOLS = [
       let publicoBuscado = args?.tipo === 'niño' ? 'niños' : args?.tipo === 'adulto' ? 'jovenes_adultos' : null;
       let nombrePersona = args?.nombre ? String(args.nombre).trim() : null;
 
-      // Limpia placeholders con corchetes o descriptivos
-      if (nombrePersona && (nombrePersona.startsWith('[') || nombrePersona.toLowerCase().includes('nombre de tu') || nombrePersona.toLowerCase().includes('hijo mayor'))) {
+      // Limpia placeholders genéricos o descriptivos
+      if (nombrePersona && !esNombreValidoPersona(nombrePersona)) {
         nombrePersona = null;
       }
 
@@ -693,7 +915,8 @@ const AVAILABLE_TOOLS = [
           publicoBuscado = match?.tipo === 'niño' ? 'niños' : match?.tipo === 'adulto' ? 'jovenes_adultos' : null;
         }
         if (!nombrePersona) {
-          nombrePersona = match?.nombre || leadDoc.data()?.nombre || 'Lead';
+          const candidatoNombre = match?.nombre || leadDoc.data()?.nombre;
+          nombrePersona = esNombreValidoPersona(candidatoNombre) ? candidatoNombre : 'Lead';
         }
       }
 
@@ -704,23 +927,69 @@ const AVAILABLE_TOOLS = [
         return 'No hay cupos disponibles para la clase de prueba que le corresponde a este lead en este momento. Informa al lead que un instructor lo contactará pronto para coordinar.';
       }
 
-      // Evita reservas duplicadas si el lead insiste varias veces por la misma clase para la MISMA persona.
-      // Permite que un mismo lead (ej. papá/mamá) reserve para varios hijos diferentes en el mismo horario.
+      // Validación de cupos de la clase
+      if (clase.cupos_disponibles !== undefined && clase.cupos_disponibles <= 0) {
+        return `No hay cupos disponibles en este momento para la clase de ${clase.nivel || 'Capoeira'} (cupos disponibles: 0). Informa esto con amabilidad al lead y utiliza marcar_seguimiento_humano para anotarlo en lista de espera.`;
+      }
+
+      // Consulta de reservas existentes del lead para control de duplicados y política comercial
       const existentesSnap = await admin.firestore().collection('reservas')
         .where('lead_id', '==', leadId)
-        .where('clase_id', '==', clase.id)
         .get();
 
-      const yaExiste = existentesSnap.docs.some((doc) => {
-        const data = doc.data();
-        if (data.nombre_persona && nombrePersona) {
-          return data.nombre_persona.trim().toLowerCase() === nombrePersona.trim().toLowerCase();
+      const targetSlug = slugifyPersona(nombrePersona);
+      const reservasPersona = existentesSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((r) => {
+          if (!r.nombre_persona) return true;
+          return slugifyPersona(r.nombre_persona) === targetSlug;
+        });
+
+      // Medida de seguridad provisional ante asistencias previas
+      const asistioPrevia = reservasPersona.find((r) => r.status === 'asistio');
+      if (asistioPrevia) {
+        return `DERIVACIÓN A INSTRUCTOR (MEDIDA DE SEGURIDAD PROVISIONAL): ${nombrePersona} ya cuenta con una clase de prueba previa registrada como ASISTIDA. De acuerdo con las políticas de seguridad del negocio, no se pueden otorgar segundas clases de prueba gratuitas de manera automática. Explícaselo al lead con amabilidad y utiliza de inmediato marcar_seguimiento_humano para que un instructor coordine su inscripción regular.`;
+      }
+
+      const noAsistioPrevia = reservasPersona.find((r) => r.status === 'no_asistio');
+      if (noAsistioPrevia) {
+        return `DERIVACIÓN A INSTRUCTOR (MEDIDA DE SEGURIDAD PROVISIONAL): ${nombrePersona} tiene una clase de prueba previa registrada como NO ASISTIDA. No se puede agendar una nueva clase de prueba gratuita automáticamente sin autorización previa. Utiliza marcar_seguimiento_humano para que un instructor evalúe la reactivación de su cita.`;
+      }
+
+      // Verificación de reserva confirmada activa y vigente
+      const ahoraLima = obtenerFechaLimaAhora();
+      const hoyMedianoche = new Date(ahoraLima.getFullYear(), ahoraLima.getMonth(), ahoraLima.getDate());
+
+      const reservaActiva = reservasPersona.find((r) => {
+        if (r.status !== 'confirmado') return false;
+        let fDate = null;
+        if (r.fecha_clase && typeof r.fecha_clase.toDate === 'function') {
+          fDate = r.fecha_clase.toDate();
+        } else if (r.fecha_clase) {
+          fDate = new Date(r.fecha_clase);
         }
-        return false;
+        if (!fDate || Number.isNaN(fDate.getTime())) return false;
+        const fDateLima = new Date(fDate.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+        const fMedianoche = new Date(fDateLima.getFullYear(), fDateLima.getMonth(), fDateLima.getDate());
+        if (fMedianoche < hoyMedianoche) return false;
+        if (fMedianoche.getTime() === hoyMedianoche.getTime() && r.hora) {
+          const m = String(r.hora).match(/(\d{1,2}):(\d{2})/);
+          if (m) {
+            const h = parseInt(m[1], 10);
+            const min = parseInt(m[2], 10);
+            if (ahoraLima.getHours() * 60 + ahoraLima.getMinutes() >= h * 60 + (Number.isNaN(min) ? 0 : min)) {
+              return false; // la clase de hoy ya inició/pasó
+            }
+          }
+        }
+        return true;
       });
 
-      if (yaExiste) {
-        return `Ya existe una reserva previa para ${nombrePersona} en esa clase (nivel ${clase.nivel}, días ${clase.dias}, hora ${clase.hora}). Confírmaselo al lead, no la dupliques.`;
+      if (reservaActiva) {
+        let fDate = reservaActiva.fecha_clase?.toDate ? reservaActiva.fecha_clase.toDate() : new Date(reservaActiva.fecha_clase);
+        const fDateLima = new Date(fDate.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+        const fechaActivaTexto = formatearFechaLarga(fDateLima);
+        return `Ya existe una reserva previa confirmada y vigente para ${nombrePersona} para el ${fechaActivaTexto} a las ${reservaActiva.hora || clase.hora}. Si el lead desea cambiar de fecha u horario (ej. pasar al jueves o a la próxima semana), NO crees una nueva reserva: debes utilizar la herramienta reprogramar_reserva indicando la nueva fecha solicitada. Confírmale al lead los datos de su cita actual.`;
       }
 
       let fechaClase = null;
@@ -733,13 +1002,219 @@ const AVAILABLE_TOOLS = [
         fechaClase = calcularProximaFechaDisponible(clase.dias);
       }
 
-      await reservarClasePruebaLead(leadId, clase.id, nombrePersona, fechaClase);
+      try {
+        await reservarClasePruebaLead(leadId, clase.id, nombrePersona, fechaClase);
+      } catch (errReserva) {
+        if (errReserva.message?.includes('DUPLICATE_ACTIVE_RESERVATION')) {
+          return `Ya existe una reserva activa para ${nombrePersona}. Confírmale los datos al lead y no dupliques la reserva.`;
+        }
+        if (errReserva.message?.includes('CLASS_FULL')) {
+          return `No hay cupos disponibles en este momento para la clase de ${clase.nivel || 'Capoeira'} (cupos agotados). Informa al lead y usa marcar_seguimiento_humano para anotarlo en lista de espera.`;
+        }
+        console.error('[reservar_clase_prueba] Error en transacción de reserva:', errReserva.message);
+        return `Ocurrió un error temporal al registrar la reserva en la base de datos (${errReserva.message}). NO confirmes que la cita quedó agendada. Informa al lead que un instructor lo contactará para confirmar su reserva y usa marcar_seguimiento_humano.`;
+      }
+
       const fechaTexto = formatearFechaLarga(fechaClase);
 
       if (fechaSolicitadaInvalida) {
         return `El lead pidió la fecha "${args.fecha_solicitada}", pero no es un día válido de clase (los días son: ${clase.dias}) o ya pasó. Se reservó automáticamente para la próxima fecha disponible en su lugar: ${fechaTexto}. Explícale con amabilidad que ese día específico no hay clase y confírmale esta fecha; si de verdad no le sirve, ofrécele coordinar con un instructor (marcar_seguimiento_humano).`;
       }
-      return `Reserva confirmada para ${nombrePersona} el ${fechaTexto}. Detalles: nivel ${clase.nivel}, días ${clase.dias}, hora ${clase.hora}. Confirma esto al lead con entusiasmo, mencionando el nombre de la persona reservada si hay más de una, y la fecha exacta.`;
+
+      const sedeInfo = clase.sede ? String(clase.sede).trim() : '';
+      const ubicacionInfo = clase.ubicacion ? String(clase.ubicacion).trim() : '';
+      const lugarTexto = (sedeInfo && ubicacionInfo)
+        ? `, sede: ${sedeInfo} (${ubicacionInfo})`
+        : ubicacionInfo
+          ? `, ubicación: ${ubicacionInfo}`
+          : sedeInfo
+            ? `, sede: ${sedeInfo}`
+            : '';
+
+      return `Reserva confirmada para ${nombrePersona} el ${fechaTexto}. Detalles: nivel ${clase.nivel || ''}, días ${clase.dias || ''}, hora ${clase.hora || ''}${lugarTexto}. Confirma esto al lead con entusiasmo, mencionando el nombre de la persona reservada si hay más de una, y la fecha exacta.`;
+    },
+  },
+  {
+    name: 'reprogramar_reserva',
+    definition: {
+      type: 'function',
+      function: {
+        name: 'reprogramar_reserva',
+        description: 'Reprograma una clase de prueba confirmada de una persona para una nueva fecha. Úsala cuando el lead solicite cambiar el día o fecha de su reserva existente (ej. de martes a jueves, o para la siguiente semana). Actualiza la reserva de manera atómica y verificable en la base de datos.',
+        parameters: {
+          type: 'object',
+          properties: {
+            nombre: {
+              type: 'string',
+              description: 'Nombre de la persona cuya reserva se desea reprogramar (ej. Valentina, Mateo). Si el lead solo tiene una persona registrada, puede omitirse y se deduce automáticamente.',
+            },
+            reserva_id: {
+              type: 'string',
+              description: 'Identificador único del documento de reserva en Firestore si se conoce. Permite identificar la cita exacta sin ambigüedad.',
+            },
+            nueva_fecha: {
+              type: 'string',
+              description: 'Nueva fecha exacta solicitada en formato AAAA-MM-DD (ej. "2026-11-19"). Debe ser un día válido de clase (martes o jueves) y ser futura.',
+            },
+            motivo: {
+              type: 'string',
+              description: 'Breve motivo del cambio expresado por el cliente (ej. viaje, enfermedad, cruce de horario). Opcional.',
+            },
+          },
+          required: ['nueva_fecha'],
+        },
+      },
+    },
+    handler: async (leadId, args) => {
+      let nombrePersona = args?.nombre ? String(args.nombre).trim() : null;
+      if (nombrePersona && !esNombreValidoPersona(nombrePersona)) {
+        nombrePersona = null;
+      }
+
+      const leadDoc = await admin.firestore().collection('whatsapp_leads').doc(leadId).get();
+      const leadData = leadDoc.exists ? leadDoc.data() : {};
+      const perfilPersonas = leadData.perfil_personas || [];
+
+      // Si no especificó nombre, deducir si hay una sola persona en el perfil o en el lead
+      if (!nombrePersona) {
+        if (perfilPersonas.length === 1 && esNombreValidoPersona(perfilPersonas[0].nombre)) {
+          nombrePersona = perfilPersonas[0].nombre;
+        } else if (leadData.nombre && esNombreValidoPersona(leadData.nombre) && perfilPersonas.length === 0) {
+          nombrePersona = leadData.nombre;
+        }
+      }
+
+      // Buscar reservas de este lead
+      const reservasSnap = await admin.firestore().collection('reservas')
+        .where('lead_id', '==', leadId)
+        .get();
+
+      if (reservasSnap.empty) {
+        return 'No se encontró ninguna reserva previa para este lead. Si desea agendar una clase de prueba por primera vez, utiliza reservar_clase_prueba.';
+      }
+
+      const reservasDelLead = reservasSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      // Soporte para identificación directa y estable por reserva_id si fue provisto
+      if (args?.reserva_id) {
+        const porId = reservasDelLead.find((r) => r.id === args.reserva_id);
+        if (porId) {
+          nombrePersona = porId.nombre_persona || nombrePersona;
+        }
+      }
+
+      if (!nombrePersona && reservasDelLead.length === 1) {
+        nombrePersona = reservasDelLead[0].nombre_persona || leadData.nombre || 'Lead';
+      }
+
+      let reservasTarget = reservasDelLead;
+      if (args?.reserva_id) {
+        reservasTarget = reservasDelLead.filter((r) => r.id === args.reserva_id);
+      } else if (nombrePersona) {
+        const slugTarget = slugifyPersona(nombrePersona);
+        reservasTarget = reservasDelLead.filter(
+          (r) => slugifyPersona(r.nombre_persona) === slugTarget
+        );
+      }
+
+      if (reservasTarget.length === 0) {
+        const nombresDisponibles = Array.from(new Set(reservasDelLead.map((r) => r.nombre_persona).filter(Boolean)));
+        return `No se encontró ninguna reserva para "${nombrePersona || 'la persona indicada'}". Las reservas registradas para este número corresponden a: ${nombresDisponibles.join(', ') || 'sin nombre'}. Por favor aclara con el lead para quién es la reprogramación.`;
+      }
+
+      // Medida de seguridad provisional ante asistencias previas
+      const asistio = reservasTarget.find((r) => r.status === 'asistio');
+      if (asistio) {
+        return `DERIVACIÓN A INSTRUCTOR (MEDIDA DE SEGURIDAD PROVISIONAL): La reserva previa de ${nombrePersona || 'este lead'} figura como ASISTIDA (ya tomó su clase de prueba gratuita). Para evitar comprometer al negocio con promociones o cortesías no autorizadas, NO se puede reprogramar una clase ya realizada ni otorgar una nueva clase de prueba gratuita de manera automática. Explícaselo con amabilidad y utiliza de inmediato marcar_seguimiento_humano para que un instructor coordine opciones de inscripción.`;
+      }
+
+      const noAsistio = reservasTarget.find((r) => r.status === 'no_asistio');
+      if (noAsistio) {
+        return `DERIVACIÓN A INSTRUCTOR (MEDIDA DE SEGURIDAD PROVISIONAL): La reserva de ${nombrePersona || 'este lead'} figura como NO ASISTIDA. Para prevenir reagendamientos no autorizados tras inasistencia, NO confirmes una nueva cita de palabra. Informa al lead que un profesor revisará su caso y utiliza de inmediato marcar_seguimiento_humano.`;
+      }
+
+      const cancelada = reservasTarget.find((r) => r.status === 'cancelado');
+      const confirmadas = reservasTarget.filter((r) => r.status === 'confirmado');
+
+      if (confirmadas.length === 0) {
+        if (cancelada) {
+          return `La reserva de ${nombrePersona || 'este lead'} figura como CANCELADA. No se puede reprogramar una reserva cancelada. Si desea agendar una nueva clase, debes utilizar reservar_clase_prueba.`;
+        }
+        return `No se encontró ninguna reserva activa confirmada para ${nombrePersona || 'este lead'} susceptible de ser reprogramada. Utiliza marcar_seguimiento_humano si el lead insiste en que tenía una cita.`;
+      }
+
+      // Si hay más de una reserva confirmada activa y ambigüedad de nombre
+      if (confirmadas.length > 1 && !args?.reserva_id) {
+        const opciones = confirmadas.map((c) => `${c.nombre_persona || 'Asistente'} (${c.dias || ''} ${c.hora || ''})`).join('; ');
+        if (!args?.nombre || reservasTarget.length > 1) {
+          return `Hay varias reservas confirmadas activas para este número (${opciones}). Por favor especifica para cuál de las personas deseas reprogramar.`;
+        }
+      }
+
+      let reservaAfectada = confirmadas[0];
+
+      // Verificar si la reserva confirmada ya pasó en el tiempo
+      const ahoraLima = obtenerFechaLimaAhora();
+      const hoyMedianoche = new Date(ahoraLima.getFullYear(), ahoraLima.getMonth(), ahoraLima.getDate());
+      let fechaActualDate = null;
+      if (reservaAfectada.fecha_clase && typeof reservaAfectada.fecha_clase.toDate === 'function') {
+        fechaActualDate = reservaAfectada.fecha_clase.toDate();
+      } else if (reservaAfectada.fecha_clase) {
+        fechaActualDate = new Date(reservaAfectada.fecha_clase);
+      }
+      if (fechaActualDate) {
+        const fechaActualLima = new Date(fechaActualDate.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+        const fechaActualMedianoche = new Date(fechaActualLima.getFullYear(), fechaActualLima.getMonth(), fechaActualLima.getDate());
+        if (fechaActualMedianoche < hoyMedianoche) {
+          return `La reserva previa de ${nombrePersona || 'este lead'} era para una fecha pasada (${formatearFechaLarga(fechaActualLima)}) y no fue reprogramada a tiempo. No se puede reprogramar automáticamente una cita vencida. Utiliza marcar_seguimiento_humano para que un instructor coordine su caso.`;
+        }
+      }
+
+      // Obtener datos de la clase para verificar días y cupos
+      const claseRef = admin.firestore().collection('clases').doc(reservaAfectada.clase_id);
+      const claseDoc = await claseRef.get();
+      const claseData = claseDoc.exists ? claseDoc.data() : reservaAfectada;
+
+      if (claseData.cupos_disponibles !== undefined && claseData.cupos_disponibles <= 0) {
+        return `No hay cupos disponibles en este momento para la clase de ${claseData.nivel || 'Capoeira'} (cupos disponibles: 0). Informa esto con amabilidad al lead y utiliza marcar_seguimiento_humano para que un instructor le avise si se libera una plaza.`;
+      }
+
+      const nuevaFechaSolicitada = args?.nueva_fecha ? String(args.nueva_fecha).trim() : '';
+      const nuevaFechaValida = validarFechaSolicitada(nuevaFechaSolicitada, claseData.dias || 'M, J');
+
+      if (!nuevaFechaValida) {
+        const fechaOriginalTexto = fechaActualDate ? formatearFechaLarga(new Date(fechaActualDate.toLocaleString('en-US', { timeZone: 'America/Lima' }))) : 'fecha original';
+        return `La fecha solicitada "${nuevaFechaSolicitada}" no es válida para la clase (los días de clase son: ${claseData.dias || 'M, J'}) o ya pasó. La reserva de ${nombrePersona || 'el alumno'} NO ha sido modificada y SIGUE ACTIVA para el ${fechaOriginalTexto}. Explícale al lead cuáles son los días permitidos y ofrécele las fechas válidas, o utiliza marcar_seguimiento_humano si requiere coordinación especial.`;
+      }
+
+      try {
+        await reprogramarClasePruebaLead(
+          leadId,
+          reservaAfectada.id,
+          nuevaFechaValida,
+          args?.motivo || 'Solicitud de reprogramación del lead por WhatsApp'
+        );
+      } catch (errPersistencia) {
+        if (errPersistencia.message?.includes('CLASS_FULL')) {
+          return `No hay cupos disponibles en este momento para la clase de ${claseData.nivel || 'Capoeira'} (cupos agotados). Informa al lead y usa marcar_seguimiento_humano.`;
+        }
+        console.error('[reprogramar_reserva] Error en reprogramación transaccional:', errPersistencia.message);
+        return `Ocurrió un error al persistir la reprogramación en base de datos (${errPersistencia.message}). NO confirmes que el cambio fue realizado. Informa al lead que un instructor verificará y confirmará su nueva fecha, y usa marcar_seguimiento_humano.`;
+      }
+
+      const nuevaFechaTexto = formatearFechaLarga(nuevaFechaValida);
+      const horaClase = claseData.hora || reservaAfectada.hora || '18:00';
+      const sedeClase = claseData.sede ? String(claseData.sede).trim() : (reservaAfectada.sede ? String(reservaAfectada.sede).trim() : '');
+      const ubicacionClase = claseData.ubicacion ? String(claseData.ubicacion).trim() : (reservaAfectada.ubicacion ? String(reservaAfectada.ubicacion).trim() : '');
+      const lugarTexto = (sedeClase && ubicacionClase)
+        ? ` en sede ${sedeClase} (${ubicacionClase})`
+        : ubicacionClase
+          ? ` en ${ubicacionClase}`
+          : sedeClase
+            ? ` en sede ${sedeClase}`
+            : '';
+
+      return `Reprogramación confirmada con éxito para ${nombrePersona || 'el alumno'}. La clase de prueba quedó agendada para el ${nuevaFechaTexto} a las ${horaClase}${lugarTexto}. Confírmale este cambio al lead con entusiasmo y calidez, mencionando el nombre de la persona y la nueva fecha exacta.`;
     },
   },
   {
@@ -822,17 +1297,41 @@ const AVAILABLE_TOOLS = [
       },
     },
     handler: async (leadId, args) => {
-      const personas = Array.isArray(args?.personas) ? args.personas : [];
-      const personasLimpias = personas.map((p) => {
+      const personasNuevas = Array.isArray(args?.personas) ? args.personas : [];
+      const personasLimpias = personasNuevas.map((p) => {
         let n = (p.nombre || '').trim();
-        if (n.startsWith('[') || n.toLowerCase().includes('nombre de tu')) {
+        if (!esNombreValidoPersona(n)) {
           n = '';
         }
         return { ...p, nombre: n };
-      });
-      await admin.firestore().collection('whatsapp_leads').doc(leadId).update({
-        perfil_personas: personasLimpias,
-      });
+      }).filter((p) => p.nombre.length > 0);
+
+      const leadRef = admin.firestore().collection('whatsapp_leads').doc(leadId);
+      const leadDoc = await leadRef.get();
+      const personasPrevias = (leadDoc.exists && Array.isArray(leadDoc.data()?.perfil_personas))
+        ? leadDoc.data().perfil_personas
+        : [];
+
+      // Mapeo por slug para fusionar sin sobrescribir a otros hijos/as
+      const personasMap = new Map();
+      for (const p of personasPrevias) {
+        if (p.nombre) {
+          personasMap.set(slugifyPersona(p.nombre), p);
+        }
+      }
+      for (const p of personasLimpias) {
+        if (p.nombre) {
+          personasMap.set(slugifyPersona(p.nombre), p);
+        }
+      }
+
+      const listaFusionada = Array.from(personasMap.values());
+
+      if (leadDoc.exists) {
+        await leadRef.update({ perfil_personas: listaFusionada });
+      } else {
+        await leadRef.set({ perfil_personas: listaFusionada }, { merge: true });
+      }
       return 'Perfil guardado. Continúa la conversación normalmente usando este dato, sin mencionar que lo guardaste.';
     },
   },
@@ -1537,7 +2036,11 @@ REGLAS OBLIGATORIAS ANTE ESTE LEAD CON RESERVA CONFIRMADA VIGENTE:
 2. NUNCA le ofrezcas agendar clase de prueba desde cero ni le preguntes si le gustaría agendar — la clase ya está confirmada en el sistema.
 3. Si la persona saluda o consulta sobre su cita, reconoce su reserva con calidez (ej. "¡Hola! Claro, la clase de [nombre] ya está confirmada para el [fecha] a las [hora]..."). Trata a cada persona por su nombre propio, sin asumir género por el nombre.
 4. Responde con amabilidad cualquier duda sobre su asistencia usando ÚNICAMENTE información verificada del negocio: para dirección usa siempre la DIRECCIÓN REAL y el enlace oficial de Google Maps provistos abajo; para horarios o precios de acompañantes usa consultar_horarios_disponibles. NUNCA inventes requisitos de vestimenta, minutos obligatorios de anticipación ni políticas comerciales no verificadas.
-5. Si el cliente solicita reprogramar, cambiar de fecha o cancelar su reserva: NUNCA confirmes que el cambio ya está realizado de palabra si no ejecutaste una herramienta de persistencia. Infórmale que un instructor confirmará la nueva fecha o procesará la solicitud, y usa de inmediato marcar_seguimiento_humano.
+5. Si el cliente solicita reprogramar o cambiar de fecha su reserva (ej. pasar de martes a jueves, o agendar para la próxima semana):
+   a. Utiliza DE INMEDIATO la herramienta reprogramar_reserva con el nombre de la persona y la nueva_fecha solicitada (en formato AAAA-MM-DD obtenido de la lista de próximas clases disponibles).
+   b. NUNCA confirmes que el cambio ya está realizado de palabra si no ejecutaste la herramienta y recibiste confirmación exitosa. NUNCA uses reservar_clase_prueba para cambiar la fecha de una persona con reserva confirmada.
+   c. Si la herramienta indica que la fecha no es válida, que no hay cupos o que la reserva previa ya fue asistida/no asistida, explícaselo al cliente con amabilidad y usa marcar_seguimiento_humano.
+   d. Si el cliente solicita cancelar definitivamente su reserva (en vez de reprogramar), indícaselo con amabilidad y usa de inmediato marcar_seguimiento_humano.
 6. La fecha y hora de su reserva confirmada está PLENAMENTE VIGENTE — no apliques para ella ninguna advertencia de desactualización de fechas del historial.`;
         }
       }

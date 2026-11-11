@@ -8,53 +8,56 @@
 
 - **Proyecto:** `/Users/jumper/ginga_app`
 - **Rama Activa:** `fix/real-whatsapp-logic`
-- **Último Commit:** `9c53417` (`fix(agent): recognize confirmed trial reservations in conversation context`)
-- **Producción:** Google Cloud Function `whatsappWebhook v67` (asociada a `main` en commit `3058ada`). **Producción NO tiene aún los cambios de P0.1**.
+- **Commit Base:** `264e314` (`docs: establish permanent architectural documentation master files`)
+- **Estado de Trabajo:** Implementación local de **P0.2A: Reprogramación segura e integridad de reservas** completada y verificada. **PENDIENTE DE REVISIÓN DEL USUARIO ANTES DE COMMIT.**
+- **Producción:** Google Cloud Function `whatsappWebhook v67` (asociada a `main` en commit `3058ada`). **Producción NO ha sido tocada.**
 
 ---
 
 ## 2. Qué se Acaba de Terminar
 
-1. **Creación del Harness de Pruebas Aislado (`real_agent_harness/`):**
-   - Servidor HTTP local en `http://127.0.0.1:3333`.
-   - Ejecuta directamente el código real de `functions/index.js` en memoria mediante Node.js `vm`.
-   - Emulación completa de Firestore, OpenAI y WhatsApp sin red ni costos.
-2. **Implementación de P0.1 (Reconocimiento de Reservas):**
-   - `generarSystemPrompt` recibe `leadId` y consulta `/reservas` activas futuras o de hoy en horario `America/Lima`.
-   - Inyecta el bloque contextual `[RESERVAS CONFIRMADAS VIGENTES DE ESTE LEAD]` con reglas obligatorias para no pedir datos redundantes.
-   - Neutralidad de género garantizada y fail-safe ante fallos de Firestore.
-   - **14 de 14 pruebas de P0.1 pasaron (100% PASS).**
-3. **Auditoría de Tools y Línea Base:**
-   - 7 de 9 escenarios de la versión base `3058ada` documentaron defectos conocidos (amnesia, colisión de reprogramación, duplicados en canceladas, etc.).
+1. **Implementación de P0.2A (Reprogramación Segura e Integridad de Reservas):**
+   - **Tool `reprogramar_reserva`:** Creada en `functions/index.js` (`AVAILABLE_TOOLS`). Permite reprogramar citas atómicamente con trazabilidad completa en `reprogramaciones` y notificación al instructor.
+   - **Corrección de Duplicados en `reservar_clase_prueba`:** Ya no bloquea citas si existen reservas previas canceladas o pasadas.
+   - **Política Comercial:** Leads o personas con estado `asistio` o `no_asistio` son interceptados y derivados a `marcar_seguimiento_humano` sin conceder segundas clases de prueba gratis de forma automática.
+   - **Concurrencia e Idempotencia:** Lock transaccional dentro de `runTransaction` usando `reservas_activas: { [slug]: ... }` en `whatsapp_leads` para evitar colisiones por mensajes concurrentes.
+   - **Soporte Multi-Hijo:** `guardar_perfil_lead` fusiona perfiles por slug en vez de sobreescribir destructivamente el arreglo.
+   - **Compatibilidad Multi-Sede y Legacy:** Clases o reservas sin `sede_id` operan limpiamente con fallback a Cusco.
+   - **22 de 22 pruebas P0.2A superadas al 100% (`test_p02a_rescheduling.js`).**
+   - **14 de 14 pruebas P0.1 conservadas al 100% (`test_p01_recognition.js`).**
+2. **Harness Local Actualizado:**
+   - Servidor local en `http://127.0.0.1:3333` actualizado y corriendo.
+   - `loader.js` y `openai_adapter.js` adaptados para soportar `reprogramar_reserva`.
 
 ---
 
 ## 3. Comandos Esenciales de Ejecución y Pruebas
 
 ```bash
-# 1. Iniciar el servidor visual de pruebas en segundo plano (puerto 3333)
+# 1. Iniciar o reiniciar el servidor visual de pruebas en segundo plano (puerto 3333)
 node real_agent_harness/server.js
 
-# 2. Ejecutar la suite de pruebas de reconocimiento P0.1 (14 pruebas)
+# 2. Ejecutar la suite de pruebas de reprogramación P0.2A (22 pruebas)
+node real_agent_harness/test_p02a_rescheduling.js
+
+# 3. Ejecutar la suite de pruebas de reconocimiento P0.1 (14 pruebas)
 node real_agent_harness/test_p01_recognition.js
 
-# 3. Ejecutar la suite de línea base (9 escenarios de auditoría)
+# 4. Ejecutar la suite de línea base (9 escenarios de auditoría)
 node real_agent_harness/suite_runner.js
 
-# 4. Verificar integridad de git
+# 5. Verificar integridad de git (revisar diff local antes de commit)
 git status
-git log -3 --oneline
+git diff functions/index.js
 ```
 
 ---
 
 ## 4. Qué Sigue Exactamente (Siguiente Tarea)
 
-**Implementar P0.2: Reprogramación, Resolución de Duplicados y Multi-Persona:**
-1. Crear la herramienta `reprogramar_reserva` en `functions/index.js` para modificar atómicamente la fecha de una reserva existente en Firestore.
-2. Ajustar `reservar_clase_prueba` para que las reservas canceladas (`status == 'cancelado'`) o pasadas no bloqueen nuevas reservas.
-3. Trasladar el chequeo de duplicados dentro de `runTransaction` para garantizar idempotencia y evitar race conditions.
-4. Mejorar `guardar_perfil_lead` para fusionar personas por nombre en vez de sobrescribir todo el array.
+1. **Revisión del usuario de los cambios de P0.2A.**
+2. Tras la aprobación del usuario, realizar commit local de P0.2A.
+3. Avanzar hacia **P0.2B / P1: Detección y prevención de alucinaciones en tiempo real / Agent Control Center.**
 
 ---
 

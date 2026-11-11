@@ -46,10 +46,37 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
+## [P0.2A Local] — 2026-11-11
+### [PROBADO LOCALMENTE] (Rama `fix/real-whatsapp-logic` — Pendiente de Commit por Usuario)
+- **P0.2A: Reprogramación Segura e Integridad de Reservas:**
+  - **Herramienta `reprogramar_reserva`:**
+    - Creada en `AVAILABLE_TOOLS` de `functions/index.js`.
+    - Modifica la fecha de una reserva confirmada de forma atómica con `runTransaction`.
+    - Mantiene trazabilidad histórica completa en el arreglo `reprogramaciones` (`fecha_anterior`, `nueva_fecha`, `motivo`, `fecha_reprogramacion`).
+    - Valida contra el patrón de días de clase (`M, J`), cupos disponibles (`cupos_disponibles > 0`) y vigencia temporal en `America/Lima`.
+    - Emite notificaciones in-app al instructor correspondiente (`users/{instId}/notificaciones`).
+  - **Corrección de Duplicados en `reservar_clase_prueba`:**
+    - Reservas canceladas (`status == 'cancelado'`) o pasadas ya no bloquean una nueva reserva de clase de prueba.
+    - Detección de reservas confirmadas activas sugiere el uso de `reprogramar_reserva` en lugar de duplicar o bloquear a ciegas.
+  - **Política Comercial:**
+    - Leads o asistentes con historial `asistio` o `no_asistio` no reciben segundas clases gratuitas automáticas.
+    - Se interceptan tanto en agendamiento como en reprogramación y se derivan con `marcar_seguimiento_humano`.
+  - **Concurrencia e Idempotencia Transaccional:**
+    - Lock optimista dentro de `runTransaction` usando `reservas_activas: { [slug]: ... }` en el documento `whatsapp_leads/{leadId}`.
+    - Previene inserciones dobles por mensajes concurrentes o reintentos rápidos de webhook.
+  - **Soporte Multi-Hijo No Destructivo:**
+    - `guardar_perfil_lead` actualiza perfiles mediante fusión por slug (`slugifyPersona`), evitando la sobreescritura de hijos registrados previamente.
+  - **Retrocompatibilidad Multi-Sede:**
+    - Soporte completo y seguro para documentos y clases legacy que no cuenten con el atributo `sede_id`.
+  - **Suites de Pruebas:**
+    - `test_p02a_rescheduling.js`: 22 de 22 pruebas aprobadas (100% PASS).
+    - `test_p01_recognition.js`: 14 de 14 pruebas aprobadas (100% PASS).
+    - `suite_runner.js`: Defectos de línea base reducidos de 6 a 2 (Casos 3, 4, 6 y 7 resueltos).
+
+---
+
 ## [Unreleased / Siguiente Paso]
 ### [DISEÑADO - PENDIENTE IMPLEMENTACIÓN]
-- **P0.2: Reprogramación, Resolución de Duplicados y Multi-Persona:**
-  - Nueva tool `reprogramar_reserva` para cambios de fecha atómicos.
-  - Corrección de colisión de duplicados en `reservar_clase_prueba` para permitir reservas tras cancelaciones o fechas vencidas.
-  - Idempotencia transaccional moviendo el chequeo de duplicados dentro de `runTransaction`.
-  - Fusión de personas por nombre en `guardar_perfil_lead`.
+- **P0.2B / P1: Detección y Prevención de Alucinaciones en Runtime & Visualización Staging:**
+  - Validador en tiempo real de promesas conversacionales en `preguntarIA`.
+  - Panel administrativo visual para inspección de telemetría y control humano.

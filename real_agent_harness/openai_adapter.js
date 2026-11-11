@@ -73,6 +73,55 @@ class MockOpenAIAdapter {
         };
       }
 
+      // If tool was reprogramar_reserva
+      if (lastTool.content.includes('Reprogramación confirmada')) {
+        return {
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: `¡Listo! ${lastTool.content}`,
+              },
+            },
+          ],
+        };
+      }
+
+      // If tool reported provisional safety escalation or requested human handoff
+      if (
+        lastTool.content.includes('DERIVACIÓN A INSTRUCTOR') ||
+        lastTool.content.includes('MEDIDA DE SEGURIDAD PROVISIONAL') ||
+        lastTool.content.includes('POLÍTICA COMERCIAL') ||
+        lastTool.content.includes('marcar_seguimiento_humano')
+      ) {
+        // Model obeys directive to call marcar_seguimiento_humano
+        const alreadyCalledHuman = toolResults.some((t) => t.role === 'tool' && t.content.includes('Se notificó a un instructor'));
+        if (!alreadyCalledHuman) {
+          return {
+            choices: [
+              {
+                message: {
+                  role: 'assistant',
+                  content: null,
+                  tool_calls: [
+                    {
+                      id: `call_${Date.now()}_escalate`,
+                      type: 'function',
+                      function: {
+                        name: 'marcar_seguimiento_humano',
+                        arguments: JSON.stringify({
+                          motivo: 'Política comercial: lead ya asistió o no asistió a clase previa',
+                        }),
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          };
+        }
+      }
+
       // If tool reported duplicate reservation
       if (lastTool.content.includes('Ya existe una reserva previa')) {
         return {
@@ -169,9 +218,53 @@ class MockOpenAIAdapter {
 
     // 2. Rescheduling request: "reprogramar", "cambiar", "pasar al jueves"
     if (textLower.includes('reprogram') || textLower.includes('cambiar') || (textLower.includes('martes') && textLower.includes('jueves'))) {
-      // In baseline 3058ada, there is no reprogramar_reserva tool.
-      // An LLM following baseline tools either attempts reservar_clase_prueba with the requested date,
-      // or outputs a hallucinated text confirmation without calling tools!
+      const hasReprogramarTool = tools.some(
+        (t) => (t.function?.name === 'reprogramar_reserva' || t.name === 'reprogramar_reserva')
+      );
+
+      if (hasReprogramarTool) {
+        let fechaTarget = '2026-11-19';
+        const matchFecha = lastUserText.match(/\d{4}-\d{2}-\d{2}/);
+        if (matchFecha) {
+          fechaTarget = matchFecha[0];
+        } else if (textLower.includes('jueves')) {
+          fechaTarget = '2026-11-19';
+        } else if (textLower.includes('martes')) {
+          fechaTarget = '2026-11-17';
+        }
+
+        let nombreTarget = null;
+        if (textLower.includes('valentina')) nombreTarget = 'Valentina';
+        else if (textLower.includes('mateo')) nombreTarget = 'Mateo';
+        else if (textLower.includes('lucia') || textLower.includes('lucía')) nombreTarget = 'Lucía';
+
+        return {
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: null,
+                tool_calls: [
+                  {
+                    id: `call_${Date.now()}_reprog`,
+                    type: 'function',
+                    function: {
+                      name: 'reprogramar_reserva',
+                      arguments: JSON.stringify({
+                        nombre: nombreTarget,
+                        nueva_fecha: fechaTarget,
+                        motivo: 'Cambio solicitado por el usuario',
+                      }),
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        };
+      }
+
+      // Baseline behavior without reprogramar_reserva tool:
       if (textLower.includes('reservar de nuevo') || textLower.includes('cambiar')) {
         return {
           choices: [

@@ -35,7 +35,7 @@ flowchart LR
 | Rama | Commit HEAD | Propósito y Estado |
 |---|---|---|
 | **`main`** | `3058ada` | **Producción activa.** Coincide exactamente con la revisión `whatsappWebhook v67` desplegada en Google Cloud el 23-OCT-2026. Tag: `pre-live-original-2026-10-27`. |
-| **`fix/real-whatsapp-logic`** | `9c53417` | **Rama de desarrollo real activa.** Contiene el harness de pruebas (`b1c3af6`) y la corrección P0.1 de reconocimiento de reservas (`9c53417`). |
+| **`fix/real-whatsapp-logic`** | `264e314` (+ P0.2A local) | **Rama de desarrollo real activa.** Contiene el harness (`b1c3af6`), P0.1 (`9c53417`), master docs (`264e314`) y la implementación local de **P0.2A (Reprogramación Segura e Integridad)** lista para revisión. |
 | `stabilization/pre-live-2026-10-28` | `caf628a` | Línea independiente de estabilización previa al LIVE de TikTok (controles de seguridad e idempotencia). |
 | `demo/tiktok-live-2026-10-28` | `7243a7f` | Línea exclusiva de demostración visual en memoria para grabación y TikTok LIVE (código aislado en `demo/`). |
 
@@ -47,10 +47,16 @@ flowchart LR
   - Opera con amnesia de reservas: `generarSystemPrompt` no consulta `/reservas`.
   - Sufre bloqueo de reservas si el lead tiene una reserva cancelada o pasada.
   - No soporta reprogramación de fechas; arriesga alucinaciones de confirmación de palabra.
-- **Desarrollo Local (`fix/real-whatsapp-logic` - Commit `9c53417`):**
-  - **P0.1 implementado:** `generarSystemPrompt` recibe `leadId` y consulta `/reservas` activas en `America/Lima`.
-  - Inyecta `[RESERVAS CONFIRMADAS VIGENTES DE ESTE LEAD]` con reglas que prohíben pedir nombre/edad u ofrecer agendar de nuevo.
-  - Filtro fail-safe ante caídas de Firestore y neutralidad de género.
+- **Desarrollo Local (`fix/real-whatsapp-logic`):**
+  - **P0.1 implementado:** `generarSystemPrompt` recibe `leadId` y consulta `/reservas` activas en `America/Lima` (14/14 tests PASS).
+  - **P0.2A implementado localmente:**
+    - Tool real `reprogramar_reserva` con persistencia atómica, validación de fechas/horarios y auditoría cronológica (`reprogramaciones`).
+    - Corrección de duplicados en `reservar_clase_prueba`: reservas canceladas o pasadas ya no bloquean nuevos agendamientos.
+    - Política comercial estricta: leads con estado `asistio` o `no_asistio` no reciben clases gratis automáticas ni reagendamiento desatendido (se derivan a `marcar_seguimiento_humano`).
+    - Concurrencia e idempotencia: lock optimista en `whatsapp_leads` (`reservas_activas: { [slug]: ... }`) dentro de la transacción Firestore.
+    - Soporte multi-hijo no destructivo: fusión por nombre propio en `guardar_perfil_lead` (`merge by slug`).
+    - Compatibilidad hacia atrás 100% con clases o reservas sin `sede_id`.
+    - Suite de 22 pruebas P0.2A superada al 100% (`test_p02a_rescheduling.js`).
 - **Simulador Local (`real_agent_harness/`):**
   - Activo en `http://127.0.0.1:3333`.
   - Ejecuta el archivo real `functions/index.js` mediante Node.js `vm.compileFunction`.
@@ -69,17 +75,22 @@ Ubicadas en `functions/index.js` (`AVAILABLE_TOOLS`):
 2. **`guardar_perfil_lead`:**
    - *Escritura:* `whatsapp_leads/{leadId}.perfil_personas`.
    - *Parámetros:* `personas` (Array de `{nombre, tipo, edad}`).
-   - *Defecto actual:* Sobrescribe todo el array; si se registra un segundo hijo en un mensaje posterior, borra al primero.
+   - *Comportamiento P0.2A:* Fusión inteligente por slug (`slugifyPersona`), preservando a los hijos registrados previamente y actualizando datos sin sobreescritura destructiva.
 3. **`reservar_clase_prueba`:**
    - *Lectura:* `/whatsapp_leads`, `/clases`, `/reservas`.
-   - *Escritura (Transaccional):* Crea `/reservas/{id}`, actualiza `whatsapp_leads` (`reserva_id`, `fecha_clase_reservada`) y crea notificación para el profesor en `/users/{instId}/notificaciones`.
-   - *Defectos actuales:*
-     - Chequeo de duplicados (`existentesSnap`) corre fuera de la transacción Firestore.
-     - Bloquea erróneamente reservas con `status == 'cancelado'` o con `fecha_clase` en el pasado.
-     - No permite reprogramar; si el lead pide cambiar de martes a jueves (misma clase `M, J`), colisiona y rechaza.
-4. **`marcar_seguimiento_humano`:**
+   - *Escritura (Transaccional):* Crea `/reservas/{id}`, actualiza `whatsapp_leads` (`reserva_id`, `fecha_clase_reservada`, `reservas_activas[slug]`) y crea notificación para el profesor en `/users/{instId}/notificaciones`.
+   - *Mejoras P0.2A:*
+     - Chequeo de duplicados e idempotencia dentro de `runTransaction` usando `reservas_activas[slug]`.
+     - Ignora reservas con `status == 'cancelado'` o con `fecha_clase` en el pasado.
+     - Intercepta estados `asistio` o `no_asistio` aplicando política comercial y derivando a `marcar_seguimiento_humano`.
+     - Sugiere `reprogramar_reserva` si ya existe una cita activa confirmada para esa persona.
+4. **`reprogramar_reserva` (NUEVA P0.2A):**
+   - *Lectura:* `/whatsapp_leads`, `/reservas`, `/clases`.
+   - *Escritura (Transaccional):* Modifica `/reservas/{id}` (`fecha_clase`, `hora`, `updated_at`), añade entrada de auditoría en `reprogramaciones`, actualiza `whatsapp_leads.reservas_activas[slug]` y crea notificación en `/users/{instId}/notificaciones`.
+   - *Parámetros:* `nombre` (string opcional/deducible), `nueva_fecha` (AAAA-MM-DD), `motivo` (opcional).
+   - *Protección:* Valida días de clase permitidos (`M, J`), cupos disponibles, fecha futura, y prohíbe reprogramar citas canceladas, vencidas o asistidas.
+5. **`marcar_seguimiento_humano`:**
    - *Escritura:* Actualiza `whatsapp_leads.status = 'requiere_atencion'`, crea notificaciones batch en `/users` (rol profesor) y alerta por WhatsApp al instructor.
-   - *Defecto actual:* No pausa las respuestas automáticas de la IA (`ai_habilitada` sigue en `true`).
 
 ---
 
@@ -102,18 +113,48 @@ Ubicadas en `functions/index.js` (`AVAILABLE_TOOLS`):
   - Caso M: Neutralidad de género $\rightarrow$ Verificada.
   - Caso N: Aviso de seguridad ante caída de BD $\rightarrow$ Verificado.
 
-### B. Suite de Línea Base (`suite_runner.js`):
+### B. Suite de Pruebas P0.2A (`test_p02a_rescheduling.js`):
+- **22 de 22 pruebas pasaron (100% PASS):**
+  1. `01_martes_a_jueves`: Reprogramación atómica en Firestore con auditoría y notificación.
+  2. `02_jueves_a_martes`: Reprogramación a la semana siguiente.
+  3. `03_dos_hijos_aislacion`: Independencia total de reservas entre hermanos (Valentina y Mateo).
+  4. `04_reserva_inexistente`: Manejo limpio sin falsas confirmaciones.
+  5. `05_reserva_cancelada`: Bloquea reprogramar canceladas pero permite crear nuevas citas.
+  6. `06_politica_comercial_asistio`: Salvaguarda provisional: Bloquea segundas clases gratis tras asistir y deriva a instructor.
+  7. `07_politica_comercial_no_asistio`: Salvaguarda provisional: Bloquea reagendamiento desatendido tras inasistencia.
+  8. `08_reserva_pasada_vencida`: Rechaza reprogramar citas vencidas.
+  9. `09_capacidad_cupos_cero`: Detecta cupos agotados y escala a lista de espera.
+  10. `10_fecha_invalida_rechazo`: Fechas inválidas preservan la cita original sin alteración.
+  11. `11_reprogramaciones_repetidas`: Mantiene array histórico de auditoría con motivos.
+  12. `12_concurrencia_idempotencia`: Lock optimista en `whatsapp_leads` aborta duplicados concurrentes.
+  13. `13_failsafe_error_firestore`: Fail-safe ante caídas de BD prohíbe promesas falsas.
+  14. `14_proteccion_alucinacion`: Garantiza que el agente solo confirma tras éxito en BD.
+  15. `15_compatibilidad_legacy_multisede`: Manejo limpio de documentos sin `sede_id`.
+  16. `16_fusion_perfiles_multi_hijos`: Fusión acumulativa de perfiles familiares sin sobreescritura.
+  17. `17_dos_leads_cupo_cero`: Control de capacidad ante múltiples leads compitiendo con cupos agotados.
+  18. `18_lead_legacy_sin_reservas_activas`: Compatibilidad con leads de producción que solo tienen `reserva_id` escalar.
+  19. `19_dos_hijos_nombre_ambiguo`: Rechazo de nombres ambiguos o genéricos ("mi hijo") evitando alterar la reserva errónea.
+  20. `20_sede_sin_ubicacion_no_inventa`: Prohibición estricta de hardcodear o inventar direcciones no comprobadas.
+  21. `21_reprogramacion_sin_segunda_clase`: Reprogramación modifica la cita existente sin conceder clases extras.
+  22. `22_error_transaccional_failsafe`: Manejo seguro de abortos transaccionales por contención o cupos.
+
+### C. Suite de Línea Base (`suite_runner.js`):
 - Caso 1: Consulta de horarios $\rightarrow$ **OK**.
-- Caso 2: Reserva vigente $\rightarrow$ **OK** (Corregido en P0.1).
-- Casos 3 a 8: Duplicados espurios, colisión de reprogramación, falsa confirmación y sobreescritura multi-hijo $\rightarrow$ **DEFECTOS BASELINE DOCUMENTADOS**.
+- Caso 2: Reserva vigente $\rightarrow$ **OK**.
+- Caso 3: Reserva cancelada que quiere agendar $\rightarrow$ **OK (RESUELTO EN P0.2A)**.
+- Caso 4: Reserva pasada que quiere volver a reservar $\rightarrow$ **OK (RESUELTO EN P0.2A)**.
+- Caso 5: Multi-persona $\rightarrow$ Resuelto a nivel de datos (`reservas_activas`), campos escalares legacy conservados por retrocompatibilidad.
+- Caso 6: Solicitud de reprogramación martes a jueves $\rightarrow$ **OK (RESUELTO EN P0.2A)**.
+- Caso 7: Persistencia documental de nueva fecha $\rightarrow$ **OK (RESUELTO EN P0.2A)**.
+- Caso 8: Confirmación textual alucinada $\rightarrow$ Fixture negativo de baseline.
 - Caso 9: Control humano $\rightarrow$ **OK**.
 
 ---
 
-## 6. Especificación Técnica P0.2: Reprogramación, Duplicados y Multi-Persona (DISEÑO)
+## 6. Especificación Técnica e Implementación P0.2A: Reprogramación Segura e Integridad
 
 > [!IMPORTANT]
-> **Estado:** DISEÑO APROBADO PARA IMPLEMENTACIÓN. No implementado en código productivo todavía.
+> **Estado:** IMPLEMENTACIÓN LOCAL COMPLETADA Y VALIDADA. Pendiente de revisión del usuario antes de commit.
 
 ### 6.1. Reglas de Negocio y Estados de Reserva
 
