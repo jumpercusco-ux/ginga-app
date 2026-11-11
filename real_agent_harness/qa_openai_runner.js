@@ -875,7 +875,12 @@ async function bootstrap() {
     sedes: sedesValidas.map((s) => s.nombre),
   });
 
-  const runId = `qa_run_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const scenarioFilter = process.env.QA_SCENARIO_FILTER ? parseInt(process.env.QA_SCENARIO_FILTER, 10) : null;
+  const isFocalRun = Boolean(scenarioFilter && !Number.isNaN(scenarioFilter));
+
+  const runId = isFocalRun
+    ? `qa_run_focal_case${scenarioFilter}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
+    : `qa_run_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const startTime = new Date().toISOString();
 
   // Rotar o limpiar reporte anterior para que jamás se confunda con uno nuevo
@@ -894,7 +899,17 @@ async function bootstrap() {
     }
   }
 
-  const SCENARIOS = buildScenarios(db, internals);
+  let SCENARIOS = buildScenarios(db, internals);
+  if (isFocalRun) {
+    const originalCount = SCENARIOS.length;
+    SCENARIOS = SCENARIOS.filter((s) => s.id === scenarioFilter);
+    if (SCENARIOS.length === 0) {
+      throw new Error(`[QA FILTER ERROR] No se encontró ningún escenario con id ${scenarioFilter} (total disponibles: ${originalCount}).`);
+    }
+    console.log(`[QA FILTER] MODO FOCALIZADO ACTIVO: Se ejecutará exclusivamente el Escenario ${scenarioFilter}: "${SCENARIOS[0].name}"`);
+    console.log(`[QA FILTER] AVISO: Esta prueba focalizada (1/1) evaluará únicamente el Caso ${scenarioFilter}. NO equivale a un PASS 12/12 de toda la suite.\n`);
+  }
+
   let passedScenarios = 0;
   const reportScenarios = [];
   let fatalError = null;
@@ -907,6 +922,8 @@ async function bootstrap() {
         endTime: new Date().toISOString(),
         mode: ENABLE_REAL_OPENAI_QA ? 'LIVE_REAL_OPENAI' : 'DRY_RUN_OFFLINE',
         isLiveRealOpenAI: Boolean(ENABLE_REAL_OPENAI_QA),
+        isFocalRun,
+        focalScenarioId: isFocalRun ? scenarioFilter : null,
         suiteStatus, // 'PASSED' | 'FAILED' | 'ABORTED_CRITICAL'
         criticalReason: criticalReason || null,
         projectId: process.env.GCLOUD_PROJECT,
@@ -1088,10 +1105,20 @@ async function bootstrap() {
 
   console.log('\n===============================================================');
   if (ENABLE_REAL_OPENAI_QA) {
-    console.log(` RESULTADO FINAL QA REAL OPENAI: ${passedScenarios}/${SCENARIOS.length} ESCENARIOS PASS`);
+    if (isFocalRun) {
+      console.log(` RESULTADO QA REAL FOCALIZADO (CASO ${scenarioFilter}): ${passedScenarios}/${SCENARIOS.length} ESCENARIO PASS`);
+      console.log(' AVISO DE CERTIFICACIÓN: Esta es una validación focalizada (1/1).');
+      console.log(' NO certifica ni sustituye la aprobación completa (12/12) de la suite para el Release Candidate.');
+    } else {
+      console.log(` RESULTADO FINAL QA REAL OPENAI: ${passedScenarios}/${SCENARIOS.length} ESCENARIOS PASS`);
+    }
     console.log(` Gasto acumulado estimado: $${budgetTracker.totalCostUSD.toFixed(4)} USD (${budgetTracker.requestCount}/${MAX_REQUESTS_TOTAL} llamadas)`);
   } else {
-    console.log(` RESULTADO DRY-RUN OFFLINE: ${passedScenarios}/${SCENARIOS.length} ESCENARIOS VERIFICADOS`);
+    if (isFocalRun) {
+      console.log(` RESULTADO DRY-RUN FOCALIZADO (CASO ${scenarioFilter}): ${passedScenarios}/${SCENARIOS.length} ESCENARIO VERIFICADO`);
+    } else {
+      console.log(` RESULTADO DRY-RUN OFFLINE: ${passedScenarios}/${SCENARIOS.length} ESCENARIOS VERIFICADOS`);
+    }
     console.log(' AVISO DE INTEGRIDAD: Este resultado corresponde exclusivamente a simulación offline con Firestore Emulator.');
     console.log(' NO CONSTITUYE UN PASS DEL QA CONVERSACIONAL REAL CON OPENAI.');
     console.log(' ESTADO DEL GATE DE QA REAL: BLOCKED (Pendiente de ejecución autorizada con OPENAI_API_KEY).');

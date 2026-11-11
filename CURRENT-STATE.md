@@ -3,7 +3,7 @@
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-11  
 > **Rama Actual:** `fix/real-whatsapp-logic`  
-> **Commit HEAD:** `b536a0b` (`fix(agent): deterministic human/cancel escalation, runtime guard refinement and qa regressions`)  
+> **Commit HEAD:** `8e16061` (`fix(agent): prompt sibling addition rule, guard time filtering, and focal qa runner`)  
 > **Producción Intacta:** `3058ada` (main, `whatsappWebhook v67`)  
 > **Estado RC:** CONDITIONAL (Apto para Staging / QA Real, Bloqueado para Despliegue Directo a Producción)
 
@@ -366,6 +366,23 @@ Para facilitar la telemetría del futuro Agent Control Center y la API de DANEV:
     4. *Runner Shell (`run_live_qa.sh`):* Corrección de `$pipestatus` y validación cruzada de `"suiteStatus"` en `scratch/qa_report_latest.json` para garantizar que nunca se reporte éxito cuando la suite falla o sale con error.
   * **Suite de Regresiones (`test_qa_regressions.js`):** 18/18 pruebas PASS cubriendo las correcciones, verificación de persistencia efectiva en Firestore, deduplicación de alertas a instructores en reintentos, fallback técnico seguro y pruebas negativas.
   * **Validación Total:** 108/108 pruebas automatizadas aprobadas (100 offline + 8 Firestore Emulator) y 12/12 escenarios dry-run superados.
+- **Resultado del Segundo QA OpenAI Real (`runId: qa_run_1794440086896_zpmhfw`):**
+  * **Score:** 11/12 PASS, 1 FAIL.
+  * **Costo Real:** US$0.0084 (muy por debajo del límite de $0.25).
+  * **Métricas Reconciliadas:** 17 solicitudes HTTP OpenAI registradas por la auditoría de red frente a 11 turnos conversacionales (Casos 2, 9 y 11 pasaron con 100% de éxito).
+  * **Diagnóstico y Corrección de Caso 4 ("Dos hijos"):**
+    - *Evidencia:* Mamá Patricia solicitó: `"Hola, ya reservé para Mateo pero también quiero agendar a su hermanita Sofia de 5 años para la misma clase de niños."` El modelo respondió: `"¡Hola! Claro, Mateo ya tiene su clase confirmada. ¿Me podrías confirmar el nombre real y la edad de Sofia para poder agendarla?"` omitiendo invocar `guardar_perfil_lead` y `reservar_clase_prueba`.
+    - *Naturaleza del defecto:* Omisión injustificada por fricción de prompt. El usuario ya había entregado nombre propio ("Sofia"), edad ("5 años") y clase ("la misma clase de niños"), pero la Regla 2 prohibía de forma absoluta ofrecer agendamientos a leads con reserva previa y faltaban directivas explícitas para agregar familiares.
+    - *Corrección en `functions/index.js`:*
+      1. Refinamiento de Regla 2 circunscrita a personas ya confirmadas.
+      2. Adición de Regla 7 (a, b, c) en `generarSystemPrompt`: agendamiento directo sin repreguntas redundantes cuando los datos están completos; solicitud cortés de datos si están incompletos.
+      3. Corrección en `extraerDiaYNumeroFecha`: filtrado de expresiones de hora (`\d{1,2}:\d{2}`, `\d{1,2} hrs`) previniendo que "17:00" sea malinterpretado como día del mes por Runtime Guard.
+      4. Corrección de formato en personas conocidas (`p.tipo || 'persona'`) evitando `undefined`.
+  * **Suite de Regresiones Expandida (`test_qa_regressions.js`):** **21/21 pruebas PASS (100%)**, con 3 nuevas pruebas específicas para Caso 4 (petición completa, petición incompleta que sí requiere aclaración, y multi-turn).
+  * **Validación Total Actualizada:** **111 de 111 pruebas automatizadas aprobadas (100% PASS)**:
+    - 103 pruebas offline (21 regresiones + 27 P1A + 14 P0.1 + 22 P0.2A + 10 P0.2B + 9 baseline).
+    - 8 pruebas de integración real con Firestore Emulator (Java 21).
+    - 12 de 12 escenarios de QA verificados en Dry-Run offline con Firestore Emulator.
 - **Aislamiento y Mitigaciones Verificadas:**
   * **Transporte Firestore Local:** Exigencia obligatoria de `FIRESTORE_EMULATOR_HOST` (e.g. `127.0.0.1:8080`) y `GCLOUD_PROJECT=demo-ginga-test`. Se desmintió que `demo-` desvíe sockets sin la variable de host; se incorporó validación activa de ping HTTP previa a cualquier operación.
   * **Firewall de Red Global en `global.fetch`:** Intercepción determinista a nivel de proceso Node.js. Bloquea el 100% de solicitudes a `graph.facebook.com` y endpoints externos no autorizados. Probado expresamente con 0 bytes de egress a Meta.

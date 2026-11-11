@@ -48,8 +48,38 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
-## [b536a0b] — 2026-11-11
-### [COMMIT LOCAL: b536a0b] (Rama `fix/real-whatsapp-logic`)
+## [8e16061] — 2026-11-11
+### [COMMIT LOCAL: 8e16061] (Rama `fix/real-whatsapp-logic`)
+- **Diagnóstico y Corrección Focalizada del Caso 4 ("Dos hijos") en Segundo QA Real OpenAI:**
+  - **Evidencia del Segundo QA Real Auditada:**
+    - `runId`: `qa_run_1794440086896_zpmhfw`, modo `LIVE_REAL_OPENAI`.
+    - Resultado: 11/12 PASS, 1 FAIL (Casos 2, 9 y 11 aprobados al 100%; único fallo en Caso 4).
+    - Costo real auditado: US$0.0084 (17 peticiones HTTP OpenAI, 11 turnos conversacionales).
+  - **Diagnóstico de Causa Raíz en Caso 4:**
+    - *Omisión injustificada:* Mamá Patricia solicitó: `"Hola, ya reservé para Mateo pero también quiero agendar a su hermanita Sofia de 5 años para la misma clase de niños."` El modelo respondió: `"¡Hola! Claro, Mateo ya tiene su clase confirmada. ¿Me podrías confirmar el nombre real y la edad de Sofia para poder agendarla?"` omitiendo llamar a `guardar_perfil_lead` y `reservar_clase_prueba`.
+    - La información era 100% suficiente: nombre propio real ("Sofia"), edad ("5 años") compatible con `clase_ninos` (4-13 años) y horario/clase unívoco ("la misma clase de niños").
+    - Causa: La Regla 2 de `RESERVAS CONFIRMADAS VIGENTES DE ESTE LEAD` prohibía de forma absoluta ofrecer agendamientos a leads con reserva confirmada, inhibiendo al modelo de procesar a un nuevo hermano. Además, faltaba una regla explícita (Regla 7) que instruyera cómo proceder cuando un lead con reserva solicita agendar a un familiar adicional.
+    - Detección colateral: `verificarCorrespondenciaFecha` extraía expresiones de hora (ej. `17:00`) como días del mes (`17`), lo cual habría causado una falsa intercepción por discrepancia de fecha si el LLM respondía mencionando la hora.
+  - **Correcciones Implementadas en `functions/index.js`:**
+    - Refinamiento de Regla 2 en `generarSystemPrompt`: circunscrita a personas ya confirmadas.
+    - Incorporación de Regla 7 (a, b, c) en `generarSystemPrompt`: gestión explícita de reservas para otros familiares bajo el mismo lead; agendamiento directo sin repreguntar datos ya provistos; solicitud amable de datos si faltan.
+    - Filtrado de horas en `extraerDiaYNumeroFecha`: regex para excluir `\d{1,2}:\d{2}` y `\d{1,2} hrs` previniendo colisión entre horas y días del mes.
+    - Sanitización de formato en `Personas ya conocidas`: uso de fallback `p.tipo || 'persona'` evitando cadenas con `undefined`.
+  - **Suite de Regresiones Expandida (`test_qa_regressions.js`):**
+    - Incorporación de Tests 19, 20 y 21: petición completa (agendamiento directo y preservación de reserva previa), petición incompleta (aclaración obligatoria sin agendar a ciegas) y multi-turn (aclaración en Turno 1 y agendamiento en Turno 2).
+    - Resultado: **21 de 21 pruebas PASS (100%)**.
+  - **Soporte de Ejecución Focalizada en QA Runner (`qa_openai_runner.js` y `run_live_qa.sh`):**
+    - Soporte para filtro opcional vía variable de entorno o argumento (`QA_SCENARIO_FILTER` o `./scratch/run_live_qa.sh 4`), generando un `runId` focalizado específico y reporte estructurado individual sin confundir un PASS 1/1 focalizado con la aprobación 12/12 de la suite completa.
+  - **Cobertura Total de Validación:**
+    - 103 pruebas offline PASS (21 regresiones + 27 P1A + 14 P0.1 + 22 P0.2A + 10 P0.2B + 9 baseline).
+    - 8 pruebas de integración con Firestore Emulator (Java 21) PASS.
+    - 12 de 12 escenarios de QA verificados en Dry-Run offline con Firestore Emulator.
+    - Total: **111 de 111 pruebas superadas (100% PASS)**.
+
+---
+
+## [eabad06] — 2026-11-11
+### [COMMIT LOCAL: eabad06] (Rama `fix/real-whatsapp-logic`)
 - **Análisis y Corrección de Defectos del Primer QA OpenAI Real (`gpt-4o-mini`):**
   - **Evidencia del QA Real Auditada:**
     - `runId`: `qa_run_1794437359075_vmx6tf`, modo `LIVE_REAL_OPENAI`.

@@ -8,15 +8,16 @@
 
 - **Proyecto:** `/Users/jumper/ginga_app`
 - **Rama Activa:** `fix/real-whatsapp-logic`
-- **Commit Base:** `b536a0b` (`fix(agent): deterministic human/cancel escalation, runtime guard refinement and qa regressions`)
+- **Commit Base:** `8e16061` (`fix(agent): prompt sibling addition rule, guard time filtering, and focal qa runner`)
 - **Estado de Trabajo:** **Release Candidate (RC) Gate Evaluado — Estado CONDITIONAL**.
-  - Primer QA OpenAI real ejecutado (`qa_run_1794437359075_vmx6tf`): 9/12 PASS, 3 FAIL (Casos 2, 9 y 11), US$0.0016 de costo.
-  - Correcciones funcionales aplicadas en `functions/index.js`, `real_agent_harness/qa_openai_runner.js` y `scratch/run_live_qa.sh`.
-  - Nueva suite de regresiones: `test_qa_regressions.js` (18/18 PASS).
-  - 100/100 pruebas offline PASS (14 P0.1 + 22 P0.2A + 10 P0.2B + 27 P1A + 9 baseline + 18 regresiones).
+  - Segundo QA OpenAI real ejecutado (`qa_run_1794440086896_zpmhfw`): 11/12 PASS, 1 FAIL (Caso 4), US$0.0084 de costo.
+  - Casos 2, 9 y 11 previamente fallidos: 100% PASS verificado con OpenAI real.
+  - Caso 4 diagnosticado y corregido en `functions/index.js` (Regla 7 y 2 en prompt, filtro de hora en `extraerDiaYNumeroFecha` y formato de personas conocidas).
+  - Suite de regresiones ampliada: `test_qa_regressions.js` (**21/21 PASS**).
+  - 103/103 pruebas offline PASS (14 P0.1 + 22 P0.2A + 10 P0.2B + 27 P1A + 9 baseline + 21 regresiones).
   - 8/8 pruebas reales en Firestore Emulator (Java 21) PASS.
-  - Total: **108 de 108 pruebas superadas (100% PASS)** y 12/12 escenarios dry-run verificados.
-  - Bloqueo para producción: Mantener CONDITIONAL hasta validar 12/12 PASS en reintento real de QA con OpenAI.
+  - Total: **111 de 111 pruebas superadas (100% PASS)** y 12/12 escenarios dry-run verificados.
+  - Bloqueo para producción: Mantener CONDITIONAL hasta validar 12/12 PASS en tercer QA real con OpenAI.
 - **Producción:** Google Cloud Function `whatsappWebhook v67` (asociada a `main` en commit `3058ada`). **Producción NO ha sido tocada.**
 
 ---
@@ -92,12 +93,17 @@ git diff functions/index.js
 
 ## 4. Qué Sigue Exactamente (Siguiente Tarea)
 
-1. **Reintento Seguro del QA Conversacional Real (Acción Mínima del Usuario):**
-   Ejecutar en la terminal interactiva de macOS el script robustecido con diagnóstico:
-   ```bash
-   ./scratch/run_live_qa.sh
-   ```
-   *El script solicita la clave `ginga-qa-local` mediante `read -s` (compatible zsh/bash, sin eco), ejecuta la suite de 12 escenarios en el emulador, canaliza logs en vivo a `scratch/qa_execution.log`, limpia la memoria con trap y exporta el reporte auditado a `scratch/qa_report_latest.json` con `runId` único y distinción clara de fallos.*
+1. **Ejecución del QA Conversacional Real Focalizado o Completo (Acción Mínima del Usuario):**
+   Ejecutar en la terminal interactiva de macOS el script seguro:
+   - Para validar exclusivamente el **Caso 4** con gasto mínimo:
+     ```bash
+     ./scratch/run_live_qa.sh 4
+     ```
+   - Para validar la suite completa de **12 escenarios**:
+     ```bash
+     ./scratch/run_live_qa.sh
+     ```
+   *El script solicita la clave `ginga-qa-local` mediante `read -s` (compatible zsh/bash, sin eco), ejecuta el emulador en `demo-ginga-test`, canaliza logs en vivo a `scratch/qa_execution.log`, limpia la memoria con trap y exporta el reporte auditado a `scratch/qa_report_latest.json` con `runId` único y distinción clara entre ejecución focalizada (1/1) y suite completa (12/12).*
 2. **Auditar métricas reales en el reporte generado:** Leer `scratch/qa_report_latest.json` y verificar `runId`, `mode: "LIVE_REAL_OPENAI"`, latencia por turno, tools ejecutadas, tokens y costo real consumido (< $0.25 USD).
 3. **Decisión de Gate:** Con los resultados de OpenAI real verificados, evaluar transición de CONDITIONAL a READY para staging/despliegue quirúrgico.
 

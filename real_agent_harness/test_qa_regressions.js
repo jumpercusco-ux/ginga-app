@@ -6,10 +6,11 @@
 
 const assert = require('assert');
 const { RealAgentHarness } = require('./loader');
+const { MockTimestamp } = require('./in_memory_firestore');
 
 async function runRegressionSuite() {
   console.log('================================================================');
-  console.log('   TEST SUITE: REGRESIONES QA CONVERSACIONAL (CASOS 2, 9 Y 11)');
+  console.log('   TEST SUITE: REGRESIONES QA CONVERSACIONAL (CASOS 2, 4, 9 Y 11)');
   console.log('   Validación determinista y offline sobre backend real');
   console.log('================================================================\n');
 
@@ -21,6 +22,7 @@ async function runRegressionSuite() {
     detectarSolicitudExplicitaAtencionHumana,
     detectarSolicitudCancelacion,
     preguntarIA,
+    generarSystemPrompt,
     TurnContext,
   } = internals;
 
@@ -426,6 +428,220 @@ REGLAS OBLIGATORIAS:
     assert.strictEqual(notifsAfter, notifsBefore, 'No debe duplicar notificaciones en reintentos cuando el lead ya está escalado.');
     const lastRecord = turnContext.toolRecords[turnContext.toolRecords.length - 1];
     assert.strictEqual(lastRecord.reason_code, 'ALREADY_ESCALATED', 'Debe registrar reason_code ALREADY_ESCALATED.');
+  });
+
+  // -------------------------------------------------------------
+  // REGRESIÓN CASO 4: AGENDAR SEGUNDO HIJO (DOS HIJOS)
+  // -------------------------------------------------------------
+  console.log('--- CASO 4: Reserva de Segundo Hijo (Dos Hijos) y Flujo Familiar ---');
+
+  await asyncTest('19_caso4_dos_hijos_peticion_completa_agenda_segundo_hijo_y_preserva_primero', async () => {
+    const leadId = '+51984111019';
+    const ahora = internals.obtenerFechaLimaAhora();
+    const targetDate = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 3, 17, 0, 0);
+    const targetTimestamp = MockTimestamp.fromDate(targetDate);
+
+    // 1. Setup en Firestore: Mateo ya tiene reserva activa confirmada
+    const resRefMateo = await firestore.collection('reservas').add({
+      lead_id: leadId,
+      nombre_persona: 'Mateo',
+      clase_id: 'clase_ninos',
+      fecha_clase: targetTimestamp,
+      hora: '17:00',
+      status: 'confirmado',
+    });
+
+    await firestore.collection('whatsapp_leads').doc(leadId).set({
+      telefono: leadId,
+      nombre: 'Mamá Patricia',
+      status: 'clase_agendada',
+      perfil_personas: [{ nombre: 'Mateo', edad: 8 }], // Sin 'tipo' para verificar que no imprima undefined
+      reservas_activas: {
+        mateo: {
+          reserva_id: resRefMateo.id,
+          nombre_persona: 'Mateo',
+          clase_id: 'clase_ninos',
+          fecha_clase: targetTimestamp,
+          hora: '17:00',
+          status: 'confirmado',
+        },
+      },
+    });
+
+    const leadDoc = await firestore.collection('whatsapp_leads').doc(leadId).get();
+    const leadData = leadDoc.data();
+
+    // 2. Verificar que generarSystemPrompt incluye la Regla 7 y 7b y no imprime undefined
+    const { systemPrompt } = await generarSystemPrompt(leadData, 1, leadId);
+    assert(systemPrompt.includes('REGLAS OBLIGATORIAS ANTE ESTE LEAD CON RESERVA CONFIRMADA VIGENTE'), 'Debe incluir bloque de reservas vigentes');
+    assert(systemPrompt.includes('7. Si el cliente solicita agendar o agregar a OTRA persona'), 'Debe incluir Regla 7 de familiares');
+    assert(systemPrompt.includes('NO vuelvas a pedir el nombre ni la edad que ya te dio'), 'Regla 7b debe instruir no repreguntar');
+    assert(!systemPrompt.includes('undefined'), 'No debe contener "undefined" en personas ya conocidas');
+    assert(systemPrompt.includes('Mateo (persona, 8 años)'), 'Debe usar fallback limpio para tipo');
+
+    // 3. Ejecución de herramientas: guardar_perfil_lead y reservar_clase_prueba para Sofia
+    const turnContext = new TurnContext(leadId);
+    const toolGuardar = internals.AVAILABLE_TOOLS.find((t) => t.name === 'guardar_perfil_lead');
+    const toolReservar = internals.AVAILABLE_TOOLS.find((t) => t.name === 'reservar_clase_prueba');
+
+    await toolGuardar.handler(leadId, {
+      personas: [{ nombre: 'Sofia', tipo: 'niño', edad: 5 }],
+    }, turnContext);
+
+    await toolReservar.handler(leadId, {
+      nombre: 'Sofia',
+      tipo: 'niño',
+    }, turnContext);
+
+    // 4. Evaluar que Runtime Guard aprueba la respuesta reconociendo a Mateo y confirmando a Sofia
+    const candidateText = '¡Hola! Claro, la clase de Mateo sigue confirmada y ya registré a su hermanita Sofia para la misma clase de niños este jueves a las 17:00.';
+    const evaluation = evaluarRuntimeGuard(leadId, candidateText, turnContext, systemPrompt);
+    assert.strictEqual(evaluation.passed, true, 'Runtime Guard debe permitir confirmación válida de Sofia');
+    assert.strictEqual(evaluation.action, 'allow');
+
+    // 5. Verificar estado en Firestore: ambas reservas activas intactas
+    const leadDocAfter = await firestore.collection('whatsapp_leads').doc(leadId).get();
+    const activas = leadDocAfter.data()?.reservas_activas || {};
+    assert(activas.mateo, 'reservas_activas debe mantener a Mateo');
+    assert(activas.sofia, 'reservas_activas debe contener a Sofia');
+    assert.strictEqual(activas.mateo.reserva_id, resRefMateo.id, 'ID de Mateo debe ser el original');
+    assert.strictEqual(activas.mateo.status, 'confirmado');
+    assert.strictEqual(activas.sofia.status, 'confirmado');
+
+    const mateoDoc = await firestore.collection('reservas').doc(resRefMateo.id).get();
+    assert.strictEqual(mateoDoc.data()?.status, 'confirmado', 'Doc de reserva de Mateo debe mantenerse confirmado');
+
+    const sofiaResDoc = await firestore.collection('reservas').doc(activas.sofia.reserva_id).get();
+    assert.strictEqual(sofiaResDoc.data()?.nombre_persona, 'Sofia');
+    assert.strictEqual(sofiaResDoc.data()?.status, 'confirmado');
+  });
+
+  await asyncTest('20_caso4_dos_hijos_peticion_incompleta_pide_aclaracion_sin_agendar', async () => {
+    const leadId = '+51984111020';
+    const ahora = internals.obtenerFechaLimaAhora();
+    const targetDate = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 3, 17, 0, 0);
+    const targetTimestamp = MockTimestamp.fromDate(targetDate);
+
+    const resRefMateo = await firestore.collection('reservas').add({
+      lead_id: leadId,
+      nombre_persona: 'Mateo',
+      clase_id: 'clase_ninos',
+      fecha_clase: targetTimestamp,
+      hora: '17:00',
+      status: 'confirmado',
+    });
+
+    await firestore.collection('whatsapp_leads').doc(leadId).set({
+      telefono: leadId,
+      nombre: 'Mamá Patricia',
+      status: 'clase_agendada',
+      perfil_personas: [{ nombre: 'Mateo', edad: 8 }],
+      reservas_activas: {
+        mateo: {
+          reserva_id: resRefMateo.id,
+          nombre_persona: 'Mateo',
+          clase_id: 'clase_ninos',
+          fecha_clase: targetTimestamp,
+          hora: '17:00',
+          status: 'confirmado',
+        },
+      },
+    });
+
+    const leadDoc = await firestore.collection('whatsapp_leads').doc(leadId).get();
+    const { systemPrompt } = await generarSystemPrompt(leadDoc.data(), 1, leadId);
+
+    // Regla 7c: Si el cliente solicita agendar a un familiar pero NO indicó el nombre propio real o la edad
+    assert(systemPrompt.includes('Si el cliente solicita agendar a un familiar pero NO indicó el nombre propio real o la edad'), 'Debe incluir Regla 7c');
+
+    // El modelo responde pidiendo aclaración (nombre y edad) SIN ejecutar tools de reserva
+    const turnContext = new TurnContext(leadId);
+    const clarificationText = '¡Hola! Claro, la clase de Mateo ya está confirmada. ¿Cómo se llama tu otra hija y qué edad tiene para verificar su grupo y agendarla?';
+
+    const evaluation = evaluarRuntimeGuard(leadId, clarificationText, turnContext, systemPrompt);
+    assert.strictEqual(evaluation.passed, true, 'Debe permitir pedir aclaración legítima sin tools');
+    assert.strictEqual(evaluation.action, 'allow');
+
+    // Verificar que NO se crearon reservas nuevas en Firestore
+    const allReservas = (await firestore.collection('reservas').where('lead_id', '==', leadId).get()).docs;
+    assert.strictEqual(allReservas.length, 1, 'Solo debe existir la reserva original de Mateo');
+    const leadDocAfter = await firestore.collection('whatsapp_leads').doc(leadId).get();
+    const activas = leadDocAfter.data()?.reservas_activas || {};
+    assert.strictEqual(Object.keys(activas).length, 1, 'Solo debe haber 1 reserva activa');
+    assert(activas.mateo && !activas.sofia, 'Solo debe estar Mateo');
+  });
+
+  await asyncTest('21_caso4_dos_hijos_multiturn_aclaracion_y_posterior_agendamiento', async () => {
+    const leadId = '+51984111021';
+    const ahora = internals.obtenerFechaLimaAhora();
+    const targetDate = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 3, 17, 0, 0);
+    const targetTimestamp = MockTimestamp.fromDate(targetDate);
+
+    const resRefMateo = await firestore.collection('reservas').add({
+      lead_id: leadId,
+      nombre_persona: 'Mateo',
+      clase_id: 'clase_ninos',
+      fecha_clase: targetTimestamp,
+      hora: '17:00',
+      status: 'confirmado',
+    });
+
+    await firestore.collection('whatsapp_leads').doc(leadId).set({
+      telefono: leadId,
+      nombre: 'Mamá Patricia',
+      status: 'clase_agendada',
+      perfil_personas: [{ nombre: 'Mateo', edad: 8 }],
+      reservas_activas: {
+        mateo: {
+          reserva_id: resRefMateo.id,
+          nombre_persona: 'Mateo',
+          clase_id: 'clase_ninos',
+          fecha_clase: targetTimestamp,
+          hora: '17:00',
+          status: 'confirmado',
+        },
+      },
+    });
+
+    // TURNO 1: Mensaje incompleto -> Aclaración
+    const turn1Context = new TurnContext(leadId);
+    const leadDoc1 = await firestore.collection('whatsapp_leads').doc(leadId).get();
+    const { systemPrompt: promptTurn1 } = await generarSystemPrompt(leadDoc1.data(), 1, leadId);
+    const replyTurn1 = '¡Hola! Claro, Mateo ya tiene su clase lista para este jueves a las 17:00. ¿Cómo se llama tu otra pequeña y qué edad tiene para agendarla?';
+    const eval1 = evaluarRuntimeGuard(leadId, replyTurn1, turn1Context, promptTurn1);
+    assert.strictEqual(eval1.passed, true, 'Turno 1 debe permitir la pregunta aclaratoria');
+
+    // TURNO 2: El usuario proporciona los datos ("Se llama Sofia y tiene 5 años")
+    const turn2Context = new TurnContext(leadId);
+    const toolGuardar = internals.AVAILABLE_TOOLS.find((t) => t.name === 'guardar_perfil_lead');
+    const toolReservar = internals.AVAILABLE_TOOLS.find((t) => t.name === 'reservar_clase_prueba');
+
+    await toolGuardar.handler(leadId, {
+      personas: [{ nombre: 'Sofia', tipo: 'niño', edad: 5 }],
+    }, turn2Context);
+
+    await toolReservar.handler(leadId, {
+      nombre: 'Sofia',
+      tipo: 'niño',
+    }, turn2Context);
+
+    const leadDoc2 = await firestore.collection('whatsapp_leads').doc(leadId).get();
+    const { systemPrompt: promptTurn2 } = await generarSystemPrompt(leadDoc2.data(), 3, leadId);
+
+    const replyTurn2 = '¡Perfecto! Ya agendé a Sofia para la misma clase de niños de este jueves a las 17:00. Tanto Mateo como Sofia tienen su cupo asegurado.';
+    const eval2 = evaluarRuntimeGuard(leadId, replyTurn2, turn2Context, promptTurn2);
+    assert.strictEqual(eval2.passed, true, 'Turno 2 debe permitir confirmación tras recibir los datos');
+    assert.strictEqual(eval2.action, 'allow');
+
+    // Validar estado final en Firestore tras multi-turn
+    const finalLeadDoc = await firestore.collection('whatsapp_leads').doc(leadId).get();
+    const activasFinal = finalLeadDoc.data()?.reservas_activas || {};
+    assert(activasFinal.mateo, 'Mateo debe seguir activo');
+    assert(activasFinal.sofia, 'Sofia debe estar activa');
+    assert.strictEqual(activasFinal.mateo.reserva_id, resRefMateo.id);
+
+    const reservasAll = (await firestore.collection('reservas').where('lead_id', '==', leadId).get()).docs;
+    assert.strictEqual(reservasAll.length, 2, 'Deben existir exactamente 2 reservas para el lead');
   });
 
   console.log('\n================================================================');

@@ -1057,10 +1057,15 @@ function extraerDiaYNumeroFecha(texto) {
     diasSemana.push(matchDia[1]);
   }
 
+  // Filtrar expresiones de hora (ej. 17:00, 18:30, 17 hrs) para no confundir la hora con el día del mes
+  const textoSinHoras = textoNorm
+    .replace(/\b\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:am|pm|hrs?|horas?))?\b/gi, '')
+    .replace(/\b(?:a\s+las\s+)?\d{1,2}\s*(?:hrs?|horas?)\b/gi, '');
+
   const numerosDia = [];
   const regexNum = /\b(?:el\s+|dia\s+|martes\s+|jueves\s+|miercoles\s+|lunes\s+|viernes\s+|sabado\s+)?(\d{1,2})(?:\s+de\s+[a-z]+|\s+de\s+este\s+mes|\b)/g;
   let matchNum;
-  while ((matchNum = regexNum.exec(textoNorm)) !== null) {
+  while ((matchNum = regexNum.exec(textoSinHoras)) !== null) {
     const val = parseInt(matchNum[1], 10);
     if (val >= 1 && val <= 31) {
       numerosDia.push(val);
@@ -3045,7 +3050,7 @@ Este lead YA TIENE ${reservasVigentes.length === 1 ? 'una clase de prueba confir
 ${lineas.join('\n')}
 REGLAS OBLIGATORIAS ANTE ESTE LEAD CON RESERVA CONFIRMADA VIGENTE:
 1. NUNCA le vuelvas a preguntar el nombre, edad ni datos de registro de las personas que ya cuentan con reserva confirmada.
-2. NUNCA le ofrezcas agendar clase de prueba desde cero ni le preguntes si le gustaría agendar — la clase ya está confirmada en el sistema.
+2. NUNCA le ofrezcas agendar clase de prueba desde cero ni le preguntes si le gustaría agendar a las personas que ya cuentan con reserva confirmada — su clase ya está confirmada en el sistema.
 3. Si la persona saluda o consulta sobre su cita, reconoce su reserva con calidez (ej. "¡Hola! Claro, la clase de [nombre] ya está confirmada para el [fecha] a las [hora]..."). Trata a cada persona por su nombre propio, sin asumir género por el nombre.
 4. Responde con amabilidad cualquier duda sobre su asistencia usando ÚNICAMENTE información verificada del negocio: para dirección usa siempre la DIRECCIÓN REAL y el enlace oficial de Google Maps provistos abajo; para horarios o precios de acompañantes usa consultar_horarios_disponibles. NUNCA inventes requisitos de vestimenta, minutos obligatorios de anticipación ni políticas comerciales no verificadas.
 5. Si el cliente solicita reprogramar o cambiar de fecha su reserva (ej. pasar de martes a jueves, o agendar para la próxima semana):
@@ -3054,7 +3059,15 @@ REGLAS OBLIGATORIAS ANTE ESTE LEAD CON RESERVA CONFIRMADA VIGENTE:
    c. NUNCA confirmes que el cambio ya está realizado de palabra si no ejecutaste la herramienta y recibiste confirmación exitosa. NUNCA uses reservar_clase_prueba para cambiar la fecha de una persona con reserva confirmada.
    d. Si la herramienta indica que la fecha no es válida, que no hay cupos o que la reserva previa ya fue asistida/no asistida, explícaselo al cliente con amabilidad y usa marcar_seguimiento_humano.
    e. Si el cliente solicita cancelar definitivamente su reserva (en vez de reprogramar), indícaselo con amabilidad y usa de inmediato marcar_seguimiento_humano.
-6. La fecha y hora de su reserva confirmada está PLENAMENTE VIGENTE — no apliques para ella ninguna advertencia de desactualización de fechas del historial.`;
+6. La fecha y hora de su reserva confirmada está PLENAMENTE VIGENTE — no apliques para ella ninguna advertencia de desactualización de fechas del historial.
+7. Si el cliente solicita agendar o agregar a OTRA persona / un nuevo familiar (ej. un hermanito/a, otro hijo/a, un acompañante):
+   a. El sistema soporta múltiples reservas independientes para diferentes personas bajo el mismo número. La reserva de la persona anterior se mantiene intacta.
+   b. Si el mensaje ya incluye el nombre propio real y la edad de esa nueva persona (ej. "quiero agendar a su hermanita Sofia de 5 años"):
+      - NO vuelvas a pedir el nombre ni la edad que ya te dio.
+      - Guarda su perfil con guardar_perfil_lead y agenda su clase de prueba con reservar_clase_prueba para esa persona específica (nombre: "Sofia", tipo: "niño").
+      - Confirma cordialmente que la reserva previa sigue vigente y que la nueva persona también quedó confirmada.
+   c. Si el cliente solicita agendar a un familiar pero NO indicó el nombre propio real o la edad (ej. "quiero agendar a mi otra hija"):
+      - Reconoce la reserva existente y solicita amablemente el nombre propio de pila y la edad de la nueva persona antes de agendar.`;
         }
       }
     } catch (errReservas) {
@@ -3070,7 +3083,7 @@ REGLA ESTRICTA: NO afirmes que tiene ni que no tiene reserva confirmada. Si el l
 
   const personasConocidas = leadData.perfil_personas;
   if (Array.isArray(personasConocidas) && personasConocidas.length > 0) {
-    const detalle = personasConocidas.map((p) => `${p.nombre || 'sin nombre'} (${p.tipo}, ${p.edad ?? '?'} años)`).join('; ');
+    const detalle = personasConocidas.map((p) => `${p.nombre || 'sin nombre'} (${p.tipo || 'persona'}, ${p.edad ?? '?'} años)`).join('; ');
     systemPrompt += `\n\nPersonas ya conocidas de este lead: ${detalle}. No vuelvas a preguntar por ellas.`;
   }
 
