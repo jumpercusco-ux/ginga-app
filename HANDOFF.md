@@ -8,25 +8,41 @@
 
 - **Proyecto:** `/Users/jumper/ginga_app`
 - **Rama Activa:** `fix/real-whatsapp-logic`
-- **Commit Base:** `df2650e` (`feat(agent): implement safe rescheduling tool, duplicate prevention, and transactional integrity (P0.2A)`)
-- **Estado de Trabajo:** Implementación de **P0.2B: Identidad familiar y reservas múltiples** completada y verificada al 100%. **PENDIENTE DE COMMIT LOCAL.**
+- **Commit Base:** `bd36b9a` (`docs: refine Decision 5 on dynamic venue resolution and anti-hallucination`)
+- **Estado de Trabajo:** Cierre de seguridad de **P1A: Runtime Guard y Trazabilidad de Tools (Zero PII)** completado y verificado al 100% (**27/27 tests PASS**, total suites: **82/82 PASS**, baseline: **9/9 OK, 0 defectos**).
 - **Producción:** Google Cloud Function `whatsappWebhook v67` (asociada a `main` en commit `3058ada`). **Producción NO ha sido tocada.**
 
 ---
 
 ## 2. Qué se Acaba de Terminar
 
-1. **Implementación de P0.2B (Identidad Familiar y Reservas Múltiples):**
-   - **Resolución de Identidad No Ambigua:** Ante términos genéricos ("mi hijo", "el nene", etc.), el bot no asume el primer perfil (`personas[0]`) sino que solicita clarificación explícita con los nombres de pila de la familia.
-   - **Prohibición de Nombre de Contacto en Niños:** Clases infantiles (`tipo === 'niño'`) no usan el nombre del padre/madre en el perfil si no se especificó el nombre del menor.
-   - **Trazabilidad y Reconciliación de Hermanos:** `reservas_activas` preserva a todos los hijos al registrar o reprogramar, auto-migrando documentos legacy.
-   - **Aislamiento Estricto:** Estados de cancelación, inasistencia o asistencia previa de un hijo no afectan ni bloquean a los demás.
-   - **Seguridad de Autorización:** Control estricto en `reprogramar_reserva` y aborto transaccional `UNAUTHORIZED_RESERVATION` en `reprogramarClasePruebaLead` ante intentos de operar reservas ajenas.
-   - **Resolución de Homónimos:** Exige desambiguación por `reserva_id` o fecha/horario si dos alumnos tienen el mismo nombre en la misma familia.
-   - **10 de 10 pruebas P0.2B superadas al 100% (`test_p02b_family_identity.js`).**
-   - **22 de 22 pruebas P0.2A conservadas al 100% (`test_p02a_rescheduling.js`).**
-   - **14 de 14 pruebas P0.1 conservadas al 100% (`test_p01_recognition.js`).**
-   - **Suite de línea base:** Defectos reducidos a 1 (Caso 5 resuelto).
+1. **Implementación y Cierre de Seguridad P1A (Runtime Guard y Telemetría Zero PII):**
+   - **Runtime Guard Determinista en `functions/index.js`:**
+     - Inspección obligatoria post-generación en `preguntarIA` antes del envío de mensajes a WhatsApp o al cliente.
+     - Detección semántica de afirmaciones de mutación (`booking`, `reschedule`, `cancellation`).
+     - Validación estricta contra `turnContext.toolRecords`:
+       - Correspondencia obligatoria de **persona**: el éxito para un hijo no justifica la confirmación para otro hermano, y el rechazo de un hermano invalida confirmaciones conjuntas ("ambos quedaron agendados").
+       - Correspondencia obligatoria de **fecha**: el agendamiento en martes no autoriza afirmar jueves ni viceversa.
+       - Correspondencia obligatoria de **tipo de operación**: una reserva no autoriza reprogramación ni cancelación.
+       - Detección estricta de contradicciones ante rechazos de tools (`ALREADY_ATTENDED`, `CLASS_FULL`, `NO_SHOW_PREVIOUS`, `INVALID_DATE`, etc.).
+       - En recordatorios de reservas previas sin tool, correspondencia con el bloque estructurado del prompt sin afirmar acciones nuevas inmediatas.
+     - Intercepción Fail-Safe: sustitución automática por mensaje seguro de contención y actualización inmediata de `whatsapp_leads` con `status: 'requiere_atencion'`, evitando alertamiento duplicado si ya fue escalado (`alreadyEscalated`).
+     - Fallback técnico transparente ante fallas de base de datos sin prometer falsas derivaciones completadas.
+     - Preservación de `ai_habilitada` (el guard no la desactiva automáticamente).
+   - **Estructuración de Salidas de Tools (`TurnContext`):**
+     - Todos los handlers de `AVAILABLE_TOOLS` registran metadatos enriquecidos en `turnContext.toolRecords` (`tool_name`, `operation`, `status`, `reason_code`, `mutation_committed`, `persona_slug`, `reservation_ref`, `fecha_confirmada`, `fecha_iso`, `hora`, `sede`).
+     - Aislamiento completo de `TurnContext` por turno para evitar filtraciones de estado.
+   - **Telemetría Segura Zero PII (ACC / DANEV):**
+     - `lead_hash` mediante HMAC-SHA256 con salt secreto (`TELEMETRY_SALT`), mitigando desanonimización de teléfonos por tablas rainbow.
+     - Ofuscación de nombres de menores a `persona_ref` (`p_` + HMAC hex) y exclusión de textos de usuarios.
+     - Buffer en memoria volátil `TELEMETRY_BUFFER` acotado a 100 eventos.
+   - **Resultados de Suites de Pruebas:**
+     - `test_p1a_runtime_guard.js`: **27 de 27 pruebas aprobadas (100% PASS)**.
+     - `test_p01_recognition.js`: 14 de 14 pruebas aprobadas (100% PASS).
+     - `test_p02a_rescheduling.js`: 22 de 22 pruebas aprobadas (100% PASS).
+     - `test_p02b_family_identity.js`: 10 de 10 pruebas aprobadas (100% PASS).
+     - `suite_runner.js`: **9 de 9 escenarios OK (0 defectos baseline restantes)**. Caso 8 de falsa confirmación quedó definitivamente resuelto.
+     - **Total acumulado:** **82 de 82 pruebas aprobadas (100% PASS)**.
 
 ---
 
@@ -36,19 +52,22 @@
 # 1. Iniciar o reiniciar el servidor visual de pruebas en segundo plano (puerto 3333)
 node real_agent_harness/server.js
 
-# 2. Ejecutar la suite de identidad familiar P0.2B (10 pruebas)
+# 2. Ejecutar la suite de Runtime Guard y Telemetría P1A (16 pruebas)
+node real_agent_harness/test_p1a_runtime_guard.js
+
+# 3. Ejecutar la suite de identidad familiar P0.2B (10 pruebas)
 node real_agent_harness/test_p02b_family_identity.js
 
-# 3. Ejecutar la suite de reprogramación P0.2A (22 pruebas)
+# 4. Ejecutar la suite de reprogramación P0.2A (22 pruebas)
 node real_agent_harness/test_p02a_rescheduling.js
 
-# 4. Ejecutar la suite de reconocimiento P0.1 (14 pruebas)
+# 5. Ejecutar la suite de reconocimiento P0.1 (14 pruebas)
 node real_agent_harness/test_p01_recognition.js
 
-# 5. Ejecutar la suite de línea base (9 escenarios de auditoría)
+# 6. Ejecutar la suite de línea base (9 escenarios de auditoría)
 node real_agent_harness/suite_runner.js
 
-# 6. Verificar integridad de git
+# 7. Verificar integridad de git
 git status
 git diff functions/index.js
 ```
@@ -57,8 +76,9 @@ git diff functions/index.js
 
 ## 4. Qué Sigue Exactamente (Siguiente Tarea)
 
-1. **Commit local de P0.2B.**
-2. Avanzar hacia **P1 / Agent Control Center & Runtime Anti-Hallucination Guard (Caso 8).**
+1. **Revisión y autorización del usuario de los entregables P1A.**
+2. Crear commit local para P1A.
+3. Avanzar hacia **P1B / Agent Control Center & Dashboard de visualización en Staging.**
 
 ---
 

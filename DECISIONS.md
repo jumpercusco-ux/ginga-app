@@ -103,3 +103,30 @@ Cada decisión se clasifica estrictamente en uno de tres estados:
   3. **Aislamiento por alumno:** Las reservas de hermanos son completamente independientes. La cancelación, inasistencia o asistencia de un hermano no afecta ni bloquea las clases de sus hermanos.
   4. **Prohibición de adivinanza:** Ante referencias ambiguas ("mi hijo", "el nene") o nombres no especificados en familias con múltiples perfiles, el bot solicita aclaración explícita indicando los nombres registrados, en lugar de asumir el primer perfil (`personas[0]`) o usar el nombre de contacto de WhatsApp del padre/madre.
   5. **Autorización y desambiguación:** `reprogramar_reserva` valida que el `reserva_id` pertenezca al número de WhatsApp autenticado. Si dos alumnos comparten el mismo nombre en la misma familia, el sistema exige desambiguación mediante `reserva_id` o fecha/horario.
+
+---
+
+### 14. Runtime Guard Determinista y Telemetría Segura Zero PII (P1A)
+- **Estado:** `[APROBADA]`
+- **Contexto:** En el baseline histórico (`3058ada`, Caso 8), el modelo generaba afirmaciones verbales de éxito ("¡Listo! He reprogramado la clase de Valentina...") sin haber ejecutado la herramienta correspondiente en base de datos.
+- **Decisión:**
+  1. **Runtime Guard Determinista en `preguntarIA`:** Inspección automática post-generación de todas las respuestas del LLM antes de su envío a WhatsApp. Se analizan afirmaciones de mutación (`booking`, `reschedule`, `cancellation`) y se valida su correspondencia estructurada contra `TurnContext`.
+  2. **Verificación Estricta de Respaldo Transaccional y Correspondencia de Entidades:**
+     - La respuesta solo se permite (`action: 'allow'`) si:
+       - La herramienta correspondiente ejecutó con éxito en este turno (`mutation_committed: true`, `status: 'success'`).
+       - Existe correspondencia unívoca de **persona**: el éxito para un hijo no justifica la confirmación para otro, y si una persona fue rechazada (`CLASS_FULL`, etc.), cualquier afirmación individual o colectiva ("ambos quedaron listos") es interceptada.
+       - Existe correspondencia de **fecha**: el agendamiento o reprogramación en martes no autoriza afirmar jueves, y viceversa.
+       - Existe correspondencia de **operación**: una reserva de prueba no justifica una reprogramación ni una cancelación.
+       - En caso de recordatorios de agendamiento sin tool nueva, la cita debe figurar como confirmada y vigente en el bloque estructurado del `systemPrompt`, sin afirmar acciones nuevas inmediatas.
+     - *Nota técnica sobre persistencia:* `mutation_committed: true` certifica el commit atómico de la transacción en Firestore del handler; no declara una lectura posterior independiente desvinculada.
+  3. **Intercepción y Fail-Safe Automático (`action: 'intercept'`):** Si se detecta una confirmación verbal no respaldada o que contradice un rechazo de herramienta:
+     - La respuesta al usuario se sustituye por un mensaje seguro y verídico que no emite segundas promesas falsas.
+     - Si la actualización en Firestore a `status: 'requiere_atencion'` falla, se emite un fallback técnico transparente sin declarar la derivación como completada.
+     - Si el lead ya contaba con `status: 'requiere_atencion'`, se detecta `alreadyEscalated` para evitar saturación de alertas a instructores.
+     - El guard **no altera `ai_habilitada`**, evitando congelamientos permanentes involuntarios del lead sin decisión humana explícita.
+  4. **Privacidad y Telemetría Zero PII (ACC / DANEV):**
+     - Hashing irreversible de identificadores mediante HMAC-SHA256 (`TELEMETRY_SALT`) para mitigar vulnerabilidades de tablas rainbow sobre rangos telefónicos conocidos (+51).
+     - Ofuscación estricta de nombres de menores a pseudónimos opacos `persona_ref` (`p_` + HMAC hex), garantizando cero PII en eventos de telemetría.
+     - Buffer en memoria volátil (`MAX_TELEMETRY_BUFFER_SIZE = 100`) sin persistencia productiva prematura en esta fase.
+  5. **Límite Semántico Intrínseco Documentado:** El clasificador se apoya en reglas heurísticas y expresiones regulares robustas. Modismos coloquiales atípicos sin verbos estándar de acción (ej. "ya te apunté en la libreta") representan un límite semántico intrínseco, mitigado por las instrucciones de tono y claridad del prompt de sistema.
+

@@ -915,6 +915,473 @@ async function enviarRecordatorioWhatsApp(to, nombreLead) {
 }
 
 /**
+ * P1A — SEGURIDAD Y TRAZABILIDAD (ZERO PII)
+ * Hashing irreversible de identificadores con salt secreto, telemetría estructurada
+ * para ACC/DANEV y Runtime Guard determinista contra confirmaciones falsas y alucinaciones.
+ *
+ * NOTA DE ARQUITECTURA SOBRE PERSISTENCIA:
+ * La bandera `mutation_committed: true` certifica que la transacción de Firestore
+ * del tool handler se ejecutó y completó de manera atómica con éxito. No declara
+ * una lectura independiente posterior ("post-read verification") a menos que se
+ * invoque explícitamente una consulta de verificación separada.
+ */
+
+const TELEMETRY_SALT = process.env.TELEMETRY_SALT || 'ginga_telemetry_salt_local_v1';
+
+function hashLeadId(leadId) {
+  if (!leadId) return 'anon';
+  return crypto.createHmac('sha256', TELEMETRY_SALT).update(String(leadId)).digest('hex').substring(0, 16);
+}
+
+function hashPersona(persona) {
+  if (!persona) return null;
+  return 'p_' + crypto.createHmac('sha256', TELEMETRY_SALT).update(String(persona)).digest('hex').substring(0, 8);
+}
+
+const TELEMETRY_BUFFER = [];
+const MAX_TELEMETRY_BUFFER_SIZE = 100;
+
+function emitTelemetryEvent(event) {
+  // Sanitización estricta de tool_records: Zero PII
+  // Se ofusca el nombre de menores con hash HMAC (persona_ref) y se excluyen textos de usuario.
+  const sanitizedToolRecords = (event.tool_records || []).map((r) => ({
+    tool_name: r.tool_name,
+    operation: r.operation,
+    status: r.status,
+    reason_code: r.reason_code,
+    mutation_committed: Boolean(r.mutation_committed),
+    persona_ref: r.persona_slug ? hashPersona(r.persona_slug) : null,
+    reservation_ref: r.reservation_ref ? String(r.reservation_ref) : null,
+    fecha_confirmada: r.fecha_confirmada || null,
+    fecha_iso: r.fecha_iso || null,
+    hora: r.hora || null,
+    sede: r.sede || null,
+  }));
+
+  const sanitized = {
+    event_id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    timestamp: new Date().toISOString(),
+    lead_hash: event.lead_hash || (event.lead_id ? hashLeadId(event.lead_id) : 'anon'),
+    turn_id: event.turn_id || null,
+    operation_type: event.operation_type || 'interaction',
+    tools_called: Array.isArray(event.tools_called) ? event.tools_called : [],
+    tool_records: sanitizedToolRecords,
+    guard_evaluation: {
+      inspected: Boolean(event.guard_evaluation?.inspected),
+      passed: Boolean(event.guard_evaluation?.passed),
+      action: event.guard_evaluation?.action || 'allow',
+      intercepted_claims: Array.isArray(event.guard_evaluation?.intercepted_claims)
+        ? event.guard_evaluation.intercepted_claims
+        : [],
+      reason: event.guard_evaluation?.reason || null,
+    },
+    latency_ms: typeof event.latency_ms === 'number' ? event.latency_ms : null,
+    status: event.status || 'success',
+  };
+
+  TELEMETRY_BUFFER.push(sanitized);
+  if (TELEMETRY_BUFFER.length > MAX_TELEMETRY_BUFFER_SIZE) {
+    TELEMETRY_BUFFER.shift();
+  }
+  return sanitized;
+}
+
+class TurnContext {
+  constructor(leadId, correlationId = null) {
+    this.leadId = leadId;
+    this.leadHash = hashLeadId(leadId);
+    this.correlationId = correlationId || `turn_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    this.startTime = Date.now();
+    this.toolRecords = [];
+    this.executedToolNames = [];
+  }
+
+  recordToolExecution(record) {
+    const enriched = {
+      timestamp: new Date().toISOString(),
+      tool_name: record.tool_name,
+      operation: record.operation,
+      status: record.status, // 'success' | 'failed' | 'rejected' | 'clarification_required'
+      reason_code: record.reason_code,
+      mutation_committed: Boolean(record.mutation_committed),
+      persona_slug: record.persona_slug || null,
+      reservation_ref: record.reservation_ref || null,
+      fecha_confirmada: record.fecha_confirmada || null,
+      fecha_iso: record.fecha_iso || null,
+      hora: record.hora || null,
+      sede: record.sede || null,
+      details: record.details || null,
+    };
+    this.toolRecords.push(enriched);
+    if (!this.executedToolNames.includes(record.tool_name)) {
+      this.executedToolNames.push(record.tool_name);
+    }
+    return enriched;
+  }
+}
+
+function extraerReservasPreexistentes(systemPrompt) {
+  if (!systemPrompt || typeof systemPrompt !== 'string') return [];
+  const reservas = [];
+  const regex = /-\s*Asistente:\s*([^|]+)\|\s*Nivel:\s*([^|]+)\|\s*Fecha:\s*([^|]+?)(?:\s+a las\s+([^ (]+))?(?:\s*\(ID de reserva:\s*([^)]+)\))?\./gi;
+  let match;
+  while ((match = regex.exec(systemPrompt)) !== null) {
+    reservas.push({
+      persona: match[1].trim(),
+      persona_slug: slugifyPersona(match[1].trim()),
+      nivel: match[2].trim(),
+      fechaTexto: match[3].trim(),
+      hora: match[4] ? match[4].trim() : null,
+      reserva_id: match[5] ? match[5].trim() : null,
+    });
+  }
+  return reservas;
+}
+
+function extraerDiaYNumeroFecha(texto) {
+  if (!texto || typeof texto !== 'string') return { diasSemana: [], numerosDia: [] };
+  const textoNorm = texto.toLowerCase()
+    .replace(/[áàäâ]/g, 'a')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[óòöô]/g, 'o')
+    .replace(/[úùüû]/g, 'u');
+
+  const diasSemana = [];
+  const regexDias = /\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/g;
+  let matchDia;
+  while ((matchDia = regexDias.exec(textoNorm)) !== null) {
+    diasSemana.push(matchDia[1]);
+  }
+
+  const numerosDia = [];
+  const regexNum = /\b(?:el\s+|dia\s+|martes\s+|jueves\s+|miercoles\s+|lunes\s+|viernes\s+|sabado\s+)?(\d{1,2})(?:\s+de\s+[a-z]+|\s+de\s+este\s+mes|\b)/g;
+  let matchNum;
+  while ((matchNum = regexNum.exec(textoNorm)) !== null) {
+    const val = parseInt(matchNum[1], 10);
+    if (val >= 1 && val <= 31) {
+      numerosDia.push(val);
+    }
+  }
+
+  return { diasSemana, numerosDia };
+}
+
+function verificarCorrespondenciaFecha(candidateText, fechaConfirmada, fechaIso = null) {
+  if (!candidateText || (!fechaConfirmada && !fechaIso)) return { matches: true };
+
+  const { diasSemana, numerosDia } = extraerDiaYNumeroFecha(candidateText);
+  if (diasSemana.length === 0 && numerosDia.length === 0) {
+    return { matches: true };
+  }
+
+  const fechaRefTexto = String(fechaConfirmada || '').toLowerCase()
+    .replace(/[áàäâ]/g, 'a')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[óòöô]/g, 'o')
+    .replace(/[úùüû]/g, 'u');
+
+  let diaSemanaEsperado = null;
+  const matchDiaEsperado = fechaRefTexto.match(/\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/);
+  if (matchDiaEsperado) {
+    diaSemanaEsperado = matchDiaEsperado[1];
+  } else if (fechaIso) {
+    const d = new Date(fechaIso + 'T12:00:00Z');
+    const diasMap = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+    diaSemanaEsperado = diasMap[d.getUTCDay()];
+  }
+
+  let numeroDiaEsperado = null;
+  const matchNumEsperado = fechaRefTexto.match(/\b(\d{1,2})\b/);
+  if (matchNumEsperado) {
+    numeroDiaEsperado = parseInt(matchNumEsperado[1], 10);
+  } else if (fechaIso) {
+    const d = new Date(fechaIso + 'T12:00:00Z');
+    numeroDiaEsperado = d.getUTCDate();
+  }
+
+  if (diaSemanaEsperado && diasSemana.length > 0 && !diasSemana.includes(diaSemanaEsperado)) {
+    return {
+      matches: false,
+      reason: `Discrepancia de día: el modelo afirmó "${diasSemana.join(', ')}" pero la herramienta confirmó "${diaSemanaEsperado}".`,
+    };
+  }
+
+  if (numeroDiaEsperado !== null && numerosDia.length > 0 && !numerosDia.includes(numeroDiaEsperado)) {
+    return {
+      matches: false,
+      reason: `Discrepancia de fecha: el modelo afirmó día "${numerosDia.join(', ')}" pero la herramienta confirmó día "${numeroDiaEsperado}".`,
+    };
+  }
+
+  return { matches: true };
+}
+
+function analizarAfirmacionesRespuesta(texto) {
+  if (!texto || typeof texto !== 'string') {
+    return { hasBookingClaim: false, hasRescheduleClaim: false, hasCancellationClaim: false, claims: [] };
+  }
+
+  const normalizado = texto.toLowerCase()
+    .replace(/[áàäâ]/g, 'a')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[óòöô]/g, 'o')
+    .replace(/[úùüû]/g, 'u');
+
+  // Separar oraciones y cláusulas coordinadas/adversativas ("pero", "sin embargo")
+  const oraciones = normalizado.split(/[.!?\n]+|,\s*(?:pero|sin embargo)\s+/).map((s) => s.trim()).filter(Boolean);
+
+  let hasBookingClaim = false;
+  let hasRescheduleClaim = false;
+  let hasCancellationClaim = false;
+  const claims = [];
+
+  for (const s of oraciones) {
+    // Si es pregunta, no es afirmación de mutación
+    if (s.endsWith('?') || s.startsWith('¿')) continue;
+
+    // Negaciones, hipótesis y requisitos condicionales legítimos
+    const esNegacionORequisito =
+      /\b(?:no\s+(?:pude|podemos|se\s+puede|es\s+posible|hemos|te\s+he|te\s+hemos|podre|logre|fue\s+posible|se\s+pudo)|sin|antes\s+de|para\s+poder|en\s+caso\s+de|si\s+deseas|te\s+gustaria|quieres|podrias|puedes|un\s+instructor\s+(?:te|se)|profesor\s+(?:te|se))\b/i.test(s) &&
+      !/\b(?:listo|perfecto|ya\s+te|te\s+acabo|he\s+reprogramado|he\s+reservado|quedo\s+confirmad)/i.test(s);
+
+    if (esNegacionORequisito) {
+      continue;
+    }
+
+    // Afirmaciones de reprogramación
+    const patronReprogramar =
+      /\b(?:he|te\s+he|hemos|acabo\s+de|ya\s+te|ya|se\s+ha)\s+(?:reprogramado|cambiado|trasladado|movido)\s+(?:tu|la|su)?\s*(?:clase|reserva|cita)\b/i.test(s) ||
+      /\b(?:tu|su|la)\s+(?:clase|reserva|cita)\s+(?:ha\s+sido|fue|quedo)\s+(?:reprogramada|cambiada|trasladada|movida)\b/i.test(s) ||
+      /\bquedo\s+(?:reprogramada|cambiada)\s+para\s+el\b/i.test(s) ||
+      /\b(?:te|lo|la)\s+(?:he|acabo\s+de|ya)?\s*(?:reprograme|cambie|pase)\s+(?:para|a)\s+el\b/i.test(s) ||
+      /\b(?:reprogramacion|cambio\s+de\s+clase)\s+confirmad[ao]\b/i.test(s) ||
+      /\b(?:listo|perfecto|excelente)[^,]*,\s*(?:he\s+reprogramado|cambie|quedo\s+reprogramad)/i.test(s);
+
+    if (patronReprogramar) {
+      hasRescheduleClaim = true;
+      claims.push('reschedule');
+      continue;
+    }
+
+    // Afirmaciones de cancelación
+    const patronCancelar =
+      /\b(?:he|te\s+he|hemos|acabo\s+de|ya)\s+(?:cancelado|anulado)\s+(?:tu|la|su)?\s*(?:clase|reserva|cita)\b/i.test(s) ||
+      /\b(?:tu|su|la)\s+(?:clase|reserva|cita)\s+(?:ha\s+sido|fue|quedo)\s+(?:cancelada|anulada)\b/i.test(s) ||
+      /\bcancelacion\s+confirmada\b/i.test(s);
+
+    if (patronCancelar) {
+      hasCancellationClaim = true;
+      claims.push('cancellation');
+      continue;
+    }
+
+    // Afirmaciones de reserva / agendamiento (singular y plural)
+    const patronReservar =
+      /\b(?:he|te\s+he|hemos|acabo\s+de|ya\s+te|ya)\s+(?:reservado|agendado|programado|registrado)\b/i.test(s) ||
+      /\b(?:quedo|quedaron|queda|quedan|esta|estan)\s+(?:confirmad[ao]s?|agendad[ao]s?|registrad[ao]s?|programad[ao]s?|reservad[ao]s?)\b/i.test(s) ||
+      /\b(?:tu|tus|su|sus|la|las)\s+(?:clase|clases|reserva|reservas|cita|citas)\s+(?:de\s+prueba\s+)?(?:ha\s+sido|fueron|fue|quedo|quedaron|esta|estan)\s+(?:confirmad[ao]s?|agendad[ao]s?|registrad[ao]s?|programad[ao]s?|reservad[ao]s?)\b/i.test(s) ||
+      /\b(?:clases?|reservas?)\s+confirmad[ao]s?\b/i.test(s) ||
+      /\b(?:te\s+esperamos|los\s+esperamos)\s+el\s+(?:lunes|martes|miercoles|jueves|viernes|sabado)\b/i.test(s) ||
+      /\b(?:ya|te)\s+(?:agende|reserve)\b/i.test(s);
+
+    if (patronReservar) {
+      hasBookingClaim = true;
+      claims.push('booking');
+    }
+  }
+
+  return {
+    hasBookingClaim,
+    hasRescheduleClaim,
+    hasCancellationClaim,
+    claims: Array.from(new Set(claims)),
+  };
+}
+
+function obtenerMensajeFallbackSeguro(evaluation, escalationCommitted = true) {
+  if (!escalationCommitted) {
+    return 'Tuvimos un inconveniente técnico momentáneo para verificar tu solicitud. Por favor escríbenos en unos minutos o te contactaremos en breve.';
+  }
+  const claims = evaluation?.intercepted_claims || [];
+  if (claims.some((c) => c.includes('reschedule'))) {
+    return 'Dame un momento para verificar la reprogramación con el equipo — un asesor revisará tu solicitud y te escribirá a la brevedad.';
+  }
+  if (claims.some((c) => c.includes('cancellation'))) {
+    return 'Dame un momento para coordinar con nuestro equipo — un asesor te responderá a la brevedad para ayudarte con la gestión de tu reserva.';
+  }
+  if (claims.some((c) => c.includes('booking'))) {
+    return 'Dame un momento para verificar la disponibilidad exacta con el equipo — un asesor revisará tu solicitud y te escribirá a la brevedad.';
+  }
+  return 'Dame un momento para validar la información con nuestro equipo — un asesor te responderá a la brevedad.';
+}
+
+async function aplicarIntercepcionSegura(leadId, evaluation) {
+  if (!leadId) return { committed: false, alreadyEscalated: false };
+  try {
+    const leadRef = admin.firestore().collection('whatsapp_leads').doc(leadId);
+    const leadDoc = await leadRef.get();
+    const alreadyEscalated = leadDoc.exists && leadDoc.data()?.status === 'requiere_atencion';
+
+    const motivo = `Runtime Guard: Confirmación no autorizada interceptada (${(evaluation.intercepted_claims || []).join(', ')}). ${evaluation.reason || 'Requiere revisión humana.'}`;
+    const updateData = {
+      status: 'requiere_atencion',
+      motivo_seguimiento: motivo,
+    };
+    if (admin.firestore.FieldValue?.serverTimestamp) {
+      updateData.ultima_interaccion = admin.firestore.FieldValue.serverTimestamp();
+    }
+    await leadRef.update(updateData);
+    return { committed: true, alreadyEscalated };
+  } catch (err) {
+    console.error(`[Runtime Guard] Error actualizando status de lead ${hashLeadId(leadId)}:`, err.message);
+    return { committed: false, alreadyEscalated: false, error: err.message };
+  }
+}
+
+function evaluarRuntimeGuard(leadId, candidateText, turnContext, systemPrompt = '') {
+  if (!candidateText || typeof candidateText !== 'string') {
+    return {
+      inspected: true,
+      passed: true,
+      action: 'allow',
+      intercepted_claims: [],
+      reason: null,
+      safeFallbackText: null,
+    };
+  }
+
+  const analysis = analizarAfirmacionesRespuesta(candidateText);
+  const toolRecords = turnContext?.toolRecords || [];
+  const preexistentes = extraerReservasPreexistentes(systemPrompt);
+
+  const interceptedClaims = [];
+  const reasons = [];
+
+  const textNorm = candidateText.toLowerCase()
+    .replace(/[áàäâ]/g, 'a')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[óòöô]/g, 'o')
+    .replace(/[úùüû]/g, 'u');
+
+  // Herramientas estructuradas
+  const successfulBookings = toolRecords.filter(
+    (r) => r.operation === 'booking' && r.status === 'success' && r.mutation_committed === true
+  );
+  const successfulReschedules = toolRecords.filter(
+    (r) => r.operation === 'reschedule' && r.status === 'success' && r.mutation_committed === true
+  );
+  const rejectedOrFailedBookings = toolRecords.filter(
+    (r) => r.operation === 'booking' && (r.status === 'rejected' || r.status === 'failed' || r.status === 'clarification_required')
+  );
+  const rejectedOrFailedReschedules = toolRecords.filter(
+    (r) => r.operation === 'reschedule' && (r.status === 'rejected' || r.status === 'failed' || r.status === 'clarification_required')
+  );
+
+  // 1. Evaluar afirmaciones de reserva
+  if (analysis.hasBookingClaim) {
+    if (rejectedOrFailedBookings.length > 0) {
+      for (const rej of rejectedOrFailedBookings) {
+        if (!rej.persona_slug || textNorm.includes(rej.persona_slug)) {
+          interceptedClaims.push('booking_contradicting_tool');
+          reasons.push(`El modelo confirmó agendamiento pero la herramienta de reserva para "${rej.persona_slug || 'el lead'}" fue rechazada/falló (${rej.reason_code}).`);
+        }
+      }
+    }
+
+    if (successfulBookings.length === 0 && successfulReschedules.length === 0) {
+      const isReferencingPreexisting = preexistentes.some((pre) => {
+        const mentionsPersona = !pre.persona || textNorm.includes(pre.persona.toLowerCase());
+        const mentionsExistingDate = pre.fechaTexto && textNorm.includes(pre.fechaTexto.toLowerCase());
+        const assertsNewAction = /\b(?:acabo\s+de|he\s+agendado|he\s+reservado|te\s+agende|te\s+reserve|agende|reserve)\b/i.test(candidateText);
+        return mentionsPersona && (mentionsExistingDate || textNorm.includes('ya esta confirmada') || textNorm.includes('ya está confirmada')) && !assertsNewAction;
+      });
+
+      if (!isReferencingPreexisting) {
+        interceptedClaims.push('booking');
+        reasons.push('El modelo afirmó agendamiento de clase sin haber ejecutado exitosamente la herramienta de reserva ni existir confirmación previa verificada.');
+      }
+    } else if (successfulBookings.length > 0) {
+      // Verificación de correspondencia de persona
+      const successfulSlugs = successfulBookings.map((b) => b.persona_slug).filter(Boolean);
+      for (const rej of rejectedOrFailedBookings) {
+        if (rej.persona_slug && textNorm.includes(rej.persona_slug)) {
+          interceptedClaims.push('booking_persona_contradiction');
+          reasons.push(`Contradicción: la reserva para "${rej.persona_slug}" fue rechazada (${rej.reason_code}), pero el texto afirma confirmación.`);
+        }
+      }
+
+      // Si el texto afirma confirmación para una persona específica no respaldada
+      const preexistenteSlugs = preexistentes.map((p) => p.persona_slug).filter(Boolean);
+      const authorizedSlugs = [...new Set([...successfulSlugs, ...preexistenteSlugs])];
+
+      // Verificación de correspondencia de fecha contra las herramientas exitosas
+      const fechaValida = successfulBookings.some((b) => {
+        const check = verificarCorrespondenciaFecha(candidateText, b.fecha_confirmada, b.fecha_iso);
+        return check.matches;
+      });
+      if (!fechaValida && successfulBookings[0]) {
+        const check = verificarCorrespondenciaFecha(candidateText, successfulBookings[0].fecha_confirmada, successfulBookings[0].fecha_iso);
+        interceptedClaims.push('booking_date_mismatch');
+        reasons.push(check.reason || 'Discrepancia en la fecha afirmada respecto a la reserva confirmada.');
+      }
+    }
+  }
+
+  // 2. Evaluar afirmaciones de reprogramación
+  if (analysis.hasRescheduleClaim) {
+    if (rejectedOrFailedReschedules.length > 0) {
+      for (const rej of rejectedOrFailedReschedules) {
+        interceptedClaims.push('reschedule_contradicting_tool');
+        reasons.push(`El modelo afirmó reprogramación pero la herramienta fue rechazada/falló (${rej.reason_code}).`);
+      }
+    } else if (successfulReschedules.length === 0) {
+      interceptedClaims.push('reschedule');
+      reasons.push('El modelo afirmó reprogramación de clase sin haber ejecutado exitosamente la herramienta reprogramar_reserva en Firestore.');
+    } else {
+      // Verificar correspondencia de fecha en reprogramación
+      const resched = successfulReschedules[0];
+      const check = verificarCorrespondenciaFecha(candidateText, resched.fecha_confirmada, resched.fecha_iso);
+      if (!check.matches) {
+        interceptedClaims.push('reschedule_date_mismatch');
+        reasons.push(check.reason || 'Discrepancia en la fecha de reprogramación afirmada.');
+      }
+    }
+  }
+
+  // 3. Evaluar afirmaciones de cancelación
+  if (analysis.hasCancellationClaim) {
+    const successfulCancellation = toolRecords.find(
+      (r) => r.operation === 'cancellation' && r.status === 'success' && r.mutation_committed === true
+    );
+    if (!successfulCancellation) {
+      interceptedClaims.push('cancellation');
+      reasons.push('El modelo afirmó cancelación de clase sin persistencia verificada en la base de datos.');
+    }
+  }
+
+  const uniqueClaims = Array.from(new Set(interceptedClaims));
+  const passed = uniqueClaims.length === 0;
+  const evaluationResult = {
+    inspected: true,
+    passed,
+    action: passed ? 'allow' : 'intercept',
+    intercepted_claims: uniqueClaims,
+    reason: reasons.length > 0 ? reasons.join('; ') : null,
+    safeFallbackText: null,
+  };
+
+  if (!passed) {
+    evaluationResult.safeFallbackText = obtenerMensajeFallbackSeguro(evaluationResult, true);
+  }
+
+  return evaluationResult;
+}
+
+/**
  * Registro de herramientas reales que la IA puede invocar (function-calling de OpenAI).
  * Cada handler ejecuta la acción de verdad en Firestore y devuelve un texto que el
  * modelo usa para redactar la respuesta final al lead.
@@ -948,7 +1415,7 @@ const AVAILABLE_TOOLS = [
         },
       },
     },
-    handler: async (leadId, args) => {
+    handler: async (leadId, args, turnContext = null) => {
       let publicoBuscado = args?.tipo === 'niño' ? 'niños' : args?.tipo === 'adulto' ? 'jovenes_adultos' : null;
       let nombrePersona = args?.nombre ? String(args.nombre).trim() : null;
 
@@ -974,9 +1441,23 @@ const AVAILABLE_TOOLS = [
             }
           } else if (candidatos.length > 1) {
             const nombres = candidatos.map((p) => p.nombre).filter(Boolean).join(', ');
+            turnContext?.recordToolExecution({
+              tool_name: 'reservar_clase_prueba',
+              operation: 'booking',
+              status: 'clarification_required',
+              reason_code: 'AMBIGUOUS_NAME',
+              mutation_committed: false,
+            });
             return `Hay varias personas registradas en este perfil (${nombres}). Por favor indica el nombre de la persona específica para quien deseas agendar la clase de prueba.`;
           } else if (perfilPersonas.length === 0) {
             if (args?.tipo === 'niño') {
+              turnContext?.recordToolExecution({
+                tool_name: 'reservar_clase_prueba',
+                operation: 'booking',
+                status: 'clarification_required',
+                reason_code: 'MISSING_CHILD_INFO',
+                mutation_committed: false,
+              });
               return 'Por favor indícame el nombre y edad de la persona que asistirá a la clase de prueba para poder agendarla.';
             }
             if (leadData.nombre && esNombreValidoPersona(leadData.nombre)) {
@@ -995,15 +1476,33 @@ const AVAILABLE_TOOLS = [
         }
       }
 
+      const targetSlug = nombrePersona ? slugifyPersona(nombrePersona) : null;
+
       const clase = await buscarClaseDisponibleParaPrueba(publicoBuscado);
       if (!clase) {
         await admin.firestore().collection('whatsapp_leads').doc(leadId)
           .update({ status: 'conversando' });
+        turnContext?.recordToolExecution({
+          tool_name: 'reservar_clase_prueba',
+          operation: 'booking',
+          status: 'rejected',
+          reason_code: 'NO_CLASS_AVAILABLE',
+          mutation_committed: false,
+          persona_slug: targetSlug,
+        });
         return 'No hay cupos disponibles para la clase de prueba que le corresponde a este lead en este momento. Informa al lead que un instructor lo contactará pronto para coordinar.';
       }
 
       // Validación de cupos de la clase
       if (clase.cupos_disponibles !== undefined && clase.cupos_disponibles <= 0) {
+        turnContext?.recordToolExecution({
+          tool_name: 'reservar_clase_prueba',
+          operation: 'booking',
+          status: 'rejected',
+          reason_code: 'CLASS_FULL',
+          mutation_committed: false,
+          persona_slug: targetSlug,
+        });
         return `No hay cupos disponibles en este momento para la clase de ${clase.nivel || 'Capoeira'} (cupos disponibles: 0). Informa esto con amabilidad al lead y utiliza marcar_seguimiento_humano para anotarlo en lista de espera.`;
       }
 
@@ -1015,7 +1514,6 @@ const AVAILABLE_TOOLS = [
       const leadDocCheck = await admin.firestore().collection('whatsapp_leads').doc(leadId).get();
       const perfilPersonasCheck = Array.isArray(leadDocCheck.data()?.perfil_personas) ? leadDocCheck.data().perfil_personas : [];
 
-      const targetSlug = slugifyPersona(nombrePersona);
       const reservasPersona = existentesSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((r) => {
@@ -1029,11 +1527,27 @@ const AVAILABLE_TOOLS = [
       // Medida de seguridad provisional ante asistencias previas
       const asistioPrevia = reservasPersona.find((r) => r.status === 'asistio');
       if (asistioPrevia) {
+        turnContext?.recordToolExecution({
+          tool_name: 'reservar_clase_prueba',
+          operation: 'booking',
+          status: 'rejected',
+          reason_code: 'ALREADY_ATTENDED',
+          mutation_committed: false,
+          persona_slug: targetSlug,
+        });
         return `DERIVACIÓN A INSTRUCTOR (MEDIDA DE SEGURIDAD PROVISIONAL): ${nombrePersona} ya cuenta con una clase de prueba previa registrada como ASISTIDA. De acuerdo con las políticas de seguridad del negocio, no se pueden otorgar segundas clases de prueba gratuitas de manera automática. Explícaselo al lead con amabilidad y utiliza de inmediato marcar_seguimiento_humano para que un instructor coordine su inscripción regular.`;
       }
 
       const noAsistioPrevia = reservasPersona.find((r) => r.status === 'no_asistio');
       if (noAsistioPrevia) {
+        turnContext?.recordToolExecution({
+          tool_name: 'reservar_clase_prueba',
+          operation: 'booking',
+          status: 'rejected',
+          reason_code: 'NO_SHOW_PREVIOUS',
+          mutation_committed: false,
+          persona_slug: targetSlug,
+        });
         return `DERIVACIÓN A INSTRUCTOR (MEDIDA DE SEGURIDAD PROVISIONAL): ${nombrePersona} tiene una clase de prueba previa registrada como NO ASISTIDA. No se puede agendar una nueva clase de prueba gratuita automáticamente sin autorización previa. Utiliza marcar_seguimiento_humano para que un instructor evalúe la reactivación de su cita.`;
       }
 
@@ -1070,6 +1584,15 @@ const AVAILABLE_TOOLS = [
         let fDate = reservaActiva.fecha_clase?.toDate ? reservaActiva.fecha_clase.toDate() : new Date(reservaActiva.fecha_clase);
         const fDateLima = new Date(fDate.toLocaleString('en-US', { timeZone: 'America/Lima' }));
         const fechaActivaTexto = formatearFechaLarga(fDateLima);
+        turnContext?.recordToolExecution({
+          tool_name: 'reservar_clase_prueba',
+          operation: 'booking',
+          status: 'rejected',
+          reason_code: 'DUPLICATE_ACTIVE_RESERVATION',
+          mutation_committed: false,
+          persona_slug: targetSlug,
+          reservation_ref: reservaActiva.id,
+        });
         return `Ya existe una reserva previa confirmada y vigente para ${nombrePersona} para el ${fechaActivaTexto} a las ${reservaActiva.hora || clase.hora}. Si el lead desea cambiar de fecha u horario (ej. pasar al jueves o a la próxima semana), NO crees una nueva reserva: debes utilizar la herramienta reprogramar_reserva indicando la nueva fecha solicitada. Confírmale al lead los datos de su cita actual.`;
       }
 
@@ -1087,16 +1610,59 @@ const AVAILABLE_TOOLS = [
         await reservarClasePruebaLead(leadId, clase.id, nombrePersona, fechaClase);
       } catch (errReserva) {
         if (errReserva.message?.includes('DUPLICATE_ACTIVE_RESERVATION')) {
+          turnContext?.recordToolExecution({
+            tool_name: 'reservar_clase_prueba',
+            operation: 'booking',
+            status: 'rejected',
+            reason_code: 'DUPLICATE_ACTIVE_RESERVATION',
+            mutation_committed: false,
+            persona_slug: targetSlug,
+          });
           return `Ya existe una reserva activa para ${nombrePersona}. Confírmale los datos al lead y no dupliques la reserva.`;
         }
         if (errReserva.message?.includes('CLASS_FULL')) {
+          turnContext?.recordToolExecution({
+            tool_name: 'reservar_clase_prueba',
+            operation: 'booking',
+            status: 'rejected',
+            reason_code: 'CLASS_FULL',
+            mutation_committed: false,
+            persona_slug: targetSlug,
+          });
           return `No hay cupos disponibles en este momento para la clase de ${clase.nivel || 'Capoeira'} (cupos agotados). Informa al lead y usa marcar_seguimiento_humano para anotarlo en lista de espera.`;
         }
         console.error('[reservar_clase_prueba] Error en transacción de reserva:', errReserva.message);
+        turnContext?.recordToolExecution({
+          tool_name: 'reservar_clase_prueba',
+          operation: 'booking',
+          status: 'failed',
+          reason_code: 'DATABASE_ERROR',
+          mutation_committed: false,
+          persona_slug: targetSlug,
+          details: { error: errReserva.message },
+        });
         return `Ocurrió un error temporal al registrar la reserva en la base de datos (${errReserva.message}). NO confirmes que la cita quedó agendada. Informa al lead que un instructor lo contactará para confirmar su reserva y usa marcar_seguimiento_humano.`;
       }
 
       const fechaTexto = formatearFechaLarga(fechaClase);
+      const fechaIso = (fechaClase instanceof Date) ? fechaClase.toISOString().split('T')[0] : null;
+
+      turnContext?.recordToolExecution({
+        tool_name: 'reservar_clase_prueba',
+        operation: 'booking',
+        status: 'success',
+        reason_code: fechaSolicitadaInvalida ? 'OK_FALLBACK_DATE' : 'OK',
+        mutation_committed: true,
+        persona_slug: targetSlug,
+        fecha_confirmada: fechaTexto,
+        fecha_iso: fechaIso,
+        hora: clase.hora,
+        sede: clase.sede || null,
+        details: {
+          clase_id: clase.id,
+          fechaSolicitadaInvalida,
+        },
+      });
 
       if (fechaSolicitadaInvalida) {
         return `El lead pidió la fecha "${args.fecha_solicitada}", pero no es un día válido de clase (los días son: ${clase.dias}) o ya pasó. Se reservó automáticamente para la próxima fecha disponible en su lugar: ${fechaTexto}. Explícale con amabilidad que ese día específico no hay clase y confírmale esta fecha; si de verdad no le sirve, ofrécele coordinar con un instructor (marcar_seguimiento_humano).`;
@@ -1146,7 +1712,7 @@ const AVAILABLE_TOOLS = [
         },
       },
     },
-    handler: async (leadId, args) => {
+    handler: async (leadId, args, turnContext = null) => {
       let nombrePersona = args?.nombre ? String(args.nombre).trim() : null;
       if (nombrePersona && !esNombreValidoPersona(nombrePersona)) {
         nombrePersona = null;
@@ -1175,6 +1741,14 @@ const AVAILABLE_TOOLS = [
       if (args?.reserva_id) {
         const docRes = await admin.firestore().collection('reservas').doc(args.reserva_id).get();
         if (!docRes.exists || docRes.data()?.lead_id !== leadId) {
+          turnContext?.recordToolExecution({
+            tool_name: 'reprogramar_reserva',
+            operation: 'reschedule',
+            status: 'rejected',
+            reason_code: 'UNAUTHORIZED_RESERVATION',
+            mutation_committed: false,
+            reservation_ref: args.reserva_id,
+          });
           return `La reserva con identificador "${args.reserva_id}" no pertenece a este número de teléfono o no existe. No se puede reprogramar una reserva no autorizada.`;
         }
         reservaPorId = { id: docRes.id, ...docRes.data() };
@@ -1182,6 +1756,13 @@ const AVAILABLE_TOOLS = [
       }
 
       if (reservasSnap.empty && !reservaPorId) {
+        turnContext?.recordToolExecution({
+          tool_name: 'reprogramar_reserva',
+          operation: 'reschedule',
+          status: 'rejected',
+          reason_code: 'NO_RESERVATION_FOUND',
+          mutation_committed: false,
+        });
         return 'No se encontró ninguna reserva previa para este lead. Si desea agendar una clase de prueba por primera vez, utiliza reservar_clase_prueba.';
       }
 
@@ -1195,6 +1776,13 @@ const AVAILABLE_TOOLS = [
           const opciones = reservasConfirmadas.map(
             (c) => `${c.nombre_persona || 'Asistente'} (${c.dias || ''} ${c.hora || ''}, ID: ${c.id})`
           ).join('; ');
+          turnContext?.recordToolExecution({
+            tool_name: 'reprogramar_reserva',
+            operation: 'reschedule',
+            status: 'clarification_required',
+            reason_code: 'AMBIGUOUS_RESERVATION',
+            mutation_committed: false,
+          });
           return `Hay varias reservas confirmadas activas para este número (${opciones}). Por favor especifica para cuál de las personas deseas reprogramar (indicando el nombre o ID de reserva).`;
         }
       }
@@ -1211,17 +1799,41 @@ const AVAILABLE_TOOLS = [
 
       if (reservasTarget.length === 0) {
         const nombresDisponibles = Array.from(new Set(reservasDelLead.map((r) => r.nombre_persona).filter(Boolean)));
+        turnContext?.recordToolExecution({
+          tool_name: 'reprogramar_reserva',
+          operation: 'reschedule',
+          status: 'rejected',
+          reason_code: 'PERSON_RESERVATION_NOT_FOUND',
+          persona_slug: slugifyPersona(nombrePersona),
+          mutation_committed: false,
+        });
         return `No se encontró ninguna reserva para "${nombrePersona || 'la persona indicada'}". Las reservas registradas para este número corresponden a: ${nombresDisponibles.join(', ') || 'sin nombre'}. Por favor aclara con el lead para quién es la reprogramación.`;
       }
 
       // Medida de seguridad provisional ante asistencias previas
       const asistio = reservasTarget.find((r) => r.status === 'asistio');
       if (asistio) {
+        turnContext?.recordToolExecution({
+          tool_name: 'reprogramar_reserva',
+          operation: 'reschedule',
+          status: 'rejected',
+          reason_code: 'ALREADY_ATTENDED',
+          persona_slug: slugifyPersona(nombrePersona),
+          mutation_committed: false,
+        });
         return `DERIVACIÓN A INSTRUCTOR (MEDIDA DE SEGURIDAD PROVISIONAL): La reserva previa de ${nombrePersona || 'este lead'} figura como ASISTIDA (ya tomó su clase de prueba gratuita). Para evitar comprometer al negocio con promociones o cortesías no autorizadas, NO se puede reprogramar una clase ya realizada ni otorgar una nueva clase de prueba gratuita de manera automática. Explícaselo con amabilidad y utiliza de inmediato marcar_seguimiento_humano para que un instructor coordine opciones de inscripción.`;
       }
 
       const noAsistio = reservasTarget.find((r) => r.status === 'no_asistio');
       if (noAsistio) {
+        turnContext?.recordToolExecution({
+          tool_name: 'reprogramar_reserva',
+          operation: 'reschedule',
+          status: 'rejected',
+          reason_code: 'NO_SHOW_PREVIOUS',
+          persona_slug: slugifyPersona(nombrePersona),
+          mutation_committed: false,
+        });
         return `DERIVACIÓN A INSTRUCTOR (MEDIDA DE SEGURIDAD PROVISIONAL): La reserva de ${nombrePersona || 'este lead'} figura como NO ASISTIDA. Para prevenir reagendamientos no autorizados tras inasistencia, NO confirmes una nueva cita de palabra. Informa al lead que un profesor revisará su caso y utiliza de inmediato marcar_seguimiento_humano.`;
       }
 
@@ -1230,14 +1842,38 @@ const AVAILABLE_TOOLS = [
 
       if (confirmadas.length === 0) {
         if (cancelada) {
+          turnContext?.recordToolExecution({
+            tool_name: 'reprogramar_reserva',
+            operation: 'reschedule',
+            status: 'rejected',
+            reason_code: 'CANCELLED_RESERVATION',
+            persona_slug: slugifyPersona(nombrePersona),
+            mutation_committed: false,
+          });
           return `La reserva de ${nombrePersona || 'este lead'} figura como CANCELADA. No se puede reprogramar una reserva cancelada. Si desea agendar una nueva clase, debes utilizar reservar_clase_prueba.`;
         }
+        turnContext?.recordToolExecution({
+          tool_name: 'reprogramar_reserva',
+          operation: 'reschedule',
+          status: 'rejected',
+          reason_code: 'NO_ACTIVE_RESERVATION',
+          persona_slug: slugifyPersona(nombrePersona),
+          mutation_committed: false,
+        });
         return `No se encontró ninguna reserva activa confirmada para ${nombrePersona || 'este lead'} susceptible de ser reprogramada. Utiliza marcar_seguimiento_humano si el lead insiste en que tenía una cita.`;
       }
 
       // Si hay más de una reserva confirmada activa con ese nombre (ej. dos Mateos o colisión)
       if (confirmadas.length > 1 && !reservaPorId) {
         const opciones = confirmadas.map((c) => `${c.nombre_persona || 'Asistente'} (${c.dias || ''} ${c.hora || ''}, ID: ${c.id})`).join('; ');
+        turnContext?.recordToolExecution({
+          tool_name: 'reprogramar_reserva',
+          operation: 'reschedule',
+          status: 'clarification_required',
+          reason_code: 'MULTIPLE_MATCHING_RESERVATIONS',
+          persona_slug: slugifyPersona(nombrePersona),
+          mutation_committed: false,
+        });
         return `Hay más de una reserva confirmada con el nombre "${nombrePersona}" (${opciones}). Por favor especifica cuál deseas reprogramar indicando el ID de reserva o el horario exacto.`;
       }
 
@@ -1256,6 +1892,15 @@ const AVAILABLE_TOOLS = [
         const fechaActualLima = new Date(fechaActualDate.toLocaleString('en-US', { timeZone: 'America/Lima' }));
         const fechaActualMedianoche = new Date(fechaActualLima.getFullYear(), fechaActualLima.getMonth(), fechaActualLima.getDate());
         if (fechaActualMedianoche < hoyMedianoche) {
+          turnContext?.recordToolExecution({
+            tool_name: 'reprogramar_reserva',
+            operation: 'reschedule',
+            status: 'rejected',
+            reason_code: 'EXPIRED_DATE',
+            persona_slug: slugifyPersona(nombrePersona),
+            mutation_committed: false,
+            reservation_ref: reservaAfectada.id,
+          });
           return `La reserva previa de ${nombrePersona || 'este lead'} era para una fecha pasada (${formatearFechaLarga(fechaActualLima)}) y no fue reprogramada a tiempo. No se puede reprogramar automáticamente una cita vencida. Utiliza marcar_seguimiento_humano para que un instructor coordine su caso.`;
         }
       }
@@ -1266,6 +1911,15 @@ const AVAILABLE_TOOLS = [
       const claseData = claseDoc.exists ? claseDoc.data() : reservaAfectada;
 
       if (claseData.cupos_disponibles !== undefined && claseData.cupos_disponibles <= 0) {
+        turnContext?.recordToolExecution({
+          tool_name: 'reprogramar_reserva',
+          operation: 'reschedule',
+          status: 'rejected',
+          reason_code: 'CLASS_FULL',
+          persona_slug: slugifyPersona(nombrePersona),
+          mutation_committed: false,
+          reservation_ref: reservaAfectada.id,
+        });
         return `No hay cupos disponibles en este momento para la clase de ${claseData.nivel || 'Capoeira'} (cupos disponibles: 0). Informa esto con amabilidad al lead y utiliza marcar_seguimiento_humano para que un instructor le avise si se libera una plaza.`;
       }
 
@@ -1274,6 +1928,16 @@ const AVAILABLE_TOOLS = [
 
       if (!nuevaFechaValida) {
         const fechaOriginalTexto = fechaActualDate ? formatearFechaLarga(new Date(fechaActualDate.toLocaleString('en-US', { timeZone: 'America/Lima' }))) : 'fecha original';
+        turnContext?.recordToolExecution({
+          tool_name: 'reprogramar_reserva',
+          operation: 'reschedule',
+          status: 'rejected',
+          reason_code: 'INVALID_DATE',
+          persona_slug: slugifyPersona(nombrePersona),
+          mutation_committed: false,
+          reservation_ref: reservaAfectada.id,
+          details: { requested_date: nuevaFechaSolicitada },
+        });
         return `La fecha solicitada "${nuevaFechaSolicitada}" no es válida para la clase (los días de clase son: ${claseData.dias || 'M, J'}) o ya pasó. La reserva de ${nombrePersona || 'el alumno'} NO ha sido modificada y SIGUE ACTIVA para el ${fechaOriginalTexto}. Explícale al lead cuáles son los días permitidos y ofrécele las fechas válidas, o utiliza marcar_seguimiento_humano si requiere coordinación especial.`;
       }
 
@@ -1286,9 +1950,28 @@ const AVAILABLE_TOOLS = [
         );
       } catch (errPersistencia) {
         if (errPersistencia.message?.includes('CLASS_FULL')) {
+          turnContext?.recordToolExecution({
+            tool_name: 'reprogramar_reserva',
+            operation: 'reschedule',
+            status: 'rejected',
+            reason_code: 'CLASS_FULL',
+            persona_slug: slugifyPersona(nombrePersona),
+            mutation_committed: false,
+            reservation_ref: reservaAfectada.id,
+          });
           return `No hay cupos disponibles en este momento para la clase de ${claseData.nivel || 'Capoeira'} (cupos agotados). Informa al lead y usa marcar_seguimiento_humano.`;
         }
         console.error('[reprogramar_reserva] Error en reprogramación transaccional:', errPersistencia.message);
+        turnContext?.recordToolExecution({
+          tool_name: 'reprogramar_reserva',
+          operation: 'reschedule',
+          status: 'failed',
+          reason_code: 'DATABASE_ERROR',
+          persona_slug: slugifyPersona(nombrePersona),
+          mutation_committed: false,
+          reservation_ref: reservaAfectada.id,
+          details: { error: errPersistencia.message },
+        });
         return `Ocurrió un error al persistir la reprogramación en base de datos (${errPersistencia.message}). NO confirmes que el cambio fue realizado. Informa al lead que un instructor verificará y confirmará su nueva fecha, y usa marcar_seguimiento_humano.`;
       }
 
@@ -1304,6 +1987,20 @@ const AVAILABLE_TOOLS = [
             ? ` en sede ${sedeClase}`
             : '';
 
+      turnContext?.recordToolExecution({
+        tool_name: 'reprogramar_reserva',
+        operation: 'reschedule',
+        status: 'success',
+        reason_code: 'OK',
+        mutation_committed: true,
+        persona_slug: slugifyPersona(nombrePersona),
+        reservation_ref: reservaAfectada.id,
+        fecha_confirmada: nuevaFechaTexto,
+        fecha_iso: (nuevaFechaValida instanceof Date) ? nuevaFechaValida.toISOString().split('T')[0] : null,
+        hora: horaClase,
+        sede: sedeClase || null,
+      });
+
       return `Reprogramación confirmada con éxito para ${nombrePersona || 'el alumno'}. La clase de prueba quedó agendada para el ${nuevaFechaTexto} a las ${horaClase}${lugarTexto}. Confírmale este cambio al lead con entusiasmo y calidez, mencionando el nombre de la persona y la nueva fecha exacta.`;
     },
   },
@@ -1317,7 +2014,15 @@ const AVAILABLE_TOOLS = [
         parameters: { type: 'object', properties: {}, required: [] },
       },
     },
-    handler: async () => {
+    handler: async (leadId = null, args = {}, turnContext = null) => {
+      turnContext?.recordToolExecution({
+        tool_name: 'consultar_horarios_disponibles',
+        operation: 'query_schedules',
+        status: 'success',
+        reason_code: 'OK',
+        mutation_committed: false,
+      });
+
       const [clasesSnap, negocioDoc] = await Promise.all([
         admin.firestore().collection('clases').where('tipo', '==', 'regular').get(),
         admin.firestore().collection('config').doc('negocio').get(),
@@ -1386,7 +2091,7 @@ const AVAILABLE_TOOLS = [
         },
       },
     },
-    handler: async (leadId, args) => {
+    handler: async (leadId, args, turnContext = null) => {
       const personasNuevas = Array.isArray(args?.personas) ? args.personas : [];
       const personasLimpias = personasNuevas.map((p) => {
         let n = (p.nombre || '').trim();
@@ -1422,6 +2127,16 @@ const AVAILABLE_TOOLS = [
       } else {
         await leadRef.set({ perfil_personas: listaFusionada }, { merge: true });
       }
+
+      turnContext?.recordToolExecution({
+        tool_name: 'guardar_perfil_lead',
+        operation: 'save_profile',
+        status: 'success',
+        reason_code: 'OK',
+        mutation_committed: true,
+        details: { count: listaFusionada.length },
+      });
+
       return 'Perfil guardado. Continúa la conversación normalmente usando este dato, sin mencionar que lo guardaste.';
     },
   },
@@ -1441,7 +2156,7 @@ const AVAILABLE_TOOLS = [
         },
       },
     },
-    handler: async (leadId, args) => {
+    handler: async (leadId, args, turnContext = null) => {
       const motivo = args?.motivo || 'No especificado';
       const leadRef = admin.firestore().collection('whatsapp_leads').doc(leadId);
       const [leadDoc] = await Promise.all([
@@ -1449,6 +2164,15 @@ const AVAILABLE_TOOLS = [
         leadRef.update({ status: 'requiere_atencion', motivo_seguimiento: motivo }),
       ]);
       const nombreLead = leadDoc.data()?.nombre || leadId;
+
+      turnContext?.recordToolExecution({
+        tool_name: 'marcar_seguimiento_humano',
+        operation: 'human_escalation',
+        status: 'success',
+        reason_code: 'OK',
+        mutation_committed: true,
+        details: { motivo },
+      });
 
       const profesoresSnap = await admin.firestore().collection('users').where('rol', '==', 'profesor').get();
       const batch = admin.firestore().batch();
@@ -1543,7 +2267,9 @@ async function llamarOpenAI(messages, maxRetries = 2) {
  * las ejecuta todas en orden hasta que el modelo devuelva texto final para el lead.
  * Tope de 4 rondas para evitar loops infinitos.
  */
-async function preguntarIA(leadId, systemPrompt, historial, onToolCall = null) {
+async function preguntarIA(leadId, systemPrompt, historial, onToolCall = null, correlationId = null) {
+  const startTime = Date.now();
+  const turnContext = new TurnContext(leadId, correlationId);
   const messages = [{ role: 'system', content: systemPrompt }, ...historial];
 
   for (let ronda = 0; ronda < 4; ronda++) {
@@ -1552,7 +2278,28 @@ async function preguntarIA(leadId, systemPrompt, historial, onToolCall = null) {
 
     const llamadasHerramienta = respuesta.tool_calls || [];
     if (llamadasHerramienta.length === 0) {
-      return respuesta.content;
+      const candidateContent = respuesta.content;
+      const evaluation = evaluarRuntimeGuard(leadId, candidateContent, turnContext, systemPrompt);
+
+      emitTelemetryEvent({
+        lead_id: leadId,
+        turn_id: turnContext.correlationId,
+        operation_type: 'agent_turn',
+        tools_called: turnContext.executedToolNames,
+        tool_records: turnContext.toolRecords,
+        guard_evaluation: evaluation,
+        latency_ms: Date.now() - startTime,
+        status: evaluation.passed ? 'success' : 'intercepted',
+      });
+
+      if (!evaluation.passed) {
+        console.warn(`[Runtime Guard] Interceptada confirmación no autorizada para lead ${turnContext.leadHash}: ${evaluation.reason}`);
+        const escalationResult = await aplicarIntercepcionSegura(leadId, evaluation);
+        const fallbackText = obtenerMensajeFallbackSeguro(evaluation, escalationResult?.committed);
+        return fallbackText;
+      }
+
+      return candidateContent;
     }
 
     // OpenAI exige una respuesta 'tool' por CADA tool_call_id cuando el modelo pide
@@ -1570,9 +2317,9 @@ async function preguntarIA(leadId, systemPrompt, historial, onToolCall = null) {
         } catch (_) {
           // Argumentos vacíos o inválidos: se ignoran, el handler usa sus propios defaults.
         }
-        resultadoTool = await tool.handler(leadId, args);
+        resultadoTool = await tool.handler(leadId, args, turnContext);
         if (onToolCall) {
-          onToolCall({ name: llamada.function.name, args, result: resultadoTool });
+          onToolCall({ name: llamada.function.name, args, result: resultadoTool, turnContext });
         }
       }
       messages.push({
@@ -2580,6 +3327,38 @@ ${ideasContexto && ideasContexto.length > 0 ? `- Ideas / Clips disponibles en la
       throw new functions.https.HttpsError('internal', 'Error al generar la clase con IA: ' + err.message);
     }
   });
+
+module.exports.__internals = {
+  DEFAULT_SYSTEM_PROMPT,
+  obtenerSystemPrompt,
+  obtenerFechaLimaAhora,
+  slugifyPersona,
+  esNombreValidoPersona,
+  diasPermitidosDesdePatron,
+  formatearFechaLarga,
+  calcularProximaFechaDisponible,
+  validarFechaSolicitada,
+  reservarClasePruebaLead,
+  reprogramarClasePruebaLead,
+  buscarClaseDisponibleParaPrueba,
+  AVAILABLE_TOOLS,
+  preguntarIA,
+  generarSystemPrompt,
+  llamarOpenAI,
+  enviarMensajeWhatsApp,
+  hashLeadId,
+  hashPersona,
+  TELEMETRY_BUFFER,
+  emitTelemetryEvent,
+  TurnContext,
+  extraerReservasPreexistentes,
+  extraerDiaYNumeroFecha,
+  verificarCorrespondenciaFecha,
+  analizarAfirmacionesRespuesta,
+  evaluarRuntimeGuard,
+  aplicarIntercepcionSegura,
+  obtenerMensajeFallbackSeguro,
+};
 
 
 

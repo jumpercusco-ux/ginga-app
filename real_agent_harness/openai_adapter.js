@@ -217,7 +217,7 @@ class MockOpenAIAdapter {
     }
 
     // 2. Rescheduling request: "reprogramar", "cambiar", "pasar al jueves"
-    if (textLower.includes('reprogram') || textLower.includes('cambiar') || (textLower.includes('martes') && textLower.includes('jueves'))) {
+    if (textLower.includes('reprogram') || textLower.includes('cambi') || (textLower.includes('martes') && textLower.includes('jueves'))) {
       const hasReprogramarTool = tools.some(
         (t) => (t.function?.name === 'reprogramar_reserva' || t.name === 'reprogramar_reserva')
       );
@@ -345,6 +345,37 @@ class MockOpenAIAdapter {
                     arguments: JSON.stringify({
                       nombre: 'Lucía',
                       tipo: 'niño',
+                    }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      };
+    }
+
+    // 3.5. Providing child info without explicitly booking yet: "mi hija Sofía de 8 años"
+    if ((textLower.includes('hijo') || textLower.includes('hija') || textLower.includes('sofía')) && !textLower.includes('horario') && !textLower.includes('precio') && !textLower.includes('agendar') && !textLower.includes('reservar')) {
+      let nombreNino = 'Sofía';
+      if (textLower.includes('mateo')) nombreNino = 'Mateo';
+      if (textLower.includes('valentina')) nombreNino = 'Valentina';
+      return {
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: null,
+              tool_calls: [
+                {
+                  id: `call_${Date.now()}_save_profile`,
+                  type: 'function',
+                  function: {
+                    name: 'guardar_perfil_lead',
+                    arguments: JSON.stringify({
+                      personas: [
+                        { nombre: nombreNino, tipo: 'niño', edad: 8 },
+                      ],
                     }),
                   },
                 },

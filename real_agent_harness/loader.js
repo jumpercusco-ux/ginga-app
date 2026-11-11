@@ -33,7 +33,10 @@ class RealAgentHarness {
 
     // Append internal export hook without modifying the file on disk
     const exportHook = `
-module.exports.__internals = {
+if (!module.exports.__internals) {
+  module.exports.__internals = {};
+}
+Object.assign(module.exports.__internals, {
   DEFAULT_SYSTEM_PROMPT,
   obtenerSystemPrompt,
   obtenerFechaLimaAhora,
@@ -51,7 +54,16 @@ module.exports.__internals = {
   generarSystemPrompt,
   llamarOpenAI,
   enviarMensajeWhatsApp,
-};
+  hashLeadId,
+  TELEMETRY_BUFFER,
+  emitTelemetryEvent,
+  TurnContext,
+  extraerReservasPreexistentes,
+  analizarAfirmacionesRespuesta,
+  evaluarRuntimeGuard,
+  aplicarIntercepcionSegura,
+  obtenerMensajeFallbackSeguro,
+});
 `;
     const wrappedCode = sourceCode + exportHook;
 
@@ -129,6 +141,9 @@ module.exports.__internals = {
     this.openai.reset();
     this.whatsapp.reset();
     this.toolExecutionLog = [];
+    if (this.internals && Array.isArray(this.internals.TELEMETRY_BUFFER)) {
+      this.internals.TELEMETRY_BUFFER.length = 0;
+    }
   }
 
   /**
@@ -225,6 +240,7 @@ module.exports.__internals = {
       reservations,
       conversationHistory: historial,
       reservationTelemetry: this.lastReservationTelemetry || null,
+      telemetryEvents: this.internals?.TELEMETRY_BUFFER?.slice(-5) || [],
     };
   }
 }

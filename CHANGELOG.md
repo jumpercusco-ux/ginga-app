@@ -46,57 +46,59 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
-## [P0.2B Local] — 2026-11-11
+---
+
+## [P1A Local] — 2026-11-11
 ### [PROBADO LOCALMENTE] (Rama `fix/real-whatsapp-logic`)
-- **P0.2B: Identidad Familiar y Reservas Múltiples:**
-  - **Resolución de Identidad No Ambigua:**
-    - `reservar_clase_prueba` y `reprogramar_reserva` detectan ambigüedades en mensajes genéricos ("mi hijo", "el nene", etc.) y solicitan aclaración indicando las personas registradas, en lugar de asumir arbitrariamente `personas[0]`.
-    - Prohibición de usar el nombre de contacto de WhatsApp del padre/madre para clases infantiles (`tipo === 'niño'`) cuando no se especifica el nombre del alumno.
-  - **Preservación y Reconciliación de Reservas Legacy:**
-    - `reservarClasePruebaLead` y `reprogramarClasePruebaLead` auto-migran reservas preexistentes (con `reserva_id` escalar) a `reservas_activas`, garantizando que agendar o reprogramar para un hermano no desasocie al otro.
-    - Las reservas de hermanos son completamente independientes: estados de cancelación, inasistencia o asistencia previa de un hijo no se atribuyen ni bloquean a los demás.
-  - **Seguridad y Control de Autorización:**
-    - Verificación estricta de pertenencia en `reprogramar_reserva` y aborto transaccional `UNAUTHORIZED_RESERVATION` en `reprogramarClasePruebaLead` si se intenta operar una reserva ajena.
-    - Soporte para desambiguación unívoca por `reserva_id` ante alumnos homónimos en la misma familia.
+- **P1A: Runtime Guard Determinista y Telemetría Segura Zero PII:**
+  - **Runtime Guard Determinista en `functions/index.js`:**
+    - Inspección post-generación obligatoria en `preguntarIA` antes del envío de texto a WhatsApp o al cliente.
+    - Análisis semántico de afirmaciones de mutación (`booking`, `reschedule`, `cancellation`) y validación contra el contexto del turno (`turnContext.toolRecords`).
+    - Verificación estricta de correspondencia de **persona**: el éxito para un hijo no justifica la confirmación para otro hermano, y el rechazo de un hermano invalida confirmaciones conjuntas.
+    - Verificación estricta de correspondencia de **fecha**: el agendamiento en una fecha no autoriza confirmar otra fecha distinta.
+    - Verificación estricta de correspondencia de **operación**: una reserva de prueba no justifica una reprogramación ni cancelación.
+    - Detección y bloqueo de contradicciones ante rechazos de tools (`ALREADY_ATTENDED`, `CLASS_FULL`, `NO_SHOW_PREVIOUS`, `INVALID_DATE`, etc.).
+    - Fail-Safe con mensaje seguro de contención y marcado automático del lead en Firestore con `status: 'requiere_atencion'`, evitando alertamiento duplicado si ya fue escalado (`alreadyEscalated`).
+    - Fallback técnico transparente ante fallas de base de datos sin prometer falsas derivaciones completadas.
+    - Preservación de `ai_habilitada` para evitar suspensiones permanentes involuntarias.
+  - **Estructuración de Salidas de Tools (`TurnContext`):**
+    - Todos los handlers de `AVAILABLE_TOOLS` registran metadatos enriquecidos de ejecución (`tool_name`, `operation`, `status`, `reason_code`, `mutation_committed`, `persona_slug`, `reservation_ref`, `fecha_confirmada`, `fecha_iso`, `hora`, `sede`).
+    - Aislamiento completo de `TurnContext` por turno para evitar filtraciones de estado.
+  - **Telemetría Segura Zero PII (ACC / DANEV):**
+    - `lead_hash` mediante HMAC-SHA256 con salt secreto (`TELEMETRY_SALT`), mitigando desanonimización de teléfonos por tablas rainbow.
+    - Ofuscación de nombres de menores a `persona_ref` (`p_` + HMAC hex) y exclusión de textos de usuarios.
+    - Buffer en memoria volátil `TELEMETRY_BUFFER` acotado a 100 eventos.
   - **Suites de Pruebas:**
-    - `test_p02b_family_identity.js`: 10 de 10 pruebas aprobadas (100% PASS).
-    - `test_p02a_rescheduling.js`: 22 de 22 pruebas aprobadas (100% PASS).
+    - `test_p1a_runtime_guard.js`: **27 de 27 pruebas aprobadas (100% PASS)**.
     - `test_p01_recognition.js`: 14 de 14 pruebas aprobadas (100% PASS).
-    - `suite_runner.js`: Defectos de línea base reducidos de 2 a 1 (Caso 5 resuelto, sólo resta Caso 8 de alucinaciones en runtime).
+    - `test_p02a_rescheduling.js`: 22 de 22 pruebas aprobadas (100% PASS).
+    - `test_p02b_family_identity.js`: 10 de 10 pruebas aprobadas (100% PASS).
+    - `suite_runner.js`: **9 de 9 escenarios OK (0 defectos baseline restantes)**.
+    - Total acumulado: **82 de 82 pruebas aprobadas (100% PASS)**.
 
 ---
 
-## [P0.2A] — 2026-11-11
-### [COMMIT LOCAL: df2650e] (Rama `fix/real-whatsapp-logic`)
-- **P0.2A: Reprogramación Segura e Integridad de Reservas:**
-  - **Herramienta `reprogramar_reserva`:**
-    - Creada en `AVAILABLE_TOOLS` de `functions/index.js`.
-    - Modifica la fecha de una reserva confirmada de forma atómica con `runTransaction`.
-    - Mantiene trazabilidad histórica completa en el arreglo `reprogramaciones` (`fecha_anterior`, `nueva_fecha`, `motivo`, `fecha_reprogramacion`).
-    - Valida contra el patrón de días de clase (`M, J`), cupos disponibles (`cupos_disponibles > 0`) y vigencia temporal en `America/Lima`.
-    - Emite notificaciones in-app al instructor correspondiente (`users/{instId}/notificaciones`).
-  - **Corrección de Duplicados en `reservar_clase_prueba`:**
-    - Reservas canceladas (`status == 'cancelado'`) o pasadas ya no bloquean una nueva reserva de clase de prueba.
-    - Detección de reservas confirmadas activas sugiere el uso de `reprogramar_reserva` en lugar de duplicar o bloquear a ciegas.
-  - **Política Comercial:**
-    - Leads o asistentes con historial `asistio` o `no_asistio` no reciben segundas clases gratuitas automáticas.
-    - Se interceptan tanto en agendamiento como en reprogramación y se derivan con `marcar_seguimiento_humano`.
-  - **Concurrencia e Idempotencia Transaccional:**
-    - Lock optimista dentro de `runTransaction` usando `reservas_activas: { [slug]: ... }` en el documento `whatsapp_leads/{leadId}`.
-    - Previene inserciones dobles por mensajes concurrentes o reintentos rápidos de webhook.
-  - **Soporte Multi-Hijo No Destructivo:**
-    - `guardar_perfil_lead` actualiza perfiles mediante fusión por slug (`slugifyPersona`), evitando la sobreescritura de hijos registrados previamente.
-  - **Retrocompatibilidad Multi-Sede:**
-    - Soporte completo y seguro para documentos y clases legacy que no cuenten con el atributo `sede_id`.
-  - **Suites de Pruebas:**
-    - `test_p02a_rescheduling.js`: 22 de 22 pruebas aprobadas (100% PASS).
-    - `test_p01_recognition.js`: 14 de 14 pruebas aprobadas (100% PASS).
-    - `suite_runner.js`: Defectos de línea base reducidos de 6 a 2 (Casos 3, 4, 6 y 7 resueltos).
+## [bd36b9a] — 2026-11-11
+### [COMMIT LOCAL: bd36b9a] (Rama `fix/real-whatsapp-logic`)
+- **Gate de Integración P0.2A + P0.2B y Decisión 5:**
+  - Consolidación de Decisiones 5 (resolución dinámica multisede) y 13 (identidad familiar y reservas múltiples).
+  - Trazabilidad y auditoría de commits de P0.2A (`df2650e`) y P0.2B (`ae75ee6`).
+
+---
+
+## [ae75ee6] — 2026-11-11
+### [COMMIT LOCAL: ae75ee6] (Rama `fix/real-whatsapp-logic`)
+- **P0.2B: Identidad Familiar y Reservas Múltiples:**
+  - Resolución no ambigua de identidad y prohibición de adivinanza (`personas[0]`).
+  - Preservación y reconciliación de reservas legacy con `reserva_id` escalar.
+  - Aislamiento total de estados entre hermanos.
+  - 10 de 10 pruebas aprobadas en `test_p02b_family_identity.js`.
+  - Caso 5 de la suite de línea base resuelto.
 
 ---
 
 ## [Unreleased / Siguiente Paso]
 ### [DISEÑADO - PENDIENTE IMPLEMENTACIÓN]
-- **P0.2B / P1: Detección y Prevención de Alucinaciones en Runtime & Visualización Staging:**
-  - Validador en tiempo real de promesas conversacionales en `preguntarIA`.
-  - Panel administrativo visual para inspección de telemetría y control humano.
+- **P1B / P2: Agent Control Center e Interfaz de Visualización Staging:**
+  - Panel administrativo visual para inspección de telemetría y control de tools.
+  - Dashboard para monitorización en tiempo real de intercepciones del Runtime Guard.

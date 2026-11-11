@@ -3,7 +3,8 @@
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-11  
 > **Rama Actual:** `fix/real-whatsapp-logic`  
-> **Commit Base:** `3058ada` (main) $\rightarrow$ `b1c3af6` (harness) $\rightarrow$ `9c53417` (P0.1)
+> **Commit HEAD:** `bd36b9a` (+ P1A local listo para revisión)
+> **Producción Intacta:** `3058ada` (main, `whatsappWebhook v67`)
 
 ---
 
@@ -35,7 +36,7 @@ flowchart LR
 | Rama | Commit HEAD | Propósito y Estado |
 |---|---|---|
 | **`main`** | `3058ada` | **Producción activa.** Coincide exactamente con la revisión `whatsappWebhook v67` desplegada en Google Cloud el 23-OCT-2026. Tag: `pre-live-original-2026-10-27`. |
-| **`fix/real-whatsapp-logic`** | `df2650e` (+ P0.2B local) | **Rama de desarrollo real activa.** Contiene el harness (`b1c3af6`), P0.1 (`9c53417`), master docs (`264e314`), P0.2A (`df2650e`) y la implementación local de **P0.2B (Identidad Familiar y Reservas Múltiples)** lista para revisión. |
+| **`fix/real-whatsapp-logic`** | `bd36b9a` (+ P1A local) | **Rama de desarrollo real activa.** Contiene el harness (`b1c3af6`), P0.1 (`9c53417`), master docs (`264e314`), P0.2A (`df2650e`), P0.2B (`ae75ee6`), decisión 5 multisede (`bd36b9a`) e implementación local de **P1A (Runtime Guard y Telemetría Zero PII)** lista para revisión. |
 | `stabilization/pre-live-2026-10-28` | `caf628a` | Línea independiente de estabilización previa al LIVE de TikTok (controles de seguridad e idempotencia). |
 | `demo/tiktok-live-2026-10-28` | `7243a7f` | Línea exclusiva de demostración visual en memoria para grabación y TikTok LIVE (código aislado en `demo/`). |
 
@@ -43,19 +44,28 @@ flowchart LR
 
 ## 3. Estado Real: Producción vs. Desarrollo vs. Simulador
 
-- **Producción (`whatsappWebhook v67`):**
+- **Producción (`whatsappWebhook v67` en `main` `3058ada`):**
+  - Intacta, sin cambios, sin despliegue.
   - Opera con amnesia de reservas: `generarSystemPrompt` no consulta `/reservas`.
   - Sufre bloqueo de reservas si el lead tiene una reserva cancelada o pasada.
   - No soporta reprogramación de fechas; arriesga alucinaciones de confirmación de palabra.
 - **Desarrollo Local (`fix/real-whatsapp-logic`):**
-  - **P0.1 implementado:** `generarSystemPrompt` recibe `leadId` y consulta `/reservas` activas en `America/Lima` (14/14 tests PASS).
+  - **P0.1 implementado:** `generarSystemPrompt` recibe `leadId` y consulta `/reservas` activas en `America/Lima` (commit `9c53417`, 14/14 tests PASS).
   - **P0.2A implementado:** Tool real `reprogramar_reserva` con persistencia atómica, corrección de duplicados, salvaguardas comerciales y lock transaccional (commit `df2650e`, 22/22 tests PASS).
-  - **P0.2B implementado localmente:**
-    - Identidad familiar y resolución no ambigua de alumnos: prohibición de adivinanza (`personas[0]`) ante "mi hijo" o "el nene".
-    - Preservación y auto-reconciliación de hermanos en `reservas_activas` desde registros legacy.
-    - Autorización estricta por `lead_id` y soporte para `reserva_id` directo y desambiguación de homónimos.
-    - Suite de 10 pruebas P0.2B superada al 100% (`test_p02b_family_identity.js`).
-    - Suite de línea base reducida a 1 único defecto restante (Caso 5 resuelto).
+  - **P0.2B implementado:** Identidad familiar no destructiva, aislamiento por alumno y soporte para múltiples reservas (commit `ae75ee6`, 10/10 tests PASS).
+  - **Gate de Integración completado:** Consolidación de Decisiones 5 y 13 (commit `bd36b9a`).
+  - **P1A implementado localmente:**
+    - Runtime Guard determinista post-generación en `preguntarIA`.
+    - Detección semántica de afirmaciones no respaldadas (`booking`, `reschedule`, `cancellation`) y contradicciones de rechazos de tools.
+    - Validación estructurada de correspondencia de **persona**, **fecha** y **tipo de operación**.
+    - Prevención de contradicciones en resultados mixtos familiares (un hijo confirmado y otro rechazado por cupos).
+    - Sustitución automática por mensaje seguro y escalación a `requiere_atencion` con detección de `alreadyEscalated`.
+    - Fallback técnico transparente si la persistencia de base de datos falla, sin falsas promesas.
+    - Preservación de `ai_habilitada` (el guard no la desactiva automáticamente).
+    - Telemetría estructurada Zero PII con `lead_hash` HMAC-SHA256 (`TELEMETRY_SALT`) y `persona_ref` (`p_` + hash) que previene desanonimización de teléfonos o nombres de menores.
+    - Suite P1A superada al 100% (**27/27 tests PASS**).
+    - Suite de línea base eliminó el defecto histórico de Caso 8 (9/9 escenarios OK, 0 defectos).
+    - Total de suites de pruebas locales: **82 de 82 pruebas aprobadas (100% PASS)**.
 - **Simulador Local (`real_agent_harness/`):**
   - Activo en `http://127.0.0.1:3333`.
   - Ejecuta el archivo real `functions/index.js` mediante Node.js `vm.compileFunction`.
@@ -137,16 +147,60 @@ Ubicadas en `functions/index.js` (`AVAILABLE_TOOLS`):
   21. `21_reprogramacion_sin_segunda_clase`: Reprogramación modifica la cita existente sin conceder clases extras.
   22. `22_error_transaccional_failsafe`: Manejo seguro de abortos transaccionales por contención o cupos.
 
-### C. Suite de Línea Base (`suite_runner.js`):
+### C. Suite de Identidad Familiar P0.2B (`test_p02b_family_identity.js`):
+- **10 de 10 pruebas pasaron (100% PASS):**
+  1. `01_familia_dos_hijos_dos_reservas`: Documentos independientes en `/reservas` y `reservas_activas`.
+  2. `02_reprogramar_hijo_sin_alterar_hermano`: Reprogramación de Mateo a jueves sin tocar reserva de Lucía en martes.
+  3. `03_mensaje_ambiguo_solicita_aclaracion`: Solicitud explícita de aclaración ante referencias ambiguas.
+  4. `04_referencia_inequivoca_por_nombre`: Despacho exacto a la persona indicada.
+  5. `05_lead_legacy_reserva_id_escalar`: Reconciliación no destructiva con reservas históricas.
+  6. `06_registro_nuevo_con_reservas_activas`: Reprogramación directa vía `reserva_id`.
+  7. `07_familia_reserva_cancelada_y_activa`: Aislamiento de estados entre hermanos.
+  8. `08_dos_hijos_nombres_iguales_desambiguacion`: Desambiguación forzada ante homónimos.
+  9. `09_intento_operar_reserva_ajena_unauthorized`: Rechazo estricto de autorización por teléfono.
+  10. `10_reintento_operacion_sin_duplicar`: Idempotencia de booking en reintentos.
+
+### D. Suite de Runtime Guard y Telemetría P1A (`test_p1a_runtime_guard.js`):
+- **27 de 27 pruebas pasaron (100% PASS):**
+  1. `01_booking_tool_success_allowed`: Booking exitoso con tool persistido $\rightarrow$ ALLOW.
+  2. `02_booking_without_tool_intercepted`: Alucinación verbal de booking sin tool $\rightarrow$ INTERCEPT, fallback seguro y `requiere_atencion`.
+  3. `03_booking_tool_failed_intercepted`: Falla de base de datos en booking $\rightarrow$ INTERCEPT.
+  4. `04_booking_tool_rejected_already_attended_intercepted`: Rechazo por `asistio` previo con alucinación $\rightarrow$ INTERCEPT.
+  5. `05_booking_tool_rejected_no_show_intercepted`: Rechazo por `no_asistio` previo con alucinación $\rightarrow$ INTERCEPT.
+  6. `06_booking_tool_rejected_class_full_intercepted`: Rechazo por `cupos_disponibles == 0` $\rightarrow$ INTERCEPT.
+  7. `07_reschedule_tool_success_allowed`: Reprogramación exitosa persistida $\rightarrow$ ALLOW.
+  8. `08_reschedule_without_tool_intercepted`: Defecto histórico baseline interceptado $\rightarrow$ INTERCEPT.
+  9. `09_reschedule_tool_rejected_invalid_date_intercepted`: Rechazo por fecha de día inválido $\rightarrow$ INTERCEPT.
+  10. `10_reschedule_tool_rejected_expired_date_intercepted`: Rechazo por cita vencida en el pasado $\rightarrow$ INTERCEPT.
+  11. `11_preexisting_reservation_reminder_allowed`: Recordatorio de cita previa en `systemPrompt` sin tool $\rightarrow$ ALLOW.
+  12. `12_consultation_horarios_allowed`: Consulta de horarios y precios sin mutación $\rightarrow$ ALLOW.
+  13. `13_profile_saving_allowed`: Guardado de perfil familiar sin mutación $\rightarrow$ ALLOW.
+  14. `14_human_escalation_allowed`: Escalación humana vía `marcar_seguimiento_humano` $\rightarrow$ ALLOW.
+  15. `15_telemetry_zero_pii_verification`: Verificación estricta de telemetría Zero PII (`lead_hash` HMAC-SHA256, sin teléfonos en texto claro).
+  16. `16_multi_tool_execution_telemetry`: Ejecución multi-tool encadenada (`guardar_perfil_lead` + `reservar_clase_prueba`) $\rightarrow$ ALLOW y telemetría íntegra.
+  17. `17_booking_success_different_person_intercepted`: Éxito para Mateo pero texto afirma Lucía $\rightarrow$ INTERCEPT (discrepancia de persona).
+  18. `18_booking_success_different_date_intercepted`: Éxito para martes 17 pero texto afirma jueves 19 $\rightarrow$ INTERCEPT (discrepancia de fecha).
+  19. `19_cross_operation_mismatch_intercepted`: Herramienta de reserva intentando autorizar afirmación de reprogramación $\rightarrow$ INTERCEPT.
+  20. `20_multi_child_mixed_results_intercepted`: Resultados mixtos (Mateo OK, Lucía rechazada) con afirmación colectiva de éxito $\rightarrow$ INTERCEPT.
+  21. `21_negation_and_hypothesis_no_false_positive`: Frases explicativas de negación ("no pude agendar") e hipótesis $\rightarrow$ ALLOW (sin falso positivo).
+  22. `22_unrecognized_idiom_boundary_documented`: Límite semántico documentado ante modismos atípicos sin verbos estándar ("apunté en la libreta").
+  23. `23_error_on_human_escalation_safe_fallback`: Falla en Firestore durante intercepción entrega mensaje técnico sin promesas falsas.
+  24. `24_retry_deduplication_already_escalated`: Reintento sobre lead ya escalado detecta `alreadyEscalated` evitando saturación de alertas.
+  25. `25_telemetry_sanitization_deep_inspection`: Inspección profunda de eventos: `persona_ref` HMAC, sin nombres de menores ni teléfonos.
+  26. `26_multi_turn_turncontext_isolation`: Aislamiento estricto de `TurnContext`: Turno 1 no autoriza alucinaciones en Turno 2.
+  27. `27_all_llm_exit_routes_coverage`: Cobertura exhaustiva: `preguntarIA` intercepta antes de entregar texto al webhook.
+
+### E. Suite de Línea Base (`suite_runner.js`):
 - Caso 1: Consulta de horarios $\rightarrow$ **OK**.
 - Caso 2: Reserva vigente $\rightarrow$ **OK**.
 - Caso 3: Reserva cancelada que quiere agendar $\rightarrow$ **OK (RESUELTO EN P0.2A)**.
 - Caso 4: Reserva pasada que quiere volver a reservar $\rightarrow$ **OK (RESUELTO EN P0.2A)**.
-- Caso 5: Padre/madre con dos hijos y reservas diferentes $\rightarrow$ **OK (RESUELTO EN P0.2B)**. Trazabilidad multi-hijo preservada en `reservas_activas` y `/reservas` para Mateo y Lucía.
+- Caso 5: Padre/madre con dos hijos y reservas diferentes $\rightarrow$ **OK (RESUELTO EN P0.2B)**.
 - Caso 6: Solicitud de reprogramación martes a jueves $\rightarrow$ **OK (RESUELTO EN P0.2A)**.
 - Caso 7: Persistencia documental de nueva fecha $\rightarrow$ **OK (RESUELTO EN P0.2A)**.
-- Caso 8: Confirmación textual alucinada $\rightarrow$ Fixture negativo de baseline.
+- Caso 8: Confirmación textual sin escritura persistida $\rightarrow$ **OK (RESUELTO EN P1A)**: Runtime Guard interceptó la promesa falsa sin persistencia.
 - Caso 9: Control humano $\rightarrow$ **OK**.
+- **Resultado Global de Línea Base:** **9 de 9 escenarios OK (0 defectos documentados restantes).**
 
 ---
 
