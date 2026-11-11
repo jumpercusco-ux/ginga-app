@@ -91,3 +91,15 @@ Cada decisión se clasifica estrictamente en uno de tres estados:
 - **Medida Provisional Actual:** El backend bloquea el reagendamiento automático desatendido y deriva a `marcar_seguimiento_humano`. Es una salvaguarda provisional para evitar reprogramaciones infinitas sin justificación.
 - **Propuesta Técnica:** Permitir **un (1) reagendamiento automático** de cortesía si el cliente se comunica para justificar la inasistencia. Si incurre en una segunda falta, derivar al profesor.
 - **Acción Requerida:** Aprobación o ajuste formal por parte de los directores comerciales de GINGA.
+
+---
+
+### 13. Resolución de Identidad Familiar y Reservas Múltiples (P0.2B)
+- **Estado:** `[APROBADA]`
+- **Contexto:** Familias con múltiples hijos contactan desde un único número de WhatsApp familiar (`lead_id`). En el esquema legacy (`3058ada`), los campos escalares (`reserva_id`, `fecha_clase_reservada`) sobreescribían los datos del primer hijo al agendar al segundo. Además, referencias ambiguas como "mi hijo" o "el pequeño" causaban que el sistema adivinara arbitrariamente o atribuyera reservas de un hermano al otro.
+- **Decisión:**
+  1. **Trazabilidad no destructiva:** Mantener el mapa estructurado `reservas_activas: { [slug]: { reserva_id, clase_id, nombre_persona, fecha_clase, status, hora } }` en `whatsapp_leads`, preservando compatibilidad retroactiva con campos escalares (`reserva_id`) para clientes legacy.
+  2. **Reconciliación automática:** Al agendar o reprogramar, las reservas históricas o de hermanos en `/reservas` se auto-incorporan a `reservas_activas` sin pérdida de datos.
+  3. **Aislamiento por alumno:** Las reservas de hermanos son completamente independientes. La cancelación, inasistencia o asistencia de un hermano no afecta ni bloquea las clases de sus hermanos.
+  4. **Prohibición de adivinanza:** Ante referencias ambiguas ("mi hijo", "el nene") o nombres no especificados en familias con múltiples perfiles, el bot solicita aclaración explícita indicando los nombres registrados, en lugar de asumir el primer perfil (`personas[0]`) o usar el nombre de contacto de WhatsApp del padre/madre.
+  5. **Autorización y desambiguación:** `reprogramar_reserva` valida que el `reserva_id` pertenezca al número de WhatsApp autenticado. Si dos alumnos comparten el mismo nombre en la misma familia, el sistema exige desambiguación mediante `reserva_id` o fecha/horario.

@@ -46,8 +46,28 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
-## [P0.2A Local] — 2026-11-11
-### [PROBADO LOCALMENTE] (Rama `fix/real-whatsapp-logic` — Pendiente de Commit por Usuario)
+## [P0.2B Local] — 2026-11-11
+### [PROBADO LOCALMENTE] (Rama `fix/real-whatsapp-logic`)
+- **P0.2B: Identidad Familiar y Reservas Múltiples:**
+  - **Resolución de Identidad No Ambigua:**
+    - `reservar_clase_prueba` y `reprogramar_reserva` detectan ambigüedades en mensajes genéricos ("mi hijo", "el nene", etc.) y solicitan aclaración indicando las personas registradas, en lugar de asumir arbitrariamente `personas[0]`.
+    - Prohibición de usar el nombre de contacto de WhatsApp del padre/madre para clases infantiles (`tipo === 'niño'`) cuando no se especifica el nombre del alumno.
+  - **Preservación y Reconciliación de Reservas Legacy:**
+    - `reservarClasePruebaLead` y `reprogramarClasePruebaLead` auto-migran reservas preexistentes (con `reserva_id` escalar) a `reservas_activas`, garantizando que agendar o reprogramar para un hermano no desasocie al otro.
+    - Las reservas de hermanos son completamente independientes: estados de cancelación, inasistencia o asistencia previa de un hijo no se atribuyen ni bloquean a los demás.
+  - **Seguridad y Control de Autorización:**
+    - Verificación estricta de pertenencia en `reprogramar_reserva` y aborto transaccional `UNAUTHORIZED_RESERVATION` en `reprogramarClasePruebaLead` si se intenta operar una reserva ajena.
+    - Soporte para desambiguación unívoca por `reserva_id` ante alumnos homónimos en la misma familia.
+  - **Suites de Pruebas:**
+    - `test_p02b_family_identity.js`: 10 de 10 pruebas aprobadas (100% PASS).
+    - `test_p02a_rescheduling.js`: 22 de 22 pruebas aprobadas (100% PASS).
+    - `test_p01_recognition.js`: 14 de 14 pruebas aprobadas (100% PASS).
+    - `suite_runner.js`: Defectos de línea base reducidos de 2 a 1 (Caso 5 resuelto, sólo resta Caso 8 de alucinaciones en runtime).
+
+---
+
+## [P0.2A] — 2026-11-11
+### [COMMIT LOCAL: df2650e] (Rama `fix/real-whatsapp-logic`)
 - **P0.2A: Reprogramación Segura e Integridad de Reservas:**
   - **Herramienta `reprogramar_reserva`:**
     - Creada en `AVAILABLE_TOOLS` de `functions/index.js`.

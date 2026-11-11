@@ -229,22 +229,27 @@ const BASELINE_SCENARIOS = [
       const tieneMateo = reservas.some((r) => (r.nombre_persona || '').includes('Mateo'));
       const tieneLucia = reservas.some((r) => (r.nombre_persona || '').includes('Lucía'));
 
-      // Verificar whatsapp_leads escalares
       const lead = resultado.leadData;
-      const reservaIdEscalar = lead.reserva_id;
-      // Solo puede guardar uno en reserva_id
-      const sobreescrituraDetectada =
+      const activas = lead.reservas_activas || {};
+      const tieneMateoEnActivas = Boolean(activas.mateo);
+      const tieneLuciaEnActivas = Boolean(activas.lucia);
+
+      const trazabilidadMultiHijo =
         reservas.length === 2 &&
-        reservaIdEscalar &&
-        reservas.filter((r) => r.id === reservaIdEscalar).length === 1;
+        tieneMateo &&
+        tieneLucia &&
+        tieneMateoEnActivas &&
+        tieneLuciaEnActivas;
+
+      const defectoTrazabilidad = !trazabilidadMultiHijo;
 
       return {
         pasa: true,
-        baselineBug: sobreescrituraDetectada,
+        baselineBug: defectoTrazabilidad,
         categoria: 'Multi-Persona',
-        diagnostico: sobreescrituraDetectada
-          ? `BASELINE CONFIRMADO: En /reservas se crearon ${reservas.length} documentos, pero en whatsapp_leads los campos reserva_id y fecha_clase_reservada son escalares y solo reflejan a uno de los hijos (${reservaIdEscalar}), perdiendo la trazabilidad del primero.`
-          : `Se crearon ${reservas.length} reservas.`,
+        diagnostico: defectoTrazabilidad
+          ? `BASELINE CONFIRMADO: En /reservas se crearon ${reservas.length} documentos, pero en whatsapp_leads los campos reserva_id y fecha_clase_reservada son escalares y solo reflejan a uno de los hijos, perdiendo la trazabilidad del primero.`
+          : `Trazabilidad multi-hijo preservada en reservas_activas y /reservas para Mateo y Lucía.`,
       };
     },
   },

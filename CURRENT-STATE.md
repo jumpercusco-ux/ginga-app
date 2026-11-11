@@ -35,7 +35,7 @@ flowchart LR
 | Rama | Commit HEAD | Propósito y Estado |
 |---|---|---|
 | **`main`** | `3058ada` | **Producción activa.** Coincide exactamente con la revisión `whatsappWebhook v67` desplegada en Google Cloud el 23-OCT-2026. Tag: `pre-live-original-2026-10-27`. |
-| **`fix/real-whatsapp-logic`** | `264e314` (+ P0.2A local) | **Rama de desarrollo real activa.** Contiene el harness (`b1c3af6`), P0.1 (`9c53417`), master docs (`264e314`) y la implementación local de **P0.2A (Reprogramación Segura e Integridad)** lista para revisión. |
+| **`fix/real-whatsapp-logic`** | `df2650e` (+ P0.2B local) | **Rama de desarrollo real activa.** Contiene el harness (`b1c3af6`), P0.1 (`9c53417`), master docs (`264e314`), P0.2A (`df2650e`) y la implementación local de **P0.2B (Identidad Familiar y Reservas Múltiples)** lista para revisión. |
 | `stabilization/pre-live-2026-10-28` | `caf628a` | Línea independiente de estabilización previa al LIVE de TikTok (controles de seguridad e idempotencia). |
 | `demo/tiktok-live-2026-10-28` | `7243a7f` | Línea exclusiva de demostración visual en memoria para grabación y TikTok LIVE (código aislado en `demo/`). |
 
@@ -49,14 +49,13 @@ flowchart LR
   - No soporta reprogramación de fechas; arriesga alucinaciones de confirmación de palabra.
 - **Desarrollo Local (`fix/real-whatsapp-logic`):**
   - **P0.1 implementado:** `generarSystemPrompt` recibe `leadId` y consulta `/reservas` activas en `America/Lima` (14/14 tests PASS).
-  - **P0.2A implementado localmente:**
-    - Tool real `reprogramar_reserva` con persistencia atómica, validación de fechas/horarios y auditoría cronológica (`reprogramaciones`).
-    - Corrección de duplicados en `reservar_clase_prueba`: reservas canceladas o pasadas ya no bloquean nuevos agendamientos.
-    - Política comercial estricta: leads con estado `asistio` o `no_asistio` no reciben clases gratis automáticas ni reagendamiento desatendido (se derivan a `marcar_seguimiento_humano`).
-    - Concurrencia e idempotencia: lock optimista en `whatsapp_leads` (`reservas_activas: { [slug]: ... }`) dentro de la transacción Firestore.
-    - Soporte multi-hijo no destructivo: fusión por nombre propio en `guardar_perfil_lead` (`merge by slug`).
-    - Compatibilidad hacia atrás 100% con clases o reservas sin `sede_id`.
-    - Suite de 22 pruebas P0.2A superada al 100% (`test_p02a_rescheduling.js`).
+  - **P0.2A implementado:** Tool real `reprogramar_reserva` con persistencia atómica, corrección de duplicados, salvaguardas comerciales y lock transaccional (commit `df2650e`, 22/22 tests PASS).
+  - **P0.2B implementado localmente:**
+    - Identidad familiar y resolución no ambigua de alumnos: prohibición de adivinanza (`personas[0]`) ante "mi hijo" o "el nene".
+    - Preservación y auto-reconciliación de hermanos en `reservas_activas` desde registros legacy.
+    - Autorización estricta por `lead_id` y soporte para `reserva_id` directo y desambiguación de homónimos.
+    - Suite de 10 pruebas P0.2B superada al 100% (`test_p02b_family_identity.js`).
+    - Suite de línea base reducida a 1 único defecto restante (Caso 5 resuelto).
 - **Simulador Local (`real_agent_harness/`):**
   - Activo en `http://127.0.0.1:3333`.
   - Ejecuta el archivo real `functions/index.js` mediante Node.js `vm.compileFunction`.
@@ -143,7 +142,7 @@ Ubicadas en `functions/index.js` (`AVAILABLE_TOOLS`):
 - Caso 2: Reserva vigente $\rightarrow$ **OK**.
 - Caso 3: Reserva cancelada que quiere agendar $\rightarrow$ **OK (RESUELTO EN P0.2A)**.
 - Caso 4: Reserva pasada que quiere volver a reservar $\rightarrow$ **OK (RESUELTO EN P0.2A)**.
-- Caso 5: Multi-persona $\rightarrow$ Resuelto a nivel de datos (`reservas_activas`), campos escalares legacy conservados por retrocompatibilidad.
+- Caso 5: Padre/madre con dos hijos y reservas diferentes $\rightarrow$ **OK (RESUELTO EN P0.2B)**. Trazabilidad multi-hijo preservada en `reservas_activas` y `/reservas` para Mateo y Lucía.
 - Caso 6: Solicitud de reprogramación martes a jueves $\rightarrow$ **OK (RESUELTO EN P0.2A)**.
 - Caso 7: Persistencia documental de nueva fecha $\rightarrow$ **OK (RESUELTO EN P0.2A)**.
 - Caso 8: Confirmación textual alucinada $\rightarrow$ Fixture negativo de baseline.

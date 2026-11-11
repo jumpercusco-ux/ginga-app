@@ -8,26 +8,25 @@
 
 - **Proyecto:** `/Users/jumper/ginga_app`
 - **Rama Activa:** `fix/real-whatsapp-logic`
-- **Commit Base:** `264e314` (`docs: establish permanent architectural documentation master files`)
-- **Estado de Trabajo:** Implementación local de **P0.2A: Reprogramación segura e integridad de reservas** completada y verificada. **PENDIENTE DE REVISIÓN DEL USUARIO ANTES DE COMMIT.**
+- **Commit Base:** `df2650e` (`feat(agent): implement safe rescheduling tool, duplicate prevention, and transactional integrity (P0.2A)`)
+- **Estado de Trabajo:** Implementación de **P0.2B: Identidad familiar y reservas múltiples** completada y verificada al 100%. **PENDIENTE DE COMMIT LOCAL.**
 - **Producción:** Google Cloud Function `whatsappWebhook v67` (asociada a `main` en commit `3058ada`). **Producción NO ha sido tocada.**
 
 ---
 
 ## 2. Qué se Acaba de Terminar
 
-1. **Implementación de P0.2A (Reprogramación Segura e Integridad de Reservas):**
-   - **Tool `reprogramar_reserva`:** Creada en `functions/index.js` (`AVAILABLE_TOOLS`). Permite reprogramar citas atómicamente con trazabilidad completa en `reprogramaciones` y notificación al instructor.
-   - **Corrección de Duplicados en `reservar_clase_prueba`:** Ya no bloquea citas si existen reservas previas canceladas o pasadas.
-   - **Política Comercial:** Leads o personas con estado `asistio` o `no_asistio` son interceptados y derivados a `marcar_seguimiento_humano` sin conceder segundas clases de prueba gratis de forma automática.
-   - **Concurrencia e Idempotencia:** Lock transaccional dentro de `runTransaction` usando `reservas_activas: { [slug]: ... }` en `whatsapp_leads` para evitar colisiones por mensajes concurrentes.
-   - **Soporte Multi-Hijo:** `guardar_perfil_lead` fusiona perfiles por slug en vez de sobreescribir destructivamente el arreglo.
-   - **Compatibilidad Multi-Sede y Legacy:** Clases o reservas sin `sede_id` operan limpiamente con fallback a Cusco.
-   - **22 de 22 pruebas P0.2A superadas al 100% (`test_p02a_rescheduling.js`).**
+1. **Implementación de P0.2B (Identidad Familiar y Reservas Múltiples):**
+   - **Resolución de Identidad No Ambigua:** Ante términos genéricos ("mi hijo", "el nene", etc.), el bot no asume el primer perfil (`personas[0]`) sino que solicita clarificación explícita con los nombres de pila de la familia.
+   - **Prohibición de Nombre de Contacto en Niños:** Clases infantiles (`tipo === 'niño'`) no usan el nombre del padre/madre en el perfil si no se especificó el nombre del menor.
+   - **Trazabilidad y Reconciliación de Hermanos:** `reservas_activas` preserva a todos los hijos al registrar o reprogramar, auto-migrando documentos legacy.
+   - **Aislamiento Estricto:** Estados de cancelación, inasistencia o asistencia previa de un hijo no afectan ni bloquean a los demás.
+   - **Seguridad de Autorización:** Control estricto en `reprogramar_reserva` y aborto transaccional `UNAUTHORIZED_RESERVATION` en `reprogramarClasePruebaLead` ante intentos de operar reservas ajenas.
+   - **Resolución de Homónimos:** Exige desambiguación por `reserva_id` o fecha/horario si dos alumnos tienen el mismo nombre en la misma familia.
+   - **10 de 10 pruebas P0.2B superadas al 100% (`test_p02b_family_identity.js`).**
+   - **22 de 22 pruebas P0.2A conservadas al 100% (`test_p02a_rescheduling.js`).**
    - **14 de 14 pruebas P0.1 conservadas al 100% (`test_p01_recognition.js`).**
-2. **Harness Local Actualizado:**
-   - Servidor local en `http://127.0.0.1:3333` actualizado y corriendo.
-   - `loader.js` y `openai_adapter.js` adaptados para soportar `reprogramar_reserva`.
+   - **Suite de línea base:** Defectos reducidos a 1 (Caso 5 resuelto).
 
 ---
 
@@ -37,16 +36,19 @@
 # 1. Iniciar o reiniciar el servidor visual de pruebas en segundo plano (puerto 3333)
 node real_agent_harness/server.js
 
-# 2. Ejecutar la suite de pruebas de reprogramación P0.2A (22 pruebas)
+# 2. Ejecutar la suite de identidad familiar P0.2B (10 pruebas)
+node real_agent_harness/test_p02b_family_identity.js
+
+# 3. Ejecutar la suite de reprogramación P0.2A (22 pruebas)
 node real_agent_harness/test_p02a_rescheduling.js
 
-# 3. Ejecutar la suite de pruebas de reconocimiento P0.1 (14 pruebas)
+# 4. Ejecutar la suite de reconocimiento P0.1 (14 pruebas)
 node real_agent_harness/test_p01_recognition.js
 
-# 4. Ejecutar la suite de línea base (9 escenarios de auditoría)
+# 5. Ejecutar la suite de línea base (9 escenarios de auditoría)
 node real_agent_harness/suite_runner.js
 
-# 5. Verificar integridad de git (revisar diff local antes de commit)
+# 6. Verificar integridad de git
 git status
 git diff functions/index.js
 ```
@@ -55,9 +57,8 @@ git diff functions/index.js
 
 ## 4. Qué Sigue Exactamente (Siguiente Tarea)
 
-1. **Revisión del usuario de los cambios de P0.2A.**
-2. Tras la aprobación del usuario, realizar commit local de P0.2A.
-3. Avanzar hacia **P0.2B / P1: Detección y prevención de alucinaciones en tiempo real / Agent Control Center.**
+1. **Commit local de P0.2B.**
+2. Avanzar hacia **P1 / Agent Control Center & Runtime Anti-Hallucination Guard (Caso 8).**
 
 ---
 

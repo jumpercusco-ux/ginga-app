@@ -362,7 +362,9 @@ const PLACEHOLDERS_GENERICOS = new Set([
   'el_nino', 'la_nina', 'el_niño', 'la_niña', 'nino', 'nina', 'niño', 'niña',
   'bebe', 'bebé', 'pequeno', 'pequeño', 'pequena', 'pequeña', 'nombre', 'lead',
   'alumno', 'alumna', 'persona', 'asistente', 'chico', 'chica', 'hermano', 'hermana',
-  'principal', 'hijo_mayor', 'hija_mayor', 'hijo_menor', 'hija_menor'
+  'principal', 'hijo_mayor', 'hija_mayor', 'hijo_menor', 'hija_menor',
+  'nene', 'nena', 'el_nene', 'la_nene', 'el_pequeno', 'la_pequena', 'el_pequeño', 'la_pequeña',
+  'mi_pequeno', 'mi_pequeño', 'el_chico', 'la_chica'
 ]);
 
 function slugifyPersona(nombre) {
@@ -471,6 +473,7 @@ async function reservarClasePruebaLead(leadId, claseId, nombrePersona, fechaClas
     }
 
     const slug = slugifyPersona(nombrePersona);
+    const ahora = admin.firestore.FieldValue.serverTimestamp();
     const reservasActivas = (leadDoc.exists && leadDoc.data()?.reservas_activas)
       ? { ...leadDoc.data().reservas_activas }
       : {};
@@ -479,20 +482,37 @@ async function reservarClasePruebaLead(leadId, claseId, nombrePersona, fechaClas
     let activaPrevia = reservasActivas[slug];
 
     // Compatibilidad con leads legacy que no tienen mapa reservas_activas pero tienen reserva_id escalar
-    if (!activaPrevia && leadDoc.exists && leadDoc.data()?.reserva_id) {
-      const legacyReservaDoc = await transaction.get(
-        admin.firestore().collection('reservas').doc(leadDoc.data().reserva_id)
-      );
-      if (legacyReservaDoc.exists) {
-        const legData = legacyReservaDoc.data();
-        if (legData.status === 'confirmado') {
-          const legSlug = slugifyPersona(legData.nombre_persona);
-          if (legSlug === slug || !legData.nombre_persona) {
-            activaPrevia = {
-              reserva_id: legacyReservaDoc.id,
-              fecha_clase: legData.fecha_clase,
-              status: legData.status,
-            };
+    if (leadDoc.exists && leadDoc.data()?.reserva_id) {
+      const legacyId = leadDoc.data().reserva_id;
+      const legacyYaEnActivas = Object.values(reservasActivas).some((ra) => ra.reserva_id === legacyId);
+      if (!legacyYaEnActivas) {
+        const legacyReservaDoc = await transaction.get(
+          admin.firestore().collection('reservas').doc(legacyId)
+        );
+        if (legacyReservaDoc.exists) {
+          const legData = legacyReservaDoc.data();
+          if (legData.status === 'confirmado') {
+            const legSlug = slugifyPersona(legData.nombre_persona);
+            // Preservar la reserva legacy en reservasActivas para no perder la trazabilidad de hermanos
+            if (legSlug && !reservasActivas[legSlug]) {
+              reservasActivas[legSlug] = {
+                reserva_id: legacyReservaDoc.id,
+                clase_id: legData.clase_id || null,
+                nombre_persona: legData.nombre_persona || null,
+                fecha_clase: legData.fecha_clase,
+                status: legData.status,
+                hora: legData.hora || '',
+                updated_at: legData.updated_at || ahora,
+              };
+            }
+            // Si la reserva legacy pertenece a la MISMA persona que se está agendando, es activaPrevia
+            if (legSlug === slug || (!legData.nombre_persona && (!nombrePersona || nombrePersona === 'Lead'))) {
+              activaPrevia = {
+                reserva_id: legacyReservaDoc.id,
+                fecha_clase: legData.fecha_clase,
+                status: legData.status,
+              };
+            }
           }
         }
       }
@@ -518,7 +538,6 @@ async function reservarClasePruebaLead(leadId, claseId, nombrePersona, fechaClas
 
     const fechaClaseTimestamp = admin.firestore.Timestamp.fromDate(fechaClase);
     const reservaRef = admin.firestore().collection('reservas').doc();
-    const ahora = admin.firestore.FieldValue.serverTimestamp();
 
     // Solo persistir sede y ubicación si existen de forma verificada en el documento de clase
     const sedeVerificada = claseData.sede ? String(claseData.sede).trim() : null;
@@ -603,6 +622,12 @@ async function reprogramarClasePruebaLead(leadId, reservaId, nuevaFecha, motivo 
     if (!reservaDoc.exists) throw new Error('Reserva no encontrada');
 
     const reservaData = reservaDoc.data();
+
+    // Verificación de autorización: la reserva debe pertenecer a este lead
+    if (reservaData.lead_id && reservaData.lead_id !== leadId) {
+      throw new Error(`UNAUTHORIZED_RESERVATION: La reserva ${reservaId} pertenece a otro lead y no puede ser modificada`);
+    }
+
     if (reservaData.status !== 'confirmado') {
       throw new Error(`No se puede reprogramar una reserva con estado ${reservaData.status}`);
     }
@@ -648,6 +673,35 @@ async function reprogramarClasePruebaLead(leadId, reservaId, nuevaFecha, motivo 
     const reservasActivas = (leadDoc.exists && leadDoc.data()?.reservas_activas)
       ? { ...leadDoc.data().reservas_activas }
       : {};
+
+    // Si el lead tenía una reserva legacy en reserva_id que NO es esta reserva y no está en activas,
+    // preservarla en reservasActivas
+    if (leadDoc.exists && leadDoc.data()?.reserva_id && leadDoc.data().reserva_id !== reservaId) {
+      const legacyId = leadDoc.data().reserva_id;
+      const legacyYaEnActivas = Object.values(reservasActivas).some((ra) => ra.reserva_id === legacyId);
+      if (!legacyYaEnActivas) {
+        const legacyReservaDoc = await transaction.get(
+          admin.firestore().collection('reservas').doc(legacyId)
+        );
+        if (legacyReservaDoc.exists) {
+          const legData = legacyReservaDoc.data();
+          if (legData.status === 'confirmado') {
+            const legSlug = slugifyPersona(legData.nombre_persona);
+            if (legSlug && !reservasActivas[legSlug]) {
+              reservasActivas[legSlug] = {
+                reserva_id: legacyReservaDoc.id,
+                clase_id: legData.clase_id || null,
+                nombre_persona: legData.nombre_persona || null,
+                fecha_clase: legData.fecha_clase,
+                status: legData.status,
+                hora: legData.hora || '',
+                updated_at: legData.updated_at || ahora,
+              };
+            }
+          }
+        }
+      }
+    }
 
     reservasActivas[slug] = {
       reserva_id: reservaId,
@@ -905,18 +959,39 @@ const AVAILABLE_TOOLS = [
 
       if (!publicoBuscado || !nombrePersona) {
         const leadDoc = await admin.firestore().collection('whatsapp_leads').doc(leadId).get();
-        const personas = leadDoc.data()?.perfil_personas || [];
-        // El perfil del lead ('adulto' | 'niño') se guarda con guardar_perfil_lead;
-        // acá se mapea al valor 'publico' que usan los documentos de `clases`.
-        const match = (args?.nombre && personas.find((p) => p.nombre === args.nombre))
-          || (args?.tipo && personas.find((p) => p.tipo === args.tipo))
-          || personas[0];
-        if (!publicoBuscado) {
-          publicoBuscado = match?.tipo === 'niño' ? 'niños' : match?.tipo === 'adulto' ? 'jovenes_adultos' : null;
-        }
+        const leadData = leadDoc.exists ? leadDoc.data() : {};
+        const perfilPersonas = Array.isArray(leadData?.perfil_personas) ? leadData.perfil_personas : [];
+
         if (!nombrePersona) {
-          const candidatoNombre = match?.nombre || leadDoc.data()?.nombre;
-          nombrePersona = esNombreValidoPersona(candidatoNombre) ? candidatoNombre : 'Lead';
+          const candidatos = args?.tipo
+            ? perfilPersonas.filter((p) => p.tipo === args.tipo)
+            : perfilPersonas;
+
+          if (candidatos.length === 1 && esNombreValidoPersona(candidatos[0].nombre)) {
+            nombrePersona = candidatos[0].nombre;
+            if (!publicoBuscado) {
+              publicoBuscado = candidatos[0].tipo === 'niño' ? 'niños' : 'jovenes_adultos';
+            }
+          } else if (candidatos.length > 1) {
+            const nombres = candidatos.map((p) => p.nombre).filter(Boolean).join(', ');
+            return `Hay varias personas registradas en este perfil (${nombres}). Por favor indica el nombre de la persona específica para quien deseas agendar la clase de prueba.`;
+          } else if (perfilPersonas.length === 0) {
+            if (args?.tipo === 'niño') {
+              return 'Por favor indícame el nombre y edad de la persona que asistirá a la clase de prueba para poder agendarla.';
+            }
+            if (leadData.nombre && esNombreValidoPersona(leadData.nombre)) {
+              nombrePersona = leadData.nombre;
+            } else {
+              nombrePersona = 'Lead';
+            }
+          }
+        } else {
+          const match = perfilPersonas.find(
+            (p) => slugifyPersona(p.nombre) === slugifyPersona(nombrePersona)
+          );
+          if (match && !publicoBuscado) {
+            publicoBuscado = match.tipo === 'niño' ? 'niños' : 'jovenes_adultos';
+          }
         }
       }
 
@@ -937,11 +1012,17 @@ const AVAILABLE_TOOLS = [
         .where('lead_id', '==', leadId)
         .get();
 
+      const leadDocCheck = await admin.firestore().collection('whatsapp_leads').doc(leadId).get();
+      const perfilPersonasCheck = Array.isArray(leadDocCheck.data()?.perfil_personas) ? leadDocCheck.data().perfil_personas : [];
+
       const targetSlug = slugifyPersona(nombrePersona);
       const reservasPersona = existentesSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((r) => {
-          if (!r.nombre_persona) return true;
+          if (!r.nombre_persona) {
+            // Reserva legacy sin nombre: solo se atribuye si este lead no tiene perfil con múltiples personas
+            return perfilPersonasCheck.length <= 1;
+          }
           return slugifyPersona(r.nombre_persona) === targetSlug;
         });
 
@@ -1089,27 +1170,38 @@ const AVAILABLE_TOOLS = [
         .where('lead_id', '==', leadId)
         .get();
 
-      if (reservasSnap.empty) {
+      // Soporte para identificación directa y verificación estricta de autorización por reserva_id si fue provisto
+      let reservaPorId = null;
+      if (args?.reserva_id) {
+        const docRes = await admin.firestore().collection('reservas').doc(args.reserva_id).get();
+        if (!docRes.exists || docRes.data()?.lead_id !== leadId) {
+          return `La reserva con identificador "${args.reserva_id}" no pertenece a este número de teléfono o no existe. No se puede reprogramar una reserva no autorizada.`;
+        }
+        reservaPorId = { id: docRes.id, ...docRes.data() };
+        nombrePersona = reservaPorId.nombre_persona || nombrePersona;
+      }
+
+      if (reservasSnap.empty && !reservaPorId) {
         return 'No se encontró ninguna reserva previa para este lead. Si desea agendar una clase de prueba por primera vez, utiliza reservar_clase_prueba.';
       }
 
       const reservasDelLead = reservasSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      // Soporte para identificación directa y estable por reserva_id si fue provisto
-      if (args?.reserva_id) {
-        const porId = reservasDelLead.find((r) => r.id === args.reserva_id);
-        if (porId) {
-          nombrePersona = porId.nombre_persona || nombrePersona;
+      if (!nombrePersona && !reservaPorId) {
+        const reservasConfirmadas = reservasDelLead.filter((r) => r.status === 'confirmado');
+        if (reservasConfirmadas.length === 1) {
+          nombrePersona = reservasConfirmadas[0].nombre_persona || perfilPersonas[0]?.nombre || 'el alumno';
+        } else if (reservasConfirmadas.length > 1) {
+          const opciones = reservasConfirmadas.map(
+            (c) => `${c.nombre_persona || 'Asistente'} (${c.dias || ''} ${c.hora || ''}, ID: ${c.id})`
+          ).join('; ');
+          return `Hay varias reservas confirmadas activas para este número (${opciones}). Por favor especifica para cuál de las personas deseas reprogramar (indicando el nombre o ID de reserva).`;
         }
       }
 
-      if (!nombrePersona && reservasDelLead.length === 1) {
-        nombrePersona = reservasDelLead[0].nombre_persona || leadData.nombre || 'Lead';
-      }
-
-      let reservasTarget = reservasDelLead;
-      if (args?.reserva_id) {
-        reservasTarget = reservasDelLead.filter((r) => r.id === args.reserva_id);
+      let reservasTarget = [];
+      if (reservaPorId) {
+        reservasTarget = [reservaPorId];
       } else if (nombrePersona) {
         const slugTarget = slugifyPersona(nombrePersona);
         reservasTarget = reservasDelLead.filter(
@@ -1143,12 +1235,10 @@ const AVAILABLE_TOOLS = [
         return `No se encontró ninguna reserva activa confirmada para ${nombrePersona || 'este lead'} susceptible de ser reprogramada. Utiliza marcar_seguimiento_humano si el lead insiste en que tenía una cita.`;
       }
 
-      // Si hay más de una reserva confirmada activa y ambigüedad de nombre
-      if (confirmadas.length > 1 && !args?.reserva_id) {
-        const opciones = confirmadas.map((c) => `${c.nombre_persona || 'Asistente'} (${c.dias || ''} ${c.hora || ''})`).join('; ');
-        if (!args?.nombre || reservasTarget.length > 1) {
-          return `Hay varias reservas confirmadas activas para este número (${opciones}). Por favor especifica para cuál de las personas deseas reprogramar.`;
-        }
+      // Si hay más de una reserva confirmada activa con ese nombre (ej. dos Mateos o colisión)
+      if (confirmadas.length > 1 && !reservaPorId) {
+        const opciones = confirmadas.map((c) => `${c.nombre_persona || 'Asistente'} (${c.dias || ''} ${c.hora || ''}, ID: ${c.id})`).join('; ');
+        return `Hay más de una reserva confirmada con el nombre "${nombrePersona}" (${opciones}). Por favor especifica cuál deseas reprogramar indicando el ID de reserva o el horario exacto.`;
       }
 
       let reservaAfectada = confirmadas[0];
@@ -2004,7 +2094,17 @@ Usa el formato AAAA-MM-DD provisto ahí si necesitas llenar el campo fecha_solic
             }
           }
 
-          const nombrePersona = (r.nombre_persona || '').trim() || leadData.nombre || 'Persona registrada';
+          let nombrePersona = (r.nombre_persona || '').trim();
+          if (!nombrePersona) {
+            const perfil = Array.isArray(leadData.perfil_personas) ? leadData.perfil_personas : [];
+            if (perfil.length === 1 && perfil[0].nombre) {
+              nombrePersona = perfil[0].nombre;
+            } else if (leadData.nombre && esNombreValidoPersona(leadData.nombre)) {
+              nombrePersona = leadData.nombre;
+            } else {
+              nombrePersona = 'Persona registrada';
+            }
+          }
           const fechaFormateada = `${esMismoDia ? 'HOY ' : ''}${diasSemana[fechaClaseLima.getDay()]} ${fechaClaseLima.getDate()} de ${meses[fechaClaseLima.getMonth()]}`;
           const nivel = r.nivel || 'Clase regular';
           const hora = r.hora || '18:00';
@@ -2025,7 +2125,7 @@ Usa el formato AAAA-MM-DD provisto ahí si necesitas llenar el campo fecha_solic
           reservasVigentes.sort((a, b) => a.fechaClaseMillis - b.fechaClaseMillis);
 
           const lineas = reservasVigentes.map(
-            (rv) => `- Asistente: ${rv.nombrePersona} | Nivel: ${rv.nivel} | Fecha: ${rv.fechaTexto} a las ${rv.hora}.`
+            (rv) => `- Asistente: ${rv.nombrePersona} | Nivel: ${rv.nivel} | Fecha: ${rv.fechaTexto} a las ${rv.hora} (ID de reserva: ${rv.id}).`
           );
 
           infoReservasContexto = `\n\n[RESERVAS CONFIRMADAS VIGENTES DE ESTE LEAD]:
@@ -2037,10 +2137,11 @@ REGLAS OBLIGATORIAS ANTE ESTE LEAD CON RESERVA CONFIRMADA VIGENTE:
 3. Si la persona saluda o consulta sobre su cita, reconoce su reserva con calidez (ej. "¡Hola! Claro, la clase de [nombre] ya está confirmada para el [fecha] a las [hora]..."). Trata a cada persona por su nombre propio, sin asumir género por el nombre.
 4. Responde con amabilidad cualquier duda sobre su asistencia usando ÚNICAMENTE información verificada del negocio: para dirección usa siempre la DIRECCIÓN REAL y el enlace oficial de Google Maps provistos abajo; para horarios o precios de acompañantes usa consultar_horarios_disponibles. NUNCA inventes requisitos de vestimenta, minutos obligatorios de anticipación ni políticas comerciales no verificadas.
 5. Si el cliente solicita reprogramar o cambiar de fecha su reserva (ej. pasar de martes a jueves, o agendar para la próxima semana):
-   a. Utiliza DE INMEDIATO la herramienta reprogramar_reserva con el nombre de la persona y la nueva_fecha solicitada (en formato AAAA-MM-DD obtenido de la lista de próximas clases disponibles).
-   b. NUNCA confirmes que el cambio ya está realizado de palabra si no ejecutaste la herramienta y recibiste confirmación exitosa. NUNCA uses reservar_clase_prueba para cambiar la fecha de una persona con reserva confirmada.
-   c. Si la herramienta indica que la fecha no es válida, que no hay cupos o que la reserva previa ya fue asistida/no asistida, explícaselo al cliente con amabilidad y usa marcar_seguimiento_humano.
-   d. Si el cliente solicita cancelar definitivamente su reserva (en vez de reprogramar), indícaselo con amabilidad y usa de inmediato marcar_seguimiento_humano.
+   a. Identifica con precisión para cuál persona solicita el cambio. Si el lead tiene múltiples reservas activas y el mensaje no especifica el nombre o usa términos genéricos ("mi hijo", "el pequeño"), solicita amablemente que aclare a cuál de los alumnos se refiere antes de confirmar.
+   b. Utiliza la herramienta reprogramar_reserva con el nombre de la persona o su reserva_id, y la nueva_fecha solicitada (en formato AAAA-MM-DD obtenido de la lista de próximas clases disponibles).
+   c. NUNCA confirmes que el cambio ya está realizado de palabra si no ejecutaste la herramienta y recibiste confirmación exitosa. NUNCA uses reservar_clase_prueba para cambiar la fecha de una persona con reserva confirmada.
+   d. Si la herramienta indica que la fecha no es válida, que no hay cupos o que la reserva previa ya fue asistida/no asistida, explícaselo al cliente con amabilidad y usa marcar_seguimiento_humano.
+   e. Si el cliente solicita cancelar definitivamente su reserva (en vez de reprogramar), indícaselo con amabilidad y usa de inmediato marcar_seguimiento_humano.
 6. La fecha y hora de su reserva confirmada está PLENAMENTE VIGENTE — no apliques para ella ninguna advertencia de desactualización de fechas del historial.`;
         }
       }
