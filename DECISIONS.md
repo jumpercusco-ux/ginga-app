@@ -38,11 +38,11 @@ Cada decisión se clasifica estrictamente en uno de tres estados:
 - **Decisión:** Modificar atómicamente el documento existente en `/reservas` actualizando `fecha_clase` y guardando la traza en el array `reprogramaciones`.
 - **Justificación:** Mantiene un único identificador de reserva (`reservaId`) vinculado al lead en la app del instructor, evitando registros huérfanos o confusión visual en la lista de asistencia.
 
-### 5. Preparación Multisede Retrocompatible
+### 5. Preparación Multisede Dinámica y Libre de Alucinaciones
 - **Estado:** `[APROBADA]`
 - **Contexto:** Apertura de sedes futuras en Cusco (Magisterio, Larapa, etc.) o en otras ciudades.
-- **Decisión:** Soportar campos `sede_id`, `sede` y `ubicacion` con retrocompatibilidad 100% ante documentos legacy que carecen de `sede_id`. Fallback determinista a la sede principal de Cusco (`Av. de la Cultura E-4`).
-- **Restricción:** No crear sedes ni horarios ficticios como configuración real de producción mientras no existan físicamente.
+- **Decisión:** Resolver dinámicamente `sede_id`, `sede` y `ubicacion` desde los documentos verificados de Firestore (`/clases` y `/reservas`). Se prohíbe taxativamente hardcodear direcciones fijas (como la antigua dirección fija de Cusco) si un documento de clase carece de ubicación comprobada.
+- **Restricción:** No inventar sedes, calles ni locales no verificados en base de datos.
 
 ### 6. Concurrencia e Idempotencia Transaccional vía Lock Optimista
 - **Estado:** `[APROBADA]`
