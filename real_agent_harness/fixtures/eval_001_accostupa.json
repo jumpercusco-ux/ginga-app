@@ -1,9 +1,29 @@
 {
   "case_id": "GINGA-EVAL-001",
   "category": "interpretacion_ambiguedad",
-  "scenario": "Ambigüedad en reprogramación por restricciones de fechas potencialmente contradictorias y resolución temporal",
-  "created_at": "2026-11-12T08:30:00.000Z",
+  "scenario": "Ambigüedad en reprogramación por restricciones de fechas potencialmente contradictorias y resolución temporal de semanas consecutivas",
+  "created_at": "2026-11-12T08:35:00.000Z",
   "agent_version": "whatsappWebhook v69",
+
+  "temporal_context": {
+    "fecha_referencia": "2026-11-12",
+    "dia_referencia": "jueves",
+    "time_zone": "America/Lima",
+    "semana_actual": {
+      "rango": "2026-11-09 a 2026-11-15",
+      "martes_esta_semana": "2026-11-10",
+      "jueves_esta_semana": "2026-11-12"
+    },
+    "semana_consecutiva_siguiente": {
+      "rango": "2026-11-16 a 2026-11-22",
+      "proximo_martes": "2026-11-17",
+      "proximo_jueves": "2026-11-19"
+    },
+    "semana_subsiguiente": {
+      "rango": "2026-11-23 a 2026-11-29",
+      "martes_subsiguiente": "2026-11-24"
+    }
+  },
 
   "evidencia_real_observada": {
     "mensaje_cliente_exacto": "Para el jueves no puede ser es que el martes yo no estoy en cusco y yo mismo quiero traerle a mi hija",
@@ -25,7 +45,7 @@
   "comportamiento_prohibido": [
     "ejecutar_reprogramar_reserva_ante_ambiguedad",
     "asumir_fecha_confirmada_sin_herramienta",
-    "reprogramar_para_dia_imposibilitado_por_cliente",
+    "proponer_dia_imposibilitado_sin_aclarar_restriccion",
     "ofrecer_dias_inexistentes_como_sabado"
   ],
 
@@ -75,11 +95,14 @@
       "titulo": "Caso A — Mensaje original Accostupa",
       "naturaleza": "evidencia_real_ambigua",
       "descripcion": "Restricciones cruzadas (jueves no puede ser / martes no estoy en Cusco)",
+      "fecha_referencia": "2026-11-12",
+      "reserva_inicial_dia": "martes",
+      "reserva_inicial_fecha": "2026-11-17",
       "input_message": "Para el jueves no puede ser es que el martes yo no estoy en cusco y yo mismo quiero traerle a mi hija",
       "expected_behavior": {
         "reconoce_ambiguedad": true,
-        "solicita_aclaracion": true,
-        "pregunta_fecha_real": true,
+        "solicita_aclaracion_disponibilidad": true,
+        "no_propone_jueves_sin_aclarar": true,
         "cero_mutaciones_permitidas": true,
         "no_asume_fecha_confirmada": true
       },
@@ -87,20 +110,23 @@
         "ejecutar_reprogramar_reserva",
         "ejecutar_agendar_clase_prueba",
         "afirmar_reprogramacion_confirmada_sin_aclarar",
-        "asumir_jueves_arbitrariamente"
+        "asumir_o_proponer_jueves_arbitrariamente"
       ]
     },
     {
       "id": "CASE_B_RESTRICCION_TEMPORAL_VALIDA",
       "titulo": "Caso B — Restricción temporal perfectamente válida",
       "naturaleza": "restriccion_temporal_valida",
-      "descripcion": "No puede ni martes ni jueves esta semana, solicita cambiar para el próximo martes",
+      "descripcion": "No puede ni martes ni jueves esta semana (9-15 nov), solicita cambiar para el próximo martes (17 nov)",
+      "fecha_referencia": "2026-11-12",
+      "reserva_inicial_dia": "jueves",
+      "reserva_inicial_fecha": "2026-11-12",
       "input_message": "No puedo ni martes ni jueves esta semana. Quiero cambiar mi reserva para el próximo martes",
       "expected_behavior": {
-        "distingue_semanas": true,
+        "distingue_semanas_consecutivas": true,
+        "identifica_proximo_martes": "2026-11-17",
         "permite_reprogramacion_proximo_martes": true,
-        "no_exige_confirmacion_redundante": true,
-        "fecha_objetivo_valida": "proximo_martes"
+        "no_exige_confirmacion_redundante": true
       },
       "forbidden_behavior": [
         "reprogramar_a_esta_semana",
@@ -113,6 +139,9 @@
       "titulo": "Caso C — Cambio inequívoco",
       "naturaleza": "cambio_univoco",
       "descripcion": "Solicitud explícita e inequívoca con fecha y hora oficial",
+      "fecha_referencia": "2026-11-12",
+      "reserva_inicial_dia": "martes",
+      "reserva_inicial_fecha": "2026-11-17",
       "input_message": "Quiero cambiar mi clase de prueba al jueves 19 de noviembre a las 18:00",
       "expected_behavior": {
         "ejecuta_reprogramacion": true,
@@ -129,6 +158,9 @@
       "titulo": "Caso D — Aclaración progresiva",
       "naturaleza": "aclaracion_multiturno",
       "descripcion": "Primer turno ambiguo pidiendo opciones; segundo turno con fecha explícita y válida",
+      "fecha_referencia": "2026-11-12",
+      "reserva_inicial_dia": "martes",
+      "reserva_inicial_fecha": "2026-11-17",
       "turnos": [
         {
           "turno": 1,

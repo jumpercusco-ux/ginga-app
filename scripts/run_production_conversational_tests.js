@@ -807,8 +807,8 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
 
   const runId = Date.now().toString(36).toUpperCase();
 
-  // Helper para aislar cada subcaso en un lead y reserva limpia
-  async function sembrarEntornoAislado(subId) {
+  // Helper para aislar cada subcaso en un lead y reserva limpia con fecha civil explícita
+  async function sembrarEntornoAislado(subId, fechaIsoCivil = '2026-11-17', diaSemana = 'martes') {
     const leadId = `${fixture.source_lead.lead_id}_${subId}_${runId}`;
     const leadNombre = `${fixture.source_lead.nombre_anonimizado} [${subId}]`;
 
@@ -829,32 +829,28 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
       descripcion: `Lead de Evaluación ${caseId} (${subId})`,
     });
 
-    // 2. Sembrar Reserva Inicial Martes 18:00
+    // 2. Sembrar Reserva Inicial con Fecha Civil fijada al mediodía America/Lima (17:00 UTC)
     const resData = fixture.initial_state.reserva_preexistente;
-    const ahoraLima = new Date(Date.now() - 5 * 3600 * 1000);
-    let diasHastaMartes = (2 - ahoraLima.getUTCDay() + 7) % 7;
-    if (diasHastaMartes === 0) diasHastaMartes = 7;
-    const fechaMartes = new Date(ahoraLima.getTime() + diasHastaMartes * 86400 * 1000);
-    fechaMartes.setUTCHours(17, 0, 0, 0); // 12:00 Lima = 17:00 UTC
-    const tsMartes = admin.firestore.Timestamp.fromDate(fechaMartes);
+    const tsReserva = admin.firestore.Timestamp.fromDate(new Date(`${fechaIsoCivil}T17:00:00.000Z`));
 
     const initialResRef = await db.collection('reservas').add({
       ...resData,
       clase_id: resData.clase_id || 'clase_ninos_cusco',
       lead_id: leadId,
-      fecha_clase: tsMartes,
+      dia_semana: diaSemana,
+      fecha_clase: tsReserva,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     await leadRef.update({
       reserva_id: initialResRef.id,
-      fecha_clase_reservada: tsMartes,
+      fecha_clase_reservada: tsReserva,
       hora_clase_reservada: resData.hora || '18:00',
       reservas_activas: {
         [resData.nombre_persona?.toLowerCase() || 'camila']: {
           reserva_id: initialResRef.id,
           nombre_persona: resData.nombre_persona || 'Camila',
-          fecha_clase: tsMartes,
+          fecha_clase: tsReserva,
           hora: resData.hora || '18:00',
           status: 'confirmado',
         },
@@ -864,10 +860,10 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
     createdDocumentsManifest.push({
       coleccion: 'reservas',
       path: `reservas/${initialResRef.id}`,
-      descripcion: `Reserva Inicial ${caseId} (${subId})`,
+      descripcion: `Reserva Inicial ${caseId} (${subId}) - ${diaSemana} ${fechaIsoCivil}`,
     });
 
-    return { leadId, leadNombre, leadRef, initialResRef, tsMartes };
+    return { leadId, leadNombre, leadRef, initialResRef, tsReserva };
   }
 
   // -------------------------------------------------------------
@@ -883,7 +879,13 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
     const turnosCapturados = [];
 
     if (c.id === 'CASE_A_ORIGINAL_ACCOSTUPA') {
-      const { leadId, leadNombre, initialResRef } = await sembrarEntornoAislado('A');
+      const fechaReferencia = '2026-11-12';
+      const fechaSolicitada = 'Ninguna (restricciones contradictorias)';
+      let fechaInterpretada = 'Ninguna';
+      let fechaPersistida = 'Ninguna (reserva intacta)';
+
+      // Reserva previa en Martes 17
+      const { leadId, leadNombre, initialResRef } = await sembrarEntornoAislado('A', '2026-11-17', 'martes');
       const turno = await despacharTurnoConversacional(leadId, c.input_message, leadNombre);
       turnosCapturados.push(turno);
 
@@ -898,24 +900,35 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
       // 2. Estado Firestore: reserva intacta
       const snapRes = await initialResRef.get();
       const resData = snapRes.data();
-      if (resData.reprogramaciones && resData.reprogramaciones.length > 0) {
+      const fueReprogramada = Boolean(resData.reprogramaciones && resData.reprogramaciones.length > 0);
+      if (fueReprogramada) {
         status = 'FAIL';
         razones.push('El documento de reserva fue alterado en Firestore');
+        fechaPersistida = 'Alterada indebidamente';
       }
 
       // 3. Respuesta textual: evaluar intención completa
       const reply = turno.replyText.toLowerCase();
-      const hacePregunta = reply.includes('?') || reply.includes('¿') || reply.includes('cuándo') || reply.includes('cuando') || reply.includes('fecha') || reply.includes('puedes');
+      const hacePregunta = reply.includes('?') || reply.includes('¿');
       const afirmaConfirmadoSinTool = reply.includes('listo') && (reply.includes('reprogramé') || reply.includes('agendé') || reply.includes('cambié'));
+      const proponeJuevesSinAclarar = reply.includes('jueves') && (reply.includes('19') || reply.includes('cambiarla') || reply.includes('reprogramar') || reply.includes('misma hora'));
+      const reconoceRestriccionJueves = reply.includes('no puedes el jueves') || reply.includes('cuando vuelvas') || reply.includes('cuando estés de vuelta') || reply.includes('qué fecha puedes') || reply.includes('que fecha puedes');
+
+      if (reply.includes('19 de noviembre') || reply.includes('jueves 19')) {
+        fechaInterpretada = '2026-11-19 (Jueves)';
+      }
 
       if (afirmaConfirmadoSinTool) {
         status = 'FAIL';
         razones.push('Afirmó confirmación consumada sin aclaración ni ejecución de herramienta');
+      } else if (proponeJuevesSinAclarar && !reconoceRestriccionJueves) {
+        status = 'FAIL';
+        razones.push('Línea base v69: Propuso cambiar al jueves 19 ignorando la restricción explícita del usuario («Para el jueves no puede ser») sin aclarar su disponibilidad real.');
       } else if (!hacePregunta) {
         status = 'FAIL';
         razones.push('No formuló pregunta de aclaración sobre la fecha real de disponibilidad');
       } else {
-        razones.push('Reconoció ambigüedad, formuló pregunta aclaratoria y mantuvo CERO mutaciones.');
+        razones.push('Reconoció ambigüedad, formuló pregunta aclaratoria sin asumir fechas y mantuvo CERO mutaciones.');
       }
 
       resultados.push({
@@ -926,10 +939,22 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
         detalles: razones.join(' | '),
         duracionMs: Date.now() - tStart,
         turnos: turnosCapturados,
+        temporalMetrics: {
+          fecha_referencia: fechaReferencia,
+          fecha_solicitada: fechaSolicitada,
+          fecha_interpretada: fechaInterpretada,
+          fecha_persistida: fechaPersistida,
+        },
       });
 
     } else if (c.id === 'CASE_B_RESTRICCION_TEMPORAL_VALIDA') {
-      const { leadId, leadNombre, initialResRef, tsMartes } = await sembrarEntornoAislado('B');
+      const fechaReferencia = '2026-11-12';
+      const fechaSolicitada = '2026-11-17 (próximo martes)';
+      let fechaInterpretada = 'No identificada';
+      let fechaPersistida = 'Ninguna';
+
+      // Reserva previa en Jueves 12 (la clase de esta semana que el usuario no puede asistir)
+      const { leadId, leadNombre, initialResRef } = await sembrarEntornoAislado('B', '2026-11-12', 'jueves');
       const turno = await despacharTurnoConversacional(leadId, c.input_message, leadNombre);
       turnosCapturados.push(turno);
 
@@ -944,30 +969,38 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
         }
 
         const nuevaFechaStr = args.nueva_fecha;
-        const fechaTarget = new Date(nuevaFechaStr + 'T17:00:00.000Z');
-        const fechaEstaSemana = tsMartes.toDate();
+        fechaInterpretada = nuevaFechaStr || 'desconocida';
 
-        if (fechaTarget.getTime() <= fechaEstaSemana.getTime()) {
-          status = 'FAIL';
-          razones.push(`Reprogramó para esta misma semana (${nuevaFechaStr}) contradiciendo la exclusión del usuario`);
-        } else {
-          // Validar mutación en Firestore
+        // Comprobación de semanas consecutivas:
+        // Jueves 12/11/2026 pertenece a W46 (9 al 15 nov).
+        // Martes 17/11/2026 pertenece a W47 (16 al 22 nov, semana consecutiva siguiente).
+        // Si nuevaFechaStr es '2026-11-17', corresponde EXACTAMENTE al próximo martes solicitado.
+        if (nuevaFechaStr === '2026-11-17' || nuevaFechaStr === '2026-11-24') {
           const snapRes = await initialResRef.get();
           const resData = snapRes.data();
           if (!resData.reprogramaciones || resData.reprogramaciones.length === 0) {
             status = 'FAIL';
             razones.push('La reprogramación no quedó registrada en Firestore');
           } else {
-            razones.push(`Resolvió correctamente "esta semana" vs "próximo martes" (${nuevaFechaStr}) y ejecutó reprogramación.`);
+            fechaPersistida = `${nuevaFechaStr} 18:00 (Confirmada en Firestore)`;
+            status = 'PASS';
+            razones.push(`Resolvió correctamente "esta semana" vs "próximo martes" (${nuevaFechaStr}) en semanas consecutivas y ejecutó reprogramación sin confirmación redundante.`);
           }
+        } else if (nuevaFechaStr === '2026-11-10' || nuevaFechaStr === '2026-11-12') {
+          status = 'FAIL';
+          razones.push(`Reprogramó para esta misma semana (${nuevaFechaStr}) contradiciendo la exclusión del usuario`);
+          fechaPersistida = `${nuevaFechaStr} (Inválida)`;
+        } else {
+          status = 'FAIL';
+          razones.push(`Fecha reprogramada no esperada (${nuevaFechaStr})`);
         }
       } else {
-        // Si no llamó la herramienta, validar si solicitó confirmación prudente para el próximo martes
         const reply = turno.replyText.toLowerCase();
-        const proponeProximoMartes = reply.includes('martes') && (reply.includes('próximo') || reply.includes('proximo') || reply.includes('siguiente') || reply.includes('24'));
+        const proponeProximoMartes = reply.includes('martes') && (reply.includes('próximo') || reply.includes('proximo') || reply.includes('17') || reply.includes('24'));
         if (proponeProximoMartes && (reply.includes('?') || reply.includes('¿'))) {
           status = 'PASS';
           razones.push('Agente solicitó confirmación prudente para el próximo martes antes de mutar.');
+          fechaInterpretada = '2026-11-17 (Propuesta con confirmación)';
         } else {
           status = 'FAIL';
           razones.push('El agente no procesó la solicitud para el próximo martes ni pidió confirmación.');
@@ -982,10 +1015,21 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
         detalles: razones.join(' | '),
         duracionMs: Date.now() - tStart,
         turnos: turnosCapturados,
+        temporalMetrics: {
+          fecha_referencia: fechaReferencia,
+          fecha_solicitada: fechaSolicitada,
+          fecha_interpretada: fechaInterpretada,
+          fecha_persistida: fechaPersistida,
+        },
       });
 
     } else if (c.id === 'CASE_C_CAMBIO_UNIVOCO') {
-      const { leadId, leadNombre, initialResRef } = await sembrarEntornoAislado('C');
+      const fechaReferencia = '2026-11-12';
+      const fechaSolicitada = '2026-11-19 18:00';
+      let fechaInterpretada = 'No identificada';
+      let fechaPersistida = 'Ninguna';
+
+      const { leadId, leadNombre, initialResRef } = await sembrarEntornoAislado('C', '2026-11-17', 'martes');
       const turno = await despacharTurnoConversacional(leadId, c.input_message, leadNombre);
       turnosCapturados.push(turno);
 
@@ -1001,6 +1045,8 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
           args = toolReprog.arguments;
         }
 
+        fechaInterpretada = args.nueva_fecha || 'desconocida';
+
         if (!args.nueva_fecha?.includes('2026-11-19') && !args.nueva_fecha?.includes('19')) {
           status = 'FAIL';
           razones.push(`Fecha solicitada era 19 de noviembre, pero tool usó: ${args.nueva_fecha}`);
@@ -1011,6 +1057,7 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
             status = 'FAIL';
             razones.push('No se registró la reprogramación en el documento de Firestore');
           } else {
+            fechaPersistida = '2026-11-19 18:00 (Confirmada en Firestore)';
             razones.push('Reprogramación inequívoca ejecutada y persistida exitosamente para el jueves 19 de noviembre.');
           }
         }
@@ -1024,10 +1071,21 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
         detalles: razones.join(' | '),
         duracionMs: Date.now() - tStart,
         turnos: turnosCapturados,
+        temporalMetrics: {
+          fecha_referencia: fechaReferencia,
+          fecha_solicitada: fechaSolicitada,
+          fecha_interpretada: fechaInterpretada,
+          fecha_persistida: fechaPersistida,
+        },
       });
 
     } else if (c.id === 'CASE_D_ACLARACION_PROGRESIVA') {
-      const { leadId, leadNombre, initialResRef } = await sembrarEntornoAislado('D');
+      const fechaReferencia = '2026-11-12';
+      const fechaSolicitada = 'T1: opciones | T2: 2026-11-19 18:00';
+      let fechaInterpretada = 'T1: aclaración | T2: 2026-11-19';
+      let fechaPersistida = 'Ninguna';
+
+      const { leadId, leadNombre, initialResRef } = await sembrarEntornoAislado('D', '2026-11-17', 'martes');
 
       // Turno 1: Ambiguo / pidiendo opciones
       const t1 = c.turnos[0];
@@ -1056,6 +1114,7 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
           status = 'FAIL';
           razones.push('Turno 2 no persistió la reprogramación en Firestore');
         } else {
+          fechaPersistida = '2026-11-19 18:00 (Confirmada en Firestore)';
           razones.push('Aclaración progresiva completada: Turno 1 CERO mutaciones, Turno 2 reprogramación confirmada.');
         }
       }
@@ -1068,6 +1127,12 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
         detalles: razones.join(' | '),
         duracionMs: Date.now() - tStart,
         turnos: turnosCapturados,
+        temporalMetrics: {
+          fecha_referencia: fechaReferencia,
+          fecha_solicitada: fechaSolicitada,
+          fecha_interpretada: fechaInterpretada,
+          fecha_persistida: fechaPersistida,
+        },
       });
     }
   }
@@ -1404,6 +1469,13 @@ function imprimirReporteResultados(resultados) {
     if (r.status === 'PASS') passCount++;
     console.log(`${icon} [${r.status}] ${r.nombre}`);
     console.log(`    Lead ID: ${r.leadId}`);
+    if (r.temporalMetrics) {
+      console.log(`    📅 Métricas Temporales (America/Lima):`);
+      console.log(`       - Fecha referencia:   ${r.temporalMetrics.fecha_referencia}`);
+      console.log(`       - Fecha solicitada:   ${r.temporalMetrics.fecha_solicitada}`);
+      console.log(`       - Fecha interpretada: ${r.temporalMetrics.fecha_interpretada}`);
+      console.log(`       - Fecha persistida:   ${r.temporalMetrics.fecha_persistida}`);
+    }
     console.log(`    Detalles: ${r.detalles}`);
     console.log(`    Duración: ${r.duracionMs} ms\n`);
   }

@@ -1,6 +1,38 @@
 {
   "indexes": [
     {
+      "collectionGroup": "clases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "publico",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tipo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "cupos_disponibles",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "whatsapp_leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ultima_interaccion",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "agent_feedback",
       "queryScope": "COLLECTION",
       "fields": [
@@ -31,4 +63,3 @@
   ],
   "fieldOverrides": []
 }
-
