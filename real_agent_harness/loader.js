@@ -63,6 +63,12 @@ Object.assign(module.exports.__internals, {
   evaluarRuntimeGuard,
   aplicarIntercepcionSegura,
   obtenerMensajeFallbackSeguro,
+  detectarSolicitudExplicitaAtencionHumana,
+  detectarSolicitudCancelacion,
+  detectarSolicitudReprogramacion,
+  resolverIdentidadPersona,
+  reconciliarNombrePersona,
+  calcularFechaProximoDia,
 });
 `;
     const wrappedCode = sourceCode + exportHook;

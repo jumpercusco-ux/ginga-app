@@ -3,7 +3,7 @@
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-11  
 > **Rama Actual:** `fix/real-whatsapp-logic`  
-> **Commit HEAD:** `8e16061` (`fix(agent): prompt sibling addition rule, guard time filtering, and focal qa runner`)  
+> **Commit HEAD:** `7db11ca` (`fix(agent): identity collision guard, hardened rescheduling, and negative regressions`)  
 > **Producción Intacta:** `3058ada` (main, `whatsappWebhook v67`)  
 > **Estado RC:** CONDITIONAL (Apto para Staging / QA Real, Bloqueado para Despliegue Directo a Producción)
 
@@ -379,8 +379,31 @@ Para facilitar la telemetría del futuro Agent Control Center y la API de DANEV:
       3. Corrección en `extraerDiaYNumeroFecha`: filtrado de expresiones de hora (`\d{1,2}:\d{2}`, `\d{1,2} hrs`) previniendo que "17:00" sea malinterpretado como día del mes por Runtime Guard.
       4. Corrección de formato en personas conocidas (`p.tipo || 'persona'`) evitando `undefined`.
   * **Suite de Regresiones Expandida (`test_qa_regressions.js`):** **21/21 pruebas PASS (100%)**, con 3 nuevas pruebas específicas para Caso 4 (petición completa, petición incompleta que sí requiere aclaración, y multi-turn).
-  * **Validación Total Actualizada:** **111 de 111 pruebas automatizadas aprobadas (100% PASS)**:
-    - 103 pruebas offline (21 regresiones + 27 P1A + 14 P0.1 + 22 P0.2A + 10 P0.2B + 9 baseline).
+- **Resultado del Tercer QA OpenAI Real (`runId: qa_run_1794441642639_nog6ff`):**
+  * **Score:** 10/12 PASS, 2 FAIL.
+  * **Costo Real:** US$0.0086 (18 peticiones HTTP OpenAI, 11 turnos conversacionales).
+  * **Caso 4 ("Dos hijos"):** APROBADO 100% en QA real (la corrección de prompt y guard de la fase anterior funcionó a la perfección).
+  * **Casos Aprobados (10/12):** Casos 2, 4, 5, 6, 7, 8, 9, 10, 11, 12.
+  * **Diagnóstico Basado en Evidencia de Fallos:**
+    1. *Caso 1 ("Reserva nueva"):*
+       - *Evidencia:* Camila Rivera solicitó: `"Hola, quiero agendar una clase de prueba de capoeira para mí (Camila Rivera, 22 años) para la próxima fecha disponible."` El modelo ejecutó `guardar_perfil_lead` y `reservar_clase_prueba`. La reserva fue escrita en Firestore `/reservas` bajo el nombre "Camila" y `reservas_activas.camila`.
+       - *Causa raíz:* La descripción del parámetro en `guardar_perfil_lead` decía "Nombre de pila real", induciendo al LLM a truncar el apellido ("Camila"). En consecuencia, el slug fue `'camila'` mientras que la aserción y el lead en `whatsapp_leads` tenían `'camila_rivera'`.
+       - *Corrección y Blindaje de Identidad:* Implementación de `resolverIdentidadPersona(nombrePersona, leadData, perfilPersonas)` con detección de colisiones de prefijo (ej. dos personas con el mismo nombre de pila), reconciliación unívoca y bloqueo estricto ante ambigüedad (`clarification_required`, 0 mutaciones); actualización de descripciones en tools para permitir nombre completo canónico; búsqueda de `activaPrevia` por prefijo en `reservarClasePruebaLead`; aserción rigurosa en el runner verificando `/reservas`, `reservas_activas.camila_rivera`, `nombre_persona === 'Camila Rivera'` y sincronización de `reserva_id`.
+    2. *Caso 3 ("Reprogramación martes-jueves"):*
+       - *Evidencia:* Carlos Morales solicitó: `"Hola, tuve un inconveniente y no podré ir este jueves. ¿Puedo cambiar mi clase para el próximo martes?"` El lead tenía exactamente 1 reserva confirmada activa. El modelo respondió con texto: `"¡Hola! Claro, puedo ayudarte con eso. Solo necesito que me digas a nombre de quién es la clase de prueba para poder hacerlo"` sin invocar tools (0 tools llamadas).
+       - *Causa raíz:* La Regla 5 de `RESERVAS CONFIRMADAS VIGENTES DE ESTE LEAD` instruía "Identifica con precisión para cuál persona solicita el cambio... Si el lead tiene múltiples reservas...", pero carecía de una directiva explícita para el caso de reserva única, induciendo al LLM a preguntar innecesariamente por el nombre y violando la Regla 1 ("NUNCA le vuelvas a preguntar el nombre"). Además, en el backend de `reprogramar_reserva`, la búsqueda por slug era estrictamente exacta (`carlos_morales !== carlos`), lo que hubiera fallado si el modelo pasaba solo el primer nombre.
+       - *Corrección y Robustecimiento:* Refinamiento de la Regla 5 en `generarSystemPrompt` (sub-reglas a-f): instruye expresamente que si el lead tiene una sola reserva, la persona está 100% identificada y prohíbe repreguntar el nombre; búsqueda flexible por prefijo y reserva única en el handler de `reprogramar_reserva`; incorporación de `detectarSolicitudReprogramacion(texto)` con distinción rigurosa entre día de inasistencia ("este jueves") y día de destino ("próximo martes"), y detección de fechas ambiguas ("martes o jueves"); fallback determinista en `preguntarIA` condicionado a no-ambigüedad, reserva única confirmada vigente y no asistida; e idempotencia transaccional en `reprogramar_reserva` y `reprogramarClasePruebaLead` que previene duplicación de auditoría ante reintentos.
+  * **Suite de Regresiones Expandida (`test_qa_regressions.js`):** **33/33 pruebas PASS (100%)**, con 12 nuevas pruebas (Tests 22 a 33):
+    - Tests 22 a 27: Reconciliación de titular, tildes/acentos, reprogramación unívoca, reprogramación ambigua de 2 hijos, tests negativos y fallback en `preguntarIA`.
+    - Tests 28 a 33 (Blindaje de Identidad, Autorización e Idempotencia):
+      * Test 28: Dos personas con el mismo nombre de pila (`Mateo Gómez` y `Mateo Morales`) bloquean mutaciones y solicitan aclaración tanto en booking como en reprogramación (0 mutaciones).
+      * Test 29: Nombre incompleto sin correspondencia unívoca (`Carlos` vs titular `Juan Carlos Rivera`) no atribuye en falso (0 mutaciones).
+      * Test 30: Reserva asociada a otro lead (`UNAUTHORIZED_RESERVATION`) rechaza tanto en tool como en transacción Firestore (0 mutaciones).
+      * Test 31: Petición de reprogramación con fecha de destino ambigua (`martes o jueves`) previene ejecución del fallback y solicita aclaración (0 mutaciones).
+      * Test 32: Reprogramación de reserva expirada/pasada rechaza con `EXPIRED_DATE` (0 automutaciones).
+      * Test 33: Reintento de operación ya ejecutada reporta idempotencia (`ALREADY_SCHEDULED_ON_DATE`, `ya_estaba_programada: true`) sin duplicar entradas de auditoría ni mover fechas indebidamente.
+  * **Validación Total Actualizada:** **118 de 118 pruebas automatizadas aprobadas (100% PASS)**:
+    - 110 pruebas offline (33 regresiones + 16 P1A + 8 P0.1 + 22 P0.2A + 10 P0.2B + 9 baseline).
     - 8 pruebas de integración real con Firestore Emulator (Java 21).
     - 12 de 12 escenarios de QA verificados en Dry-Run offline con Firestore Emulator.
 - **Aislamiento y Mitigaciones Verificadas:**
@@ -388,7 +411,7 @@ Para facilitar la telemetría del futuro Agent Control Center y la API de DANEV:
   * **Firewall de Red Global en `global.fetch`:** Intercepción determinista a nivel de proceso Node.js. Bloquea el 100% de solicitudes a `graph.facebook.com` y endpoints externos no autorizados. Probado expresamente con 0 bytes de egress a Meta.
   * **Zero PII Estricto:** Hashing HMAC-SHA256 (`hashLeadId`, `hashPersona`) y datos sintéticos.
   * **Circuito de Presupuesto Local:** Techo duro de 30 llamadas HTTP y $0.25 USD máximo estimado (circuit breaker de cliente; no es un límite contractual del proveedor).
-- **Estado Actual de Ejecución Real:** **READY PARA REINTENTO SEGURO CON DIAGNÓSTICO AUDITABLE**.
+- **Estado Actual de Ejecución Real:** **LOCALMENTE LISTO — DIAGNÓSTICO, BLINDAJE DE IDENTIDAD Y REGRESIONES VALIDADAS AL 100%**.
 
 ---
 

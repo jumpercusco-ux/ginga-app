@@ -48,8 +48,37 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
-## [8e16061] — 2026-11-11
-### [COMMIT LOCAL: 8e16061] (Rama `fix/real-whatsapp-logic`)
+## [7db11ca] — 2026-11-11
+### [COMMIT LOCAL: 7db11ca] (Rama `fix/real-whatsapp-logic`)
+- **Blindaje de Identidad, Reprogramación Inequívoca e Idempotencia Transaccional (Casos 1 y 3 tras Tercer QA Real OpenAI):**
+  - **Evidencia del Tercer QA Real Auditada:**
+    - `runId`: `qa_run_1794441642639_nog6ff`, modo `LIVE_REAL_OPENAI`.
+    - Resultado: 10/12 PASS, 2 FAIL (Casos 1 y 3).
+    - Costo real auditado: US$0.0086 (18 peticiones HTTP OpenAI, 11 turnos conversacionales).
+    - Caso 4 ("Dos hijos") verificado 100% PASS en QA real con OpenAI tras la corrección anterior.
+  - **Diagnóstico y Blindaje de Identidad en Caso 1 ("Reserva nueva"):**
+    - *Evidencia:* Camila Rivera (`be2d8c6f5f758128`) solicitó: `"Hola, quiero agendar una clase de prueba de capoeira para mí (Camila Rivera, 22 años) para la próxima fecha disponible."`
+    - *Causa:* La tool `guardar_perfil_lead` tenía en su descripción `"Nombre de pila real"`, llevando al modelo a pasar únicamente `"Camila"` en lugar de `"Camila Rivera"`. En consecuencia, la reserva se creó bajo el slug `"camila"` y no `"camila_rivera"`.
+    - *Blindaje:* Implementación de `resolverIdentidadPersona(nombrePersona, leadData, perfilPersonas)` y `reconciliarNombrePersona` con resolución unívoca, detección y bloqueo estricto ante colisiones de prefijo entre homónimos (ej. dos Mateos); actualización de la descripción del parámetro para admitir nombre canónico completo sin truncar apellidos; búsqueda de `activaPrevia` por prefijo/slug en `reservarClasePruebaLead`; y aserción rigurosa en `qa_openai_runner.js` verificando `/reservas`, `reservas_activas.camila_rivera`, `nombre_persona === 'Camila Rivera'`, y sincronización de `reserva_id`.
+  - **Diagnóstico y Blindaje de Reprogramación en Caso 3 ("Reprogramación martes-jueves"):**
+    - *Evidencia:* Carlos Morales (`3bb46f7ea6e7cb78`) solicitó: `"Hola, tuve un inconveniente y no podré ir este jueves. ¿Puedo cambiar mi clase para el próximo martes?"` El lead tenía exactamente 1 reserva confirmada activa. El modelo respondió preguntando: `"¡Hola! Claro, puedo ayudarte con eso. Solo necesito que me digas a nombre de quién es la clase de prueba para poder hacerlo"`, omitiendo llamar a `reprogramar_reserva`.
+    - *Causa:* La Regla 5 de prompt indicaba cómo identificar a la persona ante múltiples reservas activas pero no aclaraba el caso unívoco de una sola reserva, provocando que el modelo dudara y repreguntara en violación de la Regla 1. Además, el backend de `reprogramar_reserva` hacía coincidencia exacta de slug (`carlos_morales !== carlos`), lo que habría fallado si el modelo pasaba solo el primer nombre.
+    - *Robustecimiento:* Refinamiento de la Regla 5 en `generarSystemPrompt` para declarar que ante 1 sola reserva la persona está 100% identificada y prohibir repreguntas; búsqueda flexible por prefijo de slug en `reprogramar_reserva`; implementación de `detectarSolicitudReprogramacion` distinguiendo el día de inasistencia ("este jueves") del día de destino ("próximo martes") e interceptando disyunciones ambiguas ("martes o jueves"); fallback determinista en `preguntarIA` condicionado a no-ambigüedad, reserva única confirmada plenamente vigente y no asistida; e idempotencia transaccional en `reprogramar_reserva` y `reprogramarClasePruebaLead` que previene duplicación de auditoría ante reintentos.
+  - **Suite de Regresiones Expandida (`test_qa_regressions.js`):**
+    - Se incorporaron Tests 22 a 33 cubriendo:
+      * Tests 22 a 27: Reconciliación de titular, tildes/acentos, reprogramación unívoca, reprogramación ambigua de 2 hijos (exige aclaración), tests negativos informativos y fallback en `preguntarIA`.
+      * Tests 28 a 33: Blindaje de identidad ante homónimos (Mateo Gómez vs Mateo Morales), nombres parciales sin correspondencia (Carlos vs Juan Carlos Rivera), autorización estricta sobre reservas ajenas (`UNAUTHORIZED_RESERVATION`), fechas de destino ambiguas (martes o jueves), citas vencidas (`EXPIRED_DATE`) e idempotencia de reintentos (`ALREADY_SCHEDULED_ON_DATE`, `ya_estaba_programada: true`).
+    - Resultado: **33 de 33 pruebas PASS (100%)**.
+  - **Validación Total Acumulada:**
+    - 110 pruebas offline PASS (33 regresiones + 16 P1A + 8 P0.1 + 22 P0.2A + 10 P0.2B + 9 baseline).
+    - 8 pruebas de integración con Firestore Emulator (Java 21) PASS.
+    - 12 de 12 escenarios de QA verificados en Dry-Run offline con Firestore Emulator.
+    - Total: **118 de 118 pruebas superadas (100% PASS)**.
+
+---
+
+## [a0aa15b] — 2026-11-11
+### [COMMIT LOCAL: a0aa15b] (Rama `fix/real-whatsapp-logic`)
 - **Diagnóstico y Corrección Focalizada del Caso 4 ("Dos hijos") en Segundo QA Real OpenAI:**
   - **Evidencia del Segundo QA Real Auditada:**
     - `runId`: `qa_run_1794440086896_zpmhfw`, modo `LIVE_REAL_OPENAI`.

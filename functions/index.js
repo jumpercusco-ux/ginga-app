@@ -390,6 +390,149 @@ function esNombreValidoPersona(nombre) {
   return true;
 }
 
+/**
+ * Resuelve la identidad de una persona interesada contra el titular y los perfiles conocidos.
+ * Retorna un objeto estructurado:
+ * - { nombre, esAmbiguo: false, candidatos: [nombre], motivo: '...' } si la resolución es única y verificable.
+ * - { nombre: null, esAmbiguo: true, candidatos: [...], motivo: '...' } si existen dos o más personas que colisionan (ej. dos Mateos).
+ * - { nombre: null, esAmbiguo: false, candidatos: [], motivo: '...' } si el nombre es inválido o no hay datos suficientes.
+ */
+function resolverIdentidadPersona(nombrePersona, leadData = {}, perfilPersonas = []) {
+  const nombreRaw = (nombrePersona || '').trim();
+  const nombreTitular = (leadData?.nombre || '').trim();
+  const perfiles = Array.isArray(perfilPersonas) ? perfilPersonas : [];
+
+  // Caso A: No se proporcionó nombre
+  if (!nombreRaw) {
+    // Si hay múltiples perfiles registrados, es ambiguo cuál alumno es
+    if (perfiles.length > 1) {
+      const candidatos = perfiles.map((p) => p.nombre).filter((n) => esNombreValidoPersona(n));
+      return {
+        nombre: null,
+        esAmbiguo: true,
+        candidatos,
+        motivo: 'MULTIPLE_PROFILES_NO_NAME',
+      };
+    }
+    // Si hay un solo perfil registrado
+    if (perfiles.length === 1 && esNombreValidoPersona(perfiles[0]?.nombre)) {
+      return {
+        nombre: perfiles[0].nombre.trim(),
+        esAmbiguo: false,
+        candidatos: [perfiles[0].nombre.trim()],
+        motivo: 'SINGLE_PROFILE',
+      };
+    }
+    // Si no hay perfiles pero el titular tiene nombre válido
+    if (perfiles.length === 0 && nombreTitular && esNombreValidoPersona(nombreTitular)) {
+      return {
+        nombre: nombreTitular,
+        esAmbiguo: false,
+        candidatos: [nombreTitular],
+        motivo: 'TITULAR_ONLY',
+      };
+    }
+    return {
+      nombre: null,
+      esAmbiguo: false,
+      candidatos: [],
+      motivo: 'NO_INFO',
+    };
+  }
+
+  // Caso B: Se proporcionó un nombre. Validar que no sea placeholder o genérico
+  if (!esNombreValidoPersona(nombreRaw)) {
+    return {
+      nombre: null,
+      esAmbiguo: false,
+      candidatos: [],
+      motivo: 'INVALID_NAME',
+    };
+  }
+
+  const slugTarget = slugifyPersona(nombreRaw);
+
+  // Recolectar candidatos conocidos de forma canónica
+  const candidatosConocidos = [];
+  if (nombreTitular && esNombreValidoPersona(nombreTitular)) {
+    candidatosConocidos.push({ nombre: nombreTitular, slug: slugifyPersona(nombreTitular), fuente: 'titular' });
+  }
+  for (const p of perfiles) {
+    if (p?.nombre && esNombreValidoPersona(p.nombre)) {
+      const slugP = slugifyPersona(p.nombre);
+      // Evitar duplicados exactos si el titular ya está en el perfil
+      if (!candidatosConocidos.some((c) => c.slug === slugP)) {
+        candidatosConocidos.push({ nombre: p.nombre.trim(), slug: slugP, fuente: 'perfil' });
+      }
+    }
+  }
+
+  // 1. Coincidencia EXACTA por slug
+  const exactos = candidatosConocidos.filter((c) => c.slug === slugTarget);
+  if (exactos.length === 1) {
+    return {
+      nombre: exactos[0].nombre,
+      esAmbiguo: false,
+      candidatos: [exactos[0].nombre],
+      motivo: 'EXACT_MATCH',
+    };
+  }
+  if (exactos.length > 1) {
+    return {
+      nombre: null,
+      esAmbiguo: true,
+      candidatos: exactos.map((c) => c.nombre),
+      motivo: 'EXACT_COLLISION',
+    };
+  }
+
+  // 2. Coincidencia por PREFIJO (ej. "Camila" con "Camila Rivera" o viceversa)
+  const prefijos = candidatosConocidos.filter((c) => {
+    return c.slug.startsWith(slugTarget + '_') || slugTarget.startsWith(c.slug + '_');
+  });
+
+  if (prefijos.length === 1) {
+    return {
+      nombre: prefijos[0].nombre,
+      esAmbiguo: false,
+      candidatos: [prefijos[0].nombre],
+      motivo: 'UNIQUE_PREFIX_MATCH',
+    };
+  }
+  if (prefijos.length > 1) {
+    // Más de una persona coincide por prefijo (ej. Mateo Gómez y Mateo Morales): AMBIGÜEDAD ESTRICTA
+    return {
+      nombre: null,
+      esAmbiguo: true,
+      candidatos: prefijos.map((c) => c.nombre),
+      motivo: 'AMBIGUOUS_PREFIX_MATCH',
+    };
+  }
+
+  // 3. No coincide con personas previas: es una persona nueva
+  return {
+    nombre: nombreRaw,
+    esAmbiguo: false,
+    candidatos: [nombreRaw],
+    motivo: 'NEW_PERSON',
+  };
+}
+
+/**
+ * Reconcilia el nombre de una persona interesada con los datos conocidos del titular o del perfil.
+ * Si el titular ya tiene un nombre completo verificado (ej. "Camila Rivera") y el argumento recibido
+ * es el nombre de pila (ej. "Camila"), reconcilia al nombre canónico completo.
+ * Si existe ambigüedad (ej. dos personas con el mismo nombre de pila), retorna null para bloquear
+ * selecciones arbitrarias o mutaciones erróneas.
+ */
+function reconciliarNombrePersona(nombrePersona, leadData = {}, perfilPersonas = []) {
+  const resolucion = resolverIdentidadPersona(nombrePersona, leadData, perfilPersonas);
+  if (resolucion.esAmbiguo) {
+    return null;
+  }
+  return resolucion.nombre;
+}
+
 function obtenerFechaLimaAhora() {
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
 }
@@ -449,6 +592,49 @@ function validarFechaSolicitada(fechaStr, diasPatron) {
 }
 
 /**
+ * Calcula la fecha correspondiente al próximo día de la semana solicitado (ej. "martes", "jueves", "sabado").
+ * Si el usuario ya cuenta con una cita confirmada para ese mismo día, calcula la fecha de la semana siguiente (+7 días)
+ * para evitar reprogramar a la misma fecha actual.
+ */
+function calcularFechaProximoDia(diaNombre, fechaActualDate = null) {
+  let patron = null;
+  const dNorm = (diaNombre || '').toLowerCase();
+  if (dNorm.includes('mar')) patron = 'M';
+  else if (dNorm.includes('jue')) patron = 'J';
+  else if (dNorm.includes('sab')) patron = 'S';
+  if (!patron) return null;
+
+  let target = calcularProximaFechaDisponible(patron);
+  if (!target || Number.isNaN(target.getTime())) return null;
+
+  if (fechaActualDate) {
+    let fActual = null;
+    if (typeof fechaActualDate.toDate === 'function') {
+      fActual = fechaActualDate.toDate();
+    } else if (fechaActualDate instanceof Date) {
+      fActual = fechaActualDate;
+    } else {
+      fActual = new Date(fechaActualDate);
+    }
+    if (fActual && !Number.isNaN(fActual.getTime())) {
+      const fActualLima = new Date(fActual.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+      if (
+        fActualLima.getFullYear() === target.getFullYear() &&
+        fActualLima.getMonth() === target.getMonth() &&
+        fActualLima.getDate() === target.getDate()
+      ) {
+        target = new Date(target.getFullYear(), target.getMonth(), target.getDate() + 7, 12, 0, 0, 0);
+      }
+    }
+  }
+
+  const y = target.getFullYear();
+  const m = String(target.getMonth() + 1).padStart(2, '0');
+  const d = String(target.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
  * Reserva una clase de prueba para un lead de WhatsApp (sin cuenta de Firebase Auth).
  * Ejecución 100% transaccional con verificación de idempotencia y lock optimista en `whatsapp_leads`.
  * Registra `reservas_activas[slug]` para soportar múltiples personas por lead sin sobreescrituras.
@@ -480,6 +666,14 @@ async function reservarClasePruebaLead(leadId, claseId, nombrePersona, fechaClas
 
     // Verificación de idempotencia / concurrencia dentro de la transacción
     let activaPrevia = reservasActivas[slug];
+    if (!activaPrevia) {
+      const matchingSlug = Object.keys(reservasActivas).find((k) => {
+        return k === slug || k.startsWith(slug + '_') || slug.startsWith(k + '_');
+      });
+      if (matchingSlug) {
+        activaPrevia = reservasActivas[matchingSlug];
+      }
+    }
 
     // Compatibilidad con leads legacy que no tienen mapa reservas_activas pero tienen reserva_id escalar
     if (leadDoc.exists && leadDoc.data()?.reserva_id) {
@@ -643,6 +837,12 @@ async function reprogramarClasePruebaLead(leadId, reservaId, nuevaFecha, motivo 
 
     const fechaAnteriorTimestamp = reservaData.fecha_clase;
     const nuevaFechaTimestamp = admin.firestore.Timestamp.fromDate(nuevaFecha);
+
+    // Idempotencia: si la fecha de la reserva ya coincide exactamente, evitar auditoría duplicada
+    if (fechaAnteriorTimestamp && fechaAnteriorTimestamp.seconds === nuevaFechaTimestamp.seconds) {
+      return { ...claseData, ya_estaba_programada: true };
+    }
+
     const ahora = admin.firestore.FieldValue.serverTimestamp();
     const ahoraTimestamp = admin.firestore.Timestamp.now
       ? admin.firestore.Timestamp.now()
@@ -1323,6 +1523,75 @@ function detectarSolicitudCancelacion(texto) {
   return patrones.some((p) => p.test(tNorm));
 }
 
+/**
+ * Detecta si el mensaje del usuario constituye una solicitud de reprogramación o cambio de fecha de su clase.
+ * Distingue solicitudes efectivas de preguntas informativas generales sobre cómo reprogramar,
+ * y extrae el día objetivo si fue mencionado (ej. martes, jueves, sábado).
+ */
+function detectarSolicitudReprogramacion(texto) {
+  if (!texto || typeof texto !== 'string') return null;
+  const tNorm = texto.toLowerCase()
+    .replace(/[áàäâ]/g, 'a')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[óòöô]/g, 'o')
+    .replace(/[úùüû]/g, 'u')
+    .trim();
+
+  // Excluir preguntas puramente informativas, hipotéticas o sobre políticas
+  if (
+    /\b(?:como\s+(?:funcionan?|hago|es|seria)|que\s+pasa\s+si|cobran|costo|penalidad|politica|terminos|condiciones|se\s+puede\s+reprogramar|se\s+puede\s+cambiar|cuantas\s+veces|que\s+dias)\b/i.test(tNorm) ||
+    /\b(?:si\s+(?:deseo|quiero|tengo\s+que|quisiera)\s+(?:reprogramar|cambiar))\b/i.test(tNorm)
+  ) {
+    return null;
+  }
+
+  // Detectar verbos de cambio / reprogramación o justificaciones de inasistencia con pedido de cambio
+  const pideCambio = /\b(?:reprogramar?|cambiar?|mover?|trasladar?|pasar?)\b/i.test(tNorm) ||
+                     /\b(?:no\s+podre?\s+ir|no\s+voy\s+a\s+poder|tuve\s+un\s+inconveniente)\b.*?\b(?:cambiar?|otro\s+dia|otra\s+fecha|martes|jueves|sabado)\b/i.test(tNorm);
+
+  if (!pideCambio) return null;
+
+  // Verificar que menciona clase / cita / reserva o cambio de día/fecha
+  const contextoReserva = /\b(?:clase|reserva|cita|cupo|dia|fecha|martes|jueves|sabado)\b/i.test(tNorm);
+  if (!contextoReserva) return null;
+
+  // Detectar día objetivo solicitado y detectar si hay ambigüedad (ej. "martes o jueves")
+  let diaObjetivo = null;
+  let esFechaAmbigua = false;
+
+  const esFechaDisyuntiva = /\b(?:martes|jueves|sabado)\b.*?\b(?:o|u|o\s+bien)\b.*?\b(?:martes|jueves|sabado)\b/i.test(tNorm);
+  if (esFechaDisyuntiva) {
+    esFechaAmbigua = true;
+    diaObjetivo = null;
+  } else {
+    // Buscar día objetivo introducido por preposiciones de destino (para, al)
+    const matchDestino = tNorm.match(/\b(?:para|al)\s+(?:el\s+)?(?:proximo|siguiente|este)?\s*(martes|jueves|sabado)\b/i);
+    if (matchDestino) {
+      diaObjetivo = matchDestino[1].toLowerCase();
+    } else {
+      // Si no tiene "para/al", buscar si se menciona un único día en todo el mensaje
+      const diasEncontrados = [];
+      if (/\bmartes\b/i.test(tNorm)) diasEncontrados.push('martes');
+      if (/\bjueves\b/i.test(tNorm)) diasEncontrados.push('jueves');
+      if (/\bsabado\b/i.test(tNorm)) diasEncontrados.push('sabado');
+
+      if (diasEncontrados.length === 1) {
+        diaObjetivo = diasEncontrados[0];
+      } else if (diasEncontrados.length > 1) {
+        esFechaAmbigua = true;
+      }
+    }
+  }
+
+  return {
+    esReprogramacion: true,
+    diaObjetivo,
+    esFechaAmbigua,
+    textoOriginal: texto,
+  };
+}
+
 function evaluarRuntimeGuard(leadId, candidateText, turnContext, systemPrompt = '') {
   if (!candidateText || typeof candidateText !== 'string') {
     return {
@@ -1511,7 +1780,7 @@ const AVAILABLE_TOOLS = [
             },
             nombre: {
               type: 'string',
-              description: 'Nombre de la persona específica de ESTA reserva (necesario si hay varias personas del mismo tipo, ej. dos niños/as). Si se omite, se usa el nombre guardado en el perfil.',
+              description: 'Nombre de la persona específica de ESTA reserva (completo si se conoce, ej. Camila Rivera, o de pila ej. Mateo). Si se omite, se deduce del perfil guardado o del titular.',
             },
             fecha_solicitada: {
               type: 'string',
@@ -1524,25 +1793,42 @@ const AVAILABLE_TOOLS = [
     },
     handler: async (leadId, args, turnContext = null) => {
       let publicoBuscado = args?.tipo === 'niño' ? 'niños' : args?.tipo === 'adulto' ? 'jovenes_adultos' : null;
-      let nombrePersona = args?.nombre ? String(args.nombre).trim() : null;
+      let rawNombre = args?.nombre ? String(args.nombre).trim() : null;
 
       // Limpia placeholders genéricos o descriptivos
-      if (nombrePersona && !esNombreValidoPersona(nombrePersona)) {
-        nombrePersona = null;
+      if (rawNombre && !esNombreValidoPersona(rawNombre)) {
+        rawNombre = null;
       }
 
-      if (!publicoBuscado || !nombrePersona) {
-        const leadDoc = await admin.firestore().collection('whatsapp_leads').doc(leadId).get();
-        const leadData = leadDoc.exists ? leadDoc.data() : {};
-        const perfilPersonas = Array.isArray(leadData?.perfil_personas) ? leadData.perfil_personas : [];
+      const leadDoc = await admin.firestore().collection('whatsapp_leads').doc(leadId).get();
+      const leadData = leadDoc.exists ? leadDoc.data() : {};
+      const perfilPersonas = Array.isArray(leadData?.perfil_personas) ? leadData.perfil_personas : [];
 
+      const resolucion = resolverIdentidadPersona(rawNombre, leadData, perfilPersonas);
+
+      if (resolucion.esAmbiguo) {
+        turnContext?.recordToolExecution({
+          tool_name: 'reservar_clase_prueba',
+          operation: 'booking',
+          status: 'clarification_required',
+          reason_code: 'AMBIGUOUS_NAME',
+          mutation_committed: false,
+          details: { candidatos: resolucion.candidatos },
+        });
+        const opciones = resolucion.candidatos.length > 0 ? ` (${resolucion.candidatos.join(', ')})` : '';
+        return `Hay varias personas registradas en este perfil${opciones}. Por favor indica el nombre de la persona específica para quien deseas agendar la clase de prueba.`;
+      }
+
+      let nombrePersona = resolucion.nombre;
+
+      if (!publicoBuscado || !nombrePersona) {
         if (!nombrePersona) {
           const candidatos = args?.tipo
             ? perfilPersonas.filter((p) => p.tipo === args.tipo)
             : perfilPersonas;
 
           if (candidatos.length === 1 && esNombreValidoPersona(candidatos[0].nombre)) {
-            nombrePersona = candidatos[0].nombre;
+            nombrePersona = reconciliarNombrePersona(candidatos[0].nombre, leadData, perfilPersonas);
             if (!publicoBuscado) {
               publicoBuscado = candidatos[0].tipo === 'niño' ? 'niños' : 'jovenes_adultos';
             }
@@ -1800,7 +2086,7 @@ const AVAILABLE_TOOLS = [
           properties: {
             nombre: {
               type: 'string',
-              description: 'Nombre de la persona cuya reserva se desea reprogramar (ej. Valentina, Mateo). Si el lead solo tiene una persona registrada, puede omitirse y se deduce automáticamente.',
+              description: 'Nombre de la persona cuya reserva se desea reprogramar (ej. Carlos Morales, Mateo). Si el lead solo tiene una persona con reserva confirmada, se deduce automáticamente y NO debes preguntárselo al cliente.',
             },
             reserva_id: {
               type: 'string',
@@ -1820,28 +2106,14 @@ const AVAILABLE_TOOLS = [
       },
     },
     handler: async (leadId, args, turnContext = null) => {
-      let nombrePersona = args?.nombre ? String(args.nombre).trim() : null;
-      if (nombrePersona && !esNombreValidoPersona(nombrePersona)) {
-        nombrePersona = null;
+      let rawNombre = args?.nombre ? String(args.nombre).trim() : null;
+      if (rawNombre && !esNombreValidoPersona(rawNombre)) {
+        rawNombre = null;
       }
 
       const leadDoc = await admin.firestore().collection('whatsapp_leads').doc(leadId).get();
       const leadData = leadDoc.exists ? leadDoc.data() : {};
       const perfilPersonas = leadData.perfil_personas || [];
-
-      // Si no especificó nombre, deducir si hay una sola persona en el perfil o en el lead
-      if (!nombrePersona) {
-        if (perfilPersonas.length === 1 && esNombreValidoPersona(perfilPersonas[0].nombre)) {
-          nombrePersona = perfilPersonas[0].nombre;
-        } else if (leadData.nombre && esNombreValidoPersona(leadData.nombre) && perfilPersonas.length === 0) {
-          nombrePersona = leadData.nombre;
-        }
-      }
-
-      // Buscar reservas de este lead
-      const reservasSnap = await admin.firestore().collection('reservas')
-        .where('lead_id', '==', leadId)
-        .get();
 
       // Soporte para identificación directa y verificación estricta de autorización por reserva_id si fue provisto
       let reservaPorId = null;
@@ -1859,8 +2131,12 @@ const AVAILABLE_TOOLS = [
           return `La reserva con identificador "${args.reserva_id}" no pertenece a este número de teléfono o no existe. No se puede reprogramar una reserva no autorizada.`;
         }
         reservaPorId = { id: docRes.id, ...docRes.data() };
-        nombrePersona = reservaPorId.nombre_persona || nombrePersona;
       }
+
+      // Buscar reservas de este lead
+      const reservasSnap = await admin.firestore().collection('reservas')
+        .where('lead_id', '==', leadId)
+        .get();
 
       if (reservasSnap.empty && !reservaPorId) {
         turnContext?.recordToolExecution({
@@ -1875,12 +2151,74 @@ const AVAILABLE_TOOLS = [
 
       const reservasDelLead = reservasSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      if (!nombrePersona && !reservaPorId) {
-        const reservasConfirmadas = reservasDelLead.filter((r) => r.status === 'confirmado');
-        if (reservasConfirmadas.length === 1) {
-          nombrePersona = reservasConfirmadas[0].nombre_persona || perfilPersonas[0]?.nombre || 'el alumno';
-        } else if (reservasConfirmadas.length > 1) {
-          const opciones = reservasConfirmadas.map(
+      let nombrePersona = rawNombre;
+
+      if (!reservaPorId) {
+        if (rawNombre) {
+          const resolucion = resolverIdentidadPersona(rawNombre, leadData, perfilPersonas);
+          if (resolucion.esAmbiguo) {
+            turnContext?.recordToolExecution({
+              tool_name: 'reprogramar_reserva',
+              operation: 'reschedule',
+              status: 'clarification_required',
+              reason_code: 'AMBIGUOUS_RESERVATION',
+              mutation_committed: false,
+              details: { candidatos: resolucion.candidatos },
+            });
+            return `Hay varias personas registradas que coinciden con "${rawNombre}" (${resolucion.candidatos.join(', ')}). Por favor especifica para cuál de las personas deseas reprogramar indicando el nombre completo o ID de reserva.`;
+          }
+          nombrePersona = resolucion.nombre;
+        }
+      } else {
+        nombrePersona = reservaPorId.nombre_persona || nombrePersona;
+      }
+
+      let reservasTarget = [];
+      if (reservaPorId) {
+        reservasTarget = [reservaPorId];
+      } else if (nombrePersona) {
+        const slugTarget = slugifyPersona(nombrePersona);
+        reservasTarget = reservasDelLead.filter(
+          (r) => slugifyPersona(r.nombre_persona) === slugTarget
+        );
+        // Si no hay match exacto, buscar por prefijo de slug
+        if (reservasTarget.length === 0) {
+          const prefixMatches = reservasDelLead.filter((r) => {
+            const rSlug = slugifyPersona(r.nombre_persona);
+            return rSlug && (rSlug.startsWith(slugTarget + '_') || slugTarget.startsWith(rSlug + '_'));
+          });
+          if (prefixMatches.length === 1) {
+            reservasTarget = prefixMatches;
+          } else if (prefixMatches.length > 1) {
+            const opciones = prefixMatches.map((p) => `${p.nombre_persona || 'Asistente'} (${p.hora || ''}, ID: ${p.id})`).join('; ');
+            turnContext?.recordToolExecution({
+              tool_name: 'reprogramar_reserva',
+              operation: 'reschedule',
+              status: 'clarification_required',
+              reason_code: 'AMBIGUOUS_RESERVATION',
+              mutation_committed: false,
+              details: { opciones },
+            });
+            return `Hay varias reservas que coinciden con "${nombrePersona}" (${opciones}). Por favor especifica para cuál de las personas deseas reprogramar indicando el nombre completo o ID de reserva.`;
+          }
+        }
+        // Si aún no hay match, pero el lead NO pasó un nombre que no coincida (pasó null o solicitud implícita)
+        // y el lead tiene exactamente una reserva confirmada activa
+        if (reservasTarget.length === 0 && !rawNombre) {
+          const confirmadas = reservasDelLead.filter((r) => r.status === 'confirmado');
+          if (confirmadas.length === 1) {
+            reservasTarget = confirmadas;
+            nombrePersona = confirmadas[0].nombre_persona || nombrePersona;
+          }
+        }
+      } else {
+        // No hay nombrePersona ni reservaPorId: verificar si hay exactamente 1 reserva confirmada
+        const confirmadas = reservasDelLead.filter((r) => r.status === 'confirmado');
+        if (confirmadas.length === 1) {
+          reservasTarget = confirmadas;
+          nombrePersona = confirmadas[0].nombre_persona || 'el alumno';
+        } else if (confirmadas.length > 1) {
+          const opciones = confirmadas.map(
             (c) => `${c.nombre_persona || 'Asistente'} (${c.dias || ''} ${c.hora || ''}, ID: ${c.id})`
           ).join('; ');
           turnContext?.recordToolExecution({
@@ -1892,16 +2230,6 @@ const AVAILABLE_TOOLS = [
           });
           return `Hay varias reservas confirmadas activas para este número (${opciones}). Por favor especifica para cuál de las personas deseas reprogramar (indicando el nombre o ID de reserva).`;
         }
-      }
-
-      let reservasTarget = [];
-      if (reservaPorId) {
-        reservasTarget = [reservaPorId];
-      } else if (nombrePersona) {
-        const slugTarget = slugifyPersona(nombrePersona);
-        reservasTarget = reservasDelLead.filter(
-          (r) => slugifyPersona(r.nombre_persona) === slugTarget
-        );
       }
 
       if (reservasTarget.length === 0) {
@@ -2048,6 +2376,34 @@ const AVAILABLE_TOOLS = [
         return `La fecha solicitada "${nuevaFechaSolicitada}" no es válida para la clase (los días de clase son: ${claseData.dias || 'M, J'}) o ya pasó. La reserva de ${nombrePersona || 'el alumno'} NO ha sido modificada y SIGUE ACTIVA para el ${fechaOriginalTexto}. Explícale al lead cuáles son los días permitidos y ofrécele las fechas válidas, o utiliza marcar_seguimiento_humano si requiere coordinación especial.`;
       }
 
+      // Comprobar idempotencia si la reserva ya está agendada para esa fecha exacta
+      if (fechaActualDate && nuevaFechaValida) {
+        const fechaActualLima = new Date(fechaActualDate.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+        const nuevaFechaLima = new Date(nuevaFechaValida.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+        if (
+          fechaActualLima.getFullYear() === nuevaFechaLima.getFullYear() &&
+          fechaActualLima.getMonth() === nuevaFechaLima.getMonth() &&
+          fechaActualLima.getDate() === nuevaFechaLima.getDate()
+        ) {
+          const fechaTexto = formatearFechaLarga(nuevaFechaValida);
+          const horaClase = claseData.hora || reservaAfectada.hora || '18:00';
+          turnContext?.recordToolExecution({
+            tool_name: 'reprogramar_reserva',
+            operation: 'reschedule',
+            status: 'success',
+            reason_code: 'ALREADY_SCHEDULED_ON_DATE',
+            mutation_committed: true,
+            persona_slug: slugifyPersona(nombrePersona),
+            reservation_ref: reservaAfectada.id,
+            fecha_confirmada: fechaTexto,
+            fecha_iso: nuevaFechaValida.toISOString().split('T')[0],
+            hora: horaClase,
+            sede: claseData.sede || reservaAfectada.sede || null,
+          });
+          return `La clase de prueba de ${nombrePersona || 'el alumno'} ya se encuentra confirmada y programada exactamente para el ${fechaTexto} a las ${horaClase}. No fue necesario realizar cambios en la agenda. Confírmale esto al lead con amabilidad.`;
+        }
+      }
+
       try {
         await reprogramarClasePruebaLead(
           leadId,
@@ -2186,7 +2542,7 @@ const AVAILABLE_TOOLS = [
               items: {
                 type: 'object',
                 properties: {
-                  nombre: { type: 'string', description: 'Nombre de pila real de esa persona. Si no sabes el nombre propio real, NO uses esta herramienta ni inventes corchetes como "[nombre]". Pregunta primero el nombre real.' },
+                  nombre: { type: 'string', description: 'Nombre propio real de esa persona (completo si lo dio, ej. Camila Rivera, o nombre de pila ej. Mateo). Si no sabes el nombre propio real, NO uses esta herramienta ni inventes corchetes como "[nombre]". Pregunta primero el nombre real.' },
                   tipo: { type: 'string', enum: ['adulto', 'niño'], description: 'A quién le interesa la clase.' },
                   edad: { type: 'number', description: 'Edad de esa persona.' },
                 },
@@ -2199,20 +2555,26 @@ const AVAILABLE_TOOLS = [
       },
     },
     handler: async (leadId, args, turnContext = null) => {
+      const leadRef = admin.firestore().collection('whatsapp_leads').doc(leadId);
+      const leadDoc = await leadRef.get();
+      const leadData = leadDoc.exists ? leadDoc.data() : {};
+      const personasPrevias = (leadDoc.exists && Array.isArray(leadData?.perfil_personas))
+        ? leadData.perfil_personas
+        : [];
+
       const personasNuevas = Array.isArray(args?.personas) ? args.personas : [];
       const personasLimpias = personasNuevas.map((p) => {
         let n = (p.nombre || '').trim();
         if (!esNombreValidoPersona(n)) {
           n = '';
+        } else {
+          // Si es adulto o coincide con el titular del lead, reconciliar con el nombre completo conocido
+          if ((p.tipo === 'adulto' || !p.tipo) && leadData.nombre) {
+            n = reconciliarNombrePersona(n, leadData, personasPrevias);
+          }
         }
         return { ...p, nombre: n };
       }).filter((p) => p.nombre.length > 0);
-
-      const leadRef = admin.firestore().collection('whatsapp_leads').doc(leadId);
-      const leadDoc = await leadRef.get();
-      const personasPrevias = (leadDoc.exists && Array.isArray(leadDoc.data()?.perfil_personas))
-        ? leadDoc.data().perfil_personas
-        : [];
 
       // Mapeo por slug para fusionar sin sobrescribir a otros hijos/as
       const personasMap = new Map();
@@ -2446,6 +2808,76 @@ async function preguntarIA(leadId, systemPrompt, historial, onToolCall = null, c
           candidateContent = '¡Claro que sí! Ya le avisé al instructor para que se comunique contigo en breve por este medio y te atienda personalmente.';
         } else if (esCancelacionExplicita) {
           candidateContent = 'Entendido, tomo nota de tu solicitud para avisar al instructor que no podrás asistir. ¡Gracias por avisar!';
+        }
+      }
+
+      // Política determinista de reprogramación para solicitudes explícitas e inequívocas
+      const infoReprog = detectarSolicitudReprogramacion(ultimoTexto);
+      if (
+        infoReprog &&
+        infoReprog.diaObjetivo &&
+        !infoReprog.esFechaAmbigua &&
+        !turnContext.executedToolNames.includes('reprogramar_reserva') &&
+        !turnContext.executedToolNames.includes('marcar_seguimiento_humano')
+      ) {
+        try {
+          const resSnap = await admin.firestore().collection('reservas')
+            .where('lead_id', '==', leadId)
+            .get();
+          const ahoraLima = obtenerFechaLimaAhora();
+          const hoyMedianoche = new Date(ahoraLima.getFullYear(), ahoraLima.getMonth(), ahoraLima.getDate());
+
+          const confirmadasVigentes = resSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((r) => {
+              if (r.status !== 'confirmado') return false;
+              if (r.asistencia === 'asistio' || r.asistencia === 'no_asistio') return false;
+              let fDate = null;
+              if (r.fecha_clase && typeof r.fecha_clase.toDate === 'function') {
+                fDate = r.fecha_clase.toDate();
+              } else if (r.fecha_clase) {
+                fDate = new Date(r.fecha_clase);
+              }
+              if (!fDate || Number.isNaN(fDate.getTime())) return false;
+              const fLima = new Date(fDate.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+              const fMed = new Date(fLima.getFullYear(), fLima.getMonth(), fLima.getDate());
+              return fMed >= hoyMedianoche;
+            });
+
+          // Solo actuar de forma determinista si hay exactamente UNA reserva confirmada vigente (inequívoca)
+          if (confirmadasVigentes.length === 1) {
+            const reservaUnica = confirmadasVigentes[0];
+            const nuevaFechaStr = calcularFechaProximoDia(infoReprog.diaObjetivo, reservaUnica.fecha_clase);
+            if (nuevaFechaStr) {
+              const toolReprog = AVAILABLE_TOOLS.find((t) => t.name === 'reprogramar_reserva');
+              if (toolReprog) {
+                const reprogArgs = {
+                  nombre: reservaUnica.nombre_persona || undefined,
+                  reserva_id: reservaUnica.id,
+                  nueva_fecha: nuevaFechaStr,
+                  motivo: 'Solicitud explícita de cambio de día del lead',
+                };
+                const reprogRes = await toolReprog.handler(leadId, reprogArgs, turnContext);
+                if (onToolCall) {
+                  onToolCall({
+                    name: 'reprogramar_reserva',
+                    args: reprogArgs,
+                    result: reprogRes,
+                    turnContext,
+                  });
+                }
+                const successRecord = turnContext.toolRecords.find(
+                  (r) => r.tool_name === 'reprogramar_reserva' && r.status === 'success' && r.mutation_committed === true
+                );
+                if (successRecord) {
+                  const nombreP = reservaUnica.nombre_persona ? ` ${reservaUnica.nombre_persona}` : '';
+                  candidateContent = `¡Listo${nombreP}! Tu clase de prueba quedó reprogramada con éxito para el ${successRecord.fecha_confirmada} a las ${successRecord.hora || '18:00'}. Te esperamos en nuestra sede.`;
+                }
+              }
+            }
+          }
+        } catch (errReprogDet) {
+          console.error('[preguntarIA] Error en reprogramación determinista:', errReprogDet.message);
         }
       }
 
@@ -3054,11 +3486,12 @@ REGLAS OBLIGATORIAS ANTE ESTE LEAD CON RESERVA CONFIRMADA VIGENTE:
 3. Si la persona saluda o consulta sobre su cita, reconoce su reserva con calidez (ej. "¡Hola! Claro, la clase de [nombre] ya está confirmada para el [fecha] a las [hora]..."). Trata a cada persona por su nombre propio, sin asumir género por el nombre.
 4. Responde con amabilidad cualquier duda sobre su asistencia usando ÚNICAMENTE información verificada del negocio: para dirección usa siempre la DIRECCIÓN REAL y el enlace oficial de Google Maps provistos abajo; para horarios o precios de acompañantes usa consultar_horarios_disponibles. NUNCA inventes requisitos de vestimenta, minutos obligatorios de anticipación ni políticas comerciales no verificadas.
 5. Si el cliente solicita reprogramar o cambiar de fecha su reserva (ej. pasar de martes a jueves, o agendar para la próxima semana):
-   a. Identifica con precisión para cuál persona solicita el cambio. Si el lead tiene múltiples reservas activas y el mensaje no especifica el nombre o usa términos genéricos ("mi hijo", "el pequeño"), solicita amablemente que aclare a cuál de los alumnos se refiere antes de confirmar.
-   b. Utiliza la herramienta reprogramar_reserva con el nombre de la persona o su reserva_id, y la nueva_fecha solicitada (en formato AAAA-MM-DD obtenido de la lista de próximas clases disponibles).
-   c. NUNCA confirmes que el cambio ya está realizado de palabra si no ejecutaste la herramienta y recibiste confirmación exitosa. NUNCA uses reservar_clase_prueba para cambiar la fecha de una persona con reserva confirmada.
-   d. Si la herramienta indica que la fecha no es válida, que no hay cupos o que la reserva previa ya fue asistida/no asistida, explícaselo al cliente con amabilidad y usa marcar_seguimiento_humano.
-   e. Si el cliente solicita cancelar definitivamente su reserva (en vez de reprogramar), indícaselo con amabilidad y usa de inmediato marcar_seguimiento_humano.
+   a. Si este lead tiene UNA SOLA reserva confirmada activa (o dice "mi clase", "para mí", "no podré ir este jueves"): la persona YA está 100% identificada. NUNCA le vuelvas a preguntar el nombre ni a nombre de quién está la clase. Llama DIRECTAMENTE a la herramienta reprogramar_reserva con el nombre del titular o de esa única persona y la nueva_fecha solicitada.
+   b. ÚNICAMENTE si el lead tiene DOS O MÁS reservas confirmadas activas para diferentes alumnos (ej. dos hermanos) y el mensaje NO especifica a cuál de ellos se refiere (o usa términos genéricos como "mi hijo", "el pequeño"): solicita amablemente que aclare a cuál de los alumnos se refiere antes de reprogramar.
+   c. Utiliza la herramienta reprogramar_reserva con el nombre de la persona o su reserva_id, y la nueva_fecha solicitada (en formato AAAA-MM-DD obtenido de la lista de próximas clases disponibles).
+   d. NUNCA confirmes que el cambio ya está realizado de palabra si no ejecutaste la herramienta y recibiste confirmación exitosa. NUNCA uses reservar_clase_prueba para cambiar la fecha de una persona con reserva confirmada.
+   e. Si la herramienta indica que la fecha no es válida, que no hay cupos o que la reserva previa ya fue asistida/no asistida, explícaselo al cliente con amabilidad y usa marcar_seguimiento_humano.
+   f. Si el cliente solicita cancelar definitivamente su reserva (en vez de reprogramar), indícaselo con amabilidad y usa de inmediato marcar_seguimiento_humano.
 6. La fecha y hora de su reserva confirmada está PLENAMENTE VIGENTE — no apliques para ella ninguna advertencia de desactualización de fechas del historial.
 7. Si el cliente solicita agendar o agregar a OTRA persona / un nuevo familiar (ej. un hermanito/a, otro hijo/a, un acompañante):
    a. El sistema soporta múltiples reservas independientes para diferentes personas bajo el mismo número. La reserva de la persona anterior se mantiene intacta.
@@ -3538,6 +3971,10 @@ module.exports.__internals = {
   obtenerMensajeFallbackSeguro,
   detectarSolicitudExplicitaAtencionHumana,
   detectarSolicitudCancelacion,
+  detectarSolicitudReprogramacion,
+  resolverIdentidadPersona,
+  reconciliarNombrePersona,
+  calcularFechaProximoDia,
 };
 
 

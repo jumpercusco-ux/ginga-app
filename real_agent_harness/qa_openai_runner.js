@@ -381,9 +381,30 @@ function buildScenarios(db, internals) {
           .where('status', '==', 'confirmado')
           .get();
         if (reservasSnap.empty) throw new Error('No se encontró reserva confirmada en Firestore.');
+        const reservaDoc = reservasSnap.docs[0];
+        const reservaData = reservaDoc.data();
+        if (reservaData.nombre_persona !== 'Camila Rivera') {
+          throw new Error(`nombre_persona en /reservas esperado "Camila Rivera", obtenido "${reservaData.nombre_persona}"`);
+        }
+        if (reservaData.lead_id !== this.leadId) {
+          throw new Error(`lead_id en /reservas no coincide: ${reservaData.lead_id} vs ${this.leadId}`);
+        }
+
         const leadDoc = await db.collection('whatsapp_leads').doc(this.leadId).get();
-        const activas = leadDoc.data()?.reservas_activas || {};
-        if (!activas.camila_rivera) throw new Error('reservas_activas no contiene a camila_rivera.');
+        const leadData = leadDoc.data() || {};
+        const activas = leadData.reservas_activas || {};
+        if (!activas.camila_rivera) {
+          throw new Error('reservas_activas no contiene la clave canónica camila_rivera.');
+        }
+        if (activas.camila_rivera.nombre_persona !== 'Camila Rivera') {
+          throw new Error(`nombre_persona en reservas_activas.camila_rivera esperado "Camila Rivera", obtenido "${activas.camila_rivera.nombre_persona}"`);
+        }
+        if (activas.camila_rivera.reserva_id !== reservaDoc.id) {
+          throw new Error(`reserva_id en reservas_activas (${activas.camila_rivera.reserva_id}) no coincide con ID en /reservas (${reservaDoc.id})`);
+        }
+        if (leadData.reserva_id !== reservaDoc.id) {
+          throw new Error(`reserva_id escalar en lead (${leadData.reserva_id}) no sincronizado con /reservas (${reservaDoc.id})`);
+        }
       },
     },
     {
