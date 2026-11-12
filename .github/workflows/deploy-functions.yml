@@ -1,0 +1,61 @@
+name: Deploy Functions - Firebase (Manual y Selectivo)
+
+on:
+  workflow_dispatch:
+    inputs:
+      function_name:
+        description: 'Nombre exacto de la función a desplegar'
+        required: true
+        type: choice
+        default: 'whatsappWebhook'
+        options:
+          - whatsappWebhook
+          - enviarSeguimientoLeadsFrios
+          - enviarRecordatorioPruebaDiario
+      target_project:
+        description: 'Proyecto Firebase de destino'
+        required: true
+        default: 'capoeirafiu-ea8ljo'
+      confirmation:
+        description: 'Escribe "CONFIRMAR_DEPLOY_FUNCTIONS" para autorizar'
+        required: true
+        default: ''
+
+jobs:
+  deploy-functions:
+    name: Despliegue Manual Cloud Functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar confirmación de seguridad
+        run: |
+          if [ "${{ inputs.confirmation }}" != "CONFIRMAR_DEPLOY_FUNCTIONS" ]; then
+            echo "ERROR: Despliegue denegado. Se requiere confirmation='CONFIRMAR_DEPLOY_FUNCTIONS'."
+            exit 1
+          fi
+          echo "Despliegue manual autorizado para la función: ${{ inputs.function_name }}"
+          echo "Proyecto destino: ${{ inputs.target_project }}"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools@15.10.1
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Deploy Cloud Function selectiva
+        run: |
+          firebase deploy \
+            --only functions:${{ inputs.function_name }} \
+            --project ${{ inputs.target_project }} \
+            --non-interactive \
+            --token "${{ secrets.FIREBASE_TOKEN }}"

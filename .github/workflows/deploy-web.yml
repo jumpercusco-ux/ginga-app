@@ -1,0 +1,72 @@
+name: Deploy Web - Vercel (Controlado)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Entorno de publicación'
+        required: true
+        default: 'preview'
+        type: choice
+        options:
+          - preview
+          - production
+      confirmation:
+        description: 'Escribe "CONFIRMAR_DEPLOY_PROD" si seleccionaste production (afecta www.gingaperu.com)'
+        required: false
+        default: ''
+
+jobs:
+  deploy-web:
+    name: Despliegue Flutter Web a Vercel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validar autorización de producción
+        if: ${{ inputs.environment == 'production' }}
+        run: |
+          if [ "${{ inputs.confirmation }}" != "CONFIRMAR_DEPLOY_PROD" ]; then
+            echo "ERROR: Despliegue a producción denegado. Se requiere confirmation='CONFIRMAR_DEPLOY_PROD'."
+            exit 1
+          fi
+          echo "Autorización para producción (www.gingaperu.com) verificada."
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.4'
+          channel: 'stable'
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Build Flutter Web release
+        run: |
+          flutter build web --release
+          cp web/vercel.json build/web/vercel.json
+
+      - name: Desplegar entorno PREVIEW (*.vercel.app)
+        if: ${{ inputs.environment == 'preview' }}
+        working-directory: build/web
+        run: |
+          DEPLOY_URL=$(npx vercel deploy --token="${{ secrets.VERCEL_TOKEN }}" --yes)
+          echo "### Despliegue Preview Exitoso" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **URL de prueba:** $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Dominio productivo:** No afectado (gingaperu.com permanece intacto)" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Desplegar entorno PRODUCCIÓN (www.gingaperu.com)
+        if: ${{ inputs.environment == 'production' }}
+        working-directory: build/web
+        run: |
+          npx vercel deploy --prod --token="${{ secrets.VERCEL_TOKEN }}" --yes
+          echo "### Despliegue Producción Exitoso" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Dominio Oficial:** https://www.gingaperu.com" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit desplegado:** ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

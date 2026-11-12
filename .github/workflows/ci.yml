@@ -1,0 +1,86 @@
+name: CI - Integración Continua
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - 'feat/**'
+      - 'fix/**'
+      - 'integrate/**'
+  pull_request:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter-ci:
+    name: Flutter Web & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.4'
+          channel: 'stable'
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Static code analysis
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Run Flutter unit tests
+        run: flutter test
+
+      - name: Dry-run build Flutter Web release
+        run: |
+          flutter build web --release
+          cp web/vercel.json build/web/vercel.json
+          test -f build/web/index.html
+          echo "Flutter Web build verification passed."
+
+  node-agent-ci:
+    name: Node.js 22 & Agent Quality Benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Setup Java for Firebase Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools@15.10.1
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Run date & schedule semantics test suite
+        run: node real_agent_harness/test_reservation_date_semantics.js
+
+      - name: Run agent continuous evaluations suite (Accostupa & AgentFeedback)
+        run: node real_agent_harness/test_agent_evaluations.js
+
+      - name: Run Firestore security rules emulator test suite
+        run: |
+          firebase emulators:exec --only firestore 'node real_agent_harness/test_firestore_rules.js'
