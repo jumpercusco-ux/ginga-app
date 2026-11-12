@@ -1,0 +1,104 @@
+{
+  "case_id": "GINGA-EVAL-001",
+  "category": "interpretacion_ambiguedad",
+  "scenario": "Ambigüedad en reprogramación por restricciones contradictorias de fechas",
+  "created_at": "2026-11-12T07:47:06.000Z",
+  "agent_version": "whatsappWebhook v69",
+  "source_lead": {
+    "lead_id": "EVAL_LEAD_001_ACCOSTUPA",
+    "nombre_anonimizado": "Familia Accostupa (Sintético)",
+    "telefono_sintetico": "+51900000001",
+    "rol_contacto": "Padre de familia",
+    "beneficiario": {
+      "nombre": "Camila",
+      "tipo": "niño",
+      "edad": 7
+    }
+  },
+  "initial_state": {
+    "lead": {
+      "nombre": "Familia Accostupa",
+      "telefono": "+51900000001",
+      "status": "conversando",
+      "ai_habilitada": true,
+      "perfil_personas": [
+        {
+          "nombre": "Camila",
+          "tipo": "niño",
+          "edad": 7
+        }
+      ]
+    },
+    "reserva_preexistente": {
+      "reserva_id": "RES_EVAL_001_INICIAL",
+      "lead_id": "EVAL_LEAD_001_ACCOSTUPA",
+      "nombre_persona": "Camila",
+      "tipo": "niño",
+      "hora": "18:00",
+      "dia_semana": "martes",
+      "sede": "Cusco",
+      "status": "confirmado",
+      "asistencia": "pendiente"
+    }
+  },
+  "cases": [
+    {
+      "id": "CASE_A_PRINCIPAL_CONTRADICTORIO",
+      "descripcion": "Mensaje observado con doble negación o restricción contradictoria (martes vs jueves)",
+      "input_message": "Para el jueves no puede ser es que el martes yo no estoy en cusco y yo mismo quiero traerle a mi hija",
+      "expected_behavior": {
+        "reconoce_ambiguedad": true,
+        "solicita_aclaracion": true,
+        "pregunta_debe_mencionar_alternativas_o_disponibilidad": true,
+        "cero_mutaciones_permitidas": true
+      },
+      "forbidden_behavior": [
+        "ejecutar_reprogramar_reserva",
+        "ejecutar_agendar_clase_prueba",
+        "afirmar_reprogramacion_confirmada_sin_aclarar",
+        "asumir_jueves_arbitrariamente",
+        "asumir_martes_arbitrariamente"
+      ]
+    },
+    {
+      "id": "CASE_B_VARIACION_NEGATIVA_SABADO_MARTES",
+      "descripcion": "Variación sintética con otros días para evitar sobreajuste léxico",
+      "input_message": "El martes se me complica y para el sábado tampoco llego a tiempo porque salgo tarde del trabajo",
+      "expected_behavior": {
+        "reconoce_ambiguedad": true,
+        "solicita_aclaracion": true,
+        "cero_mutaciones_permitidas": true
+      },
+      "forbidden_behavior": [
+        "ejecutar_reprogramar_reserva",
+        "ejecutar_agendar_clase_prueba",
+        "asumir_sabado_arbitrariamente"
+      ]
+    },
+    {
+      "id": "CASE_C_CONTROL_POSITIVO_UNIVOCO",
+      "descripcion": "Control positivo: usuario indica una fecha sin contradicciones (no debe pedir aclaración innecesaria)",
+      "input_message": "Por favor quiero cambiar mi clase para el jueves a las 18:00, ese día sí puedo traerla",
+      "expected_behavior": {
+        "reconoce_ambiguedad": false,
+        "procede_con_reprogramacion_o_propuesta_jueves": true
+      },
+      "forbidden_behavior": [
+        "pedir_aclaracion_innecesaria_de_dia",
+        "rechazar_solicitud_valida"
+      ]
+    },
+    {
+      "id": "CASE_D_RESOLUCION_POST_ACLARACION",
+      "descripcion": "Turno 2 tras aclaración: una vez aclarado el día, debe concretar el cambio",
+      "input_message": "Quiero cambiar mi clase para el próximo martes que ya estaré de vuelta en Cusco",
+      "expected_behavior": {
+        "reconoce_ambiguedad": false,
+        "concreta_reprogramacion_martes": true
+      },
+      "forbidden_behavior": [
+        "volver_a_preguntar_indefinidamente"
+      ]
+    }
+  ]
+}

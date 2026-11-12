@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../../core/theme/ginga_theme.dart';
 import '../../core/models/cuerdas_fiu.dart';
+import '../../core/models/agent_feedback.dart';
+import '../../core/services/agent_feedback_service.dart';
 import 'agent_prompt_screen.dart';
 
 // Paleta oscura fija — mismo tratamiento que instructor_clase_screen/login:
@@ -1116,6 +1118,320 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
     }
   }
 
+  Future<void> _abrirDialogoReportarFeedback({
+    required BuildContext context,
+    required String leadId,
+    required String messageId,
+    required String conversationReference,
+    required String actualBehavior,
+  }) async {
+    final observacionController = TextEditingController();
+    final esperadoController = TextEditingController();
+    String categoriaSeleccionada = AgentFeedbackCategory.interpretacionAmbiguedad;
+    String severidadSeleccionada = AgentFeedbackSeverity.media;
+    bool guardando = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: _kTarjetaOscura,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(GingaRadius.lg),
+                side: const BorderSide(color: _kBordeOscuro),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.flag_rounded, color: Colors.amber, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Reportar respuesta de IA',
+                      style: GoogleFonts.montserrat(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: Theme(
+                data: _darkDialogTheme(dialogCtx),
+                child: SizedBox(
+                  width: double.maxFinite,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Respuesta analizada (extracto):',
+                          style: GoogleFonts.montserrat(fontSize: 11, color: _kTextoSecundarioOscuro, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black38,
+                            borderRadius: BorderRadius.circular(GingaRadius.sm),
+                            border: Border.all(color: _kBordeOscuro),
+                          ),
+                          child: Text(
+                            actualBehavior.length > 200 ? '${actualBehavior.substring(0, 200)}...' : actualBehavior,
+                            style: GoogleFonts.montserrat(fontSize: 12, color: Colors.white70),
+                          ),
+                        ),
+                        const SizedBox(height: GingaSpacing.sm),
+                        DropdownButtonFormField<String>(
+                          initialValue: categoriaSeleccionada,
+                          decoration: const InputDecoration(labelText: 'Categoría de incidencia'),
+                          dropdownColor: _kTarjetaOscura,
+                          items: AgentFeedbackCategory.etiquetas.entries.map((e) {
+                            return DropdownMenuItem(
+                              value: e.key,
+                              child: Text(e.value, style: GoogleFonts.montserrat(fontSize: 13, color: Colors.white)),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) setDialogState(() => categoriaSeleccionada = val);
+                          },
+                        ),
+                        const SizedBox(height: GingaSpacing.sm),
+                        DropdownButtonFormField<String>(
+                          initialValue: severidadSeleccionada,
+                          decoration: const InputDecoration(labelText: 'Severidad'),
+                          dropdownColor: _kTarjetaOscura,
+                          items: AgentFeedbackSeverity.etiquetas.entries.map((e) {
+                            return DropdownMenuItem(
+                              value: e.key,
+                              child: Text(e.value, style: GoogleFonts.montserrat(fontSize: 13, color: Colors.white)),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) setDialogState(() => severidadSeleccionada = val);
+                          },
+                        ),
+                        const SizedBox(height: GingaSpacing.sm),
+                        TextField(
+                          controller: observacionController,
+                          maxLines: 3,
+                          decoration: const InputDecoration(
+                            labelText: 'Observación del instructor',
+                            hintText: '¿Qué estuvo mal o causó confusión?',
+                          ),
+                          style: GoogleFonts.montserrat(color: Colors.white, fontSize: 13),
+                        ),
+                        const SizedBox(height: GingaSpacing.sm),
+                        TextField(
+                          controller: esperadoController,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Comportamiento esperado',
+                            hintText: '¿Qué debió responder o consultar el agente?',
+                          ),
+                          style: GoogleFonts.montserrat(color: Colors.white, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: guardando ? null : () => Navigator.of(dialogCtx).pop(),
+                  child: Text('Cancelar', style: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: guardando
+                      ? null
+                      : () async {
+                          final obs = observacionController.text.trim();
+                          final esp = esperadoController.text.trim();
+                          if (obs.isEmpty || esp.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Por favor completa la observación y el comportamiento esperado.'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
+                          setDialogState(() => guardando = true);
+                          try {
+                            final service = AgentFeedbackService();
+                            final fbId = await service.registrarFeedback(
+                              leadId: leadId,
+                              messageId: messageId,
+                              conversationReference: conversationReference,
+                              category: categoriaSeleccionada,
+                              severity: severidadSeleccionada,
+                              observation: obs,
+                              expectedBehavior: esp,
+                              actualBehavior: actualBehavior,
+                            );
+                            if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('✓ Incidencia registrada exitosamente ($fbId)',
+                                      style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.w600)),
+                                  backgroundColor: GingaColors.brandGreen,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            setDialogState(() => guardando = false);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error al guardar incidencia: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  icon: guardando
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.check, size: 16),
+                  label: Text(guardando ? 'Guardando...' : 'Guardar incidencia'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber[700],
+                    foregroundColor: Colors.white,
+                    textStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _abrirSheetIncidenciasLead(BuildContext context, String leadId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _kTarjetaOscura,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(GingaRadius.lg)),
+      ),
+      builder: (sheetCtx) {
+        final service = AgentFeedbackService();
+        return Container(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(sheetCtx).size.height * 0.75),
+          padding: const EdgeInsets.all(GingaSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.flag_circle_outlined, color: Colors.amber, size: 24),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Incidencias reportadas del lead',
+                      style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () => Navigator.of(sheetCtx).pop(),
+                  ),
+                ],
+              ),
+              const Divider(color: _kBordeOscuro),
+              Expanded(
+                child: StreamBuilder<List<AgentFeedback>>(
+                  stream: service.obtenerFeedbacksPorLead(leadId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: Colors.amber));
+                    }
+                    final lista = snapshot.data ?? [];
+                    if (lista.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'No hay incidencias reportadas para esta conversación.',
+                          style: GoogleFonts.montserrat(color: _kTextoSecundarioOscuro, fontSize: 13),
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      itemCount: lista.length,
+                      separatorBuilder: (_, __) => const Divider(color: _kBordeOscuro),
+                      itemBuilder: (context, idx) {
+                        final fb = lista[idx];
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                                  ),
+                                  child: Text(
+                                    fb.feedbackId,
+                                    style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.amber),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueGrey.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    AgentFeedbackStatus.obtenerEtiqueta(fb.status),
+                                    style: GoogleFonts.montserrat(fontSize: 10, color: Colors.white70),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  AgentFeedbackSeverity.obtenerEtiqueta(fb.severity),
+                                  style: GoogleFonts.montserrat(fontSize: 10, color: Colors.orangeAccent),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Categoría: ${AgentFeedbackCategory.obtenerEtiqueta(fb.category)}',
+                              style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Obs: ${fb.observation}',
+                              style: GoogleFonts.montserrat(fontSize: 12, color: Colors.white70),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Esperado: ${fb.expectedBehavior}',
+                              style: GoogleFonts.montserrat(fontSize: 12, color: GingaColors.brandGreen),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final leadRef = FirebaseFirestore.instance.collection('whatsapp_leads').doc(widget.leadId);
@@ -1158,6 +1474,38 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                       Expanded(
                         child: Text(data['nombre'] ?? widget.leadData['nombre'] ?? 'Lead',
                             style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
+                      ),
+                      // Badge / Botón de Incidencias reportadas del lead
+                      StreamBuilder<int>(
+                        stream: AgentFeedbackService().contarFeedbacksPorLead(widget.leadId),
+                        builder: (context, snap) {
+                          final count = snap.data ?? 0;
+                          if (count == 0) return const SizedBox.shrink();
+                          return InkWell(
+                            onTap: () => _abrirSheetIncidenciasLead(context, widget.leadId),
+                            borderRadius: BorderRadius.circular(GingaRadius.sm),
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(GingaRadius.sm),
+                                border: Border.all(color: Colors.amber.withOpacity(0.6)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.flag, size: 14, color: Colors.amber),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$count',
+                                    style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.amber),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       Row(
                         children: [
@@ -1425,13 +1773,48 @@ class _LeadDetalleSheetState extends State<_LeadDetalleSheet> {
                                       texto,
                                       style: GoogleFonts.montserrat(fontSize: 13, color: Colors.white),
                                     ),
-                            if (ts != null) ...[
-                              const SizedBox(height: 3),
-                              Text(
-                                _formatearFechaHoraMensaje(ts),
-                                style: GoogleFonts.montserrat(fontSize: 10, color: _kTextoSecundarioOscuro),
-                              ),
-                            ],
+                            const SizedBox(height: 3),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (from == 'ai') ...[
+                                  InkWell(
+                                    onTap: () => _abrirDialogoReportarFeedback(
+                                      context: context,
+                                      leadId: widget.leadId,
+                                      messageId: mensajes[index].id,
+                                      conversationReference: widget.leadData['nombre'] ?? widget.leadId,
+                                      actualBehavior: texto,
+                                    ),
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.flag_outlined, size: 12, color: Colors.amber.withOpacity(0.85)),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            'Reportar IA',
+                                            style: GoogleFonts.montserrat(
+                                              fontSize: 10,
+                                              color: Colors.amber.withOpacity(0.95),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                if (ts != null)
+                                  Text(
+                                    _formatearFechaHoraMensaje(ts),
+                                    style: GoogleFonts.montserrat(fontSize: 10, color: _kTextoSecundarioOscuro),
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
                       ),

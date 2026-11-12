@@ -145,5 +145,36 @@ service cloud.firestore {
         allow read, write: if request.auth != null;
       }
     }
+
+    // ==========================================
+    // REGLA PARA FEEDBACK Y EVALUACIONES DEL AGENTE IA GINGA 🤖
+    // ==========================================
+    match /agent_feedback/{feedbackId} {
+      // Solo profesores o administradores autenticados pueden consultar incidencias
+      allow read: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol in ['profesor', 'admin']
+      );
+
+      // La creación exige que el autor sea el usuario autenticado y tenga rol profesor/admin
+      allow create: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol in ['profesor', 'admin'] &&
+        request.resource.data.reported_by.uid == request.auth.uid;
+
+      // Actualizaciones (triaje, diagnóstico, vinculación a evaluación) solo por profesor/admin
+      allow update: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol in ['profesor', 'admin'];
+
+      // Prohibido eliminar incidencias para preservar trazabilidad e historial inmutable
+      allow delete: if false;
+    }
+
+    match /agent_evaluations/{caseId} {
+      // Casos de evaluación y benchmarks de calidad solo accesibles por profesor o admin
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol in ['profesor', 'admin'];
+
+      // Preservar benchmarks históricos de calidad sin borrado accidental
+      allow delete: if false;
+    }
   }
 }

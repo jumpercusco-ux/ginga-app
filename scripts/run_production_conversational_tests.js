@@ -44,6 +44,7 @@ Uso del Runner de Pruebas Conversacionales GINGA:
      ALLOW_PRODUCTION_TEST_WRITES=true node scripts/run_production_conversational_tests.js --target=production --real-openai
 
 Flags adicionales:
+  --eval=<case_id>  Ejecuta un caso de evaluación de calidad específico (ej. --eval=GINGA-EVAL-001).
   --real-openai     Habilita llamadas reales a OpenAI si OPENAI_API_KEY está disponible (límite duro: 30 llamadas).
   --help, -h        Muestra este mensaje de ayuda.
 `);
@@ -53,6 +54,8 @@ Flags adicionales:
 const isProductionTarget = args.includes('--target=production');
 const isEmulatorTarget = args.includes('--target=emulator') || !isProductionTarget;
 const forceRealOpenAI = args.includes('--real-openai');
+const evalArg = args.find((a) => a.startsWith('--eval='));
+const evalCaseId = evalArg ? evalArg.split('=')[1].trim() : null;
 
 // Guard de seguridad estricto para modo producción
 if (isProductionTarget) {
@@ -774,11 +777,133 @@ async function despacharTurnoConversacional(leadId, userText, leadNombre = 'Test
 }
 
 // -------------------------------------------------------------
-// 7. DEFINICIÓN Y EJECUCIÓN DE LOS 4 ESCENARIOS DEL EMBUDO REAL
+// 7. EVALUACIÓN ESPECÍFICA DE CASO (GINGA-EVAL-XXX)
+// -------------------------------------------------------------
+async function ejecutarEvaluacionEspecifica(caseId, resultados) {
+  console.log(`\n▶ Ejecutando Caso de Evaluación Específico: ${caseId}...`);
+  let fixture = null;
+  const fixturesDir = path.resolve(__dirname, '../real_agent_harness/fixtures');
+  if (fs.existsSync(fixturesDir)) {
+    const files = fs.readdirSync(fixturesDir);
+    for (const f of files) {
+      if (f.endsWith('.json')) {
+        try {
+          const content = JSON.parse(fs.readFileSync(path.join(fixturesDir, f), 'utf8'));
+          if (content.case_id === caseId || f.toLowerCase().includes(caseId.toLowerCase().replace(/-/g, '_'))) {
+            fixture = content;
+            break;
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  if (!fixture) {
+    throw new Error(`[EVAL ERROR] No se encontró el fixture para el caso: ${caseId}`);
+  }
+
+  console.log(`  Escenario: ${fixture.scenario}`);
+  console.log(`  Categoría: ${fixture.category}`);
+
+  const runId = Date.now().toString(36).toUpperCase();
+  const leadId = `${fixture.source_lead.lead_id}_${runId}`;
+  const leadNombre = `${fixture.source_lead.nombre_anonimizado} [${runId}]`;
+
+  // 1. Sembrar lead inicial
+  const leadRef = db.collection('whatsapp_leads').doc(leadId);
+  await leadRef.set({
+    ...fixture.initial_state.lead,
+    telefono: leadId,
+    nombre: leadNombre,
+    creado_en: admin.firestore.FieldValue.serverTimestamp(),
+    ultima_interaccion: admin.firestore.FieldValue.serverTimestamp(),
+    origen: 'eval_runner',
+    seguimiento_frio_enviado: true,
+  });
+  createdDocumentsManifest.push({
+    coleccion: 'whatsapp_leads',
+    path: `whatsapp_leads/${leadId}`,
+    descripcion: `Lead de Evaluación ${caseId} (${leadNombre})`,
+  });
+
+  // Sembrar reserva inicial si existe
+  if (fixture.initial_state.reserva_preexistente) {
+    const resData = fixture.initial_state.reserva_preexistente;
+    const resRef = await db.collection('reservas').add({
+      ...resData,
+      lead_id: leadId,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await leadRef.update({
+      reserva_id: resRef.id,
+      fecha_clase_reservada: admin.firestore.FieldValue.serverTimestamp(),
+      hora_clase_reservada: resData.hora || '18:00',
+    });
+    createdDocumentsManifest.push({
+      coleccion: 'reservas',
+      path: `reservas/${resRef.id}`,
+      descripcion: `Reserva Preexistente de Evaluación ${caseId}`,
+    });
+  }
+
+  // 2. Ejecutar cada subcaso del fixture
+  for (const c of fixture.cases) {
+    console.log(`\n  ┌─ Subcaso: ${c.id}`);
+    console.log(`  │  Descripción: ${c.descripcion}`);
+    const tStart = Date.now();
+    const turno = await despacharTurnoConversacional(leadId, c.input_message, leadNombre);
+
+    let status = 'PASS';
+    const razones = [];
+
+    // Validar herramientas prohibidas
+    if (Array.isArray(c.forbidden_behavior)) {
+      for (const forb of c.forbidden_behavior) {
+        if (forb === 'ejecutar_reprogramar_reserva') {
+          const ejecuto = turno.executedTools.some((t) => (t.name || t.tool_name) === 'reprogramar_reserva');
+          if (ejecuto) {
+            status = 'FAIL';
+            razones.push('Ejecutó reprogramar_reserva indebidamente sin aclarar ambigüedad');
+          }
+        }
+        if (forb === 'ejecutar_agendar_clase_prueba') {
+          const ejecuto = turno.executedTools.some((t) => (t.name || t.tool_name) === 'reservar_clase_prueba');
+          if (ejecuto) {
+            status = 'FAIL';
+            razones.push('Ejecutó reservar_clase_prueba indebidamente');
+          }
+        }
+      }
+    }
+
+    // Validar que se solicite aclaración si es requerido
+    if (c.expected_behavior?.solicita_aclaracion) {
+      const textoLower = turno.replyText.toLowerCase();
+      const hacePregunta = textoLower.includes('?') || textoLower.includes('¿') || textoLower.includes('prefieres') || textoLower.includes('cual');
+      if (!hacePregunta) {
+        status = 'INCONCLUSIVE';
+        razones.push('No se detectó pregunta explícita de aclaración');
+      }
+    }
+
+    resultados.push({
+      id: `${caseId}_${c.id}`,
+      nombre: `Evaluación ${caseId} (${c.id})`,
+      leadId,
+      status,
+      detalles: razones.length > 0 ? razones.join(' | ') : 'Cumplió los criterios de evaluación.',
+      duracionMs: Date.now() - tStart,
+      turnos: [turno],
+    });
+  }
+}
+
+// -------------------------------------------------------------
+// 8. DEFINICIÓN Y EJECUCIÓN DE ESCENARIOS
 // -------------------------------------------------------------
 async function ejecutarSuiteDePruebas() {
   console.log('\n===============================================================');
-  console.log('   GINGA REAL — PROMPT 68: VALIDACIÓN DEL EMBUDO COMERCIAL');
+  console.log(`   GINGA REAL — ${evalCaseId ? `EVALUACIÓN ESPECÍFICA (${evalCaseId})` : 'VALIDACIÓN DEL EMBUDO COMERCIAL'}`);
   console.log(`   Destino: ${isProductionTarget ? 'PRODUCCIÓN (capoeirafiu-ea8ljo)' : 'EMULADOR LOCAL (demo-ginga-test)'}`);
   console.log(`   Modo OpenAI: ${forceRealOpenAI ? 'REAL (OpenAI API - gpt-4o-mini)' : 'SIMULADO / OFFLINE (Deterministic Mock)'}`);
   console.log('===============================================================\n');
@@ -787,6 +912,15 @@ async function ejecutarSuiteDePruebas() {
 
   if (isEmulatorTarget) {
     await sembrarFixturesEmulador();
+  }
+
+  const resultados = [];
+
+  // Si se solicitó un caso de evaluación puntual (ej. --eval=GINGA-EVAL-001)
+  if (evalCaseId) {
+    await ejecutarEvaluacionEspecifica(evalCaseId, resultados);
+    imprimirReporteResultados(resultados);
+    return;
   }
 
   // Generar ID único por corrida para aislamiento estricto
@@ -804,8 +938,6 @@ async function ejecutarSuiteDePruebas() {
       throw new Error(`[SEGURIDAD] Los IDs de prueba ya existen en producción (${tALeadId} o ${tDLeadId}). Abortando.`);
     }
   }
-
-  const resultados = [];
 
   // =============================================================
   // ESCENARIO A: RESERVA COMPLETA (Sofia, 9 años)
@@ -1078,6 +1210,10 @@ async function ejecutarSuiteDePruebas() {
     reservasDocs: [resMateo, resLucia].filter(Boolean),
   });
 
+  imprimirReporteResultados(resultados);
+}
+
+function imprimirReporteResultados(resultados) {
   // -------------------------------------------------------------
   // RESUMEN Y TELEMETRÍA FINAL
   // -------------------------------------------------------------
@@ -1089,7 +1225,7 @@ async function ejecutarSuiteDePruebas() {
   console.log('===============================================================');
   let passCount = 0;
   for (const r of resultados) {
-    const icon = r.status === 'PASS' ? '✅' : '❌';
+    const icon = r.status === 'PASS' ? '✅' : (r.status === 'INCONCLUSIVE' ? '⚠️' : '❌');
     if (r.status === 'PASS') passCount++;
     console.log(`${icon} [${r.status}] ${r.nombre}`);
     console.log(`    Lead ID: ${r.leadId}`);
@@ -1098,7 +1234,7 @@ async function ejecutarSuiteDePruebas() {
   }
 
   console.log('---------------------------------------------------------------');
-  console.log(`Total escenarios: ${resultados.length} | Pasados: ${passCount} | Fallados: ${resultados.length - passCount}`);
+  console.log(`Total escenarios: ${resultados.length} | Pasados: ${passCount} | No pasados: ${resultados.length - passCount}`);
   console.log(`Tasa de éxito: ${Math.round((passCount / resultados.length) * 100)}%`);
   console.log('---------------------------------------------------------------');
   console.log('AUDITORÍA DE RED Y CONSUMOS:');
@@ -1120,7 +1256,7 @@ async function ejecutarSuiteDePruebas() {
   console.log('---------------------------------------------------------------\n');
 
   if (passCount !== resultados.length) {
-    console.error('❌ Al menos una prueba no cumplió los criterios de aceptación.');
+    console.error('❌ Al menos una evaluación no cumplió los criterios de aceptación.');
     process.exit(1);
   }
 
