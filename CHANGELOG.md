@@ -48,8 +48,44 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
-## [7db11ca] — 2026-11-11
-### [COMMIT LOCAL: 7db11ca] (Rama `fix/real-whatsapp-logic`)
+## [Release Readiness & QA Real 12/12] — 2026-11-11
+### [PROBADO LOCALMENTE - GATE DE RELEASE APROBADO] (Rama `fix/real-whatsapp-logic`, HEAD `1197225`)
+- **Validación Final de QA Conversacional Real OpenAI (`gpt-4o-mini`):**
+  - **Evidencia del Cuarto QA Real Auditada:**
+    - `runId`: `qa_run_1794446882861_tdvxf6`, modo `LIVE_REAL_OPENAI`.
+    - Resultado: **12 de 12 escenarios PASS (100% éxito)**.
+    - Llamadas y consumo: 11 turnos conversacionales reales evaluados con OpenAI + 1 escenario (12) de confirmación falsa inducida localmente para auditar la intercepción del Runtime Guard (29ms).
+    - Solicitudes HTTP a OpenAI: 19 llamadas registradas (11 turnos + tool-calling loops).
+    - Tokens y Costo auditado: 55,332 tokens de prompt, 613 tokens de completion, costo total estimado: **US$0.0087**.
+    - Firewall de Red: 1 solicitud a Meta WhatsApp (`graph.facebook.com`) interceptada y bloqueada al 100%. 0 llamadas a Firestore productivo.
+    - Base de Datos de Prueba: Firestore Emulator local (`127.0.0.1:8080`, `demo-ginga-test`).
+    - Código de salida: 0 (éxito total).
+- **Auditoría Remota de Solo Lectura Autorizada (Prompt 49, `capoeirafiu-ea8ljo`):**
+  - **Cloud Function Productiva:** `whatsappWebhook`, Gen 1, región `us-central1`, runtime `nodejs20`, estado `ACTIVE`, versión `v67`, última actualización `2026-10-23T04:47:06Z`.
+  - **Secrets en GCP:** Verificados en Secret Manager y vinculados a la función (`META_VERIFY_TOKEN` v2, `META_APP_SECRET` v1, `META_WHATSAPP_TOKEN` v2, `META_PHONE_NUMBER_ID` v1, `OPENAI_API_KEY` v1). `TELEMETRY_SALT` ausente en Secret Manager y env vars; opera con fallback efímero a `crypto.randomBytes(32)` por cold start sin interrumpir la ejecución.
+  - **Configuración Comercial Firestore:** Sede oficial en Urb. Magisterio, Av. de la Cultura E-4 (Edificio Divergym, 3er piso); clases regulares Kids (Martes y Jueves 18:00–19:00, 5–12 años) y Adultos (Martes y Jueves 19:00–20:00, 13–99 años); mensualidad S/140, Promo 2x S/260. Se aclara que "Calle Hospital 840" y horarios 17:00–18:00 fueron exclusivamente fixtures sintéticos locales del emulador (`qa_openai_runner.js`), no datos de producción.
+  - **Documento `config/whatsapp_agent`:** Confirmada existencia en Firestore (actualizado 2026-09-07T01:07:59Z); contenido no descargado ni inspeccionado para preservar integridad.
+- **Auditoría de CI/CD y Riesgo de Despliegue Masivo:**
+  - Se identificó que `.github/workflows/deploy.yml` despliega automáticamente todas las Cloud Functions (`--only functions`) si se hace push a `main`.
+  - Se estableció la prohibición de despliegue masivo y se restringió el target estrictamente a `functions:whatsappWebhook` vía CLI selectivo bajo autorización.
+- **Estrategia Realista de Rollback y Smoke Test Verificado:**
+  - Identificación de plataforma: `whatsappWebhook` corre sobre Cloud Functions Gen 1, sin soporte nativo de división de tráfico por porcentaje entre revisiones. Rollback requiere re-despliegue (RTO estimado: 2 a 5 minutos).
+  - Procedimiento de reversión preparado y aislado vía `git worktree` en `/private/tmp/ginga_rollback_baseline` sobre el tag `pre-live-original-2026-10-27` (commit `3058ada`, sin garantía de equivalencia binaria estricta con `v67`).
+  - Smoke test adaptativo derivado de horarios reales de la sede Magisterio (martes y jueves), con contacto interno exclusivo y distinción clara entre intercepción protectora del Runtime Guard y fallas críticas.
+
+---
+
+## [1197225] — 2026-11-11
+### [COMMIT LOCAL: 1197225] (Rama `fix/real-whatsapp-logic`)
+- **Alineación de Conteos de Suites de Pruebas e Inventario JSDoc:**
+  - Corrección de reporte en documentación: P1A (27/27 PASS) y P0.1 (14/14 PASS).
+  - Inventario JSDoc completado en `test_p1a_runtime_guard.js` (casos 1 a 27).
+  - Total validado: 123 pruebas de backend automatizadas + 12 dry-run = 135 verificaciones (100% PASS).
+
+---
+
+## [d9bb995] — 2026-11-11
+### [COMMIT LOCAL: d9bb995] (Rama `fix/real-whatsapp-logic`)
 - **Blindaje de Identidad, Reprogramación Inequívoca e Idempotencia Transaccional (Casos 1 y 3 tras Tercer QA Real OpenAI):**
   - **Evidencia del Tercer QA Real Auditada:**
     - `runId`: `qa_run_1794441642639_nog6ff`, modo `LIVE_REAL_OPENAI`.

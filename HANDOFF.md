@@ -8,19 +8,21 @@
 
 - **Proyecto:** `/Users/jumper/ginga_app`
 - **Rama Activa:** `fix/real-whatsapp-logic`
-- **Commit Base:** `7db11ca` (`fix(agent): identity collision guard, hardened rescheduling, and negative regressions`)
-- **Estado de Trabajo:** **Release Candidate (RC) Gate Evaluado — Estado CONDITIONAL**.
-  - Tercer QA OpenAI real ejecutado (`qa_run_1794441642639_nog6ff`): 10/12 PASS, 2 FAIL (Caso 1 y Caso 3), US$0.0086 de costo real.
-  - Caso 4 ("Dos hijos") verificado 100% PASS en QA real con OpenAI tras la corrección anterior.
-  - Casos 2, 5, 6, 7, 8, 9, 10, 11 y 12 todos 100% PASS en QA real con OpenAI.
-  - Caso 1 ("Reserva nueva") diagnosticado y blindado: `resolverIdentidadPersona` y `reconciliarNombrePersona` con resolución unívoca, bloqueo de colisiones de prefijo entre homónimos, actualización de descripciones de tools y aserción estricta en runner (`/reservas`, `reservas_activas.camila_rivera`, `nombre_persona === 'Camila Rivera'`, sincronización de `reserva_id`).
-  - Caso 3 ("Reprogramación martes-jueves") diagnosticado y blindado: aclaración explícita en Regla 5 de prompt para lead con reserva única (prohíbe repreguntar nombre), búsqueda flexible por prefijo de slug en `reprogramar_reserva`, distinción rigurosa de fechas ambiguas ("martes o jueves") e inasistencias en `detectarSolicitudReprogramacion`, fallback determinista en `preguntarIA` condicionado a reserva única vigente y no asistida, e idempotencia transaccional sin duplicación de auditoría.
-  - Suite de regresiones ampliada: `test_qa_regressions.js` (**33/33 PASS** con Tests 28 a 33 de pruebas negativas, autorización e idempotencia).
-  - 115/115 pruebas offline PASS (14 P0.1 + 22 P0.2A + 10 P0.2B + 27 P1A + 9 baseline + 33 regresiones).
-  - 8/8 pruebas reales en Firestore Emulator (Java 21) PASS.
-  - Total: **123 de 123 pruebas superadas (100% PASS)** y 12/12 escenarios dry-run verificados (135 verificaciones totales).
-  - Bloqueo para producción: Mantener CONDITIONAL hasta validar 12/12 PASS en cuarto QA real con OpenAI.
-- **Producción:** Google Cloud Function `whatsappWebhook v67` (asociada a `main` en commit `3058ada`). **Producción NO ha sido tocada.**
+- **Commit Base:** `1197225` (`docs(qa): align test suite counts (P1A 27/27, P0.1 14/14, 123 total) and complete JSDoc inventory`)
+- **Estado de Trabajo:** **RELEASE CANDIDATE CLOSED LOCALLY — PRODUCTION NOT AUTHORIZED**.
+  - Cuarto QA OpenAI real ejecutado (`qa_run_1794446882861_tdvxf6`): **12/12 PASS (100% de éxito)** (11 turnos conversacionales reales evaluados con `gpt-4o-mini` + 1 escenario inducido localmente para validar intercepción del Runtime Guard en 29ms, costo US$0.0087).
+  - Firewall de Red: 1 solicitud a Meta WhatsApp interceptada y bloqueada al 100% (0 egress). 0 operaciones a Firestore productivo durante QA.
+  - Suite de pruebas de backend: **123 de 123 pruebas aprobadas (100% PASS)** y 12/12 escenarios dry-run verificados (135 verificaciones totales).
+  - Auditoría Remota de Solo Lectura (Prompt 49, `capoeirafiu-ea8ljo`):
+    * `whatsappWebhook`: Cloud Functions Gen 1, us-central1, v67, ACTIVE, nodejs20, 256MB, timeout 60s, updateTime `2026-10-23T04:47:06Z`.
+    * Secrets verificados en GCP: `META_VERIFY_TOKEN` (v2), `META_APP_SECRET` (v1), `META_WHATSAPP_TOKEN` (v2), `META_PHONE_NUMBER_ID` (v1), `OPENAI_API_KEY` (v1). Todos presentes, vinculados y habilitados.
+    * `TELEMETRY_SALT`: Ausente en Secret Manager y env vars; opera con fallback efímero sin interrumpir ejecución.
+    * Configuración comercial productiva verificada en Firestore: Sede Urb. Magisterio, Av. de la Cultura E-4 (Edificio Divergym, 3er piso); Kids (M/J 18:00–19:00, 5–12 años, 10 cupos), Adultos (M/J 19:00–20:00, 13–99 años, 3 cupos); Mensualidad S/140. Los datos "Calle Hospital 840" y 17-18h fueron exclusivamente fixtures sintéticos del emulador local.
+    * `config/whatsapp_agent`: Confirmada existencia en Firestore (actualizado 2026-09-07T01:07:59Z); contenido no descargado ni inspeccionado.
+  - Auditoría de CI/CD: `.github/workflows/deploy.yml` despliega masivamente todas las funciones (`--only functions`) ante cualquier push a `main`. Prohibido el despliegue general o push a `main`; se autoriza únicamente el despliegue selectivo de `functions:whatsappWebhook` bajo autorización expresa.
+  - Estrategia de Rollback respaldada: `whatsappWebhook` opera sobre Cloud Functions Gen 1 (sin split de tráfico entre revisiones). Rollback exige re-despliegue selectivo vía `git worktree` aislado (`/private/tmp/ginga_rollback_baseline`) sobre el tag `pre-live-original-2026-10-27` (commit `3058ada`, RTO estimado 2 a 5 minutos, sin garantía de equivalencia binaria estricta con `v67`).
+  - Procedimiento de Smoke Test controlado: derivado de horarios y días reales de Magisterio (martes y jueves), ejecutado únicamente desde contacto interno autorizado.
+- **Producción:** Google Cloud Function `whatsappWebhook v67` (asociada a `main` en commit `3058ada`, proyecto `capoeirafiu-ea8ljo`). **Producción NO ha sido tocada.**
 
 ---
 
@@ -95,19 +97,20 @@ git diff functions/index.js
 
 ## 4. Qué Sigue Exactamente (Siguiente Tarea)
 
-1. **Ejecución del QA Conversacional Real Focalizado o Completo (Acción Mínima del Usuario):**
-   Ejecutar en la terminal interactiva de macOS el script seguro:
-   - Para validar exclusivamente el **Caso 4** con gasto mínimo:
+1. **Aprobación de Release Readiness:**
+   - El gate de QA real OpenAI ha sido superado al 100% (12/12 PASS, $0.0087 USD, commit `1197225`).
+   - El plan de lanzamiento selectivo está listo para autorización por parte del usuario.
+2. **Procedimiento de Despliegue Selectivo (Bajo Autorización Expresa):**
+   - Asegurar que NO se ejecute `git push` a `main` para evitar que `.github/workflows/deploy.yml` despliegue las 10 Cloud Functions.
+   - Desplegar quirúrgicamente únicamente el webhook de WhatsApp:
      ```bash
-     ./scratch/run_live_qa.sh 4
+     firebase deploy --only functions:whatsappWebhook --project capoeirafiu-ea8ljo
      ```
-   - Para validar la suite completa de **12 escenarios**:
-     ```bash
-     ./scratch/run_live_qa.sh
-     ```
-   *El script solicita la clave `ginga-qa-local` mediante `read -s` (compatible zsh/bash, sin eco), ejecuta el emulador en `demo-ginga-test`, canaliza logs en vivo a `scratch/qa_execution.log`, limpia la memoria con trap y exporta el reporte auditado a `scratch/qa_report_latest.json` con `runId` único y distinción clara entre ejecución focalizada (1/1) y suite completa (12/12).*
-2. **Auditar métricas reales en el reporte generado:** Leer `scratch/qa_report_latest.json` y verificar `runId`, `mode: "LIVE_REAL_OPENAI"`, latencia por turno, tools ejecutadas, tokens y costo real consumido (< $0.25 USD).
-3. **Decisión de Gate:** Con los resultados de OpenAI real verificados, evaluar transición de CONDITIONAL a READY para staging/despliegue quirúrgico.
+3. **Ejecución de Smoke Test Controlado:**
+   - Enviar mensajes de prueba desde contacto interno autorizado en Meta Business Suite (nunca leads reales).
+   - Validar flujos con días reales (martes y jueves) y la sede/horario que devuelva la consulta dinámica a Firestore (evitando discrepancias estáticas entre Magisterio y Hospital).
+   - Distinguir éxito, intercepción protectora legítima del Runtime Guard y fallas críticas.
+   - En caso de fallo crítico en producción, ejecutar reversión mediante re-despliegue en worktree aislado desde el tag `pre-live-original-2026-10-27` (commit `3058ada`).
 
 ---
 

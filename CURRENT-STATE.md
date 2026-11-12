@@ -3,9 +3,9 @@
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-11  
 > **Rama Actual:** `fix/real-whatsapp-logic`  
-> **Commit HEAD:** `7db11ca` (`fix(agent): identity collision guard, hardened rescheduling, and negative regressions`)  
-> **Producción Intacta:** `3058ada` (main, `whatsappWebhook v67`)  
-> **Estado RC:** CONDITIONAL (Apto para Staging / QA Real, Bloqueado para Despliegue Directo a Producción)
+> **Commit HEAD:** `1197225` (`docs(qa): align test suite counts and complete JSDoc inventory`)  
+> **Producción Intacta:** `3058ada` (main, `whatsappWebhook v67`, proyecto `capoeirafiu-ea8ljo`)  
+> **Estado RC:** RELEASE CANDIDATE CLOSED LOCALLY — PRODUCTION NOT AUTHORIZED (Gate de QA Real 12/12 APROBADO; Despliegue Sujeto a Autorización Expresa)
 
 ---
 
@@ -36,8 +36,8 @@ flowchart LR
 
 | Rama | Commit HEAD | Propósito y Estado |
 |---|---|---|
-| **`main`** | `3058ada` | **Producción activa.** Coincide exactamente con la revisión `whatsappWebhook v67` desplegada en Google Cloud el 23-OCT-2026. Tag: `pre-live-original-2026-10-27`. |
-| **`fix/real-whatsapp-logic`** | `bd36b9a` (+ P1A local) | **Rama de desarrollo real activa.** Contiene el harness (`b1c3af6`), P0.1 (`9c53417`), master docs (`264e314`), P0.2A (`df2650e`), P0.2B (`ae75ee6`), decisión 5 multisede (`bd36b9a`) e implementación local de **P1A (Runtime Guard y Telemetría Zero PII)** lista para revisión. |
+| **`main`** | `3058ada` | **Producción activa.** Referencia de Git asociada al tag `pre-live-original-2026-10-27`. Cloud Function `whatsappWebhook v67` activa en Google Cloud (desplegada 2026-10-23T04:47:06Z; no se asume equivalencia binaria estricta). |
+| **`fix/real-whatsapp-logic`** | `1197225` | **Rama Release Candidate local.** Contiene la implementación íntegra de GINGA Real: P0.1 (`9c53417`), P0.2A (`df2650e`), P0.2B (`ae75ee6`), P1A (`847d3be`), blindaje de identidad (`d9bb995`), regresiones completas (123/123 PASS) y QA real OpenAI 12/12 (`1197225`). |
 | `stabilization/pre-live-2026-10-28` | `caf628a` | Línea independiente de estabilización previa al LIVE de TikTok (controles de seguridad e idempotencia). |
 | `demo/tiktok-live-2026-10-28` | `7243a7f` | Línea exclusiva de demostración visual en memoria para grabación y TikTok LIVE (código aislado en `demo/`). |
 
@@ -411,7 +411,38 @@ Para facilitar la telemetría del futuro Agent Control Center y la API de DANEV:
   * **Firewall de Red Global en `global.fetch`:** Intercepción determinista a nivel de proceso Node.js. Bloquea el 100% de solicitudes a `graph.facebook.com` y endpoints externos no autorizados. Probado expresamente con 0 bytes de egress a Meta.
   * **Zero PII Estricto:** Hashing HMAC-SHA256 (`hashLeadId`, `hashPersona`) y datos sintéticos.
   * **Circuito de Presupuesto Local:** Techo duro de 30 llamadas HTTP y $0.25 USD máximo estimado (circuit breaker de cliente; no es un límite contractual del proveedor).
-- **Estado Actual de Ejecución Real:** **LOCALMENTE LISTO — DIAGNÓSTICO, BLINDAJE DE IDENTIDAD Y REGRESIONES VALIDADAS AL 100%**.
+- **Resultado del Cuarto QA OpenAI Real (`runId: qa_run_1794446882861_tdvxf6`):**
+  * **Score:** **12/12 PASS (100% de éxito)**.
+  * **Costo Real:** US$0.0087 (19 peticiones HTTP OpenAI, 11 turnos conversacionales evaluados + 1 escenario de confirmación falsa inducida localmente para auditar intercepción de Runtime Guard).
+  * **Tokens:** 55,332 prompt tokens, 613 completion tokens.
+  * **Auditoría de Red:** 1 solicitud a Meta WhatsApp interceptada y bloqueada por el firewall local (0 egress). 0 operaciones a Firestore productivo.
+  * **Escenarios Auditados:**
+    - Caso 1 ("Reserva nueva"): PASS (Camila Rivera -> `guardar_perfil_lead` + `reservar_clase_prueba`, validación canónica en `/reservas` y `reservas_activas`).
+    - Caso 2 ("Reserva vigente"): PASS (Daniela Perez -> reconoce su cita del sábado 14 a las 18:00 sin llamar tools).
+    - Caso 3 ("Reprogramación martes-jueves"): PASS (Carlos Morales -> `reprogramar_reserva`, cita movida al martes 17 a las 18:00 con auditoría).
+    - Caso 4 ("Dos hijos"): PASS (Mateo + Sofia 5 años -> `guardar_perfil_lead` + `reservar_clase_prueba`, ambos hijos confirmados e independientes).
+    - Caso 5 ("Asistencia previa"): PASS (`marcar_seguimiento_humano` -> política comercial respetada).
+    - Caso 6 ("Inasistencia"): PASS (`marcar_seguimiento_humano` -> caso derivado para revisión de profesor).
+    - Caso 7 ("Falta de cupos"): PASS (solicita datos antes de comprometer cupos).
+    - Caso 8 ("Datos incompletos"): PASS (solicita nombre y edad).
+    - Caso 9 ("Solicitud de cancelación"): PASS (`marcar_seguimiento_humano` -> derivación limpia).
+    - Caso 10 ("Consulta de sede y horarios"): PASS (`consultar_horarios_disponibles` -> datos verificados de Cusco).
+    - Caso 11 ("Solicitud de atención humana"): PASS (`marcar_seguimiento_humano` -> escalación cordial).
+    - Caso 12 ("Confirmación falsa inducida"): PASS (Runtime Guard interceptó la afirmación alucinada en 29ms).
+  * **Código de Salida:** 0 (éxito total).
+- **Auditoría de CI/CD y Riesgo de Despliegue Masivo:**
+  * Se identificó que `.github/workflows/deploy.yml` activa automáticamente el despliegue de **todas las Cloud Functions** (`firebase deploy --only functions --project capoeirafiu-ea8ljo`) y Flutter Web a Vercel producción al actualizar `main`.
+  * Se prohíbe el despliegue general. El único comando autorizado para el despliegue de GINGA Real es:
+    `firebase deploy --only functions:whatsappWebhook --project capoeirafiu-ea8ljo`
+  * **Plataforma y Reversión:** `whatsappWebhook` es Cloud Functions Gen 1 (`firebase-functions` 4.4.1). No soporta división de tráfico por porcentaje; el rollback requiere re-despliegue selectivo desde un worktree aislado de `pre-live-original-2026-10-27` (commit `3058ada`, RTO estimado 2 a 5 minutos).
+- **Configuración Comercial y Operativa Verificada en Producción (Prompt 49):**
+  * **Sede Oficial:** Av. de la Cultura E-4, Urb. Magisterio (Edificio Divergym, 3er piso, al costado de Caja Arequipa).
+  * **Clases Regulares:** Kids (Martes y Jueves 18:00–19:00, 5–12 años, 10 cupos) y Adultos (Martes y Jueves 19:00–20:00, 13–99 años, 3 cupos).
+  * **Tarifas:** Mensualidad S/140, Promo 2x S/260, Multimes (1m S/140, 2m S/260, 3m S/380, 6m S/700).
+  * **Aclaración de Fixtures:** "Calle Hospital 840" y horarios 17:00–18:00 corresponden exclusivamente a fixtures sintéticos del emulador de pruebas (`qa_openai_runner.js`), no a la configuración de producción.
+  * **Secrets en GCP:** 5 secretos requeridos verificados en Secret Manager (`META_VERIFY_TOKEN` v2, `META_APP_SECRET` v1, `META_WHATSAPP_TOKEN` v2, `META_PHONE_NUMBER_ID` v1, `OPENAI_API_KEY` v1). `TELEMETRY_SALT` ausente (opera con fallback efímero sin interrumpir ejecución).
+  * **Documento `config/whatsapp_agent`:** Confirmada existencia en Firestore (actualizado 2026-09-07T01:07:59Z); contenido no descargado ni inspeccionado para preservar integridad.
+- **Estado Actual de Ejecución Real:** **RELEASE CANDIDATE CLOSED LOCALLY — PRODUCTION NOT AUTHORIZED (12/12 QA REAL PASS, 123/123 BACKEND TESTS PASS)**.
 
 ---
 
@@ -422,10 +453,9 @@ flowchart TD
     P01["P0.1: Memoria de Reservas (COMPLETADO - 9c53417)"] --> P02A["P0.2A: Reprogramación & Duplicados (COMPLETADO - df2650e)"]
     P02A --> P02B["P0.2B: Identidad Familiar (COMPLETADO - ae75ee6)"]
     P02B --> P1A["P1A: Runtime Guard & Telemetría Zero PII (COMPLETADO - 847d3be)"]
-    P1A --> RC["RC Integration & Security Gate (ACTUAL - CONDITIONAL)"]
-    RC --> P1B["P1B: QA Conversacional con OpenAI Real (gpt-4o-mini)"]
-    P1B --> P2["P2: Agent Control Center & Staging Dashboard"]
-    P2 --> PROD["P3: Despliegue Controlado a Producción (whatsappWebhook v68)"]
+    P1A --> P1B["P1B: QA Conversacional OpenAI Real (COMPLETADO 12/12 PASS - 1197225)"]
+    P1B --> RC["RC1: Release Candidate Cerrado Localmente (MANIFIESTO CREADO)"]
+    RC --> PROD["P2: Despliegue Quirúrgico Producción (PENDIENTE AUTORIZACIÓN EXPRESA)"]
 ```
 
 ---

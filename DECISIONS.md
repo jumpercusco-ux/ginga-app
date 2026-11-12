@@ -160,4 +160,45 @@ Cada decisión se clasifica estrictamente en uno de tres estados:
   4. **Naturaleza del Techo Presupuestario Local:**
      - El cálculo de tokens y costo local ($0.25 USD) es un circuit-breaker de cliente y no un límite contractual garantizado por el proveedor. Para límites financieros duros se exige configurar presupuestos de proyecto en OpenAI Platform.
 
+---
+
+### 17. Despliegue Selectivo Estricto y Prevención de Despliegue Masivo por CI/CD
+- **Estado:** `[APROBADA]`
+- **Contexto:** La auditoría de `.github/workflows/deploy.yml` reveló que cualquier `git push` a `main` activa de forma automática el despliegue de **todas las Cloud Functions** (`firebase deploy --only functions --project capoeirafiu-ea8ljo`) y la aplicación web en Vercel. De las 10 Cloud Functions existentes, solo `whatsappWebhook` fue objeto de modernización, auditoría y pruebas para el agente de WhatsApp.
+- **Decisión:**
+  1. **Prohibición de Despliegue Masivo:** Se prohíbe taxativamente ejecutar despliegues generales de functions (`--only functions`). El único target permitido para el lanzamiento de GINGA Real es estrictamente:
+     `firebase deploy --only functions:whatsappWebhook --project capoeirafiu-ea8ljo`
+  2. **Control de Disparo en GitHub Actions:** Antes de sincronizar o fusionar ramas en el repositorio remoto, se debe neutralizar el trigger automático de CI/CD para evitar el despliegue prematuro de las otras 9 Cloud Functions no probadas en este ciclo.
+  3. **Estrategia Realista de Rollback en Cloud Functions Gen 1:**
+     - La función `whatsappWebhook` está construida sobre Firebase Functions Gen 1 (`firebase-functions` v4.4.1 con `functions.runWith(...).https.onRequest`), que opera sobre Cloud Functions 1st gen. En Gen 1 **no existe división de tráfico ni conmutación instantánea entre revisiones**. Cada despliegue sobreescribe por completo la versión activa.
+     - En consecuencia, el rollback no puede realizarse mediante un simple cambio de tráfico en consola y tiene un RTO realista de **2 a 5 minutos** (tiempo de empaquetado, build y propagación de Cloud Functions).
+     - Procedimiento de rollback respaldado: Se realiza un re-despliegue quirúrgico de la versión previa utilizando un `git worktree` aislado basado en el tag `pre-live-original-2026-10-27` (commit `3058ada`), garantizando que el entorno local activo no se contamine.
+  4. **Smoke Test Aislado sin Tráfico a Clientes:**
+     - La verificación post-despliegue se ejecutará exclusivamente desde un número de teléfono de prueba interno autorizado en Meta Business Suite. Queda prohibido interactuar con leads o clientes reales.
+     - Los escenarios de prueba deben ceñirse estrictamente a los días (Martes y Jueves) y a la sede y horarios que devuelva dinámicamente `consultar_horarios_disponibles` desde `/clases` y `config/negocio`, sin asumir estáticamente entre Magisterio (Av. de la Cultura) o Calle Hospital hasta verificar la base de datos de producción.
+     - Una intercepción legítima del Runtime Guard ante una afirmación no respaldada en Firestore no se clasifica como fallo del sistema, sino como evidencia de funcionamiento correcto de la protección. Criterio de fallo crítico es la fuga de confirmaciones no autorizadas o excepciones 500 no controladas.
+
+---
+
+### 18. Reconciliación Comercial de Sedes, Verificación de Secrets y Límites de Certeza de Rollback
+- **Estado:** `[APROBADA]`
+- **Contexto:** La auditoría remota de solo lectura autorizada (Prompt 49) sobre el proyecto `capoeirafiu-ea8ljo` resolvió las incógnitas sobre la configuración productiva de Firestore y el entorno de Google Cloud.
+- **Decisión:**
+  1. **Reconciliación de Sedes y Horarios:**
+     - Se establece formalmente que la sede y horarios comerciales reales de Ginga en producción corresponden a:
+       * **Sede:** Av. de la Cultura E-4, Urb. Magisterio (Edificio Divergym, 3er piso, al costado de Caja Arequipa).
+       * **Clase Kids:** Martes y Jueves 18:00 – 19:00 (edades 5 a 12 años, 10 cupos).
+       * **Clase Adultos:** Martes y Jueves 19:00 – 20:00 (edades 13 a 99 años, 3 cupos).
+       * **Tarifas:** Mensualidad S/140, Promo 2x S/260, Multimes (1m S/140, 2m S/260, 3m S/380, 6m S/700).
+     - La referencia a "Calle Hospital 840" y horarios 17:00–18:00 se clasifica estrictamente como **fixture sintético de pruebas del emulador local**, no como configuración de negocio.
+  2. **Política sobre `config/whatsapp_agent`:**
+     - Se confirma la existencia del documento en producción (actualizado 2026-09-07T01:07:59Z). Para preservar la confidencialidad e integridad del entorno, su contenido no fue descargado ni inspeccionado. No se asume equivalencia textual entre dicho prompt y el utilizado en los entornos de prueba.
+  3. **Configuración de Secrets y Telemetría:**
+     - Se verificó la existencia y habilitación de los 5 secretos esenciales (`META_VERIFY_TOKEN` v2, `META_APP_SECRET` v1, `META_WHATSAPP_TOKEN` v2, `META_PHONE_NUMBER_ID` v1, `OPENAI_API_KEY` v1).
+     - Se documenta que `TELEMETRY_SALT` está ausente en Secret Manager y variables de entorno de producción. La función opera de forma no bloqueante recurriendo a un salt efímero generado por cold start (`crypto.randomBytes(32)`), con la consecuencia técnica conocida de que los hashes de telemetría no son correlacionables entre diferentes instancias de ejecución.
+  4. **Límites de Certeza de Rollback:**
+     - La versión activa en GCP es `v67` (actualizada el 23 de octubre de 2026).
+     - El worktree de contingencia `/private/tmp/ginga_rollback_baseline` está configurado sobre el commit `3058ada` (tag `pre-live-original-2026-10-27`). No se asume equivalencia binaria estricta entre este commit y el artefacto ZIP desplegado en `v67`, pero constituye el respaldo de código fuente más fiel disponible para un eventual re-despliegue de recuperación.
+
+
 
