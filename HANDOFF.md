@@ -16,9 +16,9 @@
   - Caso 1 ("Reserva nueva") diagnosticado y blindado: `resolverIdentidadPersona` y `reconciliarNombrePersona` con resolución unívoca, bloqueo de colisiones de prefijo entre homónimos, actualización de descripciones de tools y aserción estricta en runner (`/reservas`, `reservas_activas.camila_rivera`, `nombre_persona === 'Camila Rivera'`, sincronización de `reserva_id`).
   - Caso 3 ("Reprogramación martes-jueves") diagnosticado y blindado: aclaración explícita en Regla 5 de prompt para lead con reserva única (prohíbe repreguntar nombre), búsqueda flexible por prefijo de slug en `reprogramar_reserva`, distinción rigurosa de fechas ambiguas ("martes o jueves") e inasistencias en `detectarSolicitudReprogramacion`, fallback determinista en `preguntarIA` condicionado a reserva única vigente y no asistida, e idempotencia transaccional sin duplicación de auditoría.
   - Suite de regresiones ampliada: `test_qa_regressions.js` (**33/33 PASS** con Tests 28 a 33 de pruebas negativas, autorización e idempotencia).
-  - 110/110 pruebas offline PASS (8 P0.1 + 22 P0.2A + 10 P0.2B + 16 P1A + 9 baseline + 33 regresiones).
+  - 115/115 pruebas offline PASS (14 P0.1 + 22 P0.2A + 10 P0.2B + 27 P1A + 9 baseline + 33 regresiones).
   - 8/8 pruebas reales en Firestore Emulator (Java 21) PASS.
-  - Total: **118 de 118 pruebas superadas (100% PASS)** y 12/12 escenarios dry-run verificados.
+  - Total: **123 de 123 pruebas superadas (100% PASS)** y 12/12 escenarios dry-run verificados (135 verificaciones totales).
   - Bloqueo para producción: Mantener CONDITIONAL hasta validar 12/12 PASS en cuarto QA real con OpenAI.
 - **Producción:** Google Cloud Function `whatsappWebhook v67` (asociada a `main` en commit `3058ada`). **Producción NO ha sido tocada.**
 

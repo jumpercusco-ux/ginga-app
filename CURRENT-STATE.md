@@ -402,10 +402,10 @@ Para facilitar la telemetría del futuro Agent Control Center y la API de DANEV:
       * Test 31: Petición de reprogramación con fecha de destino ambigua (`martes o jueves`) previene ejecución del fallback y solicita aclaración (0 mutaciones).
       * Test 32: Reprogramación de reserva expirada/pasada rechaza con `EXPIRED_DATE` (0 automutaciones).
       * Test 33: Reintento de operación ya ejecutada reporta idempotencia (`ALREADY_SCHEDULED_ON_DATE`, `ya_estaba_programada: true`) sin duplicar entradas de auditoría ni mover fechas indebidamente.
-  * **Validación Total Actualizada:** **118 de 118 pruebas automatizadas aprobadas (100% PASS)**:
-    - 110 pruebas offline (33 regresiones + 16 P1A + 8 P0.1 + 22 P0.2A + 10 P0.2B + 9 baseline).
+  * **Validación Total Actualizada:** **123 de 123 pruebas automatizadas aprobadas (100% PASS)**:
+    - 115 pruebas offline (33 regresiones + 27 P1A + 14 P0.1 + 22 P0.2A + 10 P0.2B + 9 baseline).
     - 8 pruebas de integración real con Firestore Emulator (Java 21).
-    - 12 de 12 escenarios de QA verificados en Dry-Run offline con Firestore Emulator.
+    - 12 de 12 escenarios de QA verificados en Dry-Run offline con Firestore Emulator (135 verificaciones totales).
 - **Aislamiento y Mitigaciones Verificadas:**
   * **Transporte Firestore Local:** Exigencia obligatoria de `FIRESTORE_EMULATOR_HOST` (e.g. `127.0.0.1:8080`) y `GCLOUD_PROJECT=demo-ginga-test`. Se desmintió que `demo-` desvíe sockets sin la variable de host; se incorporó validación activa de ping HTTP previa a cualquier operación.
   * **Firewall de Red Global en `global.fetch`:** Intercepción determinista a nivel de proceso Node.js. Bloquea el 100% de solicitudes a `graph.facebook.com` y endpoints externos no autorizados. Probado expresamente con 0 bytes de egress a Meta.

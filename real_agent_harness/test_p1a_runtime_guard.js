@@ -18,6 +18,17 @@
  * 14. Escalación a seguimiento humano: permitido (ALLOW).
  * 15. Verificación estricta de telemetría ZERO PII: sin teléfonos en texto claro, hash SHA-256 de 16 caracteres.
  * 16. Multi-tool en un solo turno: telemetría captura ambas herramientas y guard evalúa correctamente.
+ * 17. Éxito de herramienta para persona distinta: interceptado (INTERCEPT).
+ * 18. Éxito para fecha distinta (martes vs jueves 19): interceptado.
+ * 19. Reserva no autoriza reprogramación ni cancelación: interceptado.
+ * 20. Dos hijos con resultados mixtos: interceptado ante afirmación colectiva falsa.
+ * 21. Negación e hipótesis sin falso positivo: permitido (ALLOW).
+ * 22. Límite semántico documentado: modismo no estándar ("apunté en la libreta").
+ * 23. Falla al actualizar Firestore en intercepción: fallback técnico seguro.
+ * 24. Reintento con lead ya escalado: reconoce alreadyEscalated para evitar duplicados.
+ * 25. Sanitización profunda de telemetría: persona_ref HMAC, sin nombres de menores.
+ * 26. Aislamiento de TurnContext entre turnos: Turno 1 no autoriza alucinación en Turno 2.
+ * 27. Cobertura de rutas de salida del LLM: preguntarIA intercepta antes del retorno.
  */
 
 const { RealAgentHarness } = require('./loader');

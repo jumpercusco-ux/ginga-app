@@ -70,10 +70,10 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
       * Tests 28 a 33: Blindaje de identidad ante homónimos (Mateo Gómez vs Mateo Morales), nombres parciales sin correspondencia (Carlos vs Juan Carlos Rivera), autorización estricta sobre reservas ajenas (`UNAUTHORIZED_RESERVATION`), fechas de destino ambiguas (martes o jueves), citas vencidas (`EXPIRED_DATE`) e idempotencia de reintentos (`ALREADY_SCHEDULED_ON_DATE`, `ya_estaba_programada: true`).
     - Resultado: **33 de 33 pruebas PASS (100%)**.
   - **Validación Total Acumulada:**
-    - 110 pruebas offline PASS (33 regresiones + 16 P1A + 8 P0.1 + 22 P0.2A + 10 P0.2B + 9 baseline).
+    - 115 pruebas offline PASS (33 regresiones + 27 P1A + 14 P0.1 + 22 P0.2A + 10 P0.2B + 9 baseline).
     - 8 pruebas de integración con Firestore Emulator (Java 21) PASS.
     - 12 de 12 escenarios de QA verificados en Dry-Run offline con Firestore Emulator.
-    - Total: **118 de 118 pruebas superadas (100% PASS)**.
+    - Total: **123 de 123 pruebas superadas (100% PASS)** (135 verificaciones totales).
 
 ---
 
