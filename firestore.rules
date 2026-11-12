@@ -150,30 +150,88 @@ service cloud.firestore {
     // REGLA PARA FEEDBACK Y EVALUACIONES DEL AGENTE IA GINGA 🤖
     // ==========================================
     match /agent_feedback/{feedbackId} {
-      // Solo profesores o administradores autenticados pueden consultar incidencias
-      allow read: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol in ['profesor', 'admin']
-      );
+      function getUserData() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      }
+      function isTeacherOrAdmin() {
+        return request.auth != null &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          getUserData().rol in ['profesor', 'admin'];
+      }
+      function isAdmin() {
+        return request.auth != null &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          getUserData().rol == 'admin';
+      }
 
-      // La creación exige que el autor sea el usuario autenticado y tenga rol profesor/admin
-      allow create: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol in ['profesor', 'admin'] &&
-        request.resource.data.reported_by.uid == request.auth.uid;
+      // 1. LECTURA: Solo profesores o administradores autenticados
+      allow read: if isTeacherOrAdmin();
 
-      // Actualizaciones (triaje, diagnóstico, vinculación a evaluación) solo por profesor/admin
-      allow update: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol in ['profesor', 'admin'];
+      // 2. CREACIÓN:
+      // - Requiere rol profesor o admin autenticado
+      // - Prohíbe suplantar al autor (reported_by.uid debe coincidir con request.auth.uid)
+      // - Estado inicial OBLIGATORIO: 'reported'
+      // - Validación estricta de presencia y tipo de campos requeridos
+      allow create: if isTeacherOrAdmin() &&
+        request.resource.data.reported_by.uid == request.auth.uid &&
+        request.resource.data.status == 'reported' &&
+        request.resource.data.feedback_id is string && request.resource.data.feedback_id.size() > 0 &&
+        request.resource.data.lead_id is string && request.resource.data.lead_id.size() > 0 &&
+        request.resource.data.message_id is string && request.resource.data.message_id.size() > 0 &&
+        request.resource.data.category in [
+          'interpretacion_ambiguedad', 'informacion_comercial', 'captacion_datos',
+          'reserva_reprogramacion', 'persistencia_contexto', 'herramientas_operaciones',
+          'derivacion_humana', 'experiencia_conversacional', 'otro'
+        ] &&
+        request.resource.data.severity in ['baja', 'media', 'alta', 'critica'] &&
+        request.resource.data.observation is string && request.resource.data.observation.size() > 0 &&
+        request.resource.data.expected_behavior is string && request.resource.data.expected_behavior.size() > 0 &&
+        request.resource.data.actual_behavior is string &&
+        request.resource.data.reported_at is timestamp;
 
-      // Prohibido eliminar incidencias para preservar trazabilidad e historial inmutable
+      // 3. ACTUALIZACIÓN / TRIAJE:
+      // - Requiere rol profesor o admin
+      // - CAMPOS DE AUDITORÍA INMUTABLES: no se permite alterar id, lead, mensaje, autor, fecha ni contenido original
+      // - PRIVILEGIOS DE ESTADO: Solo un 'admin' puede marcar incidencias como 'approved', 'deployed' o 'closed'
+      // - Los profesores ordinarios solo pueden actualizar diagnóstico y transicionar estados de análisis
+      allow update: if isTeacherOrAdmin() &&
+        request.resource.data.feedback_id == resource.data.feedback_id &&
+        request.resource.data.lead_id == resource.data.lead_id &&
+        request.resource.data.message_id == resource.data.message_id &&
+        request.resource.data.reported_by.uid == resource.data.reported_by.uid &&
+        request.resource.data.reported_at == resource.data.reported_at &&
+        request.resource.data.actual_behavior == resource.data.actual_behavior &&
+        request.resource.data.category == resource.data.category &&
+        (
+          (request.resource.data.status in ['reported', 'triaged', 'reproduced', 'fix_proposed', 'validated', 'rejected', 'needs_information']) ||
+          (request.resource.data.status in ['approved', 'deployed', 'closed'] && isAdmin())
+        );
+
+      // 4. ELIMINACIÓN: Terminantemente PROHIBIDO borrar incidencias (inmutabilidad y auditoría)
       allow delete: if false;
     }
 
     match /agent_evaluations/{caseId} {
-      // Casos de evaluación y benchmarks de calidad solo accesibles por profesor o admin
-      allow read, write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol in ['profesor', 'admin'];
+      function getUserData() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      }
+      function isTeacherOrAdmin() {
+        return request.auth != null &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          getUserData().rol in ['profesor', 'admin'];
+      }
 
-      // Preservar benchmarks históricos de calidad sin borrado accidental
+      // Lectura permitida a docentes y admins
+      allow read: if isTeacherOrAdmin();
+
+      // Creación y actualización con validación de campos mínimos
+      allow create, update: if isTeacherOrAdmin() &&
+        request.resource.data.case_id is string && request.resource.data.case_id.size() > 0 &&
+        request.resource.data.category is string &&
+        request.resource.data.scenario is string &&
+        request.resource.data.created_at is timestamp;
+
+      // Inmutabilidad de benchmarks de calidad
       allow delete: if false;
     }
   }

@@ -139,7 +139,7 @@ class AgentFeedbackService {
         .map((snap) => snap.docs.length);
   }
 
-  /// Actualiza el estado de una incidencia de feedback con trazabilidad.
+  /// Actualiza el estado de una incidencia de feedback con trazabilidad y verificación de privilegios.
   Future<void> actualizarEstado(
     String feedbackId,
     String nuevoEstado, {
@@ -148,7 +148,21 @@ class AgentFeedbackService {
     String? evaluationCaseId,
     String? resolutionCommit,
   }) async {
-    await _validarAutorizacion();
+    final user = await _validarAutorizacion();
+    final rol = (user['rol'] ?? 'profesor').toString().toLowerCase();
+
+    // Privilegios administrativos requeridos para estados de aprobación, despliegue o cierre
+    const estadosAdmin = [
+      AgentFeedbackStatus.approved,
+      AgentFeedbackStatus.deployed,
+      AgentFeedbackStatus.closed,
+    ];
+
+    if (estadosAdmin.contains(nuevoEstado) && rol != 'admin') {
+      throw StateError(
+        'Acceso denegado: Solo administradores pueden autorizar, marcar como desplegada o cerrar una incidencia ($nuevoEstado).',
+      );
+    }
 
     final Map<String, dynamic> updates = {
       'status': nuevoEstado,

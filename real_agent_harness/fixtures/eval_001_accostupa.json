@@ -1,9 +1,36 @@
 {
   "case_id": "GINGA-EVAL-001",
   "category": "interpretacion_ambiguedad",
-  "scenario": "Ambigüedad en reprogramación por restricciones contradictorias de fechas",
+  "scenario": "Ambigüedad en reprogramación por restricciones de fechas potencialmente contradictorias",
   "created_at": "2026-11-12T07:47:06.000Z",
   "agent_version": "whatsappWebhook v69",
+
+  "evidencia_real_observada": {
+    "mensaje_cliente_exacto": "Para el jueves no puede ser es que el martes yo no estoy en cusco y yo mismo quiero traerle a mi hija",
+    "contexto_produccion": "Conversación real de WhatsApp donde el cliente comunicó restricciones cruzadas de viaje y asistencia para los dos días oficiales de clase de niños (martes y jueves).",
+    "comportamiento_observado": "El agente asumió una propuesta de fecha sin resolver la ambigüedad generada por las restricciones cruzadas."
+  },
+
+  "hipotesis_diagnostica": {
+    "descripcion": "Hipótesis a contrastar experimentalmente: El agente extrae una fecha objetivo al detectar una mención de día precedida de 'para el' o por prominencia léxica, sin verificar si está precedida o seguida de una negación ('no puede ser') o si coexiste con otra restricción ('no estoy en cusco').",
+    "estado": "Pendiente de verificación empírica con OpenAI real contra código v69."
+  },
+
+  "comportamiento_esperado": {
+    "criterio_principal": "Ante restricciones contradictorias o fechas incompatibles, el agente debe formular una pregunta de aclaración para que el usuario precise cuándo puede asistir, ANTES de ejecutar o confirmar cualquier reprogramación.",
+    "criterio_de_no_mutacion": "CERO operaciones de reprogramar_reserva, reservar_clase_prueba o cancelacion en Firestore mientras subsista la ambigüedad.",
+    "horarios_oficiales_aplicables": "Sede Cusco - Niños: Martes y Jueves 18:00 a 19:00 hrs (Catálogo oficial verificado, sin clases infantiles en sábados)."
+  },
+
+  "comportamiento_prohibido": [
+    "ejecutar_reprogramar_reserva",
+    "ejecutar_agendar_clase_prueba",
+    "afirmar_confirmacion_sin_herramienta",
+    "asumir_jueves_arbitrariamente",
+    "asumir_martes_arbitrariamente",
+    "ofrecer_dias_inexistentes_como_sabado"
+  ],
+
   "source_lead": {
     "lead_id": "EVAL_LEAD_001_ACCOSTUPA",
     "nombre_anonimizado": "Familia Accostupa (Sintético)",
@@ -15,11 +42,12 @@
       "edad": 7
     }
   },
+
   "initial_state": {
     "lead": {
       "nombre": "Familia Accostupa",
       "telefono": "+51900000001",
-      "status": "conversando",
+      "status": "clase_agendada",
       "ai_habilitada": true,
       "perfil_personas": [
         {
@@ -32,6 +60,7 @@
     "reserva_preexistente": {
       "reserva_id": "RES_EVAL_001_INICIAL",
       "lead_id": "EVAL_LEAD_001_ACCOSTUPA",
+      "clase_id": "clase_ninos_cusco",
       "nombre_persona": "Camila",
       "tipo": "niño",
       "hora": "18:00",
@@ -41,15 +70,16 @@
       "asistencia": "pendiente"
     }
   },
+
   "cases": [
     {
-      "id": "CASE_A_PRINCIPAL_CONTRADICTORIO",
-      "descripcion": "Mensaje observado con doble negación o restricción contradictoria (martes vs jueves)",
+      "id": "CASE_1_EVIDENCIA_REAL_CONTRADICTORIA",
+      "naturaleza": "evidencia_real",
+      "descripcion": "Mensaje real observado con restricciones cruzadas (jueves no puede ser / martes no estoy en Cusco)",
       "input_message": "Para el jueves no puede ser es que el martes yo no estoy en cusco y yo mismo quiero traerle a mi hija",
       "expected_behavior": {
         "reconoce_ambiguedad": true,
         "solicita_aclaracion": true,
-        "pregunta_debe_mencionar_alternativas_o_disponibilidad": true,
         "cero_mutaciones_permitidas": true
       },
       "forbidden_behavior": [
@@ -61,9 +91,10 @@
       ]
     },
     {
-      "id": "CASE_B_VARIACION_NEGATIVA_SABADO_MARTES",
-      "descripcion": "Variación sintética con otros días para evitar sobreajuste léxico",
-      "input_message": "El martes se me complica y para el sábado tampoco llego a tiempo porque salgo tarde del trabajo",
+      "id": "CASE_2_VARIACION_CONTRADICTORIA_SINTETICA",
+      "naturaleza": "variacion_sintetica_anti_sobreajuste",
+      "descripcion": "Variación sintética utilizando únicamente días oficiales (martes y jueves) con imposibilidad en ambos",
+      "input_message": "Para el martes se me complica y el jueves tampoco llego a tiempo porque salgo tarde del trabajo",
       "expected_behavior": {
         "reconoce_ambiguedad": true,
         "solicita_aclaracion": true,
@@ -72,12 +103,14 @@
       "forbidden_behavior": [
         "ejecutar_reprogramar_reserva",
         "ejecutar_agendar_clase_prueba",
-        "asumir_sabado_arbitrariamente"
+        "asumir_jueves_arbitrariamente",
+        "asumir_martes_arbitrariamente"
       ]
     },
     {
-      "id": "CASE_C_CONTROL_POSITIVO_UNIVOCO",
-      "descripcion": "Control positivo: usuario indica una fecha sin contradicciones (no debe pedir aclaración innecesaria)",
+      "id": "CASE_3_CONTROL_POSITIVO_UNIVOCO",
+      "naturaleza": "control_positivo_sin_ambiguedad",
+      "descripcion": "Control positivo: solicitud unívoca sin contradicciones (no debe pedir aclaración innecesaria)",
       "input_message": "Por favor quiero cambiar mi clase para el jueves a las 18:00, ese día sí puedo traerla",
       "expected_behavior": {
         "reconoce_ambiguedad": false,
@@ -89,8 +122,9 @@
       ]
     },
     {
-      "id": "CASE_D_RESOLUCION_POST_ACLARACION",
-      "descripcion": "Turno 2 tras aclaración: una vez aclarado el día, debe concretar el cambio",
+      "id": "CASE_4_RESOLUCION_POST_ACLARACION",
+      "naturaleza": "resolucion_multiturno",
+      "descripcion": "Turno de resolución tras aclaración: una vez disipada la duda, procede con la fecha elegida",
       "input_message": "Quiero cambiar mi clase para el próximo martes que ya estaré de vuelta en Cusco",
       "expected_behavior": {
         "reconoce_ambiguedad": false,

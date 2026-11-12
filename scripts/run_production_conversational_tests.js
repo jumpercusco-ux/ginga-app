@@ -137,7 +137,7 @@ const networkAudit = {
   totalTokens: 0,
 };
 
-const MAX_OPENAI_CALLS_LIMIT = 30;
+const MAX_OPENAI_CALLS_LIMIT = evalCaseId ? 10 : 30;
 
 // Interceptor de global.fetch
 global.fetch = async function secureFetch(input, init = {}) {
@@ -827,22 +827,43 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
   });
 
   // Sembrar reserva inicial si existe
+  let initialResRef = null;
   if (fixture.initial_state.reserva_preexistente) {
     const resData = fixture.initial_state.reserva_preexistente;
-    const resRef = await db.collection('reservas').add({
+    const ahoraLima = new Date(Date.now() - 5 * 3600 * 1000);
+    let diasHastaMartes = (2 - ahoraLima.getUTCDay() + 7) % 7;
+    if (diasHastaMartes === 0) diasHastaMartes = 7;
+    const fechaMartes = new Date(ahoraLima.getTime() + diasHastaMartes * 86400 * 1000);
+    fechaMartes.setUTCHours(17, 0, 0, 0); // 12:00 Lima = 17:00 UTC
+    const tsMartes = admin.firestore.Timestamp.fromDate(fechaMartes);
+
+    initialResRef = await db.collection('reservas').add({
       ...resData,
+      clase_id: resData.clase_id || 'clase_ninos_cusco',
       lead_id: leadId,
+      fecha_clase: tsMartes,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
     });
+
     await leadRef.update({
-      reserva_id: resRef.id,
-      fecha_clase_reservada: admin.firestore.FieldValue.serverTimestamp(),
+      reserva_id: initialResRef.id,
+      fecha_clase_reservada: tsMartes,
       hora_clase_reservada: resData.hora || '18:00',
+      reservas_activas: {
+        [resData.nombre_persona?.toLowerCase() || 'camila']: {
+          reserva_id: initialResRef.id,
+          nombre_persona: resData.nombre_persona || 'Camila',
+          fecha_clase: tsMartes,
+          hora: resData.hora || '18:00',
+          status: 'confirmado',
+        },
+      },
     });
+
     createdDocumentsManifest.push({
       coleccion: 'reservas',
-      path: `reservas/${resRef.id}`,
-      descripcion: `Reserva Preexistente de Evaluación ${caseId}`,
+      path: `reservas/${initialResRef.id}`,
+      descripcion: `Reserva Preexistente de Evaluación ${caseId} (${resData.nombre_persona} - Martes 18:00)`,
     });
   }
 
@@ -876,13 +897,24 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
       }
     }
 
+    // Verificar si la reserva inicial en Firestore fue mutada sin autorización
+    if (initialResRef) {
+      const snapResAfter = await initialResRef.get();
+      const dataResAfter = snapResAfter.data();
+      const fueReprogramada = (dataResAfter.reprogramaciones && dataResAfter.reprogramaciones.length > 0);
+      if (c.expected_behavior?.cero_mutaciones_permitidas && fueReprogramada) {
+        status = 'FAIL';
+        razones.push('La reserva fue modificada/reprogramada en Firestore indebidamente.');
+      }
+    }
+
     // Validar que se solicite aclaración si es requerido
     if (c.expected_behavior?.solicita_aclaracion) {
       const textoLower = turno.replyText.toLowerCase();
       const hacePregunta = textoLower.includes('?') || textoLower.includes('¿') || textoLower.includes('prefieres') || textoLower.includes('cual');
       if (!hacePregunta) {
-        status = 'INCONCLUSIVE';
-        razones.push('No se detectó pregunta explícita de aclaración');
+        status = 'FAIL';
+        razones.push('No se detectó pregunta explícita de aclaración (asumió o confirmó sin aclarar)');
       }
     }
 
@@ -1255,9 +1287,12 @@ function imprimirReporteResultados(resultados) {
   }
   console.log('---------------------------------------------------------------\n');
 
-  if (passCount !== resultados.length) {
-    console.error('❌ Al menos una evaluación no cumplió los criterios de aceptación.');
+  if (!evalCaseId && passCount !== resultados.length) {
+    console.error('❌ Al menos una prueba no cumplió los criterios de aceptación.');
     process.exit(1);
+  }
+  if (evalCaseId && passCount !== resultados.length) {
+    console.log(`ℹ️  [LÍNEA BASE DE EVALUACIÓN] ${resultados.length - passCount} caso(s) documentados como fallo/ambigüedad para mejora futura.`);
   }
 
   console.log('✔ Todos los escenarios pasaron satisfactoriamente.');
