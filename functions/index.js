@@ -1190,13 +1190,15 @@ function emitTelemetryEvent(event) {
 }
 
 class TurnContext {
-  constructor(leadId, correlationId = null) {
+  constructor(leadId, correlationId = null, catalogoClases = [], ubicacionReal = null) {
     this.leadId = leadId;
     this.leadHash = hashLeadId(leadId);
     this.correlationId = correlationId || `turn_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.startTime = Date.now();
     this.toolRecords = [];
     this.executedToolNames = [];
+    this.catalogoClases = Array.isArray(catalogoClases) ? catalogoClases : [];
+    this.ubicacionReal = ubicacionReal || null;
   }
 
   recordToolExecution(record) {
@@ -1239,6 +1241,218 @@ function extraerReservasPreexistentes(systemPrompt) {
     });
   }
   return reservas;
+}
+
+function extraerCatalogoClasesOficiales(systemPrompt) {
+  if (!systemPrompt || typeof systemPrompt !== 'string') return [];
+  const regex = /-\s*Grupo:\s*([^|]+)\|\s*Días:\s*([^|]+)\|\s*Horario:\s*([^|]+)\|\s*Edades:\s*([^|(\n]+)/gi;
+  const clases = [];
+  let match;
+  while ((match = regex.exec(systemPrompt)) !== null) {
+    const grupo = match[1].trim();
+    const dias = match[2].trim();
+    const horario = match[3].trim();
+    const edades = match[4].trim();
+
+    // Extraer horas
+    const matchHoras = horario.match(/(\d{1,2}:\d{2})\s*(?:a|-)\s*(\d{1,2}:\d{2})/);
+    const hora = matchHoras ? matchHoras[1] : horario;
+    const hora_fin = matchHoras ? matchHoras[2] : '';
+
+    // Extraer edades
+    const matchEdades = edades.match(/(\d{1,2})\s*(?:a|-)\s*(\d{1,2})/);
+    const edad_min = matchEdades ? parseInt(matchEdades[1], 10) : (edades.match(/(\d{1,2})\s*años\s+en\s+adelante/i) ? parseInt(edades.match(/(\d{1,2})/)[1], 10) : null);
+    const edad_max = matchEdades ? parseInt(matchEdades[2], 10) : 99;
+    const sinTope = !matchEdades || edad_max >= 90;
+
+    clases.push({
+      nombre: grupo,
+      dias,
+      diasTexto: dias,
+      hora,
+      hora_fin,
+      edad_min,
+      edad_max,
+      sinTopeSuperior: sinTope,
+      publico: (grupo.toLowerCase().includes('kid') || grupo.toLowerCase().includes('nin')) ? 'niños' : 'adultos',
+    });
+  }
+
+  // Extraer dirección si está presente en el prompt
+  const matchDir = systemPrompt.match(/DIRECCIÓN REAL\s*\([^)]*\):\s*([^\n]+)/i);
+  if (matchDir) {
+    const dir = matchDir[1].trim();
+    clases.forEach((c) => {
+      if (!c.ubicacion) c.ubicacion = dir;
+    });
+  }
+
+  return clases;
+}
+
+function parsearHoraComercial(str, ampm = '') {
+  let [h, m] = str.split(':').map(Number);
+  m = m || 0;
+  const ampmNorm = (ampm || '').toLowerCase().replace(/\./g, '');
+  if (ampmNorm.includes('p') && h < 12) h += 12;
+  if (ampmNorm.includes('a') && h === 12) h = 0;
+  if (!ampmNorm && h >= 1 && h <= 8) h += 12;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+function extraerHorasMencionadas(norm) {
+  const horas = [];
+
+  if (norm.includes('cinco de la tarde')) horas.push('17:00');
+  if (norm.includes('seis de la tarde')) horas.push('18:00');
+  if (norm.includes('siete de la noche')) horas.push('19:00');
+  if (norm.includes('ocho de la noche')) horas.push('20:00');
+
+  const regexRango = /\b(?:de\s+)?(\d{1,2}(?::\d{2})?)\s*(?:a|-)\s*(\d{1,2}(?::\d{2})?)\s*(pm|am|p\.m\.|a\.m\.|hrs?|horas?)?\b/gi;
+  let m;
+  while ((m = regexRango.exec(norm)) !== null) {
+    const prefix = norm.substring(Math.max(0, m.index - 15), m.index);
+    const suffix = norm.substring(m.index + m[0].length, Math.min(norm.length, m.index + m[0].length + 10));
+    if (/anos|edad/i.test(suffix) || /edad/i.test(prefix)) continue;
+
+    const ampm = m[3] ? m[3].replace(/\./g, '') : (parseInt(m[1], 10) < 12 && (norm.includes('tarde') || norm.includes('noche') || norm.includes('pm') || norm.includes('p.m.')) ? 'pm' : '');
+    horas.push(parsearHoraComercial(m[1], ampm));
+  }
+
+  const regexHoraPuntual = /\b(?:a\s+las\s+|horario\s*(?:es\s*)?(?:de\s*)?|clases?\s*(?:a\s+las\s*|de\s*)?)(\d{1,2}(?::\d{2})?)\s*(pm|am|p\.m\.|a\.m\.|hrs?|horas?)?\b/gi;
+  while ((m = regexHoraPuntual.exec(norm)) !== null) {
+    const ampm = m[2] ? m[2].replace(/\./g, '') : (parseInt(m[1], 10) < 12 && (norm.includes('tarde') || norm.includes('noche') || norm.includes('pm') || norm.includes('p.m.')) ? 'pm' : '');
+    horas.push(parsearHoraComercial(m[1], ampm));
+  }
+
+  const regex24h = /\b(?:clases?|entrenamos?|horario|los\s+martes|los\s+jueves)[^.!?\n]*?\b([012]?\d:[0-5]\d)(?!\s*(?:pm|am|p\.m\.|a\.m\.))\b/gi;
+  while ((m = regex24h.exec(norm)) !== null) {
+    horas.push(parsearHoraComercial(m[1]));
+  }
+
+  return [...new Set(horas)];
+}
+
+function validarAfirmacionesComerciales(candidateText, catalogoClases, horasAdicionalesAutorizadas = []) {
+  if (!candidateText || typeof candidateText !== 'string' || !Array.isArray(catalogoClases) || catalogoClases.length === 0) {
+    return { valid: true, contradiction: false, reason: null };
+  }
+
+  const norm = candidateText.toLowerCase()
+    .replace(/[áàäâ]/g, 'a')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[óòöô]/g, 'o')
+    .replace(/[úùüû]/g, 'u')
+    .replace(/ñ/g, 'n');
+
+  // Horas válidas autorizadas en el catálogo o en reservas/herramientas confirmadas
+  const horasPermitidasInicio = new Set([
+    ...catalogoClases.map((c) => c.hora).filter(Boolean),
+    ...horasAdicionalesAutorizadas.filter(Boolean),
+  ]);
+  const horasPermitidasFin = new Set(catalogoClases.map((c) => c.hora_fin).filter(Boolean));
+
+  // 1. Detección de horas de clase inválidas en expresiones horarias
+  const horasMencionadas = extraerHorasMencionadas(norm);
+  for (const h of horasMencionadas) {
+    if (!horasPermitidasInicio.has(h) && !horasPermitidasFin.has(h)) {
+      return {
+        valid: false,
+        contradiction: true,
+        type: 'invalid_schedule_hour',
+        detected: h,
+        reason: `Hora de clase no autorizada "${h}". Las horas de inicio oficiales de catálogo son: ${[...horasPermitidasInicio].join(', ')}.`,
+      };
+    }
+  }
+
+  // 2. Detección de rangos de edad no autorizados para niños
+  const claseKids = catalogoClases.find((c) => (c.nombre || '').toLowerCase().includes('kid') || (c.publico || '').toLowerCase().includes('nin'));
+  if (claseKids && claseKids.edad_min !== null) {
+    // Detectar afirmaciones donde se defina la edad de las clases de niños
+    // Ej: "de 4 a 12 anos", "desde los 4 anos", "van desde los 4 hasta los 12", "grupos para ninos son de 4 a 12", "4-12 anos"
+    const regexRangoNinos = /(?:ninos?|infantil|kids|alumnos?|chicos?|edad|edades|grupos?)[^.!?\n]*?\b(\d{1,2})\s*(?:a|hasta|-)\s*(\d{1,2})\s*anos?\b/gi;
+    let m;
+    while ((m = regexRangoNinos.exec(norm)) !== null) {
+      const minAge = parseInt(m[1], 10);
+      const maxAge = parseInt(m[2], 10);
+      if (minAge < claseKids.edad_min) {
+        return {
+          valid: false,
+          contradiction: true,
+          type: 'invalid_kids_age_range',
+          detected: `${minAge} a ${maxAge} anos`,
+          reason: `Edad mínima para niños "${minAge}" es inferior a la autorizada en catálogo (${claseKids.edad_min} años).`,
+        };
+      }
+    }
+
+    const regexDesdeNinos = /(?:ninos?|infantil|kids|grupos?)[^.!?\n]*?\bdesde\s+(?:los\s+)?(\d{1,2})\s*anos?\b/gi;
+    while ((m = regexDesdeNinos.exec(norm)) !== null) {
+      const minAge = parseInt(m[1], 10);
+      if (minAge < claseKids.edad_min) {
+        return {
+          valid: false,
+          contradiction: true,
+          type: 'invalid_kids_min_age',
+          detected: `desde los ${minAge} anos`,
+          reason: `Edad mínima para niños "${minAge}" es inferior a la autorizada en catálogo (${claseKids.edad_min} años).`,
+        };
+      }
+    }
+  }
+
+  return { valid: true, contradiction: false, reason: null };
+}
+
+function generarRespuestaComercialOficial(catalogoClases, ubicacionReal = null, textoPregunta = '') {
+  if (!Array.isArray(catalogoClases) || catalogoClases.length === 0) {
+    return '¡Hola! En Capoeira FIU Cusco tenemos clases regulares los martes y jueves en las tardes. Por favor escríbenos tu consulta y con gusto el instructor te confirmará los horarios disponibles para tu edad.';
+  }
+
+  const pNorm = (textoPregunta || '').toLowerCase()
+    .replace(/[áàäâ]/g, 'a')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[óòöô]/g, 'o')
+    .replace(/[úùüû]/g, 'u');
+
+  const pideNinos = /\b(?:ninos?|hijos?|peques?|infantil|kids|pequeno|pequena)\b/i.test(pNorm);
+  const pideAdultos = /\b(?:adultos?|jovenes?|mi\s+edad|para\s+mi)\b/i.test(pNorm) && !pideNinos;
+
+  const claseKids = catalogoClases.find((c) => (c.nombre || '').toLowerCase().includes('kid') || (c.publico || '').toLowerCase().includes('nin'));
+  const claseAdultos = catalogoClases.find((c) => (c.nombre || '').toLowerCase().includes('adult') || (c.publico || '').toLowerCase().includes('adult'));
+
+  const dirTexto = ubicacionReal ? ` en ${ubicacionReal}` : '';
+
+  if (pideNinos && claseKids) {
+    const horarioKids = (claseKids.hora && claseKids.hora_fin) ? `${claseKids.hora} a ${claseKids.hora_fin}` : claseKids.hora;
+    const diasKids = claseKids.diasTexto || claseKids.dias || 'martes y jueves';
+    const edadDesc = (claseKids.edad_min !== null && claseKids.edad_max !== null) ? ` (de ${claseKids.edad_min} a ${claseKids.edad_max} años)` : '';
+    return `¡Hola! Sí, en Capoeira FIU Cusco tenemos clases para niños${edadDesc} los ${diasKids} de ${horarioKids}${dirTexto}. La primera clase de prueba es 100% gratuita. ¿Te gustaría agendar una clase de prueba?`;
+  }
+
+  if (pideAdultos && claseAdultos) {
+    const horarioAdultos = (claseAdultos.hora && claseAdultos.hora_fin) ? `${claseAdultos.hora} a ${claseAdultos.hora_fin}` : claseAdultos.hora;
+    const diasAdultos = claseAdultos.diasTexto || claseAdultos.dias || 'martes y jueves';
+    const edadDesc = (claseAdultos.edad_min !== null) ? ` (desde los ${claseAdultos.edad_min} años)` : '';
+    return `¡Hola! En Capoeira FIU Cusco tenemos clases para jóvenes y adultos${edadDesc} los ${diasAdultos} de ${horarioAdultos}${dirTexto}. La primera clase de prueba es 100% gratuita. ¿Te gustaría agendar una clase de prueba?`;
+  }
+
+  // Respuesta general con todos los grupos del catálogo
+  const partesGrupos = catalogoClases.map((c) => {
+    const horario = (c.hora && c.hora_fin) ? `${c.hora} a ${c.hora_fin}` : c.hora;
+    const dias = c.diasTexto || c.dias || 'martes y jueves';
+    const sinTope = c.sinTopeSuperior || !c.edad_max || c.edad_max >= 90;
+    const edades = (c.edad_min !== null && c.edad_max !== null)
+      ? (sinTope ? `desde los ${c.edad_min} años` : `de ${c.edad_min} a ${c.edad_max} años`)
+      : '';
+    const descEdad = edades ? ` (${edades})` : '';
+    return `${c.nombre}${descEdad}: ${dias} de ${horario}`;
+  }).join('; ');
+
+  return `¡Hola! En Capoeira FIU Cusco tenemos clases los martes y jueves: ${partesGrupos}${dirTexto}. La primera clase de prueba es 100% gratuita. ¿Te gustaría agendar una clase de prueba?`;
 }
 
 function extraerDiaYNumeroFecha(texto) {
@@ -1422,6 +1636,9 @@ function obtenerMensajeFallbackSeguro(evaluation, escalationCommitted = true) {
   }
   if (claims.some((c) => c.includes('booking'))) {
     return 'Dame un momento para verificar la disponibilidad exacta con el equipo — un asesor revisará tu solicitud y te escribirá a la brevedad.';
+  }
+  if (claims.some((c) => c.includes('commercial_fact_contradiction')) && evaluation?.safeFallbackText) {
+    return evaluation.safeFallbackText;
   }
   return 'Dame un momento para validar la información con nuestro equipo — un asesor te responderá a la brevedad.';
 }
@@ -1739,6 +1956,22 @@ function evaluarRuntimeGuard(leadId, candidateText, turnContext, systemPrompt = 
     }
   }
 
+  // 4. Evaluar afirmaciones comerciales (horarios y edades oficiales)
+  const catalogoClases = (turnContext?.catalogoClases && turnContext.catalogoClases.length > 0)
+    ? turnContext.catalogoClases
+    : extraerCatalogoClasesOficiales(systemPrompt);
+
+  const horasAdicionalesAutorizadas = [
+    ...toolRecords.map((r) => r.hora).filter(Boolean),
+    ...preexistentes.map((p) => p.hora).filter(Boolean),
+  ];
+
+  const valComercial = validarAfirmacionesComerciales(candidateText, catalogoClases, horasAdicionalesAutorizadas);
+  if (!valComercial.valid) {
+    interceptedClaims.push('commercial_fact_contradiction');
+    reasons.push(valComercial.reason);
+  }
+
   const uniqueClaims = Array.from(new Set(interceptedClaims));
   const passed = uniqueClaims.length === 0;
   const evaluationResult = {
@@ -1751,7 +1984,11 @@ function evaluarRuntimeGuard(leadId, candidateText, turnContext, systemPrompt = 
   };
 
   if (!passed) {
-    evaluationResult.safeFallbackText = obtenerMensajeFallbackSeguro(evaluationResult, true);
+    if (uniqueClaims.includes('commercial_fact_contradiction') && !uniqueClaims.some((c) => c.includes('booking') || c.includes('reschedule') || c.includes('cancellation'))) {
+      evaluationResult.safeFallbackText = generarRespuestaComercialOficial(catalogoClases, turnContext?.ubicacionReal, candidateText);
+    } else {
+      evaluationResult.safeFallbackText = obtenerMensajeFallbackSeguro(evaluationResult, true);
+    }
   }
 
   return evaluationResult;
@@ -2757,9 +2994,9 @@ async function llamarOpenAI(messages, maxRetries = 2) {
  * las ejecuta todas en orden hasta que el modelo devuelva texto final para el lead.
  * Tope de 4 rondas para evitar loops infinitos.
  */
-async function preguntarIA(leadId, systemPrompt, historial, onToolCall = null, correlationId = null) {
+async function preguntarIA(leadId, systemPrompt, historial, onToolCall = null, correlationId = null, catalogoClases = null, ubicacionReal = null) {
   const startTime = Date.now();
-  const turnContext = new TurnContext(leadId, correlationId);
+  const turnContext = new TurnContext(leadId, correlationId, catalogoClases, ubicacionReal);
   const messages = [{ role: 'system', content: systemPrompt }, ...historial];
 
   for (let ronda = 0; ronda < 4; ronda++) {
@@ -2896,6 +3133,15 @@ async function preguntarIA(leadId, systemPrompt, historial, onToolCall = null, c
 
       if (!evaluation.passed) {
         console.warn(`[Runtime Guard] Interceptada confirmación no autorizada para lead ${turnContext.leadHash}: ${evaluation.reason}`);
+
+        // Si la intercepción es EXCLUSIVAMENTE por afirmación comercial (horario o edad errónea en consulta informativa),
+        // no se escala a humano ni se marca 'requiere_atencion' (Regla 20: no escalación innecesaria), sino que
+        // se devuelve de inmediato la respuesta comercial oficial respaldada por Firestore.
+        const isOnlyCommercialContradiction = evaluation.intercepted_claims.every((c) => c === 'commercial_fact_contradiction');
+        if (isOnlyCommercialContradiction && evaluation.safeFallbackText) {
+          return evaluation.safeFallbackText;
+        }
+
         const escalationResult = await aplicarIntercepcionSegura(leadId, evaluation);
         const fallbackText = obtenerMensajeFallbackSeguro(evaluation, escalationResult?.committed);
         return fallbackText;
@@ -3182,9 +3428,9 @@ exports.whatsappWebhook = functions
       });
 
       const docsAsc = historialSnapshot.docs;
-      const { systemPrompt, preciosValidos } = await generarSystemPrompt(leadDataActual, docsAsc.length, telefono);
+      const { systemPrompt, preciosValidos, catalogoClases, ubicacionReal } = await generarSystemPrompt(leadDataActual, docsAsc.length, telefono);
 
-      const textoRespuesta = await preguntarIA(telefono, systemPrompt, historial);
+      const textoRespuesta = await preguntarIA(telefono, systemPrompt, historial, null, null, catalogoClases, ubicacionReal);
       if (!textoRespuesta) {
         console.error(`[WhatsApp Webhook] IA no devolvió respuesta para ${telefono}. Marcando como requiere atención.`);
         await leadRef.update({
@@ -3217,10 +3463,19 @@ exports.whatsappWebhook = functions
         return;
       }
 
-      await enviarMensajeWhatsApp(telefono, textoRespuesta);
+      // Validación de seguridad: afirmaciones comerciales (horarios y edades de catálogo)
+      const valComercialExit = validarAfirmacionesComerciales(textoRespuesta, catalogoClases);
+      let textoFinal = textoRespuesta;
+      if (!valComercialExit.valid) {
+        console.warn(`[Seguridad] Afirmación comercial no autorizada detectada en exit gate para lead ${telefono}: ${valComercialExit.reason}`);
+        const ultimoMsgUser = historial.slice().reverse().find((m) => m.role === 'user')?.content || '';
+        textoFinal = generarRespuestaComercialOficial(catalogoClases, ubicacionReal, ultimoMsgUser);
+      }
+
+      await enviarMensajeWhatsApp(telefono, textoFinal);
       await leadRef.collection('mensajes').add({
         from: 'ai',
-        texto: textoRespuesta,
+        texto: textoFinal,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
 
@@ -3530,16 +3785,53 @@ REGLA ESTRICTA: NO afirmes que tiene ni que no tiene reserva confirmada. Si el l
     systemPrompt += `\n\nDATOS REALES DE PRECIOS (los únicos válidos, cualquier otro monto es un error tuyo): mensualidad regular S/${n.mensualidad} por persona; promo "vienen acompañados" (2 personas) S/${n.promo_2x} en total por mes; Yape: ${n.yape_numero}.`;
   }
 
-  const claseUbicacionSnap = await admin.firestore().collection('clases')
-    .where('tipo', '==', 'regular').limit(1).get();
-  if (!claseUbicacionSnap.empty) {
-    const ubicacionReal = claseUbicacionSnap.docs[0].data().ubicacion;
-    if (ubicacionReal) {
-      systemPrompt += `\n\nDIRECCIÓN REAL (la única válida, cópiala tal cual, no la parafrasees ni cambies pisos/referencias): ${ubicacionReal}`;
+  const clasesRegularesSnap = await admin.firestore().collection('clases')
+    .where('tipo', '==', 'regular').get();
+
+  const catalogoClases = [];
+  let ubicacionReal = null;
+
+  if (!clasesRegularesSnap.empty) {
+    let catalogoPromptText = '\n\n[CATÁLOGO OFICIAL DE CLASES Y HORARIOS REGULARES]\n' +
+      'Usa ESTOS horarios y edades exactos para informar a los clientes. NUNCA inventes otros horarios ni edades diferentes:\n';
+
+    for (const doc of clasesRegularesSnap.docs) {
+      const c = doc.data();
+      if (!ubicacionReal && c.ubicacion) {
+        ubicacionReal = c.ubicacion;
+      }
+      const diasTexto = Array.isArray(c.dias) ? c.dias.join(', ') : (c.dias || '');
+      const sinTope = !c.edad_max || c.edad_max >= 90;
+      const edadTexto = (c.edad_min !== null && c.edad_min !== undefined)
+        ? (sinTope ? `${c.edad_min} años en adelante` : `${c.edad_min} a ${c.edad_max} años`)
+        : 'Todas las edades';
+      const horarioTexto = (c.hora && c.hora_fin) ? `${c.hora} a ${c.hora_fin}` : (c.hora || '');
+
+      catalogoClases.push({
+        id: doc.id,
+        nombre: c.nombre || doc.id,
+        dias: diasTexto,
+        diasTexto,
+        hora: c.hora || '',
+        hora_fin: c.hora_fin || '',
+        edad_min: c.edad_min !== undefined ? c.edad_min : null,
+        edad_max: c.edad_max !== undefined ? c.edad_max : 99,
+        sinTopeSuperior: sinTope,
+        publico: (c.publico || ((c.nombre || '').toLowerCase().includes('kid') ? 'niños' : 'adultos')),
+        ubicacion: c.ubicacion || ubicacionReal || '',
+      });
+
+      catalogoPromptText += `- Grupo: ${c.nombre || doc.id} | Días: ${diasTexto} | Horario: ${horarioTexto} | Edades: ${edadTexto} (${sinTope ? 'sin tope' : 'rango exacto'})\n`;
     }
+
+    systemPrompt += catalogoPromptText;
   }
 
-  return { systemPrompt, preciosValidos };
+  if (ubicacionReal) {
+    systemPrompt += `\n\nDIRECCIÓN REAL (la única válida, cópiala tal cual, no la parafrasees ni cambies pisos/referencias): ${ubicacionReal}`;
+  }
+
+  return { systemPrompt, preciosValidos, catalogoClases, ubicacionReal };
 }
 
 /**
@@ -3975,6 +4267,9 @@ module.exports.__internals = {
   resolverIdentidadPersona,
   reconciliarNombrePersona,
   calcularFechaProximoDia,
+  extraerCatalogoClasesOficiales,
+  validarAfirmacionesComerciales,
+  generarRespuestaComercialOficial,
 };
 
 

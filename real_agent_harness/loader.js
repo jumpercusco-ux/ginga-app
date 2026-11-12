@@ -193,7 +193,7 @@ Object.assign(module.exports.__internals, {
     });
 
     // Generate real System Prompt using index.js logic
-    const { systemPrompt, preciosValidos } = await this.internals.generarSystemPrompt(
+    const { systemPrompt, preciosValidos, catalogoClases, ubicacionReal } = await this.internals.generarSystemPrompt(
       leadData,
       histSnap.docs.length,
       leadId
@@ -221,7 +221,10 @@ Object.assign(module.exports.__internals, {
       leadId,
       systemPrompt,
       historial,
-      onToolCall
+      onToolCall,
+      null,
+      catalogoClases,
+      ubicacionReal
     );
 
     if (replyText) {
