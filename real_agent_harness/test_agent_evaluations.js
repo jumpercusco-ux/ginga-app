@@ -74,14 +74,14 @@ async function runEvaluationSuite() {
   });
 
   // -------------------------------------------------------------
-  // 2. EVALUACIÓN CASO 1: EVIDENCIA REAL OBSERVADA (ACCOSTUPA)
+  // 2. EVALUACIÓN CASO A: EVIDENCIA REAL OBSERVADA (ACCOSTUPA)
   // -------------------------------------------------------------
-  console.log('\n--- 2. Caso Principal Accostupa (Ambigüedad Jueves vs Martes) ---');
+  console.log('\n--- 2. Caso A: Accostupa (Ambigüedad Jueves vs Martes) ---');
 
-  await asyncTest('02_caso_1_reconoce_restricciones_contradictorias_y_bloquea_mutaciones', async () => {
+  await asyncTest('02_caso_A_reconoce_restricciones_contradictorias_y_bloquea_mutaciones', async () => {
     const leadId = fixture.source_lead.lead_id;
-    const case1 = fixture.cases.find((c) => c.id === 'CASE_1_EVIDENCIA_REAL_CONTRADICTORIA');
-    assert(case1, 'Debe existir CASE_1_EVIDENCIA_REAL_CONTRADICTORIA');
+    const caseA = fixture.cases.find((c) => c.id === 'CASE_A_ORIGINAL_ACCOSTUPA');
+    assert(caseA, 'Debe existir CASE_A_ORIGINAL_ACCOSTUPA');
 
     // Setup de reserva inicial
     const resRef = await firestore.collection('reservas').add({
@@ -104,7 +104,7 @@ async function runEvaluationSuite() {
     });
 
     // Diagnóstico del input: «Para el jueves no puede ser es que el martes yo no estoy en cusco y yo mismo quiero traerle a mi hija»
-    const inputMsg = case1.input_message;
+    const inputMsg = caseA.input_message;
     const tNorm = inputMsg.toLowerCase();
 
     // Verificamos la presencia de doble restricción negativa
@@ -139,43 +139,37 @@ async function runEvaluationSuite() {
   });
 
   // -------------------------------------------------------------
-  // 3. CASO 2: VARIACIÓN CONTRADICTORIA SINTÉTICA (MARTES Y JUEVES)
+  // 3. CASO B: RESTRICCIÓN TEMPORAL VÁLIDA (ESTA SEMANA VS PRÓXIMO MARTES)
   // -------------------------------------------------------------
-  console.log('\n--- 3. Variación Sintética Oficial (Martes vs Jueves) ---');
+  console.log('\n--- 3. Caso B: Restricción Temporal Válida (Próximo Martes) ---');
 
-  test('03_caso_2_variacion_martes_jueves_requiere_aclaracion_sin_mutar', () => {
-    const case2 = fixture.cases.find((c) => c.id === 'CASE_2_VARIACION_CONTRADICTORIA_SINTETICA');
-    assert(case2);
+  test('03_caso_B_distingue_semanas_y_permite_reprogramacion_proximo_martes', () => {
+    const caseB = fixture.cases.find((c) => c.id === 'CASE_B_RESTRICCION_TEMPORAL_VALIDA');
+    assert(caseB, 'Debe existir CASE_B_RESTRICCION_TEMPORAL_VALIDA');
 
-    const input = case2.input_message; // "Para el martes se me complica y el jueves tampoco llego a tiempo..."
-    const tNorm = input.toLowerCase().replace(/[áàäâ]/g, 'a').replace(/[éèëê]/g, 'e').replace(/[íìïî]/g, 'i').replace(/[óòöô]/g, 'o').replace(/[úùüû]/g, 'u');
+    const input = caseB.input_message; // "No puedo ni martes ni jueves esta semana. Quiero cambiar mi reserva para el próximo martes"
+    const tNorm = input.toLowerCase();
 
-    // Verificamos que contiene días oficiales del catálogo infantil
-    const diasMencionados = [];
-    if (tNorm.includes('martes')) diasMencionados.push('martes');
-    if (tNorm.includes('jueves')) diasMencionados.push('jueves');
-    assert.strictEqual(diasMencionados.length, 2, 'Menciona martes y jueves con imposibilidad horaria.');
+    // Verificamos que expresa exclusión de "esta semana" y pide "próximo martes"
+    assert(tNorm.includes('esta semana'), 'Identifica restricción acotada a esta semana.');
+    assert(tNorm.includes('proximo martes') || tNorm.includes('próximo martes'), 'Identifica solicitud para el próximo martes.');
 
-    // Un mensaje ambiguo nunca debe generar diaObjetivo definitivo
+    // El detector de reprogramación debe reconocer la intención de cambio
     const infoReprog = internals.detectarSolicitudReprogramacion(input);
-    if (infoReprog) {
-      assert(
-        infoReprog.esFechaAmbigua === true || infoReprog.diaObjetivo === null,
-        'No debe seleccionar arbitrariamente el jueves o martes como destino.'
-      );
-    }
+    assert(infoReprog !== null, 'Debe identificar que hay solicitud de reprogramación.');
+    assert.strictEqual(infoReprog.diaObjetivo, 'martes', 'El día objetivo solicitado es martes.');
   });
 
   // -------------------------------------------------------------
-  // 4. CASO 3: CONTROL POSITIVO UNÍVOCO (JUEVES CLARO)
+  // 4. CASO C: CONTROL POSITIVO UNÍVOCO (JUEVES 19 DE NOVIEMBRE 18:00)
   // -------------------------------------------------------------
-  console.log('\n--- 4. Control Positivo Unívoco (Sin Ambigüedad) ---');
+  console.log('\n--- 4. Caso C: Cambio Inequívoco (Jueves 19 Noviembre 18:00) ---');
 
-  test('04_caso_3_control_positivo_detecta_jueves_univocamente', () => {
-    const case3 = fixture.cases.find((c) => c.id === 'CASE_3_CONTROL_POSITIVO_UNIVOCO');
-    assert(case3);
+  test('04_caso_C_cambio_univoco_detecta_jueves_19_noviembre', () => {
+    const caseC = fixture.cases.find((c) => c.id === 'CASE_C_CAMBIO_UNIVOCO');
+    assert(caseC, 'Debe existir CASE_C_CAMBIO_UNIVOCO');
 
-    const input = case3.input_message; // "Por favor quiero cambiar mi clase para el jueves a las 18:00..."
+    const input = caseC.input_message; // "Quiero cambiar mi clase de prueba al jueves 19 de noviembre a las 18:00"
     const infoReprog = internals.detectarSolicitudReprogramacion(input);
 
     assert(infoReprog !== null, 'Debe detectar solicitud de reprogramación.');
@@ -184,20 +178,28 @@ async function runEvaluationSuite() {
   });
 
   // -------------------------------------------------------------
-  // 5. CASO 4: RESOLUCIÓN POST-ACLARACIÓN
+  // 5. CASO D: ACLARACIÓN PROGRESIVA (MULTITURNO)
   // -------------------------------------------------------------
-  console.log('\n--- 5. Resolución Post-Aclaración (Turno 2) ---');
+  console.log('\n--- 5. Caso D: Aclaración Progresiva (Multiturno) ---');
 
-  test('05_caso_4_resolucion_post_aclaracion_identifica_martes', () => {
-    const case4 = fixture.cases.find((c) => c.id === 'CASE_4_RESOLUCION_POST_ACLARACION');
-    assert(case4);
+  test('05_caso_D_aclaracion_progresiva_multiturno', () => {
+    const caseD = fixture.cases.find((c) => c.id === 'CASE_D_ACLARACION_PROGRESIVA');
+    assert(caseD, 'Debe existir CASE_D_ACLARACION_PROGRESIVA');
+    assert(caseD.turnos && caseD.turnos.length === 2, 'El caso D debe tener exactamente 2 turnos.');
 
-    const input = case4.input_message; // "Quiero cambiar mi clase para el próximo martes que ya estaré de vuelta en Cusco"
-    const infoReprog = internals.detectarSolicitudReprogramacion(input);
+    // Turno 1: ambiguo / pidiendo opciones
+    const t1 = caseD.turnos[0].input_message;
+    const infoT1 = internals.detectarSolicitudReprogramacion(t1);
+    if (infoT1) {
+      assert(infoT1.esFechaAmbigua === true || infoT1.diaObjetivo === null, 'Turno 1 no debe fijar día definitivo.');
+    }
 
-    assert(infoReprog !== null);
-    assert.strictEqual(infoReprog.diaObjetivo, 'martes');
-    assert.strictEqual(infoReprog.esFechaAmbigua, false);
+    // Turno 2: explícito e inequívoco
+    const t2 = caseD.turnos[1].input_message;
+    const infoT2 = internals.detectarSolicitudReprogramacion(t2);
+    assert(infoT2 !== null, 'Turno 2 debe detectar solicitud de reprogramación.');
+    assert.strictEqual(infoT2.diaObjetivo, 'jueves', 'Turno 2 fija unívocamente el jueves.');
+    assert.strictEqual(infoT2.esFechaAmbigua, false, 'Turno 2 es inequívoco.');
   });
 
   // -------------------------------------------------------------

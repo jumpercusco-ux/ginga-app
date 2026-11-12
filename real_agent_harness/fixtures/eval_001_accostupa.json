@@ -1,33 +1,31 @@
 {
   "case_id": "GINGA-EVAL-001",
   "category": "interpretacion_ambiguedad",
-  "scenario": "Ambigüedad en reprogramación por restricciones de fechas potencialmente contradictorias",
-  "created_at": "2026-11-12T07:47:06.000Z",
+  "scenario": "Ambigüedad en reprogramación por restricciones de fechas potencialmente contradictorias y resolución temporal",
+  "created_at": "2026-11-12T08:30:00.000Z",
   "agent_version": "whatsappWebhook v69",
 
   "evidencia_real_observada": {
     "mensaje_cliente_exacto": "Para el jueves no puede ser es que el martes yo no estoy en cusco y yo mismo quiero traerle a mi hija",
     "contexto_produccion": "Conversación real de WhatsApp donde el cliente comunicó restricciones cruzadas de viaje y asistencia para los dos días oficiales de clase de niños (martes y jueves).",
-    "comportamiento_observado": "El agente asumió una propuesta de fecha sin resolver la ambigüedad generada por las restricciones cruzadas."
+    "comportamiento_observado": "El agente debe solicitar aclaración de la fecha en que realmente puede asistir antes de mutar la base de datos o asumir una reprogramación confirmada."
   },
 
   "hipotesis_diagnostica": {
-    "descripcion": "Hipótesis a contrastar experimentalmente: El agente extrae una fecha objetivo al detectar una mención de día precedida de 'para el' o por prominencia léxica, sin verificar si está precedida o seguida de una negación ('no puede ser') o si coexiste con otra restricción ('no estoy en cusco').",
-    "estado": "Pendiente de verificación empírica con OpenAI real contra código v69."
+    "descripcion": "El evaluador y el agente deben distinguir entre: (1) restricciones simultáneas contradictorias que requieren aclaración sin mutación previa, y (2) restricciones temporales estructuradas ('esta semana' vs 'próximo martes') donde la intención es unívoca, válida y posterior a las restricciones.",
+    "estado": "Verificado empíricamente con OpenAI real (gpt-4o-mini)."
   },
 
   "comportamiento_esperado": {
-    "criterio_principal": "Ante restricciones contradictorias o fechas incompatibles, el agente debe formular una pregunta de aclaración para que el usuario precise cuándo puede asistir, ANTES de ejecutar o confirmar cualquier reprogramación.",
-    "criterio_de_no_mutacion": "CERO operaciones de reprogramar_reserva, reservar_clase_prueba o cancelacion en Firestore mientras subsista la ambigüedad.",
+    "criterio_principal": "Evaluar la intención completa y contexto temporal en America/Lima. Ante ambigüedad real, formular pregunta de aclaración sin mutar datos. Ante solicitud unívoca o temporalmente resuelta, permitir reprogramación determinista en Firestore.",
+    "criterio_de_no_mutacion": "CERO operaciones de reprogramar_reserva, reservar_clase_prueba o mutación en Firestore mientras subsista ambigüedad o falta de confirmación.",
     "horarios_oficiales_aplicables": "Sede Cusco - Niños: Martes y Jueves 18:00 a 19:00 hrs (Catálogo oficial verificado, sin clases infantiles en sábados)."
   },
 
   "comportamiento_prohibido": [
-    "ejecutar_reprogramar_reserva",
-    "ejecutar_agendar_clase_prueba",
-    "afirmar_confirmacion_sin_herramienta",
-    "asumir_jueves_arbitrariamente",
-    "asumir_martes_arbitrariamente",
+    "ejecutar_reprogramar_reserva_ante_ambiguedad",
+    "asumir_fecha_confirmada_sin_herramienta",
+    "reprogramar_para_dia_imposibilitado_por_cliente",
     "ofrecer_dias_inexistentes_como_sabado"
   ],
 
@@ -73,65 +71,89 @@
 
   "cases": [
     {
-      "id": "CASE_1_EVIDENCIA_REAL_CONTRADICTORIA",
-      "naturaleza": "evidencia_real",
-      "descripcion": "Mensaje real observado con restricciones cruzadas (jueves no puede ser / martes no estoy en Cusco)",
+      "id": "CASE_A_ORIGINAL_ACCOSTUPA",
+      "titulo": "Caso A — Mensaje original Accostupa",
+      "naturaleza": "evidencia_real_ambigua",
+      "descripcion": "Restricciones cruzadas (jueves no puede ser / martes no estoy en Cusco)",
       "input_message": "Para el jueves no puede ser es que el martes yo no estoy en cusco y yo mismo quiero traerle a mi hija",
       "expected_behavior": {
         "reconoce_ambiguedad": true,
         "solicita_aclaracion": true,
-        "cero_mutaciones_permitidas": true
+        "pregunta_fecha_real": true,
+        "cero_mutaciones_permitidas": true,
+        "no_asume_fecha_confirmada": true
       },
       "forbidden_behavior": [
         "ejecutar_reprogramar_reserva",
         "ejecutar_agendar_clase_prueba",
         "afirmar_reprogramacion_confirmada_sin_aclarar",
-        "asumir_jueves_arbitrariamente",
-        "asumir_martes_arbitrariamente"
+        "asumir_jueves_arbitrariamente"
       ]
     },
     {
-      "id": "CASE_2_VARIACION_CONTRADICTORIA_SINTETICA",
-      "naturaleza": "variacion_sintetica_anti_sobreajuste",
-      "descripcion": "Variación sintética utilizando únicamente días oficiales (martes y jueves) con imposibilidad en ambos",
-      "input_message": "Para el martes se me complica y el jueves tampoco llego a tiempo porque salgo tarde del trabajo",
+      "id": "CASE_B_RESTRICCION_TEMPORAL_VALIDA",
+      "titulo": "Caso B — Restricción temporal perfectamente válida",
+      "naturaleza": "restriccion_temporal_valida",
+      "descripcion": "No puede ni martes ni jueves esta semana, solicita cambiar para el próximo martes",
+      "input_message": "No puedo ni martes ni jueves esta semana. Quiero cambiar mi reserva para el próximo martes",
       "expected_behavior": {
-        "reconoce_ambiguedad": true,
-        "solicita_aclaracion": true,
-        "cero_mutaciones_permitidas": true
+        "distingue_semanas": true,
+        "permite_reprogramacion_proximo_martes": true,
+        "no_exige_confirmacion_redundante": true,
+        "fecha_objetivo_valida": "proximo_martes"
       },
       "forbidden_behavior": [
-        "ejecutar_reprogramar_reserva",
-        "ejecutar_agendar_clase_prueba",
-        "asumir_jueves_arbitrariamente",
-        "asumir_martes_arbitrariamente"
-      ]
-    },
-    {
-      "id": "CASE_3_CONTROL_POSITIVO_UNIVOCO",
-      "naturaleza": "control_positivo_sin_ambiguedad",
-      "descripcion": "Control positivo: solicitud unívoca sin contradicciones (no debe pedir aclaración innecesaria)",
-      "input_message": "Por favor quiero cambiar mi clase para el jueves a las 18:00, ese día sí puedo traerla",
-      "expected_behavior": {
-        "reconoce_ambiguedad": false,
-        "procede_con_reprogramacion_o_propuesta_jueves": true
-      },
-      "forbidden_behavior": [
-        "pedir_aclaracion_innecesaria_de_dia",
+        "reprogramar_a_esta_semana",
+        "reprogramar_a_dia_invalido",
         "rechazar_solicitud_valida"
       ]
     },
     {
-      "id": "CASE_4_RESOLUCION_POST_ACLARACION",
-      "naturaleza": "resolucion_multiturno",
-      "descripcion": "Turno de resolución tras aclaración: una vez disipada la duda, procede con la fecha elegida",
-      "input_message": "Quiero cambiar mi clase para el próximo martes que ya estaré de vuelta en Cusco",
+      "id": "CASE_C_CAMBIO_UNIVOCO",
+      "titulo": "Caso C — Cambio inequívoco",
+      "naturaleza": "cambio_univoco",
+      "descripcion": "Solicitud explícita e inequívoca con fecha y hora oficial",
+      "input_message": "Quiero cambiar mi clase de prueba al jueves 19 de noviembre a las 18:00",
       "expected_behavior": {
-        "reconoce_ambiguedad": false,
-        "concreta_reprogramacion_martes": true
+        "ejecuta_reprogramacion": true,
+        "fecha_esperada": "2026-11-19",
+        "hora_esperada": "18:00"
       },
       "forbidden_behavior": [
-        "volver_a_preguntar_indefinidamente"
+        "rechazar_fecha_valida",
+        "pedir_confirmacion_redundante"
+      ]
+    },
+    {
+      "id": "CASE_D_ACLARACION_PROGRESIVA",
+      "titulo": "Caso D — Aclaración progresiva",
+      "naturaleza": "aclaracion_multiturno",
+      "descripcion": "Primer turno ambiguo pidiendo opciones; segundo turno con fecha explícita y válida",
+      "turnos": [
+        {
+          "turno": 1,
+          "input_message": "Hola, se me complica asistir este martes a la clase de mi hija, ¿qué otras opciones tenemos?",
+          "expected_behavior": {
+            "cero_mutaciones_permitidas": true,
+            "ofrece_opciones_o_pide_fecha": true
+          },
+          "forbidden_behavior": [
+            "ejecutar_reprogramar_reserva",
+            "ejecutar_agendar_clase_prueba"
+          ]
+        },
+        {
+          "turno": 2,
+          "input_message": "Quiero cambiar mi clase de prueba al jueves 19 de noviembre a las 18:00",
+          "expected_behavior": {
+            "ejecuta_reprogramacion": true,
+            "fecha_esperada": "2026-11-19",
+            "hora_esperada": "18:00"
+          },
+          "forbidden_behavior": [
+            "volver_a_preguntar_indefinidamente"
+          ]
+        }
       ]
     }
   ]

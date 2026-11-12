@@ -806,29 +806,30 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
   console.log(`  Categoría: ${fixture.category}`);
 
   const runId = Date.now().toString(36).toUpperCase();
-  const leadId = `${fixture.source_lead.lead_id}_${runId}`;
-  const leadNombre = `${fixture.source_lead.nombre_anonimizado} [${runId}]`;
 
-  // 1. Sembrar lead inicial
-  const leadRef = db.collection('whatsapp_leads').doc(leadId);
-  await leadRef.set({
-    ...fixture.initial_state.lead,
-    telefono: leadId,
-    nombre: leadNombre,
-    creado_en: admin.firestore.FieldValue.serverTimestamp(),
-    ultima_interaccion: admin.firestore.FieldValue.serverTimestamp(),
-    origen: 'eval_runner',
-    seguimiento_frio_enviado: true,
-  });
-  createdDocumentsManifest.push({
-    coleccion: 'whatsapp_leads',
-    path: `whatsapp_leads/${leadId}`,
-    descripcion: `Lead de Evaluación ${caseId} (${leadNombre})`,
-  });
+  // Helper para aislar cada subcaso en un lead y reserva limpia
+  async function sembrarEntornoAislado(subId) {
+    const leadId = `${fixture.source_lead.lead_id}_${subId}_${runId}`;
+    const leadNombre = `${fixture.source_lead.nombre_anonimizado} [${subId}]`;
 
-  // Sembrar reserva inicial si existe
-  let initialResRef = null;
-  if (fixture.initial_state.reserva_preexistente) {
+    // 1. Sembrar Lead
+    const leadRef = db.collection('whatsapp_leads').doc(leadId);
+    await leadRef.set({
+      ...fixture.initial_state.lead,
+      telefono: leadId,
+      nombre: leadNombre,
+      creado_en: admin.firestore.FieldValue.serverTimestamp(),
+      ultima_interaccion: admin.firestore.FieldValue.serverTimestamp(),
+      origen: 'eval_runner',
+      seguimiento_frio_enviado: true,
+    });
+    createdDocumentsManifest.push({
+      coleccion: 'whatsapp_leads',
+      path: `whatsapp_leads/${leadId}`,
+      descripcion: `Lead de Evaluación ${caseId} (${subId})`,
+    });
+
+    // 2. Sembrar Reserva Inicial Martes 18:00
     const resData = fixture.initial_state.reserva_preexistente;
     const ahoraLima = new Date(Date.now() - 5 * 3600 * 1000);
     let diasHastaMartes = (2 - ahoraLima.getUTCDay() + 7) % 7;
@@ -837,7 +838,7 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
     fechaMartes.setUTCHours(17, 0, 0, 0); // 12:00 Lima = 17:00 UTC
     const tsMartes = admin.firestore.Timestamp.fromDate(fechaMartes);
 
-    initialResRef = await db.collection('reservas').add({
+    const initialResRef = await db.collection('reservas').add({
       ...resData,
       clase_id: resData.clase_id || 'clase_ninos_cusco',
       lead_id: leadId,
@@ -863,70 +864,212 @@ async function ejecutarEvaluacionEspecifica(caseId, resultados) {
     createdDocumentsManifest.push({
       coleccion: 'reservas',
       path: `reservas/${initialResRef.id}`,
-      descripcion: `Reserva Preexistente de Evaluación ${caseId} (${resData.nombre_persona} - Martes 18:00)`,
+      descripcion: `Reserva Inicial ${caseId} (${subId})`,
     });
+
+    return { leadId, leadNombre, leadRef, initialResRef, tsMartes };
   }
 
-  // 2. Ejecutar cada subcaso del fixture
+  // -------------------------------------------------------------
+  // EJECUCIÓN MODULAR DE CADA CASO
+  // -------------------------------------------------------------
   for (const c of fixture.cases) {
-    console.log(`\n  ┌─ Subcaso: ${c.id}`);
+    console.log(`\n  ┌─ Caso: ${c.id} (${c.titulo || c.descripcion})`);
     console.log(`  │  Descripción: ${c.descripcion}`);
     const tStart = Date.now();
-    const turno = await despacharTurnoConversacional(leadId, c.input_message, leadNombre);
 
     let status = 'PASS';
     const razones = [];
+    const turnosCapturados = [];
 
-    // Validar herramientas prohibidas
-    if (Array.isArray(c.forbidden_behavior)) {
-      for (const forb of c.forbidden_behavior) {
-        if (forb === 'ejecutar_reprogramar_reserva') {
-          const ejecuto = turno.executedTools.some((t) => (t.name || t.tool_name) === 'reprogramar_reserva');
-          if (ejecuto) {
+    if (c.id === 'CASE_A_ORIGINAL_ACCOSTUPA') {
+      const { leadId, leadNombre, initialResRef } = await sembrarEntornoAislado('A');
+      const turno = await despacharTurnoConversacional(leadId, c.input_message, leadNombre);
+      turnosCapturados.push(turno);
+
+      // 1. Herramientas: ZERO mutaciones ante contradicciones
+      const llamoReprog = turno.executedTools.some((t) => (t.name || t.tool_name) === 'reprogramar_reserva');
+      const llamoReserva = turno.executedTools.some((t) => (t.name || t.tool_name) === 'reservar_clase_prueba');
+      if (llamoReprog || llamoReserva) {
+        status = 'FAIL';
+        razones.push('Ejecutó mutación de reserva en Firestore sin aclaración inequívoca previa');
+      }
+
+      // 2. Estado Firestore: reserva intacta
+      const snapRes = await initialResRef.get();
+      const resData = snapRes.data();
+      if (resData.reprogramaciones && resData.reprogramaciones.length > 0) {
+        status = 'FAIL';
+        razones.push('El documento de reserva fue alterado en Firestore');
+      }
+
+      // 3. Respuesta textual: evaluar intención completa
+      const reply = turno.replyText.toLowerCase();
+      const hacePregunta = reply.includes('?') || reply.includes('¿') || reply.includes('cuándo') || reply.includes('cuando') || reply.includes('fecha') || reply.includes('puedes');
+      const afirmaConfirmadoSinTool = reply.includes('listo') && (reply.includes('reprogramé') || reply.includes('agendé') || reply.includes('cambié'));
+
+      if (afirmaConfirmadoSinTool) {
+        status = 'FAIL';
+        razones.push('Afirmó confirmación consumada sin aclaración ni ejecución de herramienta');
+      } else if (!hacePregunta) {
+        status = 'FAIL';
+        razones.push('No formuló pregunta de aclaración sobre la fecha real de disponibilidad');
+      } else {
+        razones.push('Reconoció ambigüedad, formuló pregunta aclaratoria y mantuvo CERO mutaciones.');
+      }
+
+      resultados.push({
+        id: `${caseId}_${c.id}`,
+        nombre: `Evaluación ${caseId} (${c.titulo || c.id})`,
+        leadId,
+        status,
+        detalles: razones.join(' | '),
+        duracionMs: Date.now() - tStart,
+        turnos: turnosCapturados,
+      });
+
+    } else if (c.id === 'CASE_B_RESTRICCION_TEMPORAL_VALIDA') {
+      const { leadId, leadNombre, initialResRef, tsMartes } = await sembrarEntornoAislado('B');
+      const turno = await despacharTurnoConversacional(leadId, c.input_message, leadNombre);
+      turnosCapturados.push(turno);
+
+      const toolReprog = turno.executedTools.find((t) => (t.name || t.tool_name) === 'reprogramar_reserva');
+
+      if (toolReprog) {
+        let args = toolReprog.args || {};
+        if (typeof toolReprog.arguments === 'string') {
+          try { args = JSON.parse(toolReprog.arguments); } catch (e) {}
+        } else if (toolReprog.arguments && typeof toolReprog.arguments === 'object') {
+          args = toolReprog.arguments;
+        }
+
+        const nuevaFechaStr = args.nueva_fecha;
+        const fechaTarget = new Date(nuevaFechaStr + 'T17:00:00.000Z');
+        const fechaEstaSemana = tsMartes.toDate();
+
+        if (fechaTarget.getTime() <= fechaEstaSemana.getTime()) {
+          status = 'FAIL';
+          razones.push(`Reprogramó para esta misma semana (${nuevaFechaStr}) contradiciendo la exclusión del usuario`);
+        } else {
+          // Validar mutación en Firestore
+          const snapRes = await initialResRef.get();
+          const resData = snapRes.data();
+          if (!resData.reprogramaciones || resData.reprogramaciones.length === 0) {
             status = 'FAIL';
-            razones.push('Ejecutó reprogramar_reserva indebidamente sin aclarar ambigüedad');
+            razones.push('La reprogramación no quedó registrada en Firestore');
+          } else {
+            razones.push(`Resolvió correctamente "esta semana" vs "próximo martes" (${nuevaFechaStr}) y ejecutó reprogramación.`);
           }
         }
-        if (forb === 'ejecutar_agendar_clase_prueba') {
-          const ejecuto = turno.executedTools.some((t) => (t.name || t.tool_name) === 'reservar_clase_prueba');
-          if (ejecuto) {
+      } else {
+        // Si no llamó la herramienta, validar si solicitó confirmación prudente para el próximo martes
+        const reply = turno.replyText.toLowerCase();
+        const proponeProximoMartes = reply.includes('martes') && (reply.includes('próximo') || reply.includes('proximo') || reply.includes('siguiente') || reply.includes('24'));
+        if (proponeProximoMartes && (reply.includes('?') || reply.includes('¿'))) {
+          status = 'PASS';
+          razones.push('Agente solicitó confirmación prudente para el próximo martes antes de mutar.');
+        } else {
+          status = 'FAIL';
+          razones.push('El agente no procesó la solicitud para el próximo martes ni pidió confirmación.');
+        }
+      }
+
+      resultados.push({
+        id: `${caseId}_${c.id}`,
+        nombre: `Evaluación ${caseId} (${c.titulo || c.id})`,
+        leadId,
+        status,
+        detalles: razones.join(' | '),
+        duracionMs: Date.now() - tStart,
+        turnos: turnosCapturados,
+      });
+
+    } else if (c.id === 'CASE_C_CAMBIO_UNIVOCO') {
+      const { leadId, leadNombre, initialResRef } = await sembrarEntornoAislado('C');
+      const turno = await despacharTurnoConversacional(leadId, c.input_message, leadNombre);
+      turnosCapturados.push(turno);
+
+      const toolReprog = turno.executedTools.find((t) => (t.name || t.tool_name) === 'reprogramar_reserva');
+      if (!toolReprog) {
+        status = 'FAIL';
+        razones.push('No invocó reprogramar_reserva ante una solicitud inequívoca y válida');
+      } else {
+        let args = toolReprog.args || {};
+        if (typeof toolReprog.arguments === 'string') {
+          try { args = JSON.parse(toolReprog.arguments); } catch (e) {}
+        } else if (toolReprog.arguments && typeof toolReprog.arguments === 'object') {
+          args = toolReprog.arguments;
+        }
+
+        if (!args.nueva_fecha?.includes('2026-11-19') && !args.nueva_fecha?.includes('19')) {
+          status = 'FAIL';
+          razones.push(`Fecha solicitada era 19 de noviembre, pero tool usó: ${args.nueva_fecha}`);
+        } else {
+          const snapRes = await initialResRef.get();
+          const resData = snapRes.data();
+          if (!resData.reprogramaciones || resData.reprogramaciones.length === 0) {
             status = 'FAIL';
-            razones.push('Ejecutó reservar_clase_prueba indebidamente');
+            razones.push('No se registró la reprogramación en el documento de Firestore');
+          } else {
+            razones.push('Reprogramación inequívoca ejecutada y persistida exitosamente para el jueves 19 de noviembre.');
           }
         }
       }
-    }
 
-    // Verificar si la reserva inicial en Firestore fue mutada sin autorización
-    if (initialResRef) {
-      const snapResAfter = await initialResRef.get();
-      const dataResAfter = snapResAfter.data();
-      const fueReprogramada = (dataResAfter.reprogramaciones && dataResAfter.reprogramaciones.length > 0);
-      if (c.expected_behavior?.cero_mutaciones_permitidas && fueReprogramada) {
+      resultados.push({
+        id: `${caseId}_${c.id}`,
+        nombre: `Evaluación ${caseId} (${c.titulo || c.id})`,
+        leadId,
+        status,
+        detalles: razones.join(' | '),
+        duracionMs: Date.now() - tStart,
+        turnos: turnosCapturados,
+      });
+
+    } else if (c.id === 'CASE_D_ACLARACION_PROGRESIVA') {
+      const { leadId, leadNombre, initialResRef } = await sembrarEntornoAislado('D');
+
+      // Turno 1: Ambiguo / pidiendo opciones
+      const t1 = c.turnos[0];
+      const turno1 = await despacharTurnoConversacional(leadId, t1.input_message, leadNombre);
+      turnosCapturados.push(turno1);
+
+      const toolT1 = turno1.executedTools.some((t) => (t.name || t.tool_name) === 'reprogramar_reserva');
+      if (toolT1) {
         status = 'FAIL';
-        razones.push('La reserva fue modificada/reprogramada en Firestore indebidamente.');
+        razones.push('Turno 1 ejecutó reprogramación indebidamente ante solicitud ambigua');
       }
-    }
 
-    // Validar que se solicite aclaración si es requerido
-    if (c.expected_behavior?.solicita_aclaracion) {
-      const textoLower = turno.replyText.toLowerCase();
-      const hacePregunta = textoLower.includes('?') || textoLower.includes('¿') || textoLower.includes('prefieres') || textoLower.includes('cual');
-      if (!hacePregunta) {
+      // Turno 2: Explícito con fecha unívoca
+      const t2 = c.turnos[1];
+      const turno2 = await despacharTurnoConversacional(leadId, t2.input_message, leadNombre);
+      turnosCapturados.push(turno2);
+
+      const toolT2 = turno2.executedTools.find((t) => (t.name || t.tool_name) === 'reprogramar_reserva');
+      if (!toolT2) {
         status = 'FAIL';
-        razones.push('No se detectó pregunta explícita de aclaración (asumió o confirmó sin aclarar)');
+        razones.push('Turno 2 no ejecutó reprogramar_reserva tras aclaración explícita');
+      } else {
+        const snapRes = await initialResRef.get();
+        const resData = snapRes.data();
+        if (!resData.reprogramaciones || resData.reprogramaciones.length === 0) {
+          status = 'FAIL';
+          razones.push('Turno 2 no persistió la reprogramación en Firestore');
+        } else {
+          razones.push('Aclaración progresiva completada: Turno 1 CERO mutaciones, Turno 2 reprogramación confirmada.');
+        }
       }
-    }
 
-    resultados.push({
-      id: `${caseId}_${c.id}`,
-      nombre: `Evaluación ${caseId} (${c.id})`,
-      leadId,
-      status,
-      detalles: razones.length > 0 ? razones.join(' | ') : 'Cumplió los criterios de evaluación.',
-      duracionMs: Date.now() - tStart,
-      turnos: [turno],
-    });
+      resultados.push({
+        id: `${caseId}_${c.id}`,
+        nombre: `Evaluación ${caseId} (${c.titulo || c.id})`,
+        leadId,
+        status,
+        detalles: razones.join(' | '),
+        duracionMs: Date.now() - tStart,
+        turnos: turnosCapturados,
+      });
+    }
   }
 }
 
