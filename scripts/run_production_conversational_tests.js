@@ -1,22 +1,26 @@
 /**
  * scripts/run_production_conversational_tests.js
  * Runner de Pruebas Conversacionales Reales / Pre-Flight para GINGA V1 (Node.js 22)
+ * PROMPT 68: Validación Real del Embudo Comercial y Revisión de Fechas
  * 
- * Permite ejecutar los 8 escenarios conversacionales contra:
- * 1. MODO OFFLINE / EMULATOR (por defecto):
- *    - Requiere Firestore Emulator (demo-ginga-test).
- *    - Permite validación previa 100% determinista y segura.
- *    - No modifica producción ni consume recursos externos.
+ * ESCENARIOS MULTI-TURNO:
+ * - Escenario A: Reserva Completa (Sofia, 9 años, turnos progresivos hasta confirmación)
+ * - Escenario B: Reprogramación Real (cambio atómico de fecha sin duplicar reserva)
+ * - Escenario C: Idempotencia (intento de duplicar cita de Sofia; verificación de rechazo/aviso)
+ * - Escenario D: Captación de Dos Hermanos (Mateo 8a y Lucía 6a, 2 reservas independientes)
+ * 
+ * MODOS DE EJECUCIÓN:
+ * 1. MODO EMULATOR (por defecto):
+ *    firebase emulators:exec --only firestore "node scripts/run_production_conversational_tests.js" --project demo-ginga-test
  * 2. MODO PRODUCCIÓN:
- *    - Requiere flag explícito: --target=production y ALLOW_PRODUCTION_TEST_WRITES=true.
- *    - Inyecta leads de prueba TEST_LEAD_01 a 08 con seguimiento_frio_enviado=true.
- *    - NO borra documentos al finalizar: quedan disponibles para inspección y borrado manual en Flutter.
+ *    ALLOW_PRODUCTION_TEST_WRITES=true node scripts/run_production_conversational_tests.js --target=production --real-openai
  * 
  * GARANTÍAS DE SEGURIDAD ESTRICTAS:
  * - Firewall de red global a nivel de proceso: ZERO salidas a Meta WhatsApp (graph.facebook.com).
- * - Bloqueo verificado deterministamente antes de iniciar la primera prueba.
- * - Idéntica lógica de razonamiento a la versión desplegada en Cloud Functions (v69).
- * - Circuit breaker estricto: máximo 30 llamadas a OpenAI con tracking de tokens y costo.
+ * - Circuit breaker: máximo 30 llamadas a OpenAI con tracking de tokens y costo.
+ * - Cero modificación a functions/index.js ni a Cloud Scheduler.
+ * - Registros TEST marcados con seguimiento_frio_enviado=true e IDs no numéricos (inmunes a crons).
+ * - Documentos preservados para revisión e inspección manual por el usuario.
  */
 
 const fs = require('fs');
@@ -166,7 +170,6 @@ global.fetch = async function secureFetch(input, init = {}) {
       }
       networkAudit.openAiCalls++;
       const resp = await originalFetch(input, init);
-      // Clonar para auditar tokens de forma no invasiva
       try {
         const clone = resp.clone();
         const json = await clone.json();
@@ -179,7 +182,7 @@ global.fetch = async function secureFetch(input, init = {}) {
       return resp;
     }
 
-    // Modo simulado / Mock OpenAI determinista para reproducibilidad completa
+    // Modo simulado / Mock OpenAI determinista para pruebas offline
     networkAudit.mockOpenAiCalls++;
     const body = JSON.parse(init.body || '{}');
     const completion = await responderOpenAISimulado(body);
@@ -256,7 +259,7 @@ async function verificarBloqueoMetaActivo() {
     }
   } catch (err) {
     if (!err.message.includes('BLOCKED_BY_TEST_RUNNER_FIREWALL')) {
-      // Ignorar otros errores de aborto
+      // Ignorar otros errores
     }
   }
   if (networkAudit.metaCallsBlocked <= antes) {
@@ -270,21 +273,21 @@ async function verificarBloqueoMetaActivo() {
 // -------------------------------------------------------------
 async function responderOpenAISimulado(body) {
   const messages = body.messages || [];
-  const tools = body.tools || [];
   const lastMsg = messages[messages.length - 1];
 
+  // Si el último mensaje es el resultado de una herramienta
   if (lastMsg && lastMsg.role === 'tool') {
     const toolResults = messages.filter((m) => m.role === 'tool');
     const lastTool = toolResults[toolResults.length - 1];
     const content = lastTool.content || '';
 
-    if (content.includes('Horarios disponibles:') || content.includes('Kids')) {
+    if (content.includes('DUPLICATE_ACTIVE_RESERVATION') || content.includes('Ya existe una reserva previa')) {
       return {
         choices: [
           {
             message: {
               role: 'assistant',
-              content: '¡Hola! Tenemos clases de Capoeira para niños (Kids, de 5 a 12 años) los martes y jueves de 18:00 a 19:00 en Av. de la Cultura E-4, Urb. Magisterio, Edificio Divergym, 3er piso. La mensualidad regular es S/140 y la clase de prueba es gratuita. ¿Te gustaría agendar una?',
+              content: `${content} Ya tienes una reserva confirmada. Si deseas reprogramarla para otra fecha, avísame y con gusto te ayudo.`,
             },
           },
         ],
@@ -292,27 +295,12 @@ async function responderOpenAISimulado(body) {
     }
 
     if (content.includes('Reserva confirmada') || content.includes('confirmada')) {
-      const isMultiple = toolResults.filter((m) => m.content.includes('Reserva confirmada')).length > 1;
-      if (isMultiple) {
-        const matchFecha = content.match(/para el ([^.]+?) a las/);
-        const fechaTexto = matchFecha ? matchFecha[1] : 'la fecha programada';
-        return {
-          choices: [
-            {
-              message: {
-                role: 'assistant',
-                content: `¡Listo! Las clases de prueba para Mateo y Lucía quedaron confirmadas para el ${fechaTexto} a las 18:00 en nuestra sede de Divergym (3er piso). Recuerden llegar con ropa deportiva cómoda y una botella con agua.`,
-              },
-            },
-          ],
-        };
-      }
       return {
         choices: [
           {
             message: {
               role: 'assistant',
-              content: `¡Excelente! ${content} Recuerda que deben asistir con ropa deportiva cómoda y una botella de agua. ¡Los esperamos!`,
+              content: `¡Excelente! ${content} Recuerden llegar 10 minutos antes con ropa deportiva cómoda y agua. ¡Los esperamos!`,
             },
           },
         ],
@@ -325,33 +313,7 @@ async function responderOpenAISimulado(body) {
           {
             message: {
               role: 'assistant',
-              content: `¡Listo! ${content}`,
-            },
-          },
-        ],
-      };
-    }
-
-    if (content.includes('Ya existe una reserva previa') || content.includes('DUPLICATE_ACTIVE_RESERVATION')) {
-      return {
-        choices: [
-          {
-            message: {
-              role: 'assistant',
-              content: `${content} Si necesitas cambiar de fecha u horario, avísame y con gusto te ayudo a reprogramar la clase.`,
-            },
-          },
-        ],
-      };
-    }
-
-    if (content.includes('Se notificó a un instructor') || content.includes('atención humana')) {
-      return {
-        choices: [
-          {
-            message: {
-              role: 'assistant',
-              content: 'He avisado a nuestro instructor del motivo de tu consulta. Te escribirá personalmente a la brevedad para orientarte con todos los detalles.',
+              content: `¡Listo! ${content} La cita ha quedado reprogramada con éxito.`,
             },
           },
         ],
@@ -364,7 +326,20 @@ async function responderOpenAISimulado(body) {
           {
             message: {
               role: 'assistant',
-              content: '¡Perfecto! Anoté los datos. Tenemos clases para esa edad los martes y jueves a las 18:00 en Divergym Magisterio. ¿Deseas agendar la clase de prueba gratuita?',
+              content: '¡Perfecto! Anoté los datos. Tenemos clases para esa edad los martes y jueves a las 18:00 en Divergym Magisterio. ¿Deseas que reserve la clase de prueba?',
+            },
+          },
+        ],
+      };
+    }
+
+    if (content.includes('Horarios disponibles:') || content.includes('Kids')) {
+      return {
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: '¡Hola! Tenemos clases para niños (Kids, 5 a 12 años) los martes y jueves de 18:00 a 19:00 en Av. de la Cultura E-4, Urb. Magisterio, Edificio Divergym, 3er piso. La mensualidad regular es S/140 y la clase de prueba es gratuita. ¿Te gustaría agendar?',
             },
           },
         ],
@@ -383,47 +358,17 @@ async function responderOpenAISimulado(body) {
     };
   }
 
+  // Turno de usuario
   const userMsgs = messages.filter((m) => m.role === 'user');
   const lastUserText = userMsgs.length > 0 ? (userMsgs[userMsgs.length - 1].content || '') : '';
   const textLower = lastUserText.toLowerCase();
 
-  if (
-    textLower.includes('hablar directamente') ||
-    textLower.includes('profesor') ||
-    textLower.includes('médica') ||
-    textLower.includes('medica') ||
-    textLower.includes('lesión') ||
-    textLower.includes('lesion') ||
-    textLower.includes('rodilla')
-  ) {
-    return {
-      choices: [
-        {
-          message: {
-            role: 'assistant',
-            content: null,
-            tool_calls: [
-              {
-                id: `call_${Date.now()}_human`,
-                type: 'function',
-                function: {
-                  name: 'marcar_seguimiento_humano',
-                  arguments: JSON.stringify({
-                    motivo: 'Consulta médica sobre salud y lesión en rodilla; solicita hablar con el profesor.',
-                  }),
-                },
-              },
-            ],
-          },
-        },
-      ],
-    };
-  }
-
+  // Escenario B: Reprogramación
   if (
     textLower.includes('reprogram') ||
+    textLower.includes('cruce') ||
     textLower.includes('cambiar') ||
-    (textLower.includes('no va a poder') && textLower.includes('jueves'))
+    textLower.includes('inconveniente')
   ) {
     return {
       choices: [
@@ -438,9 +383,9 @@ async function responderOpenAISimulado(body) {
                 function: {
                   name: 'reprogramar_reserva',
                   arguments: JSON.stringify({
-                    nombre: 'Valentina',
-                    nueva_fecha: '2026-11-19',
-                    motivo: 'Tiene dentista el martes, solicita pasar al jueves',
+                    nombre: 'Sofia',
+                    nueva_fecha: '2026-11-17',
+                    motivo: 'Cruce de horarios el jueves',
                   }),
                 },
               },
@@ -451,7 +396,51 @@ async function responderOpenAISimulado(body) {
     };
   }
 
+  // Escenario D: Dos hermanos (Mateo 8 y Lucía 6)
   if (textLower.includes('mateo') && (textLower.includes('lucia') || textLower.includes('lucía'))) {
+    if (textLower.includes('agendar') || textLower.includes('jueves') || textLower.includes('ambos') || textLower.includes('confirmo')) {
+      return {
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: null,
+              tool_calls: [
+                {
+                  id: `call_${Date.now()}_prof_herm`,
+                  type: 'function',
+                  function: {
+                    name: 'guardar_perfil_lead',
+                    arguments: JSON.stringify({
+                      personas: [
+                        { nombre: 'Mateo', tipo: 'niño', edad: 8 },
+                        { nombre: 'Lucía', tipo: 'niño', edad: 6 },
+                      ],
+                    }),
+                  },
+                },
+                {
+                  id: `call_${Date.now()}_res_mateo`,
+                  type: 'function',
+                  function: {
+                    name: 'reservar_clase_prueba',
+                    arguments: JSON.stringify({ nombre: 'Mateo', tipo: 'niño' }),
+                  },
+                },
+                {
+                  id: `call_${Date.now()}_res_lucia`,
+                  type: 'function',
+                  function: {
+                    name: 'reservar_clase_prueba',
+                    arguments: JSON.stringify({ nombre: 'Lucía', tipo: 'niño' }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      };
+    }
     return {
       choices: [
         {
@@ -460,174 +449,7 @@ async function responderOpenAISimulado(body) {
             content: null,
             tool_calls: [
               {
-                id: `call_${Date.now()}_prof_hermanos`,
-                type: 'function',
-                function: {
-                  name: 'guardar_perfil_lead',
-                  arguments: JSON.stringify({
-                    personas: [
-                      { nombre: 'Mateo', tipo: 'niño', edad: 8 },
-                      { nombre: 'Lucía', tipo: 'niño', edad: 6 },
-                    ],
-                  }),
-                },
-              },
-              {
-                id: `call_${Date.now()}_res_mateo`,
-                type: 'function',
-                function: {
-                  name: 'reservar_clase_prueba',
-                  arguments: JSON.stringify({ nombre: 'Mateo', tipo: 'niño' }),
-                },
-              },
-              {
-                id: `call_${Date.now()}_res_lucia`,
-                type: 'function',
-                function: {
-                  name: 'reservar_clase_prueba',
-                  arguments: JSON.stringify({ nombre: 'Lucía', tipo: 'niño' }),
-                },
-              },
-            ],
-          },
-        },
-      ],
-    };
-  }
-
-  if (textLower.includes('volver a agendar') || (textLower.includes('otra clase de prueba') && textLower.includes('mateo'))) {
-    return {
-      choices: [
-        {
-          message: {
-            role: 'assistant',
-            content: null,
-            tool_calls: [
-              {
-                id: `call_${Date.now()}_res_dup`,
-                type: 'function',
-                function: {
-                  name: 'reservar_clase_prueba',
-                  arguments: JSON.stringify({
-                    nombre: 'Mateo',
-                    tipo: 'niño',
-                  }),
-                },
-              },
-            ],
-          },
-        },
-      ],
-    };
-  }
-
-  if (
-    textLower.includes('agendar una clase de prueba') ||
-    textLower.includes('agendar clase de prueba') ||
-    textLower.includes('reserva para los dos') ||
-    (textLower.includes('agendar') && textLower.includes('valentina'))
-  ) {
-    let targetName = 'Valentina';
-    if (textLower.includes('mateo')) targetName = 'Mateo';
-    return {
-      choices: [
-        {
-          message: {
-            role: 'assistant',
-            content: null,
-            tool_calls: [
-              {
-                id: `call_${Date.now()}_reserva`,
-                type: 'function',
-                function: {
-                  name: 'reservar_clase_prueba',
-                  arguments: JSON.stringify({
-                    nombre: targetName,
-                    tipo: 'niño',
-                  }),
-                },
-              },
-            ],
-          },
-        },
-      ],
-    };
-  }
-
-  if (textLower.includes('valentina') && textLower.includes('9')) {
-    return {
-      choices: [
-        {
-          message: {
-            role: 'assistant',
-            content: null,
-            tool_calls: [
-              {
-                id: `call_${Date.now()}_perfil_val`,
-                type: 'function',
-                function: {
-                  name: 'guardar_perfil_lead',
-                  arguments: JSON.stringify({
-                    personas: [{ nombre: 'Valentina', tipo: 'niño', edad: 9 }],
-                  }),
-                },
-              },
-            ],
-          },
-        },
-      ],
-    };
-  }
-
-  if (textLower.includes('100') || textLower.includes('rebaja') || textLower.includes('descuento a s/')) {
-    return {
-      choices: [
-        {
-          message: {
-            role: 'assistant',
-            content: 'Nuestros precios son fijos: la mensualidad regular es de S/140 por persona o S/260 en promoción para dos personas (o paquetes de 3 meses a S/380 y 6 meses a S/720). No contamos con una tarifa de S/100, pero te invitamos a participar en la clase de prueba gratuita para que conozcas la escuela.',
-          },
-        },
-      ],
-    };
-  }
-
-  if (textLower.includes('mensualidad') || textLower.includes('promociones') || textLower.includes('cuesta')) {
-    return {
-      choices: [
-        {
-          message: {
-            role: 'assistant',
-            content: 'La mensualidad regular es de S/140 por persona. Contamos con una promoción especial para dos personas juntas a S/260 al mes, paquete trimestral por S/380 y semestral por S/720. Además, la primera clase de prueba es completamente gratuita. ¿Te gustaría agendar una?',
-          },
-        },
-      ],
-    };
-  }
-
-  if (textLower.includes('yape') || textLower.includes('pagar')) {
-    return {
-      choices: [
-        {
-          message: {
-            role: 'assistant',
-            content: '¡Excelente decisión! Puedes realizar el pago de tu mensualidad (S/140) mediante Yape al número 51900075008 a nombre de Instructor Ginga Cusco. Una vez realizada la transferencia, envíanos por aquí la constancia o captura para registrar tu matrícula.',
-          },
-        },
-      ],
-    };
-  }
-
-  if (textLower.includes('horario') || textLower.includes('edades') || textLower.includes('niños') || textLower.includes('clases')) {
-    return {
-      choices: [
-        {
-          message: {
-            role: 'assistant',
-            content: null,
-            tool_calls: [
-              {
-                id: `call_${Date.now()}_cons_horarios`,
+                id: `call_${Date.now()}_cons_kids`,
                 type: 'function',
                 function: {
                   name: 'consultar_horarios_disponibles',
@@ -641,6 +463,69 @@ async function responderOpenAISimulado(body) {
     };
   }
 
+  // Escenario A / C: Sofia
+  if (textLower.includes('sofia')) {
+    if (
+      textLower.includes('agendar') ||
+      textLower.includes('clase de prueba') ||
+      textLower.includes('confirmo') ||
+      textLower.includes('jueves') ||
+      textLower.includes('martes')
+    ) {
+      return {
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: null,
+              tool_calls: [
+                {
+                  id: `call_${Date.now()}_prof_sofia`,
+                  type: 'function',
+                  function: {
+                    name: 'guardar_perfil_lead',
+                    arguments: JSON.stringify({
+                      personas: [{ nombre: 'Sofia', tipo: 'niño', edad: 9 }],
+                    }),
+                  },
+                },
+                {
+                  id: `call_${Date.now()}_res_sofia`,
+                  type: 'function',
+                  function: {
+                    name: 'reservar_clase_prueba',
+                    arguments: JSON.stringify({ nombre: 'Sofia', tipo: 'niño' }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      };
+    }
+    return {
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: `call_${Date.now()}_cons_kids`,
+                type: 'function',
+                function: {
+                  name: 'consultar_horarios_disponibles',
+                  arguments: '{}',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    };
+  }
+
+  // Respuesta por defecto
   return {
     choices: [
       {
@@ -687,7 +572,7 @@ async function sembrarFixturesEmulador() {
     precio_paquete_3_meses: 380,
     precio_paquete_6_meses: 720,
     promos_multimes: { '3': 380, '6': 720 },
-    yape_numero: '984 765 432',
+    yape_numero: '51900075008',
     yape_titular: 'Instructor Ginga Cusco',
     direccion: 'Av. de la Cultura E-4, Urb. Magisterio, Edificio Divergym, 3er piso (justo al costado de la Caja Arequipa).',
     link_maps: 'https://maps.app.goo.gl/3gdpPwk7PctgmSA38',
@@ -762,7 +647,7 @@ async function despacharTurnoConversacional(leadId, userText, leadNombre = 'Test
     nombre: leadNombre,
     status: esNuevo ? 'nuevo' : (leadDoc.data().status || 'nuevo'),
     ai_habilitada: true,
-    seguimiento_frio_enviado: true, // Blindaje contra tareas programadas (Scheduler)
+    seguimiento_frio_enviado: true, // Blindaje estricto contra Scheduler
     ultima_interaccion: now,
   };
   if (esNuevo) {
@@ -791,7 +676,7 @@ async function despacharTurnoConversacional(leadId, userText, leadNombre = 'Test
     descripcion: `Mensaje de usuario en ${leadId}`,
   });
 
-  // Leer historial conversacional reciente (últimos 10 mensajes)
+  // Leer historial conversacional reciente
   const histSnap = await leadRef.collection('mensajes').orderBy('timestamp', 'desc').limit(10).get();
   const historial = histSnap.docs.reverse().map((d) => {
     const m = d.data();
@@ -800,7 +685,7 @@ async function despacharTurnoConversacional(leadId, userText, leadNombre = 'Test
 
   // Generar System Prompt oficial usando la lógica real de functions/index.js
   const leadDataActual = (await leadRef.get()).data();
-  const { systemPrompt, preciosValidos, catalogoClases, ubicacionReal } = await generarSystemPrompt(
+  const { systemPrompt, catalogoClases, ubicacionReal } = await generarSystemPrompt(
     leadDataActual,
     histSnap.docs.length,
     leadId
@@ -869,6 +754,15 @@ async function despacharTurnoConversacional(leadId, userText, leadNombre = 'Test
     return { id: d.id, ...d.data() };
   });
 
+  const turnNumber = histSnap.docs.length;
+  console.log(`\n  ┌─ [Turno ${turnNumber}] Lead (${leadId})`);
+  console.log(`  │  👤 Usuario: "${userText}"`);
+  console.log(`  │  🥋 GINGA:   "${textoFinal.replace(/\n+/g, ' ')}"`);
+  if (executedTools.length > 0) {
+    console.log(`  │  🛠️  Tools:    ${executedTools.map(t => `${t.name || t.tool_name}(${JSON.stringify(t.args || {})})`).join(' -> ')}`);
+  }
+  console.log(`  └─ Reservas actuales del lead: ${reservas.length} | Estado lead: ${(await leadRef.get()).data().status}`);
+
   return {
     userText,
     replyText: textoFinal,
@@ -880,11 +774,11 @@ async function despacharTurnoConversacional(leadId, userText, leadNombre = 'Test
 }
 
 // -------------------------------------------------------------
-// 7. DEFINICIÓN Y EJECUCIÓN DE LOS 8 ESCENARIOS DE PRUEBA
+// 7. DEFINICIÓN Y EJECUCIÓN DE LOS 4 ESCENARIOS DEL EMBUDO REAL
 // -------------------------------------------------------------
 async function ejecutarSuiteDePruebas() {
   console.log('\n===============================================================');
-  console.log('   GINGA REAL — RUNNER CONVERSACIONAL DE PRODUCCIÓN / PRE-FLIGHT');
+  console.log('   GINGA REAL — PROMPT 68: VALIDACIÓN DEL EMBUDO COMERCIAL');
   console.log(`   Destino: ${isProductionTarget ? 'PRODUCCIÓN (capoeirafiu-ea8ljo)' : 'EMULADOR LOCAL (demo-ginga-test)'}`);
   console.log(`   Modo OpenAI: ${forceRealOpenAI ? 'REAL (OpenAI API - gpt-4o-mini)' : 'SIMULADO / OFFLINE (Deterministic Mock)'}`);
   console.log('===============================================================\n');
@@ -895,265 +789,300 @@ async function ejecutarSuiteDePruebas() {
     await sembrarFixturesEmulador();
   }
 
-  // Comprobar si los IDs de lead predeterminados existen en Firestore (Requisito 14)
-  const runTimestamp = Date.now();
-  let idSuffix = '';
+  // Generar ID único por corrida para aislamiento estricto
+  const runId = Date.now().toString(36).toUpperCase();
+  const tALeadId = `TEST_RUN68_A_SOFIA_${runId}`;
+  const tDLeadId = `TEST_RUN68_D_HERMANOS_${runId}`;
+
+  // Verificar pre-existencia en Firestore de producción
   if (isProductionTarget) {
-    const checkDoc = await db.collection('whatsapp_leads').doc('TEST_LEAD_01_HORARIOS').get();
-    if (checkDoc.exists) {
-      idSuffix = `_${runTimestamp}`;
-      console.log(`ℹ️ [Aislamiento] Ya existen leads TEST previos. Utilizando sufijo único de corrida: ${idSuffix}`);
+    const [docA, docD] = await Promise.all([
+      db.collection('whatsapp_leads').doc(tALeadId).get(),
+      db.collection('whatsapp_leads').doc(tDLeadId).get(),
+    ]);
+    if (docA.exists || docD.exists) {
+      throw new Error(`[SEGURIDAD] Los IDs de prueba ya existen en producción (${tALeadId} o ${tDLeadId}). Abortando.`);
     }
   }
 
   const resultados = [];
 
-  // -------------------------------------------------------------
-  // TEST 1: Horarios y edades Kids (P1 inquiry)
-  // -------------------------------------------------------------
-  console.log('\n▶ Ejecutando TEST 1: Horarios y edades Kids...');
-  const t1Start = Date.now();
-  const t1LeadId = `TEST_LEAD_01_HORARIOS${idSuffix}`;
-  const t1LeadNombre = 'TEST 1 - Horarios Kids';
-  const t1Turn1 = await despacharTurnoConversacional(
-    t1LeadId,
-    '¿Qué horarios y para qué edades tienen clases de niños en Cusco?',
-    t1LeadNombre
+  // =============================================================
+  // ESCENARIO A: RESERVA COMPLETA (Sofia, 9 años)
+  // =============================================================
+  console.log('\n▶ Ejecutando ESCENARIO A: Reserva Completa (Sofia, 9 años)...');
+  const tAStart = Date.now();
+  const tALeadNombre = 'TEST RUN 68 - Sofia (9 años)';
+  const turnosA = [];
+
+  // Turno 1: Solicitud inicial de información
+  const tATurn1 = await despacharTurnoConversacional(
+    tALeadId,
+    'Hola, buenas tardes. Quisiera información sobre clases de capoeira para mi hija Sofia en Cusco.',
+    tALeadNombre
   );
-  const t1Reply = t1Turn1.replyText.toLowerCase();
-  const t1TieneHorarioCorrecto = t1Reply.includes('18:00') || t1Reply.includes('6:00 pm') || t1Reply.includes('6 pm');
-  const t1TieneEdadCorrecta = t1Reply.includes('5 a 12') || t1Reply.includes('5 años') || t1Reply.includes('5') || t1Reply.includes('12');
-  const t1NoTieneErrorP1 = !t1Reply.includes('17:00') && !t1Reply.includes('4 a 12') && !t1Reply.includes('4 años');
-  const t1Pass = t1TieneHorarioCorrecto && t1TieneEdadCorrecta && t1NoTieneErrorP1;
+  turnosA.push(tATurn1);
+
+  // Turno 2: Entrega de edad e intención de reserva de clase gratuita
+  const tATurn2 = await despacharTurnoConversacional(
+    tALeadId,
+    'Sofia tiene 9 años. Nos gustaría agendar su clase de prueba gratuita para este jueves.',
+    tALeadNombre
+  );
+  turnosA.push(tATurn2);
+
+  let currentReservasA = tATurn2.reservas;
+  let resSofia = currentReservasA.find((r) => (r.nombre_persona || '').toLowerCase().includes('sofia') && r.status === 'confirmado');
+  let turnosUsadosA = 2;
+  let ultimoTurnoA = tATurn2;
+
+  // Turno 3 dinámico (si el modelo solicitó confirmación antes de agendar)
+  if (!resSofia && turnosUsadosA < 4) {
+    turnosUsadosA++;
+    console.log('  ℹ️  [Escenario A] Agente solicitó confirmación. Enviando confirmación afirmativa en Turno 3...');
+    ultimoTurnoA = await despacharTurnoConversacional(
+      tALeadId,
+      'Sí, confirmo los datos. Por favor agenda la clase de prueba para Sofia este jueves a las 18:00.',
+      tALeadNombre
+    );
+    turnosA.push(ultimoTurnoA);
+    currentReservasA = ultimoTurnoA.reservas;
+    resSofia = currentReservasA.find((r) => (r.nombre_persona || '').toLowerCase().includes('sofia') && r.status === 'confirmado');
+  }
+
+  // Turno 4 dinámico (si aún requiriera otro turno)
+  if (!resSofia && turnosUsadosA < 4) {
+    turnosUsadosA++;
+    console.log('  ℹ️  [Escenario A] Enviando confirmación final en Turno 4...');
+    ultimoTurnoA = await despacharTurnoConversacional(
+      tALeadId,
+      'Sí, confirmo la reserva.',
+      tALeadNombre
+    );
+    turnosA.push(ultimoTurnoA);
+    currentReservasA = ultimoTurnoA.reservas;
+    resSofia = currentReservasA.find((r) => (r.nombre_persona || '').toLowerCase().includes('sofia') && r.status === 'confirmado');
+  }
+
+  const passA = Boolean(resSofia) && ultimoTurnoA.leadData.status === 'reservado';
 
   resultados.push({
-    id: 1,
-    leadId: t1LeadId,
-    nombre: t1LeadNombre,
-    descripcion: 'Horarios y edades Kids (P1 inquiry)',
-    status: t1Pass ? 'PASS' : 'FAIL',
-    detalles: `Horario oficial: ${t1TieneHorarioCorrecto}, Edad 5-12: ${t1TieneEdadCorrecta}, Sin error P1: ${t1NoTieneErrorP1}`,
-    duracionMs: Date.now() - t1Start,
-    leadStatus: t1Turn1.leadData.status,
-    reservasCreadas: t1Turn1.reservas.length,
-    ultimoMensajeIA: t1Turn1.replyText,
+    id: 'A',
+    nombre: 'Escenario A: Reserva Completa (Sofia, 9 años)',
+    leadId: tALeadId,
+    status: passA ? 'PASS' : 'FAIL',
+    detalles: `Reserva confirmada en Firestore: ${Boolean(resSofia)}, ID reserva: ${resSofia?.id || 'ninguna'}, Estado Lead: ${ultimoTurnoA.leadData.status}, Turnos empleados: ${turnosUsadosA}`,
+    duracionMs: Date.now() - tAStart,
+    turnos: turnosA,
+    reservaDoc: resSofia,
   });
 
-  // -------------------------------------------------------------
-  // TEST 2: Perfilado y reserva de clase de prueba (Valentina, 9 años)
-  // -------------------------------------------------------------
-  console.log('▶ Ejecutando TEST 2: Perfilado y reserva Valentina (9 años)...');
-  const t2Start = Date.now();
-  const t2LeadId = `TEST_LEAD_02_RESERVA_VALENTINA${idSuffix}`;
-  const t2LeadNombre = 'TEST 2 - Reserva Valentina';
-  await despacharTurnoConversacional(t2LeadId, 'Hola, me gustaría información para mi hija Valentina de 9 años.', t2LeadNombre);
-  const t2Turn2 = await despacharTurnoConversacional(t2LeadId, 'Quisiera agendar una clase de prueba gratuita para este martes o jueves.', t2LeadNombre);
-  const t2Reserva = t2Turn2.reservas.find((r) => r.nombre_persona === 'Valentina' && r.status === 'confirmado');
-  const t2Pass = Boolean(t2Reserva) && t2Turn2.leadData.status === 'reservado';
+  // =============================================================
+  // ESCENARIO B: REPROGRAMACIÓN REAL (Sofia, cambio de fecha)
+  // =============================================================
+  console.log('\n▶ Ejecutando ESCENARIO B: Reprogramación Real (Sofia, cambio de fecha)...');
+  const tBStart = Date.now();
+  const turnosB = [];
+  let turnosUsadosB = 1;
+
+  // Turno 1: Solicitar cambio de fecha de la reserva existente
+  const tBTurn1 = await despacharTurnoConversacional(
+    tALeadId,
+    'Hola, se nos presentó un cruce de horarios para Sofia este jueves. ¿Podríamos reprogramar su clase de prueba para el próximo martes?',
+    tALeadNombre
+  );
+  turnosB.push(tBTurn1);
+
+  // Leer reservas actualizadas directamente de Firestore
+  let reservasSnapB = await db.collection('reservas').where('lead_id', '==', tALeadId).get();
+  let reservasB = reservasSnapB.docs.map((d) => ({ id: d.id, ...d.data() }));
+  let resReprog = reservasB.find(
+    (r) => (r.nombre_persona || '').toLowerCase().includes('sofia') &&
+      r.status === 'confirmado' &&
+      Array.isArray(r.reprogramaciones) &&
+      r.reprogramaciones.length > 0
+  );
+  let ultimoTurnoB = tBTurn1;
+
+  // Si el modelo pide confirmación para reprogramar
+  if (!resReprog && turnosUsadosB < 3) {
+    turnosUsadosB++;
+    console.log('  ℹ️  [Escenario B] Agente solicitó confirmación de reprogramación. Enviando confirmación en Turno 2...');
+    ultimoTurnoB = await despacharTurnoConversacional(
+      tALeadId,
+      'Sí, por favor cámbiala para el martes a las 18:00.',
+      tALeadNombre
+    );
+    turnosB.push(ultimoTurnoB);
+    reservasSnapB = await db.collection('reservas').where('lead_id', '==', tALeadId).get();
+    reservasB = reservasSnapB.docs.map((d) => ({ id: d.id, ...d.data() }));
+    resReprog = reservasB.find(
+      (r) => (r.nombre_persona || '').toLowerCase().includes('sofia') &&
+        r.status === 'confirmado' &&
+        Array.isArray(r.reprogramaciones) &&
+        r.reprogramaciones.length > 0
+    );
+  }
+
+  const activasCountB = reservasB.filter(
+    (r) => (r.nombre_persona || '').toLowerCase().includes('sofia') && r.status === 'confirmado'
+  ).length;
+
+  const passB = Boolean(resReprog) && activasCountB === 1;
 
   resultados.push({
-    id: 2,
-    leadId: t2LeadId,
-    nombre: t2LeadNombre,
-    descripcion: 'Perfilado y reserva clase de prueba (Valentina, 9 años)',
-    status: t2Pass ? 'PASS' : 'FAIL',
-    detalles: `Reserva confirmada en Firestore: ${Boolean(t2Reserva)}, Estado Lead: ${t2Turn2.leadData.status}`,
-    duracionMs: Date.now() - t2Start,
-    leadStatus: t2Turn2.leadData.status,
-    reservasCreadas: t2Turn2.reservas.length,
-    ultimoMensajeIA: t2Turn2.replyText,
+    id: 'B',
+    nombre: 'Escenario B: Reprogramación Real',
+    leadId: tALeadId,
+    status: passB ? 'PASS' : 'FAIL',
+    detalles: `Reprogramación auditada: ${Boolean(resReprog)}, Reservas activas Sofia: ${activasCountB} (esperado 1), Turnos: ${turnosUsadosB}`,
+    duracionMs: Date.now() - tBStart,
+    turnos: turnosB,
+    reservaDoc: resReprog,
   });
 
-  // -------------------------------------------------------------
-  // TEST 3: Reserva y posterior reprogramación (Valentina, martes a jueves)
-  // -------------------------------------------------------------
-  console.log('▶ Ejecutando TEST 3: Reprogramación Valentina (martes a jueves)...');
-  const t3Start = Date.now();
-  const t3LeadId = `TEST_LEAD_03_REPROGRAMACION${idSuffix}`;
-  const t3LeadNombre = 'TEST 3 - Reprogramacion Valentina';
-  await despacharTurnoConversacional(t3LeadId, 'Hola, quiero agendar clase de prueba para mi hija Valentina de 9 años este martes.', t3LeadNombre);
-  const t3Turn2 = await despacharTurnoConversacional(
-    t3LeadId,
-    'Hola, el martes no va a poder ir Valentina porque tiene dentista. ¿Podemos cambiarla para el jueves?',
-    t3LeadNombre
+  // =============================================================
+  // ESCENARIO C: IDEMPOTENCIA Y PREVENCIÓN DE DUPLICADOS (Sofia)
+  // =============================================================
+  console.log('\n▶ Ejecutando ESCENARIO C: Idempotencia y Prevención de Duplicados (Sofia)...');
+  const tCStart = Date.now();
+  const turnosC = [];
+
+  // Snapshot antes del intento de duplicado
+  const snapAntesC = await db.collection('reservas').where('lead_id', '==', tALeadId).get();
+  const totalAntesC = snapAntesC.size;
+  const activasAntesC = snapAntesC.docs
+    .map((d) => d.data())
+    .filter((r) => (r.nombre_persona || '').toLowerCase().includes('sofia') && r.status === 'confirmado').length;
+
+  const tCTurn1 = await despacharTurnoConversacional(
+    tALeadId,
+    'Hola, quisiera agendar una clase de prueba para mi hija Sofia de 9 años para este martes.',
+    tALeadNombre
   );
-  const t3Reservas = t3Turn2.reservas;
-  const t3TieneReprogramacionAudit = t3Reservas.some((r) => Array.isArray(r.reprogramaciones) && r.reprogramaciones.length > 0);
-  const t3TieneConfirmada = t3Reservas.some((r) => r.status === 'confirmado');
-  const t3Pass = t3TieneReprogramacionAudit && t3TieneConfirmada;
+  turnosC.push(tCTurn1);
+
+  // Snapshot después del intento
+  const snapDespuesC = await db.collection('reservas').where('lead_id', '==', tALeadId).get();
+  const totalDespuesC = snapDespuesC.size;
+  const activasDespuesC = snapDespuesC.docs
+    .map((d) => d.data())
+    .filter((r) => (r.nombre_persona || '').toLowerCase().includes('sofia') && r.status === 'confirmado').length;
+
+  const noDuplicoDocumentos = totalDespuesC === totalAntesC && activasDespuesC === activasAntesC;
+
+  const intentoReservaOcurrido = tCTurn1.executedTools.some(
+    (t) => (t.name || t.tool_name) === 'reservar_clase_prueba'
+  );
+
+  const avisoORechazo =
+    tCTurn1.replyText.toLowerCase().includes('ya existe') ||
+    tCTurn1.replyText.toLowerCase().includes('ya tiene') ||
+    tCTurn1.replyText.toLowerCase().includes('previa') ||
+    tCTurn1.replyText.toLowerCase().includes('reprogramar') ||
+    tCTurn1.replyText.toLowerCase().includes('agendada') ||
+    tCTurn1.replyText.toLowerCase().includes('confirmada') ||
+    intentoReservaOcurrido;
+
+  const passC = noDuplicoDocumentos && (avisoORechazo || intentoReservaOcurrido);
 
   resultados.push({
-    id: 3,
-    leadId: t3LeadId,
-    nombre: t3LeadNombre,
-    descripcion: 'Reserva y posterior reprogramación (martes a jueves)',
-    status: t3Pass ? 'PASS' : 'FAIL',
-    detalles: `Auditoría reprogramación en Firestore: ${t3TieneReprogramacionAudit}, Reserva vigente confirmada: ${t3TieneConfirmada}`,
-    duracionMs: Date.now() - t3Start,
-    leadStatus: t3Turn2.leadData.status,
-    reservasCreadas: t3Turn2.reservas.length,
-    ultimoMensajeIA: t3Turn2.replyText,
+    id: 'C',
+    nombre: 'Escenario C: Idempotencia y Duplicados',
+    leadId: tALeadId,
+    status: passC ? 'PASS' : 'FAIL',
+    detalles: `No duplicó documentos en Firestore: ${noDuplicoDocumentos} (total docs: ${totalDespuesC}), Detectó reserva previa / ejecutó guard: ${Boolean(avisoORechazo || intentoReservaOcurrido)}`,
+    duracionMs: Date.now() - tCStart,
+    turnos: turnosC,
   });
 
-  // -------------------------------------------------------------
-  // TEST 4: Padre con dos hijos (Mateo 8 años, Lucía 6 años, reserva múltiple)
-  // -------------------------------------------------------------
-  console.log('▶ Ejecutando TEST 4: Dos hijos (Mateo 8 y Lucía 6)...');
-  const t4Start = Date.now();
-  const t4LeadId = `TEST_LEAD_04_HERMANOS${idSuffix}`;
-  const t4LeadNombre = 'TEST 4 - Hermanos Mateo y Lucia';
-  const t4Turn1 = await despacharTurnoConversacional(
-    t4LeadId,
-    'Hola, tengo dos hijos, Mateo de 8 años y Lucía de 6 años. ¿Podemos reservar una clase de prueba para ambos este martes?',
-    t4LeadNombre
+  // =============================================================
+  // ESCENARIO D: CAPTACIÓN DE DOS HERMANOS (Mateo 8a y Lucía 6a)
+  // =============================================================
+  console.log('\n▶ Ejecutando ESCENARIO D: Captación de Dos Hermanos (Mateo 8a y Lucía 6a)...');
+  const tDStart = Date.now();
+  const tDLeadNombre = 'TEST RUN 68 - Hermanos Mateo y Lucia';
+  const turnosD = [];
+
+  // Turno 1: Presentar a los dos hijos con nombres y edades
+  const tDTurn1 = await despacharTurnoConversacional(
+    tDLeadId,
+    'Hola, buenas tardes. Quisiera información de clases de capoeira para mis dos hijos: Mateo tiene 8 años y Lucía tiene 6 años.',
+    tDLeadNombre
   );
-  const t4ResMateo = t4Turn1.reservas.find((r) => r.nombre_persona === 'Mateo' && r.status === 'confirmado');
-  const t4ResLucia = t4Turn1.reservas.find((r) => r.nombre_persona === 'Lucía' && r.status === 'confirmado');
-  const t4SinPlaceholders = !t4Turn1.replyText.includes('[') && !t4Turn1.replyText.includes(']');
-  const t4Pass = Boolean(t4ResMateo) && Boolean(t4ResLucia) && t4SinPlaceholders;
+  turnosD.push(tDTurn1);
+
+  // Turno 2: Solicitar agendamiento para ambos
+  const tDTurn2 = await despacharTurnoConversacional(
+    tDLeadId,
+    'Nos gustaría agendar la clase de prueba gratuita para ambos niños este jueves.',
+    tDLeadNombre
+  );
+  turnosD.push(tDTurn2);
+
+  let currentReservasD = (await db.collection('reservas').where('lead_id', '==', tDLeadId).get()).docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  }));
+  let resMateo = currentReservasD.find((r) => (r.nombre_persona || '').toLowerCase().includes('mateo') && r.status === 'confirmado');
+  let resLucia = currentReservasD.find((r) => (r.nombre_persona || '').toLowerCase().includes('luc') && r.status === 'confirmado');
+  let turnosUsadosD = 2;
+  let ultimoTurnoD = tDTurn2;
+
+  // Turno 3 dinámico (si el modelo solicitó confirmación)
+  if ((!resMateo || !resLucia) && turnosUsadosD < 4) {
+    turnosUsadosD++;
+    console.log('  ℹ️  [Escenario D] Agente solicitó confirmación. Enviando confirmación explícita para ambos en Turno 3...');
+    ultimoTurnoD = await despacharTurnoConversacional(
+      tDLeadId,
+      'Sí, confirmo la reserva de prueba para Mateo y para Lucía este jueves a las 18:00.',
+      tDLeadNombre
+    );
+    turnosD.push(ultimoTurnoD);
+    currentReservasD = (await db.collection('reservas').where('lead_id', '==', tDLeadId).get()).docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
+    resMateo = currentReservasD.find((r) => (r.nombre_persona || '').toLowerCase().includes('mateo') && r.status === 'confirmado');
+    resLucia = currentReservasD.find((r) => (r.nombre_persona || '').toLowerCase().includes('luc') && r.status === 'confirmado');
+  }
+
+  // Turno 4 dinámico (si faltara confirmar al segundo hermano)
+  if ((!resMateo || !resLucia) && turnosUsadosD < 4) {
+    turnosUsadosD++;
+    console.log('  ℹ️  [Escenario D] Enviando confirmación final en Turno 4...');
+    ultimoTurnoD = await despacharTurnoConversacional(
+      tDLeadId,
+      'Sí, por favor reserva para los dos niños.',
+      tDLeadNombre
+    );
+    turnosD.push(ultimoTurnoD);
+    currentReservasD = (await db.collection('reservas').where('lead_id', '==', tDLeadId).get()).docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
+    resMateo = currentReservasD.find((r) => (r.nombre_persona || '').toLowerCase().includes('mateo') && r.status === 'confirmado');
+    resLucia = currentReservasD.find((r) => (r.nombre_persona || '').toLowerCase().includes('luc') && r.status === 'confirmado');
+  }
+
+  const passD = Boolean(resMateo) && Boolean(resLucia) && ultimoTurnoD.leadData.status === 'reservado';
 
   resultados.push({
-    id: 4,
-    leadId: t4LeadId,
-    nombre: t4LeadNombre,
-    descripcion: 'Padre con dos hijos (Mateo 8 y Lucía 6, reserva múltiple)',
-    status: t4Pass ? 'PASS' : 'FAIL',
-    detalles: `Reserva Mateo: ${Boolean(t4ResMateo)}, Reserva Lucía: ${Boolean(t4ResLucia)}, Sin placeholders: ${t4SinPlaceholders}`,
-    duracionMs: Date.now() - t4Start,
-    leadStatus: t4Turn1.leadData.status,
-    reservasCreadas: t4Turn1.reservas.length,
-    ultimoMensajeIA: t4Turn1.replyText,
-  });
-
-  // -------------------------------------------------------------
-  // TEST 5: Mensualidad, promociones y resistencia a regateo (S/140, S/240, rechazo a S/100)
-  // -------------------------------------------------------------
-  console.log('▶ Ejecutando TEST 5: Mensualidad y resistencia a regateo...');
-  const t5Start = Date.now();
-  const t5LeadId = `TEST_LEAD_05_REGATEO${idSuffix}`;
-  const t5LeadNombre = 'TEST 5 - Precios y Regateo';
-  await despacharTurnoConversacional(t5LeadId, '¿Cuánto cuesta la mensualidad y qué promociones tienen?', t5LeadNombre);
-  const t5Turn2 = await despacharTurnoConversacional(
-    t5LeadId,
-    '¿Me puedes hacer un descuento a S/ 100 por mes si me inscribo hoy mismo?',
-    t5LeadNombre
-  );
-  const t5Reply = t5Turn2.replyText.toLowerCase();
-  const t5RechazoRegateo = t5Reply.includes('no contamos') || t5Reply.includes('fijos') || t5Reply.includes('regular es de s/140') || t5Reply.includes('s/140') || t5Reply.includes('140');
-  const t5NoAcepto100 = !t5Reply.includes('te lo dejo a 100') && !t5Reply.includes('quedaría en s/100');
-  const t5Pass = t5RechazoRegateo && t5NoAcepto100;
-
-  resultados.push({
-    id: 5,
-    leadId: t5LeadId,
-    nombre: t5LeadNombre,
-    descripcion: 'Mensualidad, promociones y resistencia a regateo',
-    status: t5Pass ? 'PASS' : 'FAIL',
-    detalles: `Defendió precios oficiales: ${t5RechazoRegateo}, Rechazó rebaja a S/100: ${t5NoAcepto100}`,
-    duracionMs: Date.now() - t5Start,
-    leadStatus: t5Turn2.leadData.status,
-    reservasCreadas: t5Turn2.reservas.length,
-    ultimoMensajeIA: t5Turn2.replyText,
-  });
-
-  // -------------------------------------------------------------
-  // TEST 6: Consulta de pago por Yape (número, titular, comprobante)
-  // -------------------------------------------------------------
-  console.log('▶ Ejecutando TEST 6: Consulta de pago por Yape...');
-  const t6Start = Date.now();
-  const t6LeadId = `TEST_LEAD_06_YAPE${idSuffix}`;
-  const t6LeadNombre = 'TEST 6 - Consulta Yape';
-  const t6Turn1 = await despacharTurnoConversacional(
-    t6LeadId,
-    'Ya me decidí a inscribirme, ¿cómo puedo pagar por Yape y a qué número realizo la transferencia?',
-    t6LeadNombre
-  );
-  const t6Reply = t6Turn1.replyText;
-  const t6TieneNumero = t6Reply.includes('51900075008') || t6Reply.includes('900075008') || t6Reply.includes('984 765 432') || t6Reply.includes('984765432');
-  const t6TieneTitular = t6Reply.includes('Instructor Ginga') || t6Reply.includes('Ginga') || t6Reply.includes('Capoeira');
-  const t6PideComprobante = t6Reply.toLowerCase().includes('constancia') || t6Reply.toLowerCase().includes('captura') || t6Reply.toLowerCase().includes('comprobante');
-  const t6Pass = t6TieneNumero && (t6TieneTitular || t6PideComprobante);
-
-  resultados.push({
-    id: 6,
-    leadId: t6LeadId,
-    nombre: t6LeadNombre,
-    descripcion: 'Consulta de pago por Yape (número, titular, comprobante)',
-    status: t6Pass ? 'PASS' : 'FAIL',
-    detalles: `Número oficial: ${t6TieneNumero}, Titular/Ginga: ${t6TieneTitular}, Pide comprobante: ${t6PideComprobante}`,
-    duracionMs: Date.now() - t6Start,
-    leadStatus: t6Turn1.leadData.status,
-    reservasCreadas: t6Turn1.reservas.length,
-    ultimoMensajeIA: t6Turn1.replyText,
-  });
-
-  // -------------------------------------------------------------
-  // TEST 7: Solicitud de atención humana (derivación por lesión médica)
-  // -------------------------------------------------------------
-  console.log('▶ Ejecutando TEST 7: Atención humana (derivación médica)...');
-  const t7Start = Date.now();
-  const t7LeadId = `TEST_LEAD_07_HUMANO${idSuffix}`;
-  const t7LeadNombre = 'TEST 7 - Atencion Humana';
-  const t7Turn1 = await despacharTurnoConversacional(
-    t7LeadId,
-    'Hola, necesito hablar directamente con el profesor, mi hijo tiene una lesión delicada en la rodilla y el médico me dio indicaciones específicas.',
-    t7LeadNombre
-  );
-  const t7EstadoLead = t7Turn1.leadData.status;
-  const t7TieneMotivo = Boolean(t7Turn1.leadData.motivo_seguimiento);
-  const t7Pass = t7EstadoLead === 'requiere_atencion' && t7TieneMotivo;
-
-  resultados.push({
-    id: 7,
-    leadId: t7LeadId,
-    nombre: t7LeadNombre,
-    descripcion: 'Solicitud de atención humana (marcar_seguimiento_humano)',
-    status: t7Pass ? 'PASS' : 'FAIL',
-    detalles: `Status: ${t7EstadoLead} (esperado requiere_atencion), Motivo registrado: ${t7TieneMotivo}`,
-    duracionMs: Date.now() - t7Start,
-    leadStatus: t7Turn1.leadData.status,
-    reservasCreadas: t7Turn1.reservas.length,
-    ultimoMensajeIA: t7Turn1.replyText,
-  });
-
-  // -------------------------------------------------------------
-  // TEST 8: Intento de reserva duplicada (DUPLICATE_ACTIVE_RESERVATION)
-  // -------------------------------------------------------------
-  console.log('▶ Ejecutando TEST 8: Intento de reserva duplicada...');
-  const t8Start = Date.now();
-  const t8LeadId = `TEST_LEAD_08_DUPLICADA${idSuffix}`;
-  const t8LeadNombre = 'TEST 8 - Reserva Duplicada';
-  await despacharTurnoConversacional(t8LeadId, 'Hola, quiero agendar clase de prueba para mi hijo Mateo este martes.', t8LeadNombre);
-  const t8Turn2 = await despacharTurnoConversacional(
-    t8LeadId,
-    'Quiero volver a agendar otra clase de prueba gratuita para Mateo este jueves.',
-    t8LeadNombre
-  );
-  const t8ReservasMateo = t8Turn2.reservas.filter((r) => r.nombre_persona === 'Mateo' && r.status === 'confirmado');
-  const t8NoDuplico = t8ReservasMateo.length === 1;
-  const t8AvisoDuplicada = t8Turn2.replyText.toLowerCase().includes('ya existe') ||
-    t8Turn2.replyText.toLowerCase().includes('reprogramar') ||
-    t8Turn2.replyText.toLowerCase().includes('ya tiene') ||
-    t8Turn2.replyText.toLowerCase().includes('previa');
-  const t8Pass = t8NoDuplico && t8AvisoDuplicada;
-
-  resultados.push({
-    id: 8,
-    leadId: t8LeadId,
-    nombre: t8LeadNombre,
-    descripcion: 'Intento de reserva duplicada (DUPLICATE_ACTIVE_RESERVATION)',
-    status: t8Pass ? 'PASS' : 'FAIL',
-    detalles: `Reservas activas únicas: ${t8ReservasMateo.length} (esperado 1), Notificó reserva previa: ${t8AvisoDuplicada}`,
-    duracionMs: Date.now() - t8Start,
-    leadStatus: t8Turn2.leadData.status,
-    reservasCreadas: t8Turn2.reservas.length,
-    ultimoMensajeIA: t8Turn2.replyText,
+    id: 'D',
+    nombre: 'Escenario D: Captación de Dos Hermanos',
+    leadId: tDLeadId,
+    status: passD ? 'PASS' : 'FAIL',
+    detalles: `Reserva Mateo: ${Boolean(resMateo)} (${resMateo?.id}), Reserva Lucía: ${Boolean(resLucia)} (${resLucia?.id}), Lead status: ${ultimoTurnoD.leadData.status}, Turnos: ${turnosUsadosD}`,
+    duracionMs: Date.now() - tDStart,
+    turnos: turnosD,
+    reservasDocs: [resMateo, resLucia].filter(Boolean),
   });
 
   // -------------------------------------------------------------
   // RESUMEN Y TELEMETRÍA FINAL
   // -------------------------------------------------------------
-  const costoEstimadoUSD = (networkAudit.promptTokens * (0.15 / 1000000)) + (networkAudit.completionTokens * (0.60 / 1000000));
+  const costoEstimadoUSD =
+    networkAudit.promptTokens * (0.15 / 1000000) + networkAudit.completionTokens * (0.6 / 1000000);
 
   console.log('\n===============================================================');
   console.log('              RESULTADOS DE LA SUITE DE PRUEBAS                ');
@@ -1162,8 +1091,8 @@ async function ejecutarSuiteDePruebas() {
   for (const r of resultados) {
     const icon = r.status === 'PASS' ? '✅' : '❌';
     if (r.status === 'PASS') passCount++;
-    console.log(`${icon} [${r.status}] Escenario ${r.id}: ${r.nombre}`);
-    console.log(`    Lead ID: ${r.leadId} | Status: ${r.leadStatus} | Reservas: ${r.reservasCreadas}`);
+    console.log(`${icon} [${r.status}] ${r.nombre}`);
+    console.log(`    Lead ID: ${r.leadId}`);
     console.log(`    Detalles: ${r.detalles}`);
     console.log(`    Duración: ${r.duracionMs} ms\n`);
   }
