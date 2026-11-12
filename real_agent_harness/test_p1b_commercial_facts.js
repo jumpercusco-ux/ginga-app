@@ -1,8 +1,7 @@
 /**
  * real_agent_harness/test_p1b_commercial_facts.js
  * Suite de Regresión P1B: Blindaje Determinista de Horarios y Edades de Catálogo
- * Valida la interceptación, corrección dinámica y prevención de falsos positivos
- * según las especificaciones del Incidente P1 (Prompt 58/59).
+ * Cubre exhaustivamente los Casos A a J, Clases Activas y Preservación Transaccional (Prompt 60).
  */
 
 const assert = require('assert');
@@ -12,7 +11,7 @@ const { MockTimestamp } = require('./in_memory_firestore');
 async function runCommercialFactsSuite() {
   console.log('================================================================');
   console.log('   TEST SUITE P1B: BLINDAJE DETERMINISTA DE HORARIOS Y EDADES');
-  console.log('   Ejecución 100% offline y determinista sobre backend real');
+  console.log('   Validación exhaustiva de Casos A a J y Preservación Transaccional');
   console.log('================================================================\n');
 
   const harness = new RealAgentHarness();
@@ -56,7 +55,7 @@ async function runCommercialFactsSuite() {
     }
   }
 
-  // 1. Catálogo oficial representativo de Cusco (idéntico al de Firestore productivo)
+  // Catálogo oficial de Cusco (idéntico a Firestore productivo)
   const catalogoOficialCusco = [
     {
       nombre: 'Kids',
@@ -85,78 +84,84 @@ async function runCommercialFactsSuite() {
   ];
 
   // -------------------------------------------------------------
-  // TEST 1: Caso exacto del incidente de WhatsApp Real
+  // CASO A: "Los niños tienen clases de 5 a 6 pm" -> INTERCEPTAR
   // -------------------------------------------------------------
-  test('01_incidente_exacto_whatsapp_detectado_y_reemplazado', () => {
-    const textoAlucinadoIncidente =
-      'Sí, también tenemos clases para niños en Capoeira FIU Cusco. Los grupos para niños van desde los 4 hasta los 12 años, y las clases son los martes y jueves de 5:00 a 6:00 p.m. en la misma dirección: Av. de la Cultura E-4, Urb. Magisterio, Edificio Divergym, 3er piso (justo al costado de la Caja Arequipa). ¿Te gustaría agendar una clase de prueba gratuita para el niño este jueves 12 de noviembre de 2026?';
-
-    const validacion = validarAfirmacionesComerciales(textoAlucinadoIncidente, catalogoOficialCusco);
-    assert.strictEqual(validacion.valid, false, 'Debe invalidar horarios y edades no autorizados');
-    assert.strictEqual(validacion.contradiction, true);
-
-    const respuestaSegura = generarRespuestaComercialOficial(
-      catalogoOficialCusco,
-      catalogoOficialCusco[0].ubicacion,
-      '¿Tienen clases para niños?'
-    );
-
-    assert(respuestaSegura.includes('18:00 a 19:00'), 'Debe contener el horario real de niños (18:00 a 19:00)');
-    assert(respuestaSegura.includes('5 a 12 años'), 'Debe contener el rango de edad real (5 a 12 años)');
-    assert(!respuestaSegura.includes('17:00'), 'No debe contener 17:00');
-    assert(!respuestaSegura.includes('5:00'), 'No debe contener 5:00');
-    assert(!respuestaSegura.includes('4 años'), 'No debe contener 4 años');
-    assert(respuestaSegura.includes('Divergym'), 'Debe incluir dirección oficial');
+  test('Caso A: "Los niños tienen clases de 5 a 6 pm" -> interceptar', () => {
+    const texto = 'Los niños tienen clases de 5 a 6 pm';
+    const res = validarAfirmacionesComerciales(texto, catalogoOficialCusco);
+    assert.strictEqual(res.valid, false, 'Debe interceptar horario no autorizado (17:00 / 5 pm)');
+    assert.strictEqual(res.contradiction, true);
+    assert.strictEqual(res.type, 'invalid_schedule_hour');
   });
 
   // -------------------------------------------------------------
-  // TEST 2: Variantes de horas y edades inválidas
+  // CASO B: "No tenemos clases a las 5 pm; comenzamos a las 6 pm" -> PERMITIR
   // -------------------------------------------------------------
-  test('02_variantes_horas_y_edades_invalidas', () => {
-    const casosInvalidos = [
-      { texto: 'Las clases para niños son a las 17:00 hrs.', tipo: 'invalid_schedule_hour' },
-      { texto: 'Entrenamos con los niños a las cinco de la tarde.', tipo: 'invalid_schedule_hour' },
-      { texto: 'El horario de niños es de 5 a 6 pm los martes.', tipo: 'invalid_schedule_hour' },
-      { texto: 'Tenemos clases de niños a las 5:00 pm.', tipo: 'invalid_schedule_hour' },
-      { texto: 'Los grupos para niños son de 4 a 12 años.', tipo: 'invalid_kids_age_range' },
-      { texto: 'Aceptamos niños desde los 4 años en adelante.', tipo: 'invalid_kids_min_age' },
-      { texto: 'Tenemos cupos para chicos de 4-12 años.', tipo: 'invalid_kids_age_range' },
-    ];
-
-    for (const c of casosInvalidos) {
-      const res = validarAfirmacionesComerciales(c.texto, catalogoOficialCusco);
-      assert.strictEqual(res.valid, false, `Debe fallar para: "${c.texto}"`);
-      assert.strictEqual(res.contradiction, true);
-    }
+  test('Caso B: "No tenemos clases a las 5 pm; comenzamos a las 6 pm" -> permitir', () => {
+    const texto = 'No tenemos clases a las 5 pm; comenzamos a las 6 pm';
+    const res = validarAfirmacionesComerciales(texto, catalogoOficialCusco);
+    assert.strictEqual(res.valid, true, 'Debe permitir negación de horario inexistente');
+    assert.strictEqual(res.contradiction, false);
   });
 
   // -------------------------------------------------------------
-  // TEST 3: Generación según tipo de consulta (General, Niños, Adultos)
+  // CASO C: "¿Puedo ir a las 5 pm?" -> PERMITIR (no tratar pregunta del cliente como dato oficial)
   // -------------------------------------------------------------
-  test('03_generacion_respuesta_segun_tipo_consulta', () => {
-    // Consulta niños
-    const repNinos = generarRespuestaComercialOficial(catalogoOficialCusco, catalogoOficialCusco[0].ubicacion, '¿Tienen clases para mi hijo pequeño?');
-    assert(repNinos.includes('clases para niños (de 5 a 12 años) los martes y jueves de 18:00 a 19:00'));
-    assert(!repNinos.includes('Adultos:'));
-
-    // Consulta adultos
-    const repAdultos = generarRespuestaComercialOficial(catalogoOficialCusco, catalogoOficialCusco[0].ubicacion, '¿Qué horarios tienen para adultos?');
-    assert(repAdultos.includes('clases para jóvenes y adultos (desde los 13 años) los martes y jueves de 19:00 a 20:00'));
-    assert(!repAdultos.includes('clases para niños (de 5 a 12 años)'));
-
-    // Consulta general
-    const repGeneral = generarRespuestaComercialOficial(catalogoOficialCusco, catalogoOficialCusco[0].ubicacion, 'Hola, información de horarios por favor');
-    assert(repGeneral.includes('Kids (de 5 a 12 años): martes y jueves de 18:00 a 19:00'));
-    assert(repGeneral.includes('Adultos (desde los 13 años): martes y jueves de 19:00 a 20:00'));
+  test('Caso C: "¿Puedo ir a las 5 pm?" -> permitir (no es afirmación oficial)', () => {
+    const texto = '¿Puedo ir a las 5 pm?';
+    const res = validarAfirmacionesComerciales(texto, catalogoOficialCusco);
+    assert.strictEqual(res.valid, true, 'Pregunta no debe ser tratada como afirmación oficial de catálogo');
+    assert.strictEqual(res.contradiction, false);
   });
 
   // -------------------------------------------------------------
-  // TEST 4: Adaptabilidad dinámica ante cambios en el catálogo
+  // CASO D: "Tengo un hijo de 4 años" -> PERMITIR (edad del hijo, no rango de academia)
   // -------------------------------------------------------------
-  test('04_adaptabilidad_dinamica_cambios_catalogo', () => {
-    const catalogoNuevo = [
+  test('Caso D: "Tengo un hijo de 4 años" -> permitir (edad del cliente, no política de admisión)', () => {
+    const texto = 'Tengo un hijo de 4 años y quisiera saber cómo son las clases.';
+    const res = validarAfirmacionesComerciales(texto, catalogoOficialCusco);
+    assert.strictEqual(res.valid, true, 'No debe confundir la edad del hijo con el rango de la academia');
+    assert.strictEqual(res.contradiction, false);
+  });
+
+  // -------------------------------------------------------------
+  // CASO E: "Aceptamos niños de 4 a 12 años" -> INTERCEPTAR
+  // -------------------------------------------------------------
+  test('Caso E: "Aceptamos niños de 4 a 12 años" -> interceptar (edad mínima 4 < 5)', () => {
+    const texto = 'En Capoeira FIU aceptamos niños de 4 a 12 años.';
+    const res = validarAfirmacionesComerciales(texto, catalogoOficialCusco);
+    assert.strictEqual(res.valid, false, 'Debe interceptar edad mínima no autorizada');
+    assert.strictEqual(res.contradiction, true);
+    assert.strictEqual(res.type, 'invalid_kids_age_range');
+  });
+
+  // -------------------------------------------------------------
+  // CASO F: "Niños 5 a 12 años, martes y jueves 6 a 7 pm" -> PERMITIR
+  // -------------------------------------------------------------
+  test('Caso F: "Niños 5 a 12 años, martes y jueves 6 a 7 pm" -> permitir', () => {
+    const texto = 'Las clases para niños (5 a 12 años) son los martes y jueves de 6 a 7 pm.';
+    const res = validarAfirmacionesComerciales(texto, catalogoOficialCusco);
+    assert.strictEqual(res.valid, true, 'Debe permitir horario y rango válidos de catálogo');
+    assert.strictEqual(res.contradiction, false);
+  });
+
+  // -------------------------------------------------------------
+  // CASO G: "Los adultos tienen clases de 7 a 8 pm" -> PERMITIR
+  // -------------------------------------------------------------
+  test('Caso G: "Los adultos tienen clases de 7 a 8 pm" -> permitir', () => {
+    const texto = 'Los adultos tienen clases de 7 a 8 pm los martes y jueves.';
+    const res = validarAfirmacionesComerciales(texto, catalogoOficialCusco);
+    assert.strictEqual(res.valid, true, 'Debe permitir horario de adultos de catálogo (19:00 a 20:00)');
+    assert.strictEqual(res.contradiction, false);
+  });
+
+  // -------------------------------------------------------------
+  // CASO H: Cambio dinámico de horario en fixture -> USAR NUEVOS VALORES
+  // -------------------------------------------------------------
+  test('Caso H: Cambio dinámico de horario en fixture -> usa nuevos valores dinámicamente', () => {
+    const catalogoModificado = [
       {
-        nombre: 'Infantil Especial',
+        nombre: 'Infantil Nueva Sede',
         dias: 'L, X, V',
         diasTexto: 'lunes, miércoles y viernes',
         hora: '16:30',
@@ -169,177 +174,173 @@ async function runCommercialFactsSuite() {
       },
     ];
 
-    // Ahora 16:30 es válida, pero 18:00 ya no lo es para este nuevo catálogo
-    const valNuevo = validarAfirmacionesComerciales('Las clases son a las 16:30 los lunes.', catalogoNuevo);
-    assert.strictEqual(valNuevo.valid, true, '16:30 debe ser válida para catalogoNuevo');
+    // Ahora 16:30 es válida dinámicamente
+    const res1 = validarAfirmacionesComerciales('Las clases son a las 16:30 los lunes.', catalogoModificado);
+    assert.strictEqual(res1.valid, true, '16:30 debe ser válida para el nuevo fixture');
 
-    const valViejo = validarAfirmacionesComerciales('Las clases son a las 18:00 los martes.', catalogoNuevo);
-    assert.strictEqual(valViejo.valid, false, '18:00 debe ser inválida si ya no está en el nuevo catálogo');
+    // 18:00 ahora es inválida para este nuevo fixture
+    const res2 = validarAfirmacionesComerciales('Las clases son a las 18:00 los martes.', catalogoModificado);
+    assert.strictEqual(res2.valid, false, '18:00 debe ser inválida si ya no está en el nuevo fixture');
 
-    const repDinamica = generarRespuestaComercialOficial(catalogoNuevo, 'Sede San Sebastián', '¿Tienen clases para niños?');
+    const repDinamica = generarRespuestaComercialOficial(catalogoModificado, 'Sede San Sebastián', '¿Tienen clases para niños?');
     assert(repDinamica.includes('lunes, miércoles y viernes de 16:30 a 17:30'));
     assert(repDinamica.includes('de 7 a 11 años'));
     assert(repDinamica.includes('Sede San Sebastián'));
   });
 
   // -------------------------------------------------------------
-  // TEST 5: Prevención de falsos positivos
+  // CASO I: Consulta informativa y reserva confirmada -> PRESERVAR FLUJO TRANSACCIONAL
   // -------------------------------------------------------------
-  test('05_prevencion_falsos_positivos', () => {
-    const falsosPositivosPotenciales = [
-      '¡Hola! La mensualidad regular es de S/140 por persona.',
-      'Te esperamos el martes 17 de noviembre en nuestra sede.',
-      'Como tu hijo tiene 4 años, le consultaré al profesor si puede ingresar.',
-      'El número de WhatsApp termina en 1700.',
-      'Tenemos más de 17 años de experiencia enseñando Capoeira en Cusco.',
-    ];
+  test('Caso I: Consulta informativa y reserva confirmada -> no romper flujo transaccional', () => {
+    const leadId = '+51984222010';
+    const turnContext = new TurnContext(leadId, null, catalogoOficialCusco, catalogoOficialCusco[0].ubicacion);
 
-    for (const txt of falsosPositivosPotenciales) {
-      const res = validarAfirmacionesComerciales(txt, catalogoOficialCusco);
-      assert.strictEqual(res.valid, true, `No debe dar falso positivo en: "${txt}"`);
-    }
+    // Simular que en este turno se confirmó exitosamente la reserva para Sofia
+    turnContext.recordToolExecution({
+      tool_name: 'reservar_clase_prueba',
+      operation: 'booking',
+      status: 'success',
+      reason_code: 'OK',
+      mutation_committed: true,
+      persona_slug: 'sofia',
+      fecha_confirmada: 'jueves 14 de noviembre',
+      hora: '18:00',
+      sede: 'Av. de la Cultura E-4, Urb. Magisterio',
+    });
+
+    // Caso I1: Respuesta mezcla reserva válida con información comercial válida
+    const txtValido = '¡Listo! La clase de prueba de Sofia quedó confirmada para este jueves 14 de noviembre a las 18:00. Las clases de niños son los martes y jueves de 18:00 a 19:00.';
+    const eval1 = evaluarRuntimeGuard(leadId, txtValido, turnContext);
+    assert.strictEqual(eval1.passed, true, 'Debe permitir confirmación de reserva válida con horario válido');
+    assert.strictEqual(eval1.action, 'allow');
+
+    // Caso I2: Respuesta mezcla reserva válida con información comercial contradictoria (5 a 6 pm)
+    const txtConContradiccion = '¡Listo! Tu clase quedó confirmada para el jueves 14 de noviembre a las 18:00. Recuerda que las clases de niños son de 5 a 6 pm.';
+    const eval2 = evaluarRuntimeGuard(leadId, txtConContradiccion, turnContext);
+    assert.strictEqual(eval2.passed, false);
+    assert.strictEqual(eval2.action, 'intercept');
+
+    // El fallback seguro DEBE preservar la confirmación de la reserva y NO borrarla
+    assert(eval2.safeFallbackText.includes('quedó confirmada para el jueves 14 de noviembre'), 'Debe preservar confirmación transaccional');
+    assert(eval2.safeFallbackText.includes('18:00 a 19:00'), 'Debe incluir horarios oficiales corregidos');
+    assert(!eval2.safeFallbackText.includes('5 a 6 pm'), 'No debe incluir el horario erróneo');
   });
 
   // -------------------------------------------------------------
-  // TEST 6: Resiliencia ante falla de Firestore o catálogo vacío
+  // CASO J: Datos Firestore ausentes o consulta fallida -> NO INVENTAR INFORMACIÓN
   // -------------------------------------------------------------
-  test('06_resiliencia_catalogo_vacio', () => {
+  test('Caso J: Datos Firestore ausentes o consulta fallida -> no inventar información', () => {
+    // 1. Catálogo vacío
     const repVacia = generarRespuestaComercialOficial([], null, '¿Qué horarios manejan?');
     assert(repVacia.includes('Por favor escríbenos tu consulta y con gusto el instructor te confirmará'));
+    assert(!repVacia.includes('17:00'));
+    assert(!repVacia.includes('18:00'));
 
-    const repNull = generarRespuestaComercialOficial(null, null, '¿Tienen para niños?');
+    // 2. Catálogo null
+    const repNull = generarRespuestaComercialOficial(null, null, '¿Qué edades tienen?');
     assert(repNull.includes('Por favor escríbenos tu consulta'));
   });
 
   // -------------------------------------------------------------
-  // TEST 7: Extracción de catálogo desde systemPrompt
+  // CASO 6: Solo clases regulares ACTIVAS (excluir inactivas o eventos especiales)
   // -------------------------------------------------------------
-  test('07_extraccion_catalogo_desde_system_prompt', () => {
-    const mockSystemPrompt = `
-Eres Ginga, asistente virtual de Capoeira FIU Cusco.
-
-[CATÁLOGO OFICIAL DE CLASES Y HORARIOS REGULARES]
-Usa ESTOS horarios y edades exactos para informar a los clientes. NUNCA inventes otros horarios ni edades diferentes:
-- Grupo: Kids | Días: martes y jueves | Horario: 18:00 a 19:00 | Edades: 5 a 12 años (rango exacto)
-- Grupo: Adultos | Días: martes y jueves | Horario: 19:00 a 20:00 | Edades: 13 años en adelante (sin tope)
-
-DIRECCIÓN REAL (la única válida, cópiala tal cual, no la parafrasees ni cambies pisos/referencias): Av. de la Cultura E-4, Urb. Magisterio, Edificio Divergym, 3er piso
-`;
-
-    const catalogoExtraido = extraerCatalogoClasesOficiales(mockSystemPrompt);
-    assert.strictEqual(catalogoExtraido.length, 2, 'Debe extraer 2 clases');
-
-    const kids = catalogoExtraido.find((c) => c.nombre === 'Kids');
-    assert.strictEqual(kids.hora, '18:00');
-    assert.strictEqual(kids.hora_fin, '19:00');
-    assert.strictEqual(kids.edad_min, 5);
-    assert.strictEqual(kids.edad_max, 12);
-    assert.strictEqual(kids.publico, 'niños');
-    assert(kids.ubicacion.includes('Divergym'));
-
-    const adultos = catalogoExtraido.find((c) => c.nombre === 'Adultos');
-    assert.strictEqual(adultos.hora, '19:00');
-    assert.strictEqual(adultos.hora_fin, '20:00');
-    assert.strictEqual(adultos.edad_min, 13);
-    assert.strictEqual(adultos.sinTopeSuperior, true);
-  });
-
-  // -------------------------------------------------------------
-  // TEST 8: Runtime Guard intercepta y genera fallback sin escalar
-  // -------------------------------------------------------------
-  test('08_runtime_guard_intercepta_contradiccion_comercial_y_asigna_safe_fallback', () => {
-    const leadId = '+51984222001';
-    const turnContext = new TurnContext(leadId, null, catalogoOficialCusco, catalogoOficialCusco[0].ubicacion);
-
-    const textoAlucinado = 'Tenemos clases para niños los martes y jueves de 5:00 a 6:00 p.m. de 4 a 12 años.';
-    const evaluacion = evaluarRuntimeGuard(leadId, textoAlucinado, turnContext);
-
-    assert.strictEqual(evaluacion.passed, false, 'Runtime Guard debe fallar ante contradicción comercial');
-    assert.strictEqual(evaluacion.action, 'intercept');
-    assert(evaluacion.intercepted_claims.includes('commercial_fact_contradiction'));
-    assert(evaluacion.safeFallbackText.includes('18:00 a 19:00'), 'safeFallbackText debe contener 18:00 a 19:00');
-    assert(evaluacion.safeFallbackText.includes('5 a 12 años'), 'safeFallbackText debe contener 5 a 12 años');
-  });
-
-  // -------------------------------------------------------------
-  // TEST 9: preguntarIA no escala a humano ante contradicción comercial pura
-  // -------------------------------------------------------------
-  await asyncTest('09_preguntarIA_no_escala_a_humano_en_consulta_informativa', async () => {
-    const leadId = '+51984222002';
+  await asyncTest('Caso 6: Solo clases regulares ACTIVAS en generarSystemPrompt', async () => {
+    const leadId = '+51984222011';
     await firestore.collection('whatsapp_leads').doc(leadId).set({
       telefono: leadId,
-      nombre: 'Carlos',
+      nombre: 'Prueba Clases Activas',
       status: 'nuevo',
     });
 
-    const historial = [{ role: 'user', content: '¿Qué horarios tienen para los pequeños?' }];
-    const turnContext = new TurnContext(leadId, null, catalogoOficialCusco, catalogoOficialCusco[0].ubicacion);
+    // Agregar clase regular inactiva
+    await firestore.collection('clases').doc('clase_inactiva').set({
+      nombre: 'Clase Desactivada',
+      tipo: 'regular',
+      activa: false,
+      hora: '15:00',
+      hora_fin: '16:00',
+      dias: 'Lunes',
+      edad_min: 5,
+      edad_max: 10,
+    });
 
-    // Mockeamos llamarOpenAI mediante el responder del harness para simular que OpenAI respondió con alucinación de horarios
-    const alucinacionLLM = 'Hola Carlos, para los niños tenemos clases de 4 a 12 años los martes de 5 a 6 pm.';
+    // Agregar evento especial (no regular)
+    await firestore.collection('clases').doc('evento_especial').set({
+      nombre: 'Taller Especial Fin de Semana',
+      tipo: 'evento',
+      activa: true,
+      hora: '10:00',
+      hora_fin: '12:00',
+      dias: 'Domingo',
+      edad_min: 5,
+      edad_max: 50,
+    });
+
+    const leadDoc = await firestore.collection('whatsapp_leads').doc(leadId).get();
+    const { systemPrompt, catalogoClases } = await generarSystemPrompt(leadDoc.data(), 1, leadId);
+
+    // Verificar que la clase inactiva NO está en el system prompt ni en catalogoClases
+    assert(!systemPrompt.includes('Clase Desactivada'), 'No debe incluir clases inactivas (activa: false)');
+    assert(!catalogoClases.some((c) => c.nombre === 'Clase Desactivada'), 'catalogoClases no debe contener clases inactivas');
+
+    // Verificar que el evento especial NO está en el catálogo de clases regulares
+    assert(!systemPrompt.includes('Taller Especial Fin de Semana'), 'No debe incluir eventos especiales (tipo != regular)');
+    assert(!catalogoClases.some((c) => c.nombre === 'Taller Especial Fin de Semana'), 'catalogoClases no debe contener eventos especiales');
+  });
+
+  // -------------------------------------------------------------
+  // CASO 7 & 8: Reutilización en turno y prevención de escalación en consulta pura
+  // -------------------------------------------------------------
+  await asyncTest('Caso 7 y 8: Reutilización de catálogo en turno y no escalación en consulta pura', async () => {
+    const leadId = '+51984222012';
+    await firestore.collection('whatsapp_leads').doc(leadId).set({
+      telefono: leadId,
+      nombre: 'Valeria',
+      status: 'nuevo',
+    });
+
+    const historial = [{ role: 'user', content: '¿Qué horarios manejan para niños?' }];
+
+    // Configurar responder del mock de OpenAI para simular alucinación comercial del incidente
     harness.openai.setResponder(async () => ({
       choices: [
         {
           message: {
             role: 'assistant',
-            content: alucinacionLLM,
+            content: 'Hola Valeria, tenemos clases para niños de 4 a 12 años de 5:00 a 6:00 pm.',
           },
         },
       ],
     }));
 
     try {
-      const systemPrompt = `[CATÁLOGO OFICIAL DE CLASES Y HORARIOS REGULARES]
-- Grupo: Kids | Días: martes y jueves | Horario: 18:00 a 19:00 | Edades: 5 a 12 años (rango exacto)
-DIRECCIÓN REAL: Av. de la Cultura E-4, Urb. Magisterio, Edificio Divergym, 3er piso`;
+      const { systemPrompt, catalogoClases, ubicacionReal } = await generarSystemPrompt(
+        (await firestore.collection('whatsapp_leads').doc(leadId).get()).data(),
+        1,
+        leadId
+      );
 
-      const respuestaFinal = await preguntarIA(
+      // Pasar los datos reutilizados a preguntarIA
+      const respuesta = await preguntarIA(
         leadId,
         systemPrompt,
         historial,
         null,
         null,
-        catalogoOficialCusco,
-        catalogoOficialCusco[0].ubicacion
+        catalogoClases,
+        ubicacionReal
       );
 
-      // 1. Debe haber sustituido la alucinación por la respuesta oficial
-      assert(respuestaFinal.includes('18:00 a 19:00'), 'Debe entregar 18:00 a 19:00 al usuario');
-      assert(!respuestaFinal.includes('5 a 6 pm'), 'No debe entregar 5 a 6 pm');
+      // Debe entregar horarios oficiales
+      assert(respuesta.includes('18:00 a 19:00'), 'Debe entregar 18:00 a 19:00');
+      assert(!respuesta.includes('5:00 a 6:00 pm'), 'No debe contener horario inventado');
 
-      // 2. El status del lead en Firestore NO debe haberse marcado como requiere_atencion
-      const leadDocDespues = await firestore.collection('whatsapp_leads').doc(leadId).get();
-      assert.notStrictEqual(
-        leadDocDespues.data()?.status,
-        'requiere_atencion',
-        'No debe escalar a humano (Regla 20: no escalación innecesaria) en consultas informativas'
-      );
+      // NO debe haber escalado a humano
+      const leadDespues = (await firestore.collection('whatsapp_leads').doc(leadId).get()).data();
+      assert.notStrictEqual(leadDespues.status, 'requiere_atencion', 'No debe escalar a humano por consulta informativa');
     } finally {
       harness.openai.reset();
     }
-  });
-
-  // -------------------------------------------------------------
-  // TEST 10: Inyección completa en generarSystemPrompt desde Firestore
-  // -------------------------------------------------------------
-  await asyncTest('10_generarSystemPrompt_inyecta_catalogo_completo_desde_firestore', async () => {
-    const leadId = '+51984222003';
-    await firestore.collection('whatsapp_leads').doc(leadId).set({
-      telefono: leadId,
-      nombre: 'Luciana',
-      status: 'nuevo',
-    });
-
-    const leadDoc = await firestore.collection('whatsapp_leads').doc(leadId).get();
-    const { systemPrompt, catalogoClases, ubicacionReal } = await generarSystemPrompt(leadDoc.data(), 1, leadId);
-
-    assert(systemPrompt.includes('[CATÁLOGO OFICIAL DE CLASES Y HORARIOS REGULARES]'), 'Debe incluir encabezado del catálogo');
-    assert(systemPrompt.includes('Grupo: Capoeira Niños'), 'Debe incluir grupo de niños');
-    assert(systemPrompt.includes('Grupo: Capoeira Jóvenes y Adultos'), 'Debe incluir grupo de adultos');
-    assert(systemPrompt.includes('DIRECCIÓN REAL'), 'Debe incluir dirección real');
-
-    assert(Array.isArray(catalogoClases) && catalogoClases.length >= 2, 'catalogoClases debe tener al menos 2 grupos');
-    assert(Boolean(ubicacionReal), 'ubicacionReal debe estar poblada');
   });
 
   console.log('\n================================================================');

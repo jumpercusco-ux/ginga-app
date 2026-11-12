@@ -1300,37 +1300,55 @@ function parsearHoraComercial(str, ampm = '') {
   return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
 }
 
-function extraerHorasMencionadas(norm) {
-  const horas = [];
+function esClausulaNegada(clausula) {
+  return /\b(?:no\s+(?:tenemos|hay|contamos|se\s+dictan|dictamos|ofrecemos|abrimos|manejamos|damos|es|son|atendemos|empieza|inicia|recibimos|aceptamos)|tampoco\s+(?:tenemos|hay)|sin\s+clases?\s+a\s+las)\b/i.test(clausula) ||
+         /\b(?:no\s+a\s+las|no\s+de\s+\d)\b/i.test(clausula) ||
+         /\bno\b.*?\b(?:a\s+las|de\s+\d)/i.test(clausula);
+}
 
-  if (norm.includes('cinco de la tarde')) horas.push('17:00');
-  if (norm.includes('seis de la tarde')) horas.push('18:00');
-  if (norm.includes('siete de la noche')) horas.push('19:00');
-  if (norm.includes('ocho de la noche')) horas.push('20:00');
+function esPreguntaOCliente(clausula) {
+  return clausula.includes('?') || clausula.includes('¿') ||
+         /^(?:puedo|podria|se\s+puede|deseas|quieres|te\s+gustaria|consultas\s+si)\b/i.test(clausula.trim()) ||
+         /\b(?:tengo\s+un\s+hijo|mi\s+hijo\s+tiene|mi\s+peque[nñ]o\s+tiene|su\s+hijo\s+tiene|el\s+ni[nñ]o\s+tiene)\b/i.test(clausula);
+}
 
-  const regexRango = /\b(?:de\s+)?(\d{1,2}(?::\d{2})?)\s*(?:a|-)\s*(\d{1,2}(?::\d{2})?)\s*(pm|am|p\.m\.|a\.m\.|hrs?|horas?)?\b/gi;
-  let m;
-  while ((m = regexRango.exec(norm)) !== null) {
-    const prefix = norm.substring(Math.max(0, m.index - 15), m.index);
-    const suffix = norm.substring(m.index + m[0].length, Math.min(norm.length, m.index + m[0].length + 10));
-    if (/anos|edad/i.test(suffix) || /edad/i.test(prefix)) continue;
+function extraerAfirmacionesHorarias(norm) {
+  const clausulas = norm.split(/[.!?\n;]+|,\s*(?:pero|sin embargo|sino que|ya que|aunque)\s+/).map((s) => s.trim()).filter(Boolean);
+  const horasAfirmadas = [];
 
-    const ampm = m[3] ? m[3].replace(/\./g, '') : (parseInt(m[1], 10) < 12 && (norm.includes('tarde') || norm.includes('noche') || norm.includes('pm') || norm.includes('p.m.')) ? 'pm' : '');
-    horas.push(parsearHoraComercial(m[1], ampm));
+  for (const c of clausulas) {
+    if (esPreguntaOCliente(c)) continue;
+    if (esClausulaNegada(c)) continue;
+
+    if (c.includes('cinco de la tarde')) horasAfirmadas.push('17:00');
+    if (c.includes('seis de la tarde')) horasAfirmadas.push('18:00');
+    if (c.includes('siete de la noche')) horasAfirmadas.push('19:00');
+    if (c.includes('ocho de la noche')) horasAfirmadas.push('20:00');
+
+    const regexRango = /\b(?:de\s+)?(\d{1,2}(?::\d{2})?)\s*(?:a|-)\s*(\d{1,2}(?::\d{2})?)\s*(pm|am|p\.m\.|a\.m\.|hrs?|horas?)?\b/gi;
+    let m;
+    while ((m = regexRango.exec(c)) !== null) {
+      const prefix = c.substring(Math.max(0, m.index - 15), m.index);
+      const suffix = c.substring(m.index + m[0].length, Math.min(c.length, m.index + m[0].length + 10));
+      if (/anos|edad/i.test(suffix) || /edad/i.test(prefix)) continue;
+
+      const ampm = m[3] ? m[3].replace(/\./g, '') : (parseInt(m[1], 10) < 12 && (c.includes('tarde') || c.includes('noche') || c.includes('pm') || c.includes('p.m.')) ? 'pm' : '');
+      horasAfirmadas.push(parsearHoraComercial(m[1], ampm));
+    }
+
+    const regexHoraPuntual = /\b(?:a\s+las\s+|horario\s*(?:es\s*)?(?:de\s*)?|clases?\s*(?:a\s+las\s*|de\s*)?)(\d{1,2}(?::\d{2})?)\s*(pm|am|p\.m\.|a\.m\.|hrs?|horas?)?\b/gi;
+    while ((m = regexHoraPuntual.exec(c)) !== null) {
+      const ampm = m[2] ? m[2].replace(/\./g, '') : (parseInt(m[1], 10) < 12 && (c.includes('tarde') || c.includes('noche') || c.includes('pm') || c.includes('p.m.')) ? 'pm' : '');
+      horasAfirmadas.push(parsearHoraComercial(m[1], ampm));
+    }
+
+    const regex24h = /\b(?:clases?|entrenamos?|horario|los\s+martes|los\s+jueves)[^.!?\n]*?\b([012]?\d:[0-5]\d)(?!\s*(?:pm|am|p\.m\.|a\.m\.))\b/gi;
+    while ((m = regex24h.exec(norm)) !== null) {
+      horasAfirmadas.push(parsearHoraComercial(m[1]));
+    }
   }
 
-  const regexHoraPuntual = /\b(?:a\s+las\s+|horario\s*(?:es\s*)?(?:de\s*)?|clases?\s*(?:a\s+las\s*|de\s*)?)(\d{1,2}(?::\d{2})?)\s*(pm|am|p\.m\.|a\.m\.|hrs?|horas?)?\b/gi;
-  while ((m = regexHoraPuntual.exec(norm)) !== null) {
-    const ampm = m[2] ? m[2].replace(/\./g, '') : (parseInt(m[1], 10) < 12 && (norm.includes('tarde') || norm.includes('noche') || norm.includes('pm') || norm.includes('p.m.')) ? 'pm' : '');
-    horas.push(parsearHoraComercial(m[1], ampm));
-  }
-
-  const regex24h = /\b(?:clases?|entrenamos?|horario|los\s+martes|los\s+jueves)[^.!?\n]*?\b([012]?\d:[0-5]\d)(?!\s*(?:pm|am|p\.m\.|a\.m\.))\b/gi;
-  while ((m = regex24h.exec(norm)) !== null) {
-    horas.push(parsearHoraComercial(m[1]));
-  }
-
-  return [...new Set(horas)];
+  return [...new Set(horasAfirmadas)];
 }
 
 function validarAfirmacionesComerciales(candidateText, catalogoClases, horasAdicionalesAutorizadas = []) {
@@ -1353,9 +1371,9 @@ function validarAfirmacionesComerciales(candidateText, catalogoClases, horasAdic
   ]);
   const horasPermitidasFin = new Set(catalogoClases.map((c) => c.hora_fin).filter(Boolean));
 
-  // 1. Detección de horas de clase inválidas en expresiones horarias
-  const horasMencionadas = extraerHorasMencionadas(norm);
-  for (const h of horasMencionadas) {
+  // 1. Detección de horas de clase inválidas en expresiones horarias afirmativas
+  const horasAfirmadas = extraerAfirmacionesHorarias(norm);
+  for (const h of horasAfirmadas) {
     if (!horasPermitidasInicio.has(h) && !horasPermitidasFin.has(h)) {
       return {
         valid: false,
@@ -1370,35 +1388,40 @@ function validarAfirmacionesComerciales(candidateText, catalogoClases, horasAdic
   // 2. Detección de rangos de edad no autorizados para niños
   const claseKids = catalogoClases.find((c) => (c.nombre || '').toLowerCase().includes('kid') || (c.publico || '').toLowerCase().includes('nin'));
   if (claseKids && claseKids.edad_min !== null) {
-    // Detectar afirmaciones donde se defina la edad de las clases de niños
-    // Ej: "de 4 a 12 anos", "desde los 4 anos", "van desde los 4 hasta los 12", "grupos para ninos son de 4 a 12", "4-12 anos"
-    const regexRangoNinos = /(?:ninos?|infantil|kids|alumnos?|chicos?|edad|edades|grupos?)[^.!?\n]*?\b(\d{1,2})\s*(?:a|hasta|-)\s*(\d{1,2})\s*anos?\b/gi;
-    let m;
-    while ((m = regexRangoNinos.exec(norm)) !== null) {
-      const minAge = parseInt(m[1], 10);
-      const maxAge = parseInt(m[2], 10);
-      if (minAge < claseKids.edad_min) {
-        return {
-          valid: false,
-          contradiction: true,
-          type: 'invalid_kids_age_range',
-          detected: `${minAge} a ${maxAge} anos`,
-          reason: `Edad mínima para niños "${minAge}" es inferior a la autorizada en catálogo (${claseKids.edad_min} años).`,
-        };
-      }
-    }
+    const clausulas = norm.split(/[.!?\n;]+|,\s*(?:pero|sin embargo|sino que|ya que|aunque)\s+/).map((s) => s.trim()).filter(Boolean);
 
-    const regexDesdeNinos = /(?:ninos?|infantil|kids|grupos?)[^.!?\n]*?\bdesde\s+(?:los\s+)?(\d{1,2})\s*anos?\b/gi;
-    while ((m = regexDesdeNinos.exec(norm)) !== null) {
-      const minAge = parseInt(m[1], 10);
-      if (minAge < claseKids.edad_min) {
-        return {
-          valid: false,
-          contradiction: true,
-          type: 'invalid_kids_min_age',
-          detected: `desde los ${minAge} anos`,
-          reason: `Edad mínima para niños "${minAge}" es inferior a la autorizada en catálogo (${claseKids.edad_min} años).`,
-        };
+    for (const c of clausulas) {
+      if (esPreguntaOCliente(c)) continue;
+      if (esClausulaNegada(c)) continue;
+
+      const regexRangoNinos = /(?:ninos?|infantil|kids|alumnos?|chicos?|edad|edades|grupos?|aceptamos|recibimos)[^.!?\n]*?\b(\d{1,2})\s*(?:a|hasta|-)\s*(\d{1,2})\s*anos?\b/gi;
+      let m;
+      while ((m = regexRangoNinos.exec(c)) !== null) {
+        const minAge = parseInt(m[1], 10);
+        const maxAge = parseInt(m[2], 10);
+        if (minAge < claseKids.edad_min) {
+          return {
+            valid: false,
+            contradiction: true,
+            type: 'invalid_kids_age_range',
+            detected: `${minAge} a ${maxAge} anos`,
+            reason: `Edad mínima para niños "${minAge}" es inferior a la autorizada en catálogo (${claseKids.edad_min} años).`,
+          };
+        }
+      }
+
+      const regexDesdeNinos = /(?:ninos?|infantil|kids|grupos?|recibimos|aceptamos)[^.!?\n]*?\bdesde\s+(?:los\s+)?(\d{1,2})\s*anos?\b/gi;
+      while ((m = regexDesdeNinos.exec(c)) !== null) {
+        const minAge = parseInt(m[1], 10);
+        if (minAge < claseKids.edad_min) {
+          return {
+            valid: false,
+            contradiction: true,
+            type: 'invalid_kids_min_age',
+            detected: `desde los ${minAge} anos`,
+            reason: `Edad mínima para niños "${minAge}" es inferior a la autorizada en catálogo (${claseKids.edad_min} años).`,
+          };
+        }
       }
     }
   }
@@ -1985,7 +2008,24 @@ function evaluarRuntimeGuard(leadId, candidateText, turnContext, systemPrompt = 
 
   if (!passed) {
     if (uniqueClaims.includes('commercial_fact_contradiction') && !uniqueClaims.some((c) => c.includes('booking') || c.includes('reschedule') || c.includes('cancellation'))) {
-      evaluationResult.safeFallbackText = generarRespuestaComercialOficial(catalogoClases, turnContext?.ubicacionReal, candidateText);
+      const successfulBooking = toolRecords.find((r) => r.operation === 'booking' && r.status === 'success' && r.mutation_committed === true);
+      const successfulReschedule = toolRecords.find((r) => r.operation === 'reschedule' && r.status === 'success' && r.mutation_committed === true);
+      const successfulCancellation = toolRecords.find((r) => r.operation === 'cancellation' && r.status === 'success' && r.mutation_committed === true);
+
+      if (successfulBooking) {
+        const nombreP = successfulBooking.persona_slug ? ` para ${successfulBooking.persona_slug}` : '';
+        const txtTransaccional = `¡Listo! Tu clase de prueba${nombreP} quedó confirmada para el ${successfulBooking.fecha_confirmada} a las ${successfulBooking.hora || '18:00'}. Te esperamos en ${successfulBooking.sede || turnContext?.ubicacionReal || 'nuestra sede'}.`;
+        const txtComercial = generarRespuestaComercialOficial(catalogoClases, turnContext?.ubicacionReal, candidateText);
+        evaluationResult.safeFallbackText = `${txtTransaccional} ${txtComercial}`;
+      } else if (successfulReschedule) {
+        const txtTransaccional = `¡Listo! Tu clase de prueba quedó reprogramada con éxito para el ${successfulReschedule.fecha_confirmada} a las ${successfulReschedule.hora || '18:00'}.`;
+        const txtComercial = generarRespuestaComercialOficial(catalogoClases, turnContext?.ubicacionReal, candidateText);
+        evaluationResult.safeFallbackText = `${txtTransaccional} ${txtComercial}`;
+      } else if (successfulCancellation) {
+        evaluationResult.safeFallbackText = 'Entendido, confirmamos la gestión de tu reserva con el instructor.';
+      } else {
+        evaluationResult.safeFallbackText = generarRespuestaComercialOficial(catalogoClases, turnContext?.ubicacionReal, candidateText);
+      }
     } else {
       evaluationResult.safeFallbackText = obtenerMensajeFallbackSeguro(evaluationResult, true);
     }
@@ -3785,46 +3825,58 @@ REGLA ESTRICTA: NO afirmes que tiene ni que no tiene reserva confirmada. Si el l
     systemPrompt += `\n\nDATOS REALES DE PRECIOS (los únicos válidos, cualquier otro monto es un error tuyo): mensualidad regular S/${n.mensualidad} por persona; promo "vienen acompañados" (2 personas) S/${n.promo_2x} en total por mes; Yape: ${n.yape_numero}.`;
   }
 
-  const clasesRegularesSnap = await admin.firestore().collection('clases')
-    .where('tipo', '==', 'regular').get();
-
-  const catalogoClases = [];
+  let catalogoClases = [];
   let ubicacionReal = null;
 
-  if (!clasesRegularesSnap.empty) {
-    let catalogoPromptText = '\n\n[CATÁLOGO OFICIAL DE CLASES Y HORARIOS REGULARES]\n' +
-      'Usa ESTOS horarios y edades exactos para informar a los clientes. NUNCA inventes otros horarios ni edades diferentes:\n';
+  try {
+    const clasesRegularesSnap = await admin.firestore().collection('clases')
+      .where('tipo', '==', 'regular').get();
 
-    for (const doc of clasesRegularesSnap.docs) {
-      const c = doc.data();
-      if (!ubicacionReal && c.ubicacion) {
-        ubicacionReal = c.ubicacion;
-      }
-      const diasTexto = Array.isArray(c.dias) ? c.dias.join(', ') : (c.dias || '');
-      const sinTope = !c.edad_max || c.edad_max >= 90;
-      const edadTexto = (c.edad_min !== null && c.edad_min !== undefined)
-        ? (sinTope ? `${c.edad_min} años en adelante` : `${c.edad_min} a ${c.edad_max} años`)
-        : 'Todas las edades';
-      const horarioTexto = (c.hora && c.hora_fin) ? `${c.hora} a ${c.hora_fin}` : (c.hora || '');
-
-      catalogoClases.push({
-        id: doc.id,
-        nombre: c.nombre || doc.id,
-        dias: diasTexto,
-        diasTexto,
-        hora: c.hora || '',
-        hora_fin: c.hora_fin || '',
-        edad_min: c.edad_min !== undefined ? c.edad_min : null,
-        edad_max: c.edad_max !== undefined ? c.edad_max : 99,
-        sinTopeSuperior: sinTope,
-        publico: (c.publico || ((c.nombre || '').toLowerCase().includes('kid') ? 'niños' : 'adultos')),
-        ubicacion: c.ubicacion || ubicacionReal || '',
+    if (!clasesRegularesSnap.empty) {
+      // Filtrar únicamente clases regulares ACTIVAS (descartar inactivas, canceladas o eventos especiales)
+      const docsActivos = clasesRegularesSnap.docs.filter((doc) => {
+        const c = doc.data() || {};
+        return c.activa !== false && c.activo !== false && c.estado !== 'inactivo' && c.vigente !== false;
       });
 
-      catalogoPromptText += `- Grupo: ${c.nombre || doc.id} | Días: ${diasTexto} | Horario: ${horarioTexto} | Edades: ${edadTexto} (${sinTope ? 'sin tope' : 'rango exacto'})\n`;
-    }
+      if (docsActivos.length > 0) {
+        let catalogoPromptText = '\n\n[CATÁLOGO OFICIAL DE CLASES Y HORARIOS REGULARES]\n' +
+          'Usa ESTOS horarios y edades exactos para informar a los clientes. NUNCA inventes otros horarios ni edades diferentes:\n';
 
-    systemPrompt += catalogoPromptText;
+        for (const doc of docsActivos) {
+          const c = doc.data();
+          if (!ubicacionReal && c.ubicacion) {
+            ubicacionReal = c.ubicacion;
+          }
+          const diasTexto = Array.isArray(c.dias) ? c.dias.join(', ') : (c.dias || '');
+          const sinTope = !c.edad_max || c.edad_max >= 90;
+          const edadTexto = (c.edad_min !== null && c.edad_min !== undefined)
+            ? (sinTope ? `${c.edad_min} años en adelante` : `${c.edad_min} a ${c.edad_max} años`)
+            : 'Todas las edades';
+          const horarioTexto = (c.hora && c.hora_fin) ? `${c.hora} a ${c.hora_fin}` : (c.hora || '');
+
+          catalogoClases.push({
+            id: doc.id,
+            nombre: c.nombre || doc.id,
+            dias: diasTexto,
+            diasTexto,
+            hora: c.hora || '',
+            hora_fin: c.hora_fin || '',
+            edad_min: c.edad_min !== undefined ? c.edad_min : null,
+            edad_max: c.edad_max !== undefined ? c.edad_max : 99,
+            sinTopeSuperior: sinTope,
+            publico: (c.publico || ((c.nombre || '').toLowerCase().includes('kid') ? 'niños' : 'adultos')),
+            ubicacion: c.ubicacion || ubicacionReal || '',
+          });
+
+          catalogoPromptText += `- Grupo: ${c.nombre || doc.id} | Días: ${diasTexto} | Horario: ${horarioTexto} | Edades: ${edadTexto} (${sinTope ? 'sin tope' : 'rango exacto'})\n`;
+        }
+
+        systemPrompt += catalogoPromptText;
+      }
+    }
+  } catch (errClases) {
+    console.error('[generarSystemPrompt] Error consultando clases regulares en Firestore:', errClases.message);
   }
 
   if (ubicacionReal) {
