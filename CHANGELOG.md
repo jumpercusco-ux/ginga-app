@@ -9,8 +9,17 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
+## [PED-03C-CI] — 2026-11-24
+### [RESPALDADO EN RAMA `feat/ped03-biblioteca-curricular` · CI VERDE]
+- **Cierre técnico y determinismo de CI (`1b9729e` sobre `613cefe`):**
+  - Reproducido el fallo temporal preexistente de `real_agent_harness/test_reservation_date_semantics.js` sobre el commit base `fd891a7` (`7/8`, caso `08_validar_fecha_solicitada_preserva_fecha_civil_sin_desfases` con fecha hardcodeada `'2026-11-17'` vencida al `2026-11-24`).
+  - Corregido únicamente [test_reservation_date_semantics.js](file:///Users/jumper/ginga_app/real_agent_harness/test_reservation_date_semantics.js) mediante reloj controlado `withFrozenClock` anclado en `America/Lima` (`2026-11-12T15:00:00.000Z` y verificación de cruce de medianoche UTC `2026-11-13T00:30:00.000Z`), preservando las 8 pruebas sin modificar `functions/index.js` ni lógica de reservas/WhatsApp.
+  - Verificación completa: `test_reservation_date_semantics.js` (`8/8 PASS` en `default`, `TZ=UTC` y `TZ=America/Lima`), `test_agent_evaluations.js` (`9/9 PASS`), Firestore Emulator JDK 21 (`test_firestore_rules.js` `9/9 PASS` + `test_curriculum_firestore_rules.js` `7/7 PASS`), `flutter test` (`35/35 PASS`) y GitHub Actions [run #45475260519](https://github.com/jumpercusco-ux/ginga-app/actions/runs/45475260519) (`Flutter Web & Unit Tests` = `success`, `Node.js 22 & Agent Quality Benchmark` = `success`).
+
+---
+
 ## [PED-01..PED-03C] — 2026-11-24
-### [PROBADO LOCALMENTE — WORKING TREE SOBRE `main` (`fd891a7`)]
+### [RESPALDADO EN RAMA `feat/ped03-biblioteca-curricular` (`613cefe`, 29 ARCHIVOS)]
 - **Base Curricular Oficial FIU (`PED-02` / `PED-03A`):**
   - Consolidación de [data/curriculum/fiu_adulto_v1.json](file:///Users/jumper/ginga_app/data/curriculum/fiu_adulto_v1.json) (`97` movimientos canónicos en Adulto Cordas `1–6`: `94` elegibles IA y `3` excluidos por revisión técnica; `1` bloque compartido `adulto_bloque_05_06`; `12` cordas infantiles en metadata; `21` tutoriales mapeados preservando los `5` videos reales; `26` términos de glosario) y guía de revisión [docs/CURRICULUM_FIU_ADULTO_V1_REVIEW.md](file:///Users/jumper/ginga_app/docs/CURRICULUM_FIU_ADULTO_V1_REVIEW.md).
   - Modelos tipados y repositorio ([curriculum_models.dart](file:///Users/jumper/ginga_app/lib/core/models/curriculum_models.dart), [curriculum_repository.dart](file:///Users/jumper/ginga_app/lib/core/services/curriculum_repository.dart)), deprecación segura de `TutorialesService.inicializarTutorialesMockupSiVacia` (`legacyMockSeedEnabled = false`), índices ([firestore.indexes.json](file:///Users/jumper/ginga_app/firestore.indexes.json)) y endurecimiento de [firestore.rules](file:///Users/jumper/ginga_app/firestore.rules) para exigir Custom Claims firmados en colecciones `curriculum_*` y prohibir borrado.

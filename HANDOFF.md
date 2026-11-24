@@ -7,12 +7,14 @@
 ## 1. Estado Inmediato del Proyecto
 
 - **Proyecto:** `/Users/jumper/ginga_app`
-- **Rama Activa:** `main` (HEAD `fd891a7`, tag `v1.0.0-feedback-v1`) con trabajo local pendiente de respaldo para **PED-01 a PED-03C** (sin commits ni push todavía).
-- **Frente Pedagógico Activo (`PED-01..PED-03C`):** **VALIDADO LOCALMENTE Y CERRADO PARA RESPALDO GIT.**
+- **Rama Activa:** `feat/ped03-biblioteca-curricular` (derivada de `main` `fd891a7` / `v1.0.0-feedback-v1`; `main` permanece intacta sin merge).
+- **Frente Pedagógico Activo (`PED-01..PED-03C-CI`):** **CERRADO DEFINITIVAMENTE CON CI EN VERDE — PENDIENTE APROBACIÓN PARA INICIAR PED-04.**
+  - Respaldo en GitHub: commit `613cefe` (`29` archivos curriculares) + commit `1b9729e` (`test(ci): make reservation date semantics tests deterministic` tras reproducir el fallo temporal preexistente en `fd891a7` y sin modificar `functions/index.js`).
+  - GitHub Actions CI ([run #45475260519](https://github.com/jumpercusco-ux/ginga-app/actions/runs/45475260519)): `Flutter Web & Unit Tests` (`success`) y `Node.js 22 & Agent Quality Benchmark` (`success`).
   - Catálogo curricular consolidado [data/curriculum/fiu_adulto_v1.json](file:///Users/jumper/ginga_app/data/curriculum/fiu_adulto_v1.json) (`97` movimientos canónicos Adulto Cordas `1–6`, `94` elegibles IA, `3` pendientes de revisión técnica, `1` bloque compartido `adulto_bloque_05_06`, `12` cordas infantiles en metadata, `21` tutoriales con `5` videos reales y `26` términos de glosario).
   - Biblioteca Curricular unificada (Alumnos + Profesores) en Flutter con soporte adaptable `GingaTheme` claro/oscuro, separación estricta entre rol y graduación personal, preview web aislado en [lib/main_biblioteca_preview.dart](file:///Users/jumper/ginga_app/lib/main_biblioteca_preview.dart) y contrato opt-in `CurriculumSelectionContract` listo para `PED-04`.
   - Bloqueo de **Java 21 resuelto** vía `/opt/homebrew/opt/openjdk@21` sin alterar el JDK global del sistema: Firebase Firestore Emulator (`--project demo-ginga-test`) superado al 100% en reglas curriculares (`7/7 PASS`), reglas generales (`9/9 PASS`) e importador idempotente (`6/6 PASS`, preservando los `21` tutoriales y `5` videos reales).
-  - Suite Flutter completa: `35/35 All tests passed!` y `flutter analyze` limpio (`No issues found!`) en los 12 archivos curriculares/preview/test.
+  - Suite Flutter completa: `35/35 All tests passed!`; `test_reservation_date_semantics.js` (`8/8 PASS` en `TZ=UTC` y `TZ=America/Lima`); `test_agent_evaluations.js` (`9/9 PASS`).
 - **Producción Intacta:** `whatsappWebhook v69` (Node.js 22), web `https://www.gingaperu.com` (Vercel desconectado de auto-deploy), proyecto Firebase `capoeirafiu-ea8ljo`. **No se ha escrito en Firestore productivo ni desplegado.**
 
 ---
@@ -78,8 +80,8 @@ node real_agent_harness/test_qa_regressions.js
 
 ## 4. Qué Sigue Exactamente (Siguiente Tarea)
 
-1. **Aprobación del propietario para respaldo Git (`PED-03C`):**
-   - Revisar el inventario de archivos propuesto y aprobar la creación de la rama dedicada (p. ej. `feat/ped03-biblioteca-curricular`) y su commit de respaldo, excluyendo binarios `demo/assets/backup/*.mp4`, `PRE_LIVE_BASELINE.md` y archivos temporales.
+1. **Aprobación del propietario para iniciar `PED-04`:**
+   - Respaldo en `feat/ped03-biblioteca-curricular` (`613cefe` + `1b9729e`) y CI en verde (`#45475260519`) completados; `main`, `PRE_LIVE_BASELINE.md`, `docs/DEPLOYMENT_AND_CICD.md`, `demo/assets/backup/*.mp4` y `scratch/` permanecen fuera e intactos.
 2. **Inicio de `PED-04` (Planificador Pedagógico IA y Pizarra):**
    - Evolucionar `generarPlanClaseIA` e `InstructorPizarraScreen` consumiendo `CurriculumRepository.buildAiPlannerCurriculumPayload(...)` y el selector opt-in `CurriculumSelectionContract` documentado en [CURRICULUM_AI_PLANNER_CONTRACT.md](file:///Users/jumper/ginga_app/docs/CURRICULUM_AI_PLANNER_CONTRACT.md).
    - Evaluar autorización explícita previa antes de cualquier importación de `curriculum_*` o despliegue de `firestore.rules` / `firestore.indexes.json` hacia `capoeirafiu-ea8ljo`.

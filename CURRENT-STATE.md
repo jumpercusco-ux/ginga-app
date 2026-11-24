@@ -2,10 +2,11 @@
 
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-24  
-> **Rama Actual:** `main` (con implementación local de `PED-01..PED-03C` sin commit ni push)  
-> **Commit HEAD:** `fd891a7` (`v1.0.0-feedback-v1` · `ci: segregar pipelines de CI/CD, eliminar deploy automatico de funciones y proteger produccion`)  
+> **Rama Actual:** `feat/ped03-biblioteca-curricular` (base `main` `fd891a7` intacta; sin merge ni despliegue)  
+> **Commits de Respaldo PED-03:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `1b9729e` (`test(ci): make reservation date semantics tests deterministic`)  
+> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** ✅ **VERDE** ([run #45475260519](https://github.com/jumpercusco-ux/ginga-app/actions/runs/45475260519): `Flutter Web & Unit Tests` = `success`, `Node.js 22 & Agent Quality Benchmark` = `success`)  
 > **Producción Intacta:** `whatsappWebhook v69` (Cloud Functions Gen 1, Node.js 22), web `https://www.gingaperu.com`, proyecto `capoeirafiu-ea8ljo`  
-> **Estado Actual:** **PED-03C VALIDADO LOCALMENTE** (Biblioteca Curricular unificada FIU aprobada visualmente y verificada en Firestore Emulator con JDK 21; pendiente aprobación de respaldo en rama Git antes de iniciar **PED-04**)
+> **Estado Actual:** **PED-03C CERRADO DEFINITIVAMENTE CON CI EN VERDE — PENDIENTE APROBACIÓN PARA INICIAR PED-04**
 
 ---
 
@@ -472,13 +473,16 @@ flowchart TD
 
 - **Catálogo Local Consolidado:** [data/curriculum/fiu_adulto_v1.json](file:///Users/jumper/ginga_app/data/curriculum/fiu_adulto_v1.json) (`97` movimientos canónicos Adulto Cordas `1–6`, `94` elegibles IA, `3` pendientes `desequilibrante`, `espelho_cruz`, `au_chibata_pulado`, `1` bloque compartido `adulto_bloque_05_06`, `12` cordas infantiles estructurales en metadata, `21` tutoriales con `5` videos reales preservados, `26` términos de glosario).
 - **Biblioteca Curricular Unificada (`PED-03B..FINAL`):** Evolución de `BibliotecaScreen`, `CurriculoBibliotecaScreen`, `MovimientoDetalleScreen`/`Panel` y `BibliotecaUserContext` conservando `GingaTheme` claro/oscuro, separación estricta rol vs. graduación personal, tarjetas compactas con corda de introducción, filtro `Con video (N)`, deduplicación visual de alias y contrato opt-in `CurriculumSelectionContract` para `PED-04` ([docs/CURRICULUM_AI_PLANNER_CONTRACT.md](file:///Users/jumper/ginga_app/docs/CURRICULUM_AI_PLANNER_CONTRACT.md) v1.1.0).
-- **Pruebas Verificadas (`PED-03C`):**
+- **Pruebas Verificadas (`PED-03C` + `PED-03C-CI`):**
   - `test_curriculum_firestore_rules.js` (Emulator JDK 21, `demo-ginga-test`): `7/7 PASS`.
   - `real_agent_harness/test_firestore_rules.js` (Emulator JDK 21, `demo-ginga-test`): `9/9 PASS`.
   - `test_curriculum_importer.js` (`FIRESTORE_EMULATOR 127.0.0.1:8080` e `IN_MEMORY_MOCK`): `6/6 PASS` en ambos modos, verificando `164` documentos e integridad exacta de los `21` tutoriales y `5` videos reales.
   - `validate_curriculum_catalog.js`: `PASS`.
+  - `real_agent_harness/test_reservation_date_semantics.js` (`1b9729e`, reloj controlado `America/Lima` sin cambios en `functions/index.js`): `8/8 PASS (100%)` en `default`, `TZ=UTC` y `TZ=America/Lima`; reproducido previamente como fallo preexistente sobre el commit base `fd891a7` (`7/8`).
+  - `real_agent_harness/test_agent_evaluations.js`: `9/9 PASS`.
   - `flutter analyze` (12 archivos curriculares/preview/test): `No issues found!`.
   - `flutter test`: `35/35 All tests passed!`.
+  - **GitHub Actions CI** ([run #45475260519](https://github.com/jumpercusco-ux/ginga-app/actions/runs/45475260519) sobre `1b9729e`): `Flutter Web & Unit Tests` (`success`) y `Node.js 22 & Agent Quality Benchmark` (`success`).
 
 ---
 
