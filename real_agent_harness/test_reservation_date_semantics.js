@@ -22,6 +22,39 @@ const {
   formatearFechaLarga,
 } = internals;
 
+// Reloj de prueba determinista anclado en America/Lima (UTC-5):
+// jueves 2026-11-12 10:00:00 America/Lima = 2026-11-12T15:00:00.000Z
+const FIXED_LIMA_NOW_ISO = '2026-11-12T15:00:00.000Z';
+
+function withFrozenClock(isoTimestamp, fn) {
+  const RealDate = global.Date;
+  const fixedMs = new RealDate(isoTimestamp).getTime();
+  const MockDate = new Proxy(RealDate, {
+    construct(target, args) {
+      if (args.length === 0) {
+        return new RealDate(fixedMs);
+      }
+      return new RealDate(...args);
+    },
+    apply() {
+      return new RealDate(fixedMs).toString();
+    },
+    get(target, prop, receiver) {
+      if (prop === 'now') {
+        return () => fixedMs;
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+
+  global.Date = MockDate;
+  try {
+    return fn();
+  } finally {
+    global.Date = RealDate;
+  }
+}
+
 class MockTimestamp {
   constructor(seconds, nanoseconds = 0) {
     this._seconds = seconds;
@@ -64,11 +97,13 @@ function runDateSemanticsTests() {
   // TEST 1: fecha_clase como Fecha Civil (Midday Anchor)
   // -------------------------------------------------------------
   test('01_fecha_clase_es_fecha_civil_anclada_en_mediodia', () => {
-    const fechaProxima = calcularProximaFechaDisponible('M, J');
-    assert(fechaProxima instanceof Date, 'Debe devolver un Date válido');
-    assert.strictEqual(fechaProxima.getHours(), 12, 'Las horas locales deben estar fijadas a las 12 (mediodía)');
-    assert.strictEqual(fechaProxima.getMinutes(), 0, 'Minutos en 0');
-    assert.strictEqual(fechaProxima.getSeconds(), 0, 'Segundos en 0');
+    withFrozenClock(FIXED_LIMA_NOW_ISO, () => {
+      const fechaProxima = calcularProximaFechaDisponible('M, J');
+      assert(fechaProxima instanceof Date, 'Debe devolver un Date válido');
+      assert.strictEqual(fechaProxima.getHours(), 12, 'Las horas locales deben estar fijadas a las 12 (mediodía)');
+      assert.strictEqual(fechaProxima.getMinutes(), 0, 'Minutos en 0');
+      assert.strictEqual(fechaProxima.getSeconds(), 0, 'Segundos en 0');
+    });
   });
 
   // -------------------------------------------------------------
@@ -200,20 +235,37 @@ function runDateSemanticsTests() {
   // TEST 8: Validación de fecha solicitada en formato YYYY-MM-DD
   // -------------------------------------------------------------
   test('08_validar_fecha_solicitada_preserva_fecha_civil_sin_desfases', () => {
-    const fValida = validarFechaSolicitada('2026-11-17', 'M, J');
-    assert(fValida instanceof Date);
-    assert.strictEqual(fValida.getFullYear(), 2026);
-    assert.strictEqual(fValida.getMonth(), 10); // Noviembre (0-indexed)
-    assert.strictEqual(fValida.getDate(), 17);
-    assert.strictEqual(fValida.getHours(), 12, 'Mediodía fijado');
+    withFrozenClock(FIXED_LIMA_NOW_ISO, () => {
+      const fValida = validarFechaSolicitada('2026-11-17', 'M, J');
+      assert(fValida instanceof Date);
+      assert.strictEqual(fValida.getFullYear(), 2026);
+      assert.strictEqual(fValida.getMonth(), 10); // Noviembre (0-indexed)
+      assert.strictEqual(fValida.getDate(), 17);
+      assert.strictEqual(fValida.getHours(), 12, 'Mediodía fijado');
 
-    // Fechas no permitidas (ej. miércoles 2026-11-18)
-    const fInvalida = validarFechaSolicitada('2026-11-18', 'M, J');
-    assert.strictEqual(fInvalida, null, 'Día miércoles no está en M, J');
+      // Fechas no permitidas (ej. miércoles 2026-11-18)
+      const fInvalida = validarFechaSolicitada('2026-11-18', 'M, J');
+      assert.strictEqual(fInvalida, null, 'Día miércoles no está en M, J');
+
+      // Fecha pasada respecto al reloj controlado (martes 2026-11-10 < jueves 2026-11-12)
+      const fPasada = validarFechaSolicitada('2026-11-10', 'M, J');
+      assert.strictEqual(fPasada, null, 'Fecha pasada respecto al reloj Lima debe rechazarse');
+    });
+
+    // Cruce de medianoche UTC: 2026-11-13T00:30:00Z sigue siendo jueves 2026-11-12 19:30 en America/Lima
+    withFrozenClock('2026-11-13T00:30:00.000Z', () => {
+      const fHoyLima = validarFechaSolicitada('2026-11-12', 'M, J');
+      assert(fHoyLima instanceof Date, 'Debe respetar la fecha civil vigente en America/Lima pese al cruce UTC');
+      assert.strictEqual(fHoyLima.getFullYear(), 2026);
+      assert.strictEqual(fHoyLima.getMonth(), 10);
+      assert.strictEqual(fHoyLima.getDate(), 12);
+      assert.strictEqual(fHoyLima.getHours(), 12, 'Mediodía fijado');
+    });
   });
 
+  const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
   console.log('\n================================================================');
-  console.log(` RESULTADO SUITE FECHAS Y HORARIOS: ${passed}/${total} PRUEBAS PASS (100%)`);
+  console.log(` RESULTADO SUITE FECHAS Y HORARIOS: ${passed}/${total} PRUEBAS PASS (${pct}%)`);
   console.log('================================================================\n');
 }
 
