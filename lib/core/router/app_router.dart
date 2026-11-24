@@ -16,6 +16,8 @@ import 'package:ginga_app/features/home/clase_detalle_screen.dart';
 import 'package:ginga_app/features/instructor/instructor_clase_screen.dart';
 import 'package:ginga_app/features/instructor/crear_clase_screen.dart';
 import 'package:ginga_app/features/instructor/instructor_leads_screen.dart';
+import 'package:ginga_app/features/biblioteca/biblioteca_screen.dart';
+import 'package:ginga_app/features/biblioteca/curriculo_biblioteca_screen.dart';
 import 'package:ginga_app/features/biblioteca/practicar_toque_screen.dart';
 import 'package:ginga_app/features/tienda/tienda_screen.dart';
 import 'package:ginga_app/features/tienda/producto_detalle_screen.dart';
@@ -133,6 +135,14 @@ final appRouter = GoRouter(
           body: Center(child: Text('ID de canción no especificado')),
         );
       },
+    ),
+    GoRoute(
+      path: '/biblioteca',
+      builder: (context, state) => const BibliotecaScreen(),
+    ),
+    GoRoute(
+      path: '/biblioteca-curriculo',
+      builder: (context, state) => const CurriculoBibliotecaScreen(),
     ),
     GoRoute(
       path: '/practicar-toque',

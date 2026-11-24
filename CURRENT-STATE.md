@@ -1,11 +1,11 @@
 # Estado Actual del Proyecto GINGA (CURRENT-STATE)
 
 > **Documento Maestro de Estado y Arquitectura**  
-> **Última Actualización:** 2026-11-11  
-> **Rama Actual:** `fix/real-whatsapp-logic`  
-> **Commit HEAD:** `1197225` (`docs(qa): align test suite counts and complete JSDoc inventory`)  
-> **Producción Intacta:** `3058ada` (main, `whatsappWebhook v67`, proyecto `capoeirafiu-ea8ljo`)  
-> **Estado RC:** RELEASE CANDIDATE CLOSED LOCALLY — PRODUCTION NOT AUTHORIZED (Gate de QA Real 12/12 APROBADO; Despliegue Sujeto a Autorización Expresa)
+> **Última Actualización:** 2026-11-24  
+> **Rama Actual:** `main` (con implementación local de `PED-01..PED-03C` sin commit ni push)  
+> **Commit HEAD:** `fd891a7` (`v1.0.0-feedback-v1` · `ci: segregar pipelines de CI/CD, eliminar deploy automatico de funciones y proteger produccion`)  
+> **Producción Intacta:** `whatsappWebhook v69` (Cloud Functions Gen 1, Node.js 22), web `https://www.gingaperu.com`, proyecto `capoeirafiu-ea8ljo`  
+> **Estado Actual:** **PED-03C VALIDADO LOCALMENTE** (Biblioteca Curricular unificada FIU aprobada visualmente y verificada en Firestore Emulator con JDK 21; pendiente aprobación de respaldo en rama Git antes de iniciar **PED-04**)
 
 ---
 
@@ -450,25 +450,39 @@ Para facilitar la telemetría del futuro Agent Control Center y la API de DANEV:
 
 ```mermaid
 flowchart TD
-    P01["P0.1: Memoria de Reservas (COMPLETADO - 9c53417)"] --> P02A["P0.2A: Reprogramación & Duplicados (COMPLETADO - df2650e)"]
-    P02A --> P02B["P0.2B: Identidad Familiar (COMPLETADO - ae75ee6)"]
-    P02B --> P1A["P1A: Runtime Guard & Telemetría Zero PII (COMPLETADO - 847d3be)"]
-    P1A --> P1B["P1B: QA Conversacional OpenAI Real (COMPLETADO 12/12 PASS - 1197225)"]
-    P1B --> RC["RC1: Release Candidate Cerrado Localmente (MANIFIESTO CREADO)"]
-    RC --> PROD["P2: Despliegue Quirúrgico Producción (PENDIENTE AUTORIZACIÓN EXPRESA)"]
+    P01["P0.1..P1B: Agente WhatsApp + CI/CD (main fd891a7 / v1.0.0-feedback-v1)"] --> PED01["PED-01 / PED-02: Auditoría y Catálogo FIU (COMPLETADO)"]
+    PED01 --> PED03A["PED-03A: Modelos, Reglas e Importador Idempotente (COMPLETADO)"]
+    PED03A --> PED03B["PED-03B..FINAL: Biblioteca Curricular Unificada + UX (APROBADO VISUALMENTE)"]
+    PED03B --> PED03C["PED-03C: Firestore Emulator JDK 21 + Cierre Técnico (VALIDADO)"]
+    PED03C --> PED04["PED-04: Planificador Pedagógico IA y Pizarra (PENDIENTE INICIO)"]
 ```
 
 ---
 
 ## 9. Riesgos de Seguridad y Operación
 
-1. **Riesgo de Falsa Promesa (False Confirmation):** Mitigado en P0.1 a nivel de prompt y se blindará en P0.2 al proveer la tool `reprogramar_reserva`.
-2. **Concurrencia en Webhooks:** Si un usuario envía dos mensajes en menos de 2 segundos, el debounce de 5.0s mitiga la duplicidad de llamadas, pero P0.2 incluirá el chequeo de duplicados dentro de la transacción Firestore como defensa en profundidad.
-3. **Índices de Firestore:** Las consultas con doble igualdad (`lead_id == x` AND `status == 'confirmado'`) no requieren índice compuesto. Si se añaden ordenamientos por `fecha_clase` en Firestore, se requerirá desplegar el índice compuesto `reservas (lead_id ASC, status ASC, fecha_clase ASC)`.
+1. **Riesgo de Falsa Promesa (False Confirmation):** Mitigado en P0.1 a nivel de prompt y blindado en P0.2A + Runtime Guard P1A (`whatsappWebhook v69`).
+2. **Concurrencia en Webhooks:** Mitigado por debounce de 5.0s y chequeo de duplicados dentro de `runTransaction` en Firestore.
+3. **Índices de Firestore:** Índices compuestos sincronizados en `firestore.indexes.json` (incluyendo los nuevos índices curriculares locales pendientes de despliegue controlado).
+4. **Seguridad Curricular (`curriculum_*`):** Endurecida en `firestore.rules` mediante Custom Claims firmados (`admin == true || curriculum_admin == true`) y prohibición total de borrado; reglas locales verificadas con Emulator pero **no desplegadas aún** a `capoeirafiu-ea8ljo`.
 
 ---
 
-## 9. Integración Futura con DANEV
+## 10. Estado del Frente Pedagógico (`PED-01` a `PED-03C`)
+
+- **Catálogo Local Consolidado:** [data/curriculum/fiu_adulto_v1.json](file:///Users/jumper/ginga_app/data/curriculum/fiu_adulto_v1.json) (`97` movimientos canónicos Adulto Cordas `1–6`, `94` elegibles IA, `3` pendientes `desequilibrante`, `espelho_cruz`, `au_chibata_pulado`, `1` bloque compartido `adulto_bloque_05_06`, `12` cordas infantiles estructurales en metadata, `21` tutoriales con `5` videos reales preservados, `26` términos de glosario).
+- **Biblioteca Curricular Unificada (`PED-03B..FINAL`):** Evolución de `BibliotecaScreen`, `CurriculoBibliotecaScreen`, `MovimientoDetalleScreen`/`Panel` y `BibliotecaUserContext` conservando `GingaTheme` claro/oscuro, separación estricta rol vs. graduación personal, tarjetas compactas con corda de introducción, filtro `Con video (N)`, deduplicación visual de alias y contrato opt-in `CurriculumSelectionContract` para `PED-04` ([docs/CURRICULUM_AI_PLANNER_CONTRACT.md](file:///Users/jumper/ginga_app/docs/CURRICULUM_AI_PLANNER_CONTRACT.md) v1.1.0).
+- **Pruebas Verificadas (`PED-03C`):**
+  - `test_curriculum_firestore_rules.js` (Emulator JDK 21, `demo-ginga-test`): `7/7 PASS`.
+  - `real_agent_harness/test_firestore_rules.js` (Emulator JDK 21, `demo-ginga-test`): `9/9 PASS`.
+  - `test_curriculum_importer.js` (`FIRESTORE_EMULATOR 127.0.0.1:8080` e `IN_MEMORY_MOCK`): `6/6 PASS` en ambos modos, verificando `164` documentos e integridad exacta de los `21` tutoriales y `5` videos reales.
+  - `validate_curriculum_catalog.js`: `PASS`.
+  - `flutter analyze` (12 archivos curriculares/preview/test): `No issues found!`.
+  - `flutter test`: `35/35 All tests passed!`.
+
+---
+
+## 11. Integración Futura con DANEV
 
 - El agente operará como nodo emisor de eventos auditables mediante llamadas HTTP a los endpoints de DANEV (`/api/v1/events/agent`).
 - Esquema de eventos estandarizado con UUID de evento, timestamp ISO, hash de lead, métricas de latencia y diffs de estado de reservas.

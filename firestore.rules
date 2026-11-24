@@ -234,5 +234,76 @@ service cloud.firestore {
       // Inmutabilidad de benchmarks de calidad
       allow delete: if false;
     }
+
+    // ==========================================
+    // REGLAS PARA EL CATÁLOGO CURRICULAR FIU (PED-03A)
+    // Lectura unificada para usuarios autenticados;
+    // escritura estrictamente administrativa; borrado bloqueado.
+    // ==========================================
+    function isCurriculumAdmin() {
+      return request.auth != null && (
+        request.auth.token.admin == true ||
+        request.auth.token.curriculum_admin == true
+      );
+    }
+
+    match /curriculum_meta/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if isCurriculumAdmin() &&
+        request.resource.data.catalog_id is string &&
+        request.resource.data.schema_version is string;
+      allow delete: if false;
+    }
+
+    match /curriculum_movements/{movementId} {
+      allow read: if request.auth != null;
+      allow create, update: if isCurriculumAdmin() &&
+        request.resource.data.movement_id == movementId &&
+        request.resource.data.canonical_name is string &&
+        request.resource.data.canonical_name.size() > 0 &&
+        request.resource.data.category_id in [
+          'fundamento', 'golpe_de_ataque', 'saida_esquiva',
+          'movimento_de_solo', 'golpe_desequilibrante'
+        ] &&
+        request.resource.data.review_status in ['approved', 'pending_technical_review'] &&
+        request.resource.data.is_ambiguous is bool &&
+        request.resource.data.ai_planner_eligible is bool;
+      allow delete: if false;
+    }
+
+    match /curriculum_cordas/{cordaId} {
+      allow read: if request.auth != null;
+      allow create, update: if isCurriculumAdmin() &&
+        request.resource.data.corda_id == cordaId &&
+        request.resource.data.track_id in ['adulto', 'infantil'] &&
+        request.resource.data.index is int &&
+        request.resource.data.nombre_manual is string;
+      allow delete: if false;
+    }
+
+    match /curriculum_blocks/{blockId} {
+      allow read: if request.auth != null;
+      allow create, update: if isCurriculumAdmin() &&
+        request.resource.data.block_id == blockId &&
+        request.resource.data.track_id in ['adulto', 'infantil'] &&
+        request.resource.data.corda_ids is list;
+      allow delete: if false;
+    }
+
+    match /curriculum_tutorial_links/{linkId} {
+      allow read: if request.auth != null;
+      allow create, update: if isCurriculumAdmin() &&
+        request.resource.data.tutorial_doc_id == linkId &&
+        request.resource.data.movement_ids is list;
+      allow delete: if false;
+    }
+
+    match /curriculum_glossary_links/{linkId} {
+      allow read: if request.auth != null;
+      allow create, update: if isCurriculumAdmin() &&
+        request.resource.data.termino_glosario is string &&
+        request.resource.data.movement_ids is list;
+      allow delete: if false;
+    }
   }
 }

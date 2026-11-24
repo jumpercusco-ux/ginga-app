@@ -9,8 +9,25 @@ class TutorialesService {
   TutorialesService._();
   static final TutorialesService instance = TutorialesService._();
 
-  /// Carga datos mockup a Firestore de forma automática si la colección /tutoriales está vacía
+  /// Flag de seguridad (REV-07): el sembrado mockup legacy queda deshabilitado
+  /// por defecto para no contaminar el catálogo curricular oficial FIU.
+  static bool legacyMockSeedEnabled = false;
+
+  /// Carga datos mockup a Firestore si la colección /tutoriales está vacía.
+  /// Deprecado en PED-03A (REV-07): se mantiene no-op por defecto para no romper
+  /// llamadas existentes mientras el catálogo oficial reside en curriculum_*.
+  @Deprecated(
+    'Usar el catálogo curricular oficial (CurriculumRepository) y el importador idempotente. '
+    'Deshabilitado por defecto via legacyMockSeedEnabled = false.',
+  )
   Future<void> inicializarTutorialesMockupSiVacia() async {
+    if (!legacyMockSeedEnabled) {
+      debugPrint(
+        '[TutorialesService] inicializarTutorialesMockupSiVacia omitido: '
+        'seed legacy deshabilitado (REV-07).',
+      );
+      return;
+    }
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) {
@@ -331,7 +348,8 @@ class TutorialesService {
     }
   }
 
-  /// Crea o actualiza un tutorial en Firestore
+  /// Crea o actualiza un tutorial en Firestore preservando campos legacy y
+  /// permitiendo asociaciones múltiples opcionales (`movement_ids`).
   Future<void> crearOActualizarTutorial({
     String? id,
     required String titulo,
@@ -345,8 +363,10 @@ class TutorialesService {
     required String imagenUrl,
     String videoUrl = '',
     bool visible = true,
+    List<String>? movementIds,
+    List<String>? curriculumCordaIds,
   }) async {
-    final data = {
+    final Map<String, dynamic> data = {
       'titulo': titulo,
       'categoria': categoria,
       'nivel': nivel,
@@ -358,6 +378,9 @@ class TutorialesService {
       'imagen_url': imagenUrl,
       'video_url': videoUrl,
       'visible': visible,
+      if (movementIds != null) 'movement_ids': movementIds,
+      if (curriculumCordaIds != null)
+        'curriculum_corda_ids': curriculumCordaIds,
     };
 
     if (id != null && id.isNotEmpty) {

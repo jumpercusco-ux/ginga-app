@@ -47,6 +47,7 @@ flutter:
     - assets/images/
     - assets/sounds/
     - assets/videos/
+    - data/curriculum/fiu_adulto_v1.json
 
 flutter_launcher_icons:
   android: "launcher_icon"

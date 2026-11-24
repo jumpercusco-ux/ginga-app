@@ -9,6 +9,32 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
+## [PED-01..PED-03C] — 2026-11-24
+### [PROBADO LOCALMENTE — WORKING TREE SOBRE `main` (`fd891a7`)]
+- **Base Curricular Oficial FIU (`PED-02` / `PED-03A`):**
+  - Consolidación de [data/curriculum/fiu_adulto_v1.json](file:///Users/jumper/ginga_app/data/curriculum/fiu_adulto_v1.json) (`97` movimientos canónicos en Adulto Cordas `1–6`: `94` elegibles IA y `3` excluidos por revisión técnica; `1` bloque compartido `adulto_bloque_05_06`; `12` cordas infantiles en metadata; `21` tutoriales mapeados preservando los `5` videos reales; `26` términos de glosario) y guía de revisión [docs/CURRICULUM_FIU_ADULTO_V1_REVIEW.md](file:///Users/jumper/ginga_app/docs/CURRICULUM_FIU_ADULTO_V1_REVIEW.md).
+  - Modelos tipados y repositorio ([curriculum_models.dart](file:///Users/jumper/ginga_app/lib/core/models/curriculum_models.dart), [curriculum_repository.dart](file:///Users/jumper/ginga_app/lib/core/services/curriculum_repository.dart)), deprecación segura de `TutorialesService.inicializarTutorialesMockupSiVacia` (`legacyMockSeedEnabled = false`), índices ([firestore.indexes.json](file:///Users/jumper/ginga_app/firestore.indexes.json)) y endurecimiento de [firestore.rules](file:///Users/jumper/ginga_app/firestore.rules) para exigir Custom Claims firmados en colecciones `curriculum_*` y prohibir borrado.
+- **Evolución Unificada de la Biblioteca + UX Final (`PED-03B` / `PED-03B-V` / `PED-03B-UX` / `PED-03B-FINAL`):**
+  - Evolución de [biblioteca_screen.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/biblioteca_screen.dart), [curriculo_biblioteca_screen.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/curriculo_biblioteca_screen.dart), [movimiento_detalle_screen.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/movimiento_detalle_screen.dart), [glosario_screen.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/glosario_screen.dart), [biblioteca_user_context.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/widgets/biblioteca_user_context.dart) y rutas en [app_router.dart](file:///Users/jumper/ginga_app/lib/core/router/app_router.dart).
+  - Separación estricta entre `rol` y graduación personal; conservación íntegra de `GingaTheme` claro/oscuro; tarjetas compactas con corda de introducción (`Desde Xª · Nombre`); filtro `Con video (N)` con recuperación `Mostrar todos`; navegación/filtros en `Wrap` sin recortes; dimensiones unificadas de botones; deduplicación visual de alias (`MovimientoDetallePanel.visibleAliasesForDisplay`); y contrato opt-in `CurriculumSelectionContract` + `CurriculumMovementSelectionItem` para `PED-04`.
+  - Preview web aislado sin Firebase de producción en [main_biblioteca_preview.dart](file:///Users/jumper/ginga_app/lib/main_biblioteca_preview.dart) compilado sin Service Worker (`--pwa-strategy=none`) y validado a `945 × 930` y `1440 × 900` en claro y oscuro.
+- **Validación Técnica y Emulator JDK 21 (`PED-03C`):**
+  - Desbloqueo de Java 21 vía `/opt/homebrew/opt/openjdk@21` (`21.0.7`) sin alterar el JDK global del sistema.
+  - Firebase Firestore Emulator (`--project demo-ginga-test`): `test_curriculum_firestore_rules.js` (`7/7 PASS`), `real_agent_harness/test_firestore_rules.js` (`9/9 PASS`) y `test_curriculum_importer.js` (`6/6 PASS`, verificando idempotencia de `164` documentos e integridad exacta de los `21` tutoriales y `5` videos reales).
+  - Offline y Flutter: `validate_curriculum_catalog.js` (`PASS`), `test_curriculum_importer.js` `IN_MEMORY_MOCK` (`6/6 PASS`), `flutter analyze` en los `12` archivos curriculares/preview/test (`No issues found!`) y `flutter test` (**`35/35 All tests passed!`**).
+  - Documentación actualizada de contrato (`docs/CURRICULUM_AI_PLANNER_CONTRACT.md` v1.1.0, requisitos Infantil para `PED-04`) y continuidad (`CURRENT-STATE.md`, `HANDOFF.md`, `DECISIONS.md`, `CHANGELOG.md`).
+
+---
+
+## [fd891a7] (`v1.0.0-feedback-v1`) — 2026-11-12
+### [PUBLICADO EN PRODUCCIÓN / CI/CD] (Rama `main`)
+- **Sincronización y Protección CI/CD ([DEPLOYMENT_AND_CICD.md](file:///Users/jumper/ginga_app/docs/DEPLOYMENT_AND_CICD.md)):**
+  - Integración fast-forward a `main` (`fd891a7`) y publicación del tag `v1.0.0-feedback-v1`.
+  - Eliminación del despliegue automático monolítico en push a `main` y segregación en `ci.yml`, `deploy-web.yml`, `deploy-functions.yml` y `deploy-firestore.yml` con confirmaciones manuales explícitas.
+  - Estado productivo alineado: `whatsappWebhook v69` (Node.js 22), web `https://www.gingaperu.com` con auto-deploy desactivado en Vercel.
+
+---
+
 ## [3058ada] — 2026-10-23
 ### [PUBLICADO EN PRODUCCIÓN] (Cloud Function `whatsappWebhook v67`)
 - **Control de Asistencia en Vivo:** Implementación de resolución de leads y asistencia dentro del chat en `clase_detalle_screen.dart` y `functions/index.js`.

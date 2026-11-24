@@ -59,6 +59,48 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "curriculum_cordas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "track_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "index",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "curriculum_movements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "category_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "canonical_name",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "curriculum_movements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ai_planner_eligible",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "first_introduced_adulto",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

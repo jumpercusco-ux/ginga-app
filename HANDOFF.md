@@ -7,28 +7,27 @@
 ## 1. Estado Inmediato del Proyecto
 
 - **Proyecto:** `/Users/jumper/ginga_app`
-- **Rama Activa:** `fix/real-whatsapp-logic`
-- **Commit Base:** `1197225` (`docs(qa): align test suite counts (P1A 27/27, P0.1 14/14, 123 total) and complete JSDoc inventory`)
-- **Estado de Trabajo:** **RELEASE CANDIDATE CLOSED LOCALLY — PRODUCTION NOT AUTHORIZED**.
-  - Cuarto QA OpenAI real ejecutado (`qa_run_1794446882861_tdvxf6`): **12/12 PASS (100% de éxito)** (11 turnos conversacionales reales evaluados con `gpt-4o-mini` + 1 escenario inducido localmente para validar intercepción del Runtime Guard en 29ms, costo US$0.0087).
-  - Firewall de Red: 1 solicitud a Meta WhatsApp interceptada y bloqueada al 100% (0 egress). 0 operaciones a Firestore productivo durante QA.
-  - Suite de pruebas de backend: **123 de 123 pruebas aprobadas (100% PASS)** y 12/12 escenarios dry-run verificados (135 verificaciones totales).
-  - Auditoría Remota de Solo Lectura (Prompt 49, `capoeirafiu-ea8ljo`):
-    * `whatsappWebhook`: Cloud Functions Gen 1, us-central1, v67, ACTIVE, nodejs20, 256MB, timeout 60s, updateTime `2026-10-23T04:47:06Z`.
-    * Secrets verificados en GCP: `META_VERIFY_TOKEN` (v2), `META_APP_SECRET` (v1), `META_WHATSAPP_TOKEN` (v2), `META_PHONE_NUMBER_ID` (v1), `OPENAI_API_KEY` (v1). Todos presentes, vinculados y habilitados.
-    * `TELEMETRY_SALT`: Ausente en Secret Manager y env vars; opera con fallback efímero sin interrumpir ejecución.
-    * Configuración comercial productiva verificada en Firestore: Sede Urb. Magisterio, Av. de la Cultura E-4 (Edificio Divergym, 3er piso); Kids (M/J 18:00–19:00, 5–12 años, 10 cupos), Adultos (M/J 19:00–20:00, 13–99 años, 3 cupos); Mensualidad S/140. Los datos "Calle Hospital 840" y 17-18h fueron exclusivamente fixtures sintéticos del emulador local.
-    * `config/whatsapp_agent`: Confirmada existencia en Firestore (actualizado 2026-09-07T01:07:59Z); contenido no descargado ni inspeccionado.
-  - Auditoría de CI/CD: `.github/workflows/deploy.yml` despliega masivamente todas las funciones (`--only functions`) ante cualquier push a `main`. Prohibido el despliegue general o push a `main`; se autoriza únicamente el despliegue selectivo de `functions:whatsappWebhook` bajo autorización expresa.
-  - Estrategia de Rollback respaldada: `whatsappWebhook` opera sobre Cloud Functions Gen 1 (sin split de tráfico entre revisiones). Rollback exige re-despliegue selectivo vía `git worktree` aislado (`/private/tmp/ginga_rollback_baseline`) sobre el tag `pre-live-original-2026-10-27` (commit `3058ada`, RTO estimado 2 a 5 minutos, sin garantía de equivalencia binaria estricta con `v67`).
-  - Procedimiento de Smoke Test controlado: derivado de horarios y días reales de Magisterio (martes y jueves), ejecutado únicamente desde contacto interno autorizado.
-- **Producción:** Google Cloud Function `whatsappWebhook v67` (asociada a `main` en commit `3058ada`, proyecto `capoeirafiu-ea8ljo`). **Producción NO ha sido tocada.**
+- **Rama Activa:** `main` (HEAD `fd891a7`, tag `v1.0.0-feedback-v1`) con trabajo local pendiente de respaldo para **PED-01 a PED-03C** (sin commits ni push todavía).
+- **Frente Pedagógico Activo (`PED-01..PED-03C`):** **VALIDADO LOCALMENTE Y CERRADO PARA RESPALDO GIT.**
+  - Catálogo curricular consolidado [data/curriculum/fiu_adulto_v1.json](file:///Users/jumper/ginga_app/data/curriculum/fiu_adulto_v1.json) (`97` movimientos canónicos Adulto Cordas `1–6`, `94` elegibles IA, `3` pendientes de revisión técnica, `1` bloque compartido `adulto_bloque_05_06`, `12` cordas infantiles en metadata, `21` tutoriales con `5` videos reales y `26` términos de glosario).
+  - Biblioteca Curricular unificada (Alumnos + Profesores) en Flutter con soporte adaptable `GingaTheme` claro/oscuro, separación estricta entre rol y graduación personal, preview web aislado en [lib/main_biblioteca_preview.dart](file:///Users/jumper/ginga_app/lib/main_biblioteca_preview.dart) y contrato opt-in `CurriculumSelectionContract` listo para `PED-04`.
+  - Bloqueo de **Java 21 resuelto** vía `/opt/homebrew/opt/openjdk@21` sin alterar el JDK global del sistema: Firebase Firestore Emulator (`--project demo-ginga-test`) superado al 100% en reglas curriculares (`7/7 PASS`), reglas generales (`9/9 PASS`) e importador idempotente (`6/6 PASS`, preservando los `21` tutoriales y `5` videos reales).
+  - Suite Flutter completa: `35/35 All tests passed!` y `flutter analyze` limpio (`No issues found!`) en los 12 archivos curriculares/preview/test.
+- **Producción Intacta:** `whatsappWebhook v69` (Node.js 22), web `https://www.gingaperu.com` (Vercel desconectado de auto-deploy), proyecto Firebase `capoeirafiu-ea8ljo`. **No se ha escrito en Firestore productivo ni desplegado.**
 
 ---
 
 ## 2. Qué se Acaba de Terminar
 
-1. **Implementación y Cierre de Seguridad P1A (Runtime Guard y Telemetría Zero PII):**
+### A. Frente Pedagógico — Biblioteca Curricular FIU (`PED-01` a `PED-03C`)
+1. **PED-01 / PED-02:** Auditoría pedagógica e inventario de los `21` tutoriales existentes (`5` videos reales) y extracción visual/estructural desde `scratch/apostila.pdf` hacia [data/curriculum/fiu_adulto_v1.json](file:///Users/jumper/ginga_app/data/curriculum/fiu_adulto_v1.json) y [docs/CURRICULUM_FIU_ADULTO_V1_REVIEW.md](file:///Users/jumper/ginga_app/docs/CURRICULUM_FIU_ADULTO_V1_REVIEW.md).
+2. **PED-03A:** Implementación de modelos tipados (`curriculum_models.dart`), repositorio offline/Firestore (`curriculum_repository.dart`), deprecación segura del seed mockup (`TutorialesService.legacyMockSeedEnabled = false`), endurecimiento de [firestore.rules](file:///Users/jumper/ginga_app/firestore.rules) (Custom Claims firmados + bloqueo de borrado y auto-elevación), importador idempotente (`import_curriculum_to_firestore.js`) y contrato IA (`docs/CURRICULUM_AI_PLANNER_CONTRACT.md`).
+3. **PED-03B / PED-03B-V / PED-03B-UX / PED-03B-FINAL:** Evolución unificada de [biblioteca_screen.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/biblioteca_screen.dart), [curriculo_biblioteca_screen.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/curriculo_biblioteca_screen.dart), [movimiento_detalle_screen.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/movimiento_detalle_screen.dart) y [biblioteca_user_context.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/widgets/biblioteca_user_context.dart), conservando `GingaTheme` adaptable claro/oscuro, compactando tarjetas con corda de introducción, agregando filtro `Con video`, eliminando alias visualmente duplicados, y preparando `CurriculumSelectionContract` para `PED-04`.
+4. **PED-03C:** Desbloqueo de Firestore Emulator con JDK 21 (`demo-ginga-test`), aislamiento de estado entre suites en [test_curriculum_importer.js](file:///Users/jumper/ginga_app/scripts/test_curriculum_importer.js), verificación explícita de los `21` tutoriales y `5` videos reales, actualización documental integral y propuesta de respaldo Git.
+
+### B. Histórico Consolidado — Agente WhatsApp y CI/CD (`v1.0.0-feedback-v1`)
+1. **Sincronización y CI/CD (`fd891a7`):** Eliminado el trigger masivo de `.github/workflows/deploy.yml`; flujos separados en `ci.yml`, `deploy-web.yml`, `deploy-functions.yml` y `deploy-firestore.yml` con despliegues manuales confirmados.
+2. **Implementación y Cierre de Seguridad P1A (Runtime Guard y Telemetría Zero PII):**
    - **Runtime Guard Determinista en `functions/index.js`:**
      - Inspección obligatoria post-generación en `preguntarIA` antes del envío de mensajes a WhatsApp o al cliente.
      - Detección semántica de afirmaciones de mutación (`booking`, `reschedule`, `cancellation`).
@@ -48,79 +47,51 @@
      - `lead_hash` mediante HMAC-SHA256 con salt secreto (`TELEMETRY_SALT`), mitigando desanonimización de teléfonos por tablas rainbow.
      - Ofuscación de nombres de menores a `persona_ref` (`p_` + HMAC hex) y exclusión de textos de usuarios.
      - Buffer en memoria volátil `TELEMETRY_BUFFER` acotado a 100 eventos.
-   - **Resultados de Suites de Pruebas:**
-     - `test_p1a_runtime_guard.js`: **27 de 27 pruebas aprobadas (100% PASS)**.
-     - `test_p01_recognition.js`: 14 de 14 pruebas aprobadas (100% PASS).
-     - `test_p02a_rescheduling.js`: 22 de 22 pruebas aprobadas (100% PASS).
-     - `test_p02b_family_identity.js`: 10 de 10 pruebas aprobadas (100% PASS).
-     - `suite_runner.js`: **9 de 9 escenarios OK (0 defectos baseline restantes)**. Caso 8 de falsa confirmación quedó definitivamente resuelto.
-     - **Total acumulado:** **82 de 82 pruebas aprobadas (100% PASS)**.
 
 ---
 
 ## 3. Comandos Esenciales de Ejecución y Pruebas
 
 ```bash
-# 1. Iniciar o reiniciar el servidor visual de pruebas en segundo plano (puerto 3333)
-node real_agent_harness/server.js
+# 1. Validar catálogo curricular FIU
+node scripts/validate_curriculum_catalog.js
 
-# 2. Ejecutar la suite de Runtime Guard y Telemetría P1A (16 pruebas)
+# 2. Importador idempotente en modo in-memory
+node scripts/test_curriculum_importer.js
+
+# 3. Suites reales en Firebase Firestore Emulator con Java 21 (solo demo-ginga-test)
+PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" JAVA_HOME="/opt/homebrew/opt/openjdk@21" firebase emulators:exec --only firestore --project demo-ginga-test "node scripts/test_curriculum_firestore_rules.js && node real_agent_harness/test_firestore_rules.js && node scripts/test_curriculum_importer.js"
+
+# 4. Análisis estático y suite completa Flutter (35 pruebas)
+/Users/jumper/development/flutter/bin/flutter analyze lib/core/models/curriculum_models.dart lib/core/services/curriculum_repository.dart lib/core/services/tutoriales_service.dart lib/core/router/app_router.dart lib/features/biblioteca/biblioteca_screen.dart lib/features/biblioteca/curriculo_biblioteca_screen.dart lib/features/biblioteca/movimiento_detalle_screen.dart lib/features/biblioteca/widgets/biblioteca_user_context.dart lib/main_biblioteca_preview.dart test/curriculum_fiu_unit_test.dart test/biblioteca_curriculo_widget_test.dart test/ped03b_screenshot_capture_test.dart
+/Users/jumper/development/flutter/bin/flutter test
+
+# 5. Compilar preview web aislado (sin Firebase de producción)
+/Users/jumper/development/flutter/bin/flutter build web --release --pwa-strategy=none -t lib/main_biblioteca_preview.dart -o /tmp/ginga_ped03b_preview
+
+# 6. Suites del agente WhatsApp (referencia)
 node real_agent_harness/test_p1a_runtime_guard.js
-
-# 3. Ejecutar la suite de identidad familiar P0.2B (10 pruebas)
-node real_agent_harness/test_p02b_family_identity.js
-
-# 4. Ejecutar la suite de reprogramación P0.2A (22 pruebas)
-node real_agent_harness/test_p02a_rescheduling.js
-
-# 5. Ejecutar la suite de reconocimiento P0.1 (14 pruebas)
-node real_agent_harness/test_p01_recognition.js
-
-# 6. Ejecutar la suite de línea base (9 escenarios de auditoría)
-node real_agent_harness/suite_runner.js
-
-# 7. Ejecutar la suite de regresiones QA (18 pruebas Casos 2, 9 y 11, persistencia y tests negativos)
 node real_agent_harness/test_qa_regressions.js
-
-# 8. Ejecutar la suite real de Firestore Emulator (Java 21, puerto 8080)
-PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" JAVA_HOME="/opt/homebrew/opt/openjdk@21" firebase emulators:exec --only firestore "node real_agent_harness/test_emulator_integration.js" --project demo-ginga-test
-
-# 9. Ejecutar el QA Runner aislado (Dry-Run offline con Firestore Emulator)
-PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" JAVA_HOME="/opt/homebrew/opt/openjdk@21" firebase emulators:exec --only firestore "node real_agent_harness/qa_openai_runner.js" --project demo-ginga-test
-
-# 10. Verificar integridad de git
-git status
-git diff functions/index.js
 ```
 
 ---
 
 ## 4. Qué Sigue Exactamente (Siguiente Tarea)
 
-1. **Aprobación de Release Readiness:**
-   - El gate de QA real OpenAI ha sido superado al 100% (12/12 PASS, $0.0087 USD, commit `1197225`).
-   - El plan de lanzamiento selectivo está listo para autorización por parte del usuario.
-2. **Procedimiento de Despliegue Selectivo (Bajo Autorización Expresa):**
-   - Asegurar que NO se ejecute `git push` a `main` para evitar que `.github/workflows/deploy.yml` despliegue las 10 Cloud Functions.
-   - Desplegar quirúrgicamente únicamente el webhook de WhatsApp:
-     ```bash
-     firebase deploy --only functions:whatsappWebhook --project capoeirafiu-ea8ljo
-     ```
-3. **Ejecución de Smoke Test Controlado:**
-   - Enviar mensajes de prueba desde contacto interno autorizado en Meta Business Suite (nunca leads reales).
-   - Validar flujos con días reales (martes y jueves) y la sede/horario que devuelva la consulta dinámica a Firestore (evitando discrepancias estáticas entre Magisterio y Hospital).
-   - Distinguir éxito, intercepción protectora legítima del Runtime Guard y fallas críticas.
-   - En caso de fallo crítico en producción, ejecutar reversión mediante re-despliegue en worktree aislado desde el tag `pre-live-original-2026-10-27` (commit `3058ada`).
+1. **Aprobación del propietario para respaldo Git (`PED-03C`):**
+   - Revisar el inventario de archivos propuesto y aprobar la creación de la rama dedicada (p. ej. `feat/ped03-biblioteca-curricular`) y su commit de respaldo, excluyendo binarios `demo/assets/backup/*.mp4`, `PRE_LIVE_BASELINE.md` y archivos temporales.
+2. **Inicio de `PED-04` (Planificador Pedagógico IA y Pizarra):**
+   - Evolucionar `generarPlanClaseIA` e `InstructorPizarraScreen` consumiendo `CurriculumRepository.buildAiPlannerCurriculumPayload(...)` y el selector opt-in `CurriculumSelectionContract` documentado en [CURRICULUM_AI_PLANNER_CONTRACT.md](file:///Users/jumper/ginga_app/docs/CURRICULUM_AI_PLANNER_CONTRACT.md).
+   - Evaluar autorización explícita previa antes de cualquier importación de `curriculum_*` o despliegue de `firestore.rules` / `firestore.indexes.json` hacia `capoeirafiu-ea8ljo`.
 
 ---
 
 ## 5. Qué NO se Debe Modificar
 
-- **NO modificar `main` ni `stabilization/pre-live-2026-10-28`:** Son ramas de referencia congeladas.
-- **NO modificar la carpeta `demo/`:** Pertenece exclusivamente a la demo visual de TikTok LIVE.
-- **NO eliminar `PRE_LIVE_BASELINE.md`:** Archivo de auditoría pre-LIVE preservado como untracked.
-- **NO hacer push ni deploy a Firebase/GCP:** Todo el trabajo se mantiene 100% local en `fix/real-whatsapp-logic` hasta la aprobación final.
-- **NO llamar a APIs reales con costo:** Usar siempre los adaptadores del harness local.
+- **NO escribir en Firestore de producción ni ejecutar despliegues** sin autorización expresa (y mucho menos `--only functions`).
+- **NO modificar `functions/index.js` ni lógica de WhatsApp** fuera de un alcance explícitamente autorizado.
+- **NO modificar `lib/core/theme/ginga_theme.dart`** ni la paleta global aprobada sin revisión.
+- **NO mezclar archivos de `demo/assets/backup/*.mp4` o credenciales** dentro del commit curricular de `PED-03`.
 
 ---
 

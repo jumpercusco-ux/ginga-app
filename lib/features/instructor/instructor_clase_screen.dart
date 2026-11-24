@@ -577,21 +577,43 @@ class _InstructorDashboard extends StatelessWidget {
                                 color: _kTextoSecundarioOscuro,
                                 height: 1.4)),
                         const SizedBox(height: 12),
-                        ElevatedButton(
-                          onPressed: () => context.push('/instructor-tutoriales'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: GingaColors.brandGreen,
-                            minimumSize: const Size(0, 36),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(GingaRadius.md),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () => context.push('/instructor-tutoriales'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: GingaColors.brandGreen,
+                                minimumSize: const Size(0, 36),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              ),
+                              child: Text('Gestionar Tutoriales',
+                                  style: GoogleFonts.montserrat(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white)),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          ),
-                          child: Text('Gestionar Tutoriales',
-                              style: GoogleFonts.montserrat(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white)),
+                            OutlinedButton(
+                              onPressed: () => context.push('/biblioteca'),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: GingaColors.brandGreen),
+                                minimumSize: const Size(0, 36),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              ),
+                              child: Text('Biblioteca Curricular',
+                                  style: GoogleFonts.montserrat(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: GingaColors.brandGreen)),
+                            ),
+                          ],
                         ),
                       ],
                     ),

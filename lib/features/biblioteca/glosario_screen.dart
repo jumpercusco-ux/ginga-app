@@ -21,6 +21,35 @@ class GlosarioTermino {
 class GlosarioScreen extends StatefulWidget {
   const GlosarioScreen({super.key});
 
+  /// Catálogo oficial del glosario FIU expuesto para reutilización en la biblioteca unificada.
+  static const List<GlosarioTermino> terminosOficiales = _GlosarioScreenState._terminos;
+
+  /// Busca un término en el glosario oficial ignorando mayúsculas, espacios extremos y guiones simples.
+  static GlosarioTermino? buscarPorTermino(String termino) {
+    final norm = _normalizar(termino);
+    if (norm.isEmpty) return null;
+    for (final item in terminosOficiales) {
+      if (_normalizar(item.termino) == norm) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  static String _normalizar(String texto) {
+    return texto
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('ã', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('-', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
   @override
   State<GlosarioScreen> createState() => _GlosarioScreenState();
 }

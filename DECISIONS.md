@@ -200,5 +200,35 @@ Cada decisión se clasifica estrictamente en uno de tres estados:
      - La versión activa en GCP es `v67` (actualizada el 23 de octubre de 2026).
      - El worktree de contingencia `/private/tmp/ginga_rollback_baseline` está configurado sobre el commit `3058ada` (tag `pre-live-original-2026-10-27`). No se asume equivalencia binaria estricta entre este commit y el artefacto ZIP desplegado en `v67`, pero constituye el respaldo de código fuente más fiel disponible para un eventual re-despliegue de recuperación.
 
+---
+
+### 19. Biblioteca Curricular Unificada FIU y Separación Estricta de Rol vs. Graduación (`PED-01..PED-03B`)
+- **Estado:** `[APROBADA]`
+- **Contexto:** El propietario (también practicante de capoeira) necesita consultar su propia graduación y las anteriores usando la misma base técnica que sus alumnos, sin duplicar librerías y preparando el terreno para `PED-04`.
+- **Decisión:**
+  1. **Una sola Biblioteca evolutiva:** Evolucionar `BibliotecaScreen` incorporando el Centro Curricular Oficial FIU (`CurriculoBibliotecaScreen` + `MovimientoDetalleScreen` / `MovimientoDetallePanel`), conservando los 6 módulos clásicos (`Música`, `Tutoriales`, `Cultura`, `Glosario`, `Sistema de Graduaciones`, `Nuestros Mestres`), los `21` tutoriales vivos y los `5` videos reales sin destruir permisos heredados.
+  2. **Separación de Tracks y Bloques Compartidos:** Mantener separados `adulto` (`adulto_corda_01..17`) e `infantil` (`infantil_corda_01..12`), compartiendo el catálogo canónico `curriculum_movements` y preservando bloques oficiales como `adulto_bloque_05_06` (evaluación diferenciada para Corda 5 y Corda 6).
+  3. **Desacoplamiento estricto Rol vs. Graduación Personal:** `BibliotecaUserContext` resuelve `isTeacher` y `canBypassTutorialLock` únicamente desde `rol` (`profesor`, `instructor`, `admin`), mientras `cordaFIU` / `adultCordaIndex` regulan únicamente la visualización del repertorio personal.
+  4. **Control de elegibilidad IA y deduplicación visual no destructiva:** Excluir entradas pendientes (`desequilibrante`, `espelho_cruz`, `au_chibata_pulado`) y equivalencias no confirmadas del futuro planificador IA; deduplicar únicamente en vista (`MovimientoDetallePanel.visibleAliasesForDisplay`) los alias idénticos al nombre canónico sin alterar `data/curriculum/fiu_adulto_v1.json`.
+
+---
+
+### 20. Seguridad de Colecciones Curriculares por Custom Claims e Importador Idempotente (`PED-03A/03C`)
+- **Estado:** `[APROBADA]`
+- **Contexto:** Al auditar `firestore.rules`, se observó que `match /users/{userId}` permite escritura autenticada, lo cual convertiría en vector de auto-elevación cualquier regla que dependiera de `users/{uid}.data.rol == 'admin'`.
+- **Decisión:**
+  1. **Autorización basada exclusivamente en Custom Claims:** `isCurriculumAdmin()` en `firestore.rules` exige `request.auth.token.admin == true || request.auth.token.curriculum_admin == true`; además, se prohíbe `delete` en todas las colecciones `curriculum_*` incluso para administradores.
+  2. **Protección anti-escritura en producción e idempotencia:** `scripts/import_curriculum_to_firestore.js` opera en modo `dryRun` por defecto, exige `FIRESTORE_EMULATOR_HOST` o confirmación explícita (`--allow-live-write --confirm-production`), aplica hashes `content_hash` para idempotencia al 100% y sincroniza referencias hacia `/tutoriales` de forma estrictamente aditiva preservando `video_url` y campos legacy.
+  3. **Deprecación segura del seed mockup:** `TutorialesService.legacyMockSeedEnabled = false` deshabilita escrituras mockup desde el cliente manteniendo compatibilidad de compilación con `InstructorClaseScreen`.
+
+---
+
+### 21. Conservación de `GingaTheme` Adaptable y Contrato Opt-In `CurriculumSelectionContract` (`PED-03B-UX/FINAL`)
+- **Estado:** `[APROBADA]`
+- **Contexto:** Tras detectar mezcla de modo claro/oscuro en el preview aislado cuando `ThemeManager.instance` no estaba sincronizado con `MaterialApp`, se evaluó adoptar la paleta fija negra de `InstructorClaseScreen` o conservar `GingaTheme`.
+- **Decisión:**
+  1. **Mantener `GingaTheme` adaptable claro/oscuro:** Se conserva intacto `lib/core/theme/ginga_theme.dart`; el preview (`main_biblioteca_preview.dart`) sincroniza `ThemeManager.instance` igual que `main.dart`, y las pantallas de Biblioteca blindan colores y dimensiones de botones leyendo `Theme.of(context).brightness` con acentos legibles en oscuro (`#66BB6A` sobre `surfaceDark`).
+  2. **Contrato de selección sin IA para `PED-04`:** Se define el contrato opt-in `CurriculumSelectionContract` + `CurriculumMovementSelectionItem` en `lib/core/models/curriculum_models.dart`, conectando tarjetas y fichas de movimiento para selección manual en futuras pantallas del planificador mientras se mantiene bloqueada la selección automática de movimientos en revisión técnica.
+
 
 
