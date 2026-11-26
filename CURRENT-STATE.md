@@ -3,10 +3,10 @@
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-26  
 > **Rama Actual:** `feat/ped03-biblioteca-curricular` (base `main` `fd891a7` intacta; sin merge ni despliegue)  
-> **Commits de Respaldo PED-03 / PED-04:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · `93ee84b` (cierre PED-04B1) · `62bb7f8` (cierre `PED-04B2` / `PED-04B2-UX`) · cierre `PED-04C1` en `feat/ped03-biblioteca-curricular`  
-> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** 🔄 En verificación de cierre `PED-04C1` (previo `62bb7f8` en `success`: `Flutter Web & Unit Tests` + `Node.js 22 & Agent Quality Benchmark`)  
+> **Commits de Respaldo PED-03 / PED-04:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · `93ee84b` (cierre PED-04B1) · `62bb7f8` (cierre `PED-04B2` / `PED-04B2-UX`) · `a966b6c` (cierre `PED-04C1`) · `2b68974` (`PED-04C2-B`: motor pedagógico offline y benchmark) · cierre `PED-04C2-C` pendiente de commit en `feat/ped03-biblioteca-curricular`  
+> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** ✅ `2b68974` en `success` ([run #45874926380](https://github.com/jumpercusco-ux/ginga-app/actions/runs/45874926380): `Flutter Web & Unit Tests` + `Node.js 22 & Agent Quality Benchmark`); actualización `PED-04C2-C` lista para respaldo y verificación CI  
 > **Producción Intacta:** `whatsappWebhook v69` (Cloud Functions Gen 1, Node.js 22), web `https://www.gingaperu.com`, proyecto `capoeirafiu-ea8ljo`  
-> **Estado Actual:** **PED-04C2-B IMPLEMENTADO Y PROBADO OFFLINE EN `feat/ped03-biblioteca-curricular` (MOTOR `functions/planner_v2/`, PROVEEDOR REAL DESHABILITADO, PREVIEW `8097` INTACTO)**
+> **Estado Actual:** **PED-04C2-C INTEGRADO Y VERIFICADO OFFLINE EN `feat/ped03-biblioteca-curricular` (`HttpLocalPlannerV2Client` -> `planner_v2_local_server.js`, PROVEEDOR REAL DESHABILITADO, PREVIEW `8097` ACTIVO)**
 
 ---
 
@@ -545,6 +545,19 @@ flowchart TD
   - Validación estructural (20 escenarios Golden): `20/20 PASS` (incluye desglose de tiempos internos, ejercicios breves infantiles, progresiones previas independientes, bloqueo de inversiones sin condiciones, `cancionero_reference` sin IDs inventados).
   - Evaluación pedagógica heurística offline: promedio `93.9/100` calculado exclusivamente sobre `17` planes generados (`3` escenarios de error esperado excluidos; no equivale a evaluación humana ni LLM real).
   - Evaluación pedagógica humana en tatami y calidad del proveedor LLM real: **explícitamente pendientes**.
+
+### 10.5. Integración del Motor V2 en Flutter y Transporte Local Aislado (`PED-04C2-C`)
+
+- **Contratos y Cliente (`class_plan_models.dart`, `planner_v2_engine_client.dart`):**
+  - `PlannerSpaceContext` (`spaceSize`, `floorType`, `availableMats`, `instructorsAvailable`), `PlannerSongReference` (`cantiga_id: null`), `PlannerGenerationMeta`, `activityAuthoring` y `sourceOrigins`. `ClassPlanDraftRequest.fromGroup` deja materiales y condiciones del espacio sin asumir cuando el instructor no los confirma.
+  - `HttpLocalPlannerV2Client` conecta Creación Rápida, Creación Avanzada, `PlannerHubBody`, Editor V2 y Preview con `scripts/planner_v2_local_server.js` (`/api/planner-v2/health`, `/api/planner-v2/generate`), reintento automático único sobre errores transitorios preservando `request_id`, preservación íntegra de formulario en caso de error y apertura automática en `PlannerClassEditorView` con banner de modo simulado offline (`0` escrituras en Firestore productivo y `0` llamadas IA de pago).
+- **Servidor Preview Seguro y Guía `PED-04C2-D` (`scripts/planner_v2_local_server.js`, `docs/PED04C2D_PREPARATION_AND_TABLET_PREVIEW.md`):**
+  - Enlace `127.0.0.1:8097` sin `/flutter_service_worker.js` (`404`) y con bloqueo obligatorio `--token <PIN>` en LAN no-loopback (`401 PREVIEW_TOKEN_REQUIRED`).
+  - Selector directo en [main_planificador_preview.dart](file:///Users/jumper/ginga_app/lib/main_planificador_preview.dart) para `Infantil M/J 18:00` y `Adultos M/J 19:00`.
+- **Validación Técnica (`PED-04C2-C`):**
+  - `flutter analyze` (`No issues found!`), `flutter test` (**`73/73 All tests passed!`** con [planificador_v2_integration_test.dart](file:///Users/jumper/ginga_app/test/planificador_v2_integration_test.dart)).
+  - Suites Node: `validate_curriculum_catalog.js` (`PASS`), `verify_planner_v2_catalog_sync.js` (`PASS`), `test_curriculum_importer.js` (`6/6`), `test_reservation_date_semantics.js` (`8/8`), `test_agent_evaluations.js` (`9/9`), `test_planner_v2_quality.js` (`6/6 + 20/20`), `test_planner_v2_local_server_e2e.js` (`PASS`).
+  - Endpoints vivos verificados en `http://127.0.0.1:8097/` (`SW 404`, `health: simulated_offline`, `generate` HTTP `200` para `Infantil M/J 18:00` y `Adultos M/J 19:00`).
 
 ---
 

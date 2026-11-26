@@ -18,6 +18,9 @@ class PlannerQuickCreateView extends StatefulWidget {
   final CurriculumRepository? curriculumRepository;
   final ClassPlanDraftRequest initialRequest;
   final ValueChanged<ClassPlanDraftRequest> onCreateLocalDraft;
+  final Future<void> Function(ClassPlanDraftRequest)? onGenerateWithEngine;
+  final bool isGenerating;
+  final String? generationError;
   final ValueChanged<ClassPlanDraftRequest> onSwitchToAdvanced;
   final VoidCallback onCancel;
 
@@ -29,6 +32,9 @@ class PlannerQuickCreateView extends StatefulWidget {
     this.curriculumRepository,
     required this.initialRequest,
     required this.onCreateLocalDraft,
+    this.onGenerateWithEngine,
+    this.isGenerating = false,
+    this.generationError,
     required this.onSwitchToAdvanced,
     required this.onCancel,
   });
@@ -96,6 +102,9 @@ class _PlannerQuickCreateViewState extends State<PlannerQuickCreateView> {
             ? _request.selectedMovements
             : const [],
         selectedResources: _request.selectedResources,
+        spaceContext: _request.spaceContext,
+        materials: _request.materials,
+        materialsConfirmed: _request.materialsConfirmed,
         continuityContext: nextContext,
         continuitySummary: nextSummary,
         clearContinuity: nextContext == null && nextSummary == null,
@@ -237,10 +246,24 @@ class _PlannerQuickCreateViewState extends State<PlannerQuickCreateView> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      PlannerBadge(
-                        label: 'Modalidad rápida',
-                        color: pal.accent,
-                        icon: Icons.flash_on_rounded,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          PlannerBadge(
+                            label: 'Modalidad rápida',
+                            color: pal.accent,
+                            icon: Icons.flash_on_rounded,
+                          ),
+                          if (widget.onGenerateWithEngine != null)
+                            PlannerBadge(
+                              key: const Key('quick_simulated_mode_badge'),
+                              label: 'Motor V2 · Modo simulado offline',
+                              color: pal.infoBlue,
+                              backgroundColor: pal.infoBlueBg,
+                              icon: Icons.auto_awesome_outlined,
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -348,14 +371,20 @@ class _PlannerQuickCreateViewState extends State<PlannerQuickCreateView> {
                           label: '${_request.ageMin}–${_request.ageMax} años',
                           color: pal.textSecondary,
                         ),
-                        PlannerBadge(
-                          label: _request.curriculumScope.teacherLabel,
-                          color: _request.curriculumScope ==
-                                  PlannerCurriculumScope.adultoFiu
-                              ? pal.accent
-                              : pal.amber,
-                        ),
-                      ],
+                      PlannerBadge(
+                        label: _request.curriculumScope.teacherLabel,
+                        color: _request.curriculumScope ==
+                                PlannerCurriculumScope.adultoFiu
+                            ? pal.accent
+                            : pal.amber,
+                      ),
+                      PlannerBadge(
+                        label: _request.spaceContext.isConfirmed
+                            ? 'Espacio: ${_request.spaceContext.spaceSize} · ${_request.spaceContext.floorType} · ${_request.spaceContext.instructorsAvailable} instr.'
+                            : 'Espacio/materiales sin confirmar (${_request.spaceContext.instructorsAvailable} instr.)',
+                        color: pal.textSecondary,
+                      ),
+                    ],
                     ),
                     if (_request.audienceType == PlannerAudienceType.mixto) ...[
                       const SizedBox(height: 10),
@@ -597,7 +626,20 @@ class _PlannerQuickCreateViewState extends State<PlannerQuickCreateView> {
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
+              if (widget.generationError != null &&
+                  widget.generationError!.trim().isNotEmpty) ...[
+                PlannerNoticeBanner(
+                  key: const Key('quick_generation_error_banner'),
+                  title: 'No se pudo generar la propuesta (tu formulario sigue intacto)',
+                  message: widget.generationError!,
+                  icon: Icons.error_outline,
+                  color: Colors.redAccent,
+                  backgroundColor: Colors.redAccent.withValues(alpha: 0.12),
+                ),
+                const SizedBox(height: 12),
+              ],
+              const SizedBox(height: 4),
 
               // Barra final de acciones
               Wrap(
@@ -606,7 +648,7 @@ class _PlannerQuickCreateViewState extends State<PlannerQuickCreateView> {
                 alignment: WrapAlignment.spaceBetween,
                 children: [
                   TextButton(
-                    onPressed: widget.onCancel,
+                    onPressed: widget.isGenerating ? null : widget.onCancel,
                     style: TextButton.styleFrom(
                       minimumSize: const Size(0, 44),
                       foregroundColor: pal.textSecondary,
@@ -622,8 +664,9 @@ class _PlannerQuickCreateViewState extends State<PlannerQuickCreateView> {
                     runSpacing: 10,
                     children: [
                       OutlinedButton.icon(
-                        onPressed: () =>
-                            widget.onSwitchToAdvanced(_currentRequest()),
+                        onPressed: widget.isGenerating
+                            ? null
+                            : () => widget.onSwitchToAdvanced(_currentRequest()),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 46),
                           side: BorderSide(color: pal.accent),
@@ -636,23 +679,57 @@ class _PlannerQuickCreateViewState extends State<PlannerQuickCreateView> {
                               fontSize: 12.5, fontWeight: FontWeight.w700),
                         ),
                       ),
-                      ElevatedButton.icon(
+                      OutlinedButton.icon(
                         key: const Key('quick_create_draft_button'),
-                        onPressed: () =>
-                            widget.onCreateLocalDraft(_currentRequest()),
-                        style: ElevatedButton.styleFrom(
+                        onPressed: widget.isGenerating
+                            ? null
+                            : () => widget.onCreateLocalDraft(_currentRequest()),
+                        style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 46),
-                          backgroundColor: pal.accent,
-                          foregroundColor: pal.onAccent,
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                          side: BorderSide(color: pal.border),
+                          foregroundColor: pal.textPrimary,
                         ),
-                        icon: const Icon(Icons.check_circle_outline, size: 18),
+                        icon: const Icon(Icons.edit_note, size: 18),
                         label: Text(
-                          'Crear borrador',
+                          'Borrador manual',
                           style: GoogleFonts.montserrat(
-                              fontSize: 13, fontWeight: FontWeight.w700),
+                              fontSize: 12.5, fontWeight: FontWeight.w700),
                         ),
                       ),
+                      if (widget.onGenerateWithEngine != null)
+                        ElevatedButton.icon(
+                          key: const Key('quick_generate_v2_button'),
+                          onPressed: widget.isGenerating
+                              ? null
+                              : () => widget.onGenerateWithEngine!(
+                                    _currentRequest(),
+                                  ),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(0, 46),
+                            backgroundColor: pal.accent,
+                            foregroundColor: pal.onAccent,
+                            padding: const EdgeInsets.symmetric(horizontal: 18),
+                          ),
+                          icon: widget.isGenerating
+                              ? SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: pal.onAccent,
+                                  ),
+                                )
+                              : const Icon(Icons.auto_awesome, size: 18),
+                          label: Text(
+                            widget.isGenerating
+                                ? 'Generando propuesta...'
+                                : (widget.generationError != null
+                                    ? 'Reintentar generación'
+                                    : 'Generar propuesta'),
+                            style: GoogleFonts.montserrat(
+                                fontSize: 13, fontWeight: FontWeight.w700),
+                          ),
+                        ),
                     ],
                   ),
                 ],

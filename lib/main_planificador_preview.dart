@@ -8,6 +8,7 @@ import 'features/biblioteca/widgets/biblioteca_user_context.dart';
 import 'features/instructor/instructor_pizarra_screen.dart';
 import 'features/instructor/planificador/models/class_plan_models.dart';
 import 'features/instructor/planificador/services/planner_data_source.dart';
+import 'features/instructor/planificador/services/planner_v2_engine_client.dart';
 
 /// Entrypoint local aislado para PED-04B1 (Planificador Pedagógico GINGA V2).
 ///
@@ -22,6 +23,8 @@ enum PlannerPreviewScenario {
   hubPlans('Hub · Mis Planes'),
   hubResources('Hub · Pizarra'),
   hubHistory('Hub · Historial'),
+  infantilMj18('Infantil M/J 18:00'),
+  adultosMj19('Adultos M/J 19:00'),
   quickCreate('Creación Rápida'),
   advancedCreate('Creación Avanzada'),
   editorV2('Editor · Clase V2'),
@@ -236,7 +239,14 @@ class _PlanificadorPreviewAppState extends State<PlanificadorPreviewApp> {
     };
     final initialMode = switch (_scenario) {
       PlannerPreviewScenario.quickCreate => PlannerCreationMode.quick,
+      PlannerPreviewScenario.infantilMj18 => PlannerCreationMode.quick,
+      PlannerPreviewScenario.adultosMj19 => PlannerCreationMode.quick,
       PlannerPreviewScenario.advancedCreate => PlannerCreationMode.advanced,
+      _ => null,
+    };
+    final initialGroupIdForCreation = switch (_scenario) {
+      PlannerPreviewScenario.infantilMj18 => 'clase_kids_mj_1800',
+      PlannerPreviewScenario.adultosMj19 => 'clase_adultos_mj_1900',
       _ => null,
     };
     final initialEditingPlanId =
@@ -246,14 +256,18 @@ class _PlanificadorPreviewAppState extends State<PlanificadorPreviewApp> {
     final initialCreateManual =
         _scenario == PlannerPreviewScenario.editorManual;
 
+    final previewToken = Uri.base.queryParameters['token'];
+
     final content = Navigator(
       key: ValueKey('planner_preview_nav_$_resetNonce'),
       onGenerateRoute: (_) => MaterialPageRoute(
         builder: (navCtx) => InstructorPizarraScreen(
           dataSource: _plannerDataSource,
           curriculumRepository: _curriculumRepository,
+          engineClient: HttpLocalPlannerV2Client(previewToken: previewToken),
           initialTab: initialTab,
           initialCreationMode: initialMode,
+          initialGroupIdForCreation: initialGroupIdForCreation,
           initialEditingPlanId: initialEditingPlanId,
           initialLivePlanId: initialLivePlanId,
           initialCreateManual: initialCreateManual,

@@ -677,6 +677,23 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
           ),
           const SizedBox(height: 14),
         ],
+        if (_plan.generationMeta != null) ...[
+          PlannerNoticeBanner(
+            key: const Key('editor_generated_mode_banner'),
+            title: _plan.generationMeta!.isSimulated
+                ? 'Propuesta generada · Modo simulado offline (Motor V2)'
+                : 'Propuesta generada por Motor V2 (${_plan.generationMeta!.model})',
+            message: [
+              ..._plan.generationMeta!.transparencyNotices,
+              if (_plan.generationMeta!.continuityAppliedNote.isNotEmpty)
+                _plan.generationMeta!.continuityAppliedNote,
+            ].join(' · '),
+            icon: Icons.auto_awesome_outlined,
+            color: pal.infoBlue,
+            backgroundColor: pal.infoBlueBg,
+          ),
+          const SizedBox(height: 12),
+        ],
         if (_plan.audienceType == PlannerAudienceType.infantil) ...[
           PlannerNoticeBanner(
             title: 'Protección Curricular Infantil activa',
@@ -1620,6 +1637,7 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
           if (ex.curriculumMovementIds.isNotEmpty ||
               ex.linkedResourceIds.isNotEmpty ||
               ex.materiales.isNotEmpty ||
+              ex.cancioneroReference != null ||
               ex.safetyNote != null ||
               ex.differentiationBeginner != null ||
               ex.differentiationIntermediate != null ||
@@ -1682,6 +1700,13 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
                       if (ex.differentiationAdvanced != null) 'Avanzados',
                     ].join(' · '),
                     color: pal.accent,
+                  ),
+                if (ex.cancioneroReference != null)
+                  PlannerBadge(
+                    label: 'Canción: ${ex.cancioneroReference!.songTitle} (${ex.cancioneroReference!.rhythm})',
+                    color: pal.infoBlue,
+                    backgroundColor: pal.infoBlueBg,
+                    icon: Icons.music_note_outlined,
                   ),
                 if (ex.safetyNote != null)
                   PlannerBadge(

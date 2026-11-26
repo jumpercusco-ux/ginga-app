@@ -7,6 +7,7 @@ import '../models/live_session_models.dart';
 import '../services/class_plan_editor_operations.dart';
 import '../services/live_session_persistence.dart';
 import '../services/planner_data_source.dart';
+import '../services/planner_v2_engine_client.dart';
 import '../theme/planner_palette.dart';
 import 'planner_advanced_create_view.dart';
 import 'planner_class_editor_view.dart';
@@ -19,8 +20,10 @@ import 'planner_shared_widgets.dart';
 class PlannerHubBody extends StatefulWidget {
   final PlannerDataSource dataSource;
   final CurriculumRepository? curriculumRepository;
+  final PlannerV2EngineClient? engineClient;
   final PlannerHubTab initialTab;
   final PlannerCreationMode? initialCreationMode;
+  final String? initialGroupIdForCreation;
   final String? initialEditingPlanId;
   final String? initialLivePlanId;
   final bool initialCreateManual;
@@ -41,8 +44,10 @@ class PlannerHubBody extends StatefulWidget {
     super.key,
     required this.dataSource,
     this.curriculumRepository,
+    this.engineClient,
     this.initialTab = PlannerHubTab.plans,
     this.initialCreationMode,
+    this.initialGroupIdForCreation,
     this.initialEditingPlanId,
     this.initialLivePlanId,
     this.initialCreateManual = false,
@@ -72,6 +77,8 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
   late LiveSessionStorage _liveStorage;
   LiveSessionState? _activeLiveSession;
   LiveSessionState? _recoverableSession;
+  bool _isGeneratingWithEngine = false;
+  String? _generationError;
 
   DateTime _now() => (widget.clock ?? DateTime.now)();
 
@@ -116,6 +123,8 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
     }
     if (oldWidget.initialTab != widget.initialTab ||
         oldWidget.initialCreationMode != widget.initialCreationMode ||
+        oldWidget.initialGroupIdForCreation !=
+            widget.initialGroupIdForCreation ||
         oldWidget.initialEditingPlanId != widget.initialEditingPlanId ||
         oldWidget.initialLivePlanId != widget.initialLivePlanId ||
         oldWidget.initialCreateManual != widget.initialCreateManual) {
@@ -124,7 +133,9 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
       _editingPlan = null;
       _editingIsDuplicate = false;
       _activeLiveSession = null;
-      if (_activeCreationMode != null && _pendingDraftRequest == null) {
+      _isGeneratingWithEngine = false;
+      _generationError = null;
+      if (_activeCreationMode != null) {
         _pendingDraftRequest = _buildDefaultRequest(_activeCreationMode!);
       }
       if (widget.initialCreateManual) {
@@ -244,7 +255,15 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
 
   ClassPlanDraftRequest _buildDefaultRequest(PlannerCreationMode mode) {
     if (_groups.isNotEmpty) {
-      final firstGroup = _groups.first;
+      PlannerGroupProfile firstGroup = _groups.first;
+      if (widget.initialGroupIdForCreation != null) {
+        for (final g in _groups) {
+          if (g.id == widget.initialGroupIdForCreation) {
+            firstGroup = g;
+            break;
+          }
+        }
+      }
       final base = ClassPlanDraftRequest.fromGroup(firstGroup, mode: mode);
       final matched = PedagogicalContinuityContext.findLatestSessionForGroup(
         _history,
@@ -376,6 +395,7 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
       _plans = updatedPlans;
       _activeCreationMode = null;
       _pendingDraftRequest = null;
+      _generationError = null;
       _selectedResourceIdsForPlan.clear();
       _activeTab = PlannerHubTab.plans;
     });
@@ -394,6 +414,58 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         ),
       ),
     );
+  }
+
+  Future<void> _handleGenerateWithEngine(ClassPlanDraftRequest req) async {
+    final client = widget.engineClient;
+    if (client == null) {
+      await _handleCreateLocalDraft(req);
+      return;
+    }
+
+    setState(() {
+      _pendingDraftRequest = req;
+      _isGeneratingWithEngine = true;
+      _generationError = null;
+    });
+
+    try {
+      final result = await client.generatePlan(request: req);
+      await widget.dataSource.saveLocalDraft(result.plan);
+      final updatedPlans = await widget.dataSource.loadPlans();
+      if (!mounted) return;
+      setState(() {
+        _plans = updatedPlans;
+        _isGeneratingWithEngine = false;
+        _generationError = null;
+        _activeCreationMode = null;
+        _pendingDraftRequest = null;
+        _selectedResourceIdsForPlan.clear();
+        _editingPlan = result.plan;
+        _editingIsDuplicate = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Propuesta "${result.plan.titulo}" generada en modo simulado offline y abierta para revisión.',
+          ),
+          backgroundColor: PlannerPalette.of(context).accent,
+        ),
+      );
+    } on PlannerV2EngineException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isGeneratingWithEngine = false;
+        _generationError = e.userMessage;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isGeneratingWithEngine = false;
+        _generationError =
+            'No se pudo completar la generación (${e.toString()}). Tus datos del borrador siguen intactos.';
+      });
+    }
   }
 
   String? _resolveGroupId(
@@ -820,12 +892,20 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         initialRequest: _pendingDraftRequest ??
             _buildDefaultRequest(PlannerCreationMode.quick),
         onCreateLocalDraft: _handleCreateLocalDraft,
+        onGenerateWithEngine:
+            widget.engineClient != null ? _handleGenerateWithEngine : null,
+        isGenerating: _isGeneratingWithEngine,
+        generationError: _generationError,
         onSwitchToAdvanced: (req) => setState(() {
           _pendingDraftRequest =
               req.copyWith(creationMode: PlannerCreationMode.advanced);
           _activeCreationMode = PlannerCreationMode.advanced;
+          _generationError = null;
         }),
-        onCancel: () => setState(() => _activeCreationMode = null),
+        onCancel: () => setState(() {
+          _activeCreationMode = null;
+          _generationError = null;
+        }),
       );
     }
 
@@ -838,12 +918,20 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         initialRequest: _pendingDraftRequest ??
             _buildDefaultRequest(PlannerCreationMode.advanced),
         onCreateLocalDraft: _handleCreateLocalDraft,
+        onGenerateWithEngine:
+            widget.engineClient != null ? _handleGenerateWithEngine : null,
+        isGenerating: _isGeneratingWithEngine,
+        generationError: _generationError,
         onSwitchToQuick: (req) => setState(() {
           _pendingDraftRequest =
               req.copyWith(creationMode: PlannerCreationMode.quick);
           _activeCreationMode = PlannerCreationMode.quick;
+          _generationError = null;
         }),
-        onCancel: () => setState(() => _activeCreationMode = null),
+        onCancel: () => setState(() {
+          _activeCreationMode = null;
+          _generationError = null;
+        }),
       );
     }
 

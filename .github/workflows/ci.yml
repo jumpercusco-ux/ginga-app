@@ -87,7 +87,9 @@ jobs:
           node scripts/verify_planner_v2_catalog_sync.js
 
       - name: Run Planner V2 offline quality benchmark (20 Golden scenarios)
-        run: node real_agent_harness/test_planner_v2_quality.js
+        run: |
+          node real_agent_harness/test_planner_v2_quality.js
+          node scripts/test_planner_v2_local_server_e2e.js
 
       - name: Run Firestore security rules emulator test suite
         run: |

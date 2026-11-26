@@ -17,6 +17,7 @@ import '../../core/widgets/video_player_modal.dart';
 import 'planificador/models/class_plan_models.dart';
 import 'planificador/services/live_session_persistence.dart';
 import 'planificador/services/planner_data_source.dart';
+import 'planificador/services/planner_v2_engine_client.dart';
 import 'planificador/theme/planner_palette.dart';
 import 'planificador/widgets/planner_hub_body.dart';
 
@@ -346,8 +347,10 @@ class _EjercicioRecursoMiniaturaWidget extends StatelessWidget {
 class InstructorPizarraScreen extends StatefulWidget {
   final PlannerDataSource? dataSource;
   final CurriculumRepository? curriculumRepository;
+  final PlannerV2EngineClient? engineClient;
   final PlannerHubTab initialTab;
   final PlannerCreationMode? initialCreationMode;
+  final String? initialGroupIdForCreation;
   final String? initialEditingPlanId;
   final String? initialLivePlanId;
   final bool initialCreateManual;
@@ -360,8 +363,10 @@ class InstructorPizarraScreen extends StatefulWidget {
     super.key,
     this.dataSource,
     this.curriculumRepository,
+    this.engineClient,
     this.initialTab = PlannerHubTab.plans,
     this.initialCreationMode,
+    this.initialGroupIdForCreation,
     this.initialEditingPlanId,
     this.initialLivePlanId,
     this.initialCreateManual = false,
@@ -406,8 +411,10 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
       key: ValueKey('planner_hub_$_refreshNonce'),
       dataSource: _effectiveDataSource,
       curriculumRepository: widget.curriculumRepository,
+      engineClient: widget.engineClient,
       initialTab: widget.initialTab,
       initialCreationMode: widget.initialCreationMode,
+      initialGroupIdForCreation: widget.initialGroupIdForCreation,
       initialEditingPlanId: widget.initialEditingPlanId,
       initialLivePlanId: widget.initialLivePlanId,
       initialCreateManual: widget.initialCreateManual,

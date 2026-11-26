@@ -126,6 +126,166 @@ enum PlannerCurriculumScope {
   }
 }
 
+/// Condiciones físicas y humanas del espacio (sin suposiciones por defecto).
+class PlannerSpaceContext {
+  final String spaceSize; // 'amplio' | 'mediano' | 'reducido' | 'desconocido'
+  final String floorType; // 'tatami' | 'madera' | 'cemento' | 'exterior' | 'pasto' | 'desconocido'
+  final bool? availableMats; // null = desconocido / sin confirmar
+  final int instructorsAvailable;
+  final String spaceNotes;
+
+  const PlannerSpaceContext({
+    this.spaceSize = 'desconocido',
+    this.floorType = 'desconocido',
+    this.availableMats,
+    this.instructorsAvailable = 1,
+    this.spaceNotes = '',
+  });
+
+  bool get isConfirmed =>
+      spaceSize != 'desconocido' ||
+      floorType != 'desconocido' ||
+      availableMats != null;
+
+  PlannerSpaceContext copyWith({
+    String? spaceSize,
+    String? floorType,
+    bool? availableMats,
+    bool clearAvailableMats = false,
+    int? instructorsAvailable,
+    String? spaceNotes,
+  }) {
+    return PlannerSpaceContext(
+      spaceSize: spaceSize ?? this.spaceSize,
+      floorType: floorType ?? this.floorType,
+      availableMats:
+          clearAvailableMats ? null : (availableMats ?? this.availableMats),
+      instructorsAvailable:
+          (instructorsAvailable ?? this.instructorsAvailable).clamp(1, 10),
+      spaceNotes: spaceNotes ?? this.spaceNotes,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'space_size': spaceSize,
+        'floor_type': floorType,
+        if (availableMats != null) 'available_mats': availableMats,
+        'instructors_available': instructorsAvailable,
+        if (spaceNotes.trim().isNotEmpty)
+          'space_notes': PlannerPiiSanitizer.sanitizeFreeText(spaceNotes),
+      };
+
+  factory PlannerSpaceContext.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return const PlannerSpaceContext();
+    return PlannerSpaceContext(
+      spaceSize: (map['space_size']?.toString() ?? 'desconocido').trim(),
+      floorType: (map['floor_type']?.toString() ?? 'desconocido').trim(),
+      availableMats:
+          map['available_mats'] is bool ? map['available_mats'] as bool : null,
+      instructorsAvailable:
+          (map['instructors_available'] as num?)?.toInt().clamp(1, 10) ?? 1,
+      spaceNotes: (map['space_notes']?.toString() ?? '').trim(),
+    );
+  }
+}
+
+/// Referencia estructurada al Cancionero GINGA sin inventar IDs.
+class PlannerSongReference {
+  final String songTitle;
+  final String rhythm;
+  final String audienceFit;
+  final String? cantigaId;
+  final String lookupHint;
+
+  const PlannerSongReference({
+    required this.songTitle,
+    required this.rhythm,
+    required this.audienceFit,
+    this.cantigaId,
+    required this.lookupHint,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'song_title': songTitle,
+        'rhythm': rhythm,
+        'audience_fit': audienceFit,
+        'cantiga_id': cantigaId,
+        'lookup_hint': lookupHint,
+      };
+
+  factory PlannerSongReference.fromMap(Map<String, dynamic> map) {
+    return PlannerSongReference(
+      songTitle: (map['song_title']?.toString() ?? '').trim(),
+      rhythm: (map['rhythm']?.toString() ?? 'Corrido').trim(),
+      audienceFit: (map['audience_fit']?.toString() ?? 'todos').trim(),
+      cantigaId: map['cantiga_id']?.toString().trim(),
+      lookupHint: (map['lookup_hint']?.toString() ?? '').trim(),
+    );
+  }
+}
+
+/// Metadatos transparentes de generación del Motor V2.
+class PlannerGenerationMeta {
+  final String engineVersion;
+  final String provider;
+  final String model;
+  final bool isSimulated;
+  final int repairAttemptsUsed;
+  final List<String> transparencyNotices;
+  final String heuristicDisclaimer;
+  final String continuityAppliedNote;
+  final PlannerSpaceContext? spaceSnapshot;
+
+  const PlannerGenerationMeta({
+    required this.engineVersion,
+    required this.provider,
+    required this.model,
+    required this.isSimulated,
+    this.repairAttemptsUsed = 0,
+    this.transparencyNotices = const [],
+    this.heuristicDisclaimer = '',
+    this.continuityAppliedNote = '',
+    this.spaceSnapshot,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'engine_version': engineVersion,
+        'provider': provider,
+        'model': model,
+        'is_simulated': isSimulated,
+        'repair_attempts_used': repairAttemptsUsed,
+        if (transparencyNotices.isNotEmpty)
+          'transparency_notices': transparencyNotices,
+        if (heuristicDisclaimer.isNotEmpty)
+          'heuristic_disclaimer': heuristicDisclaimer,
+        if (continuityAppliedNote.isNotEmpty)
+          'continuity_applied_note': continuityAppliedNote,
+        if (spaceSnapshot != null) 'space_snapshot': spaceSnapshot!.toMap(),
+      };
+
+  factory PlannerGenerationMeta.fromMap(Map<String, dynamic> map) {
+    return PlannerGenerationMeta(
+      engineVersion: (map['engine_version']?.toString() ?? 'planner_v2.1.0').trim(),
+      provider: (map['provider']?.toString() ?? 'simulated').trim(),
+      model: (map['model']?.toString() ?? 'simulated-planner-v2').trim(),
+      isSimulated: map['is_simulated'] != false,
+      repairAttemptsUsed:
+          (map['repair_attempts_used'] as num?)?.toInt() ?? 0,
+      transparencyNotices: ((map['transparency_notices'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+      heuristicDisclaimer:
+          (map['heuristic_disclaimer']?.toString() ?? '').trim(),
+      continuityAppliedNote:
+          (map['continuity_applied_note']?.toString() ?? '').trim(),
+      spaceSnapshot: map['space_snapshot'] is Map
+          ? PlannerSpaceContext.fromMap(
+              Map<String, dynamic>.from(map['space_snapshot'] as Map))
+          : null,
+    );
+  }
+}
+
 /// Distingue estrictamente los tres orígenes permitidos dentro de un plan.
 enum ContentOrigin {
   officialFiuCurriculum('official_fiu_curriculum', 'Currículo oficial FIU'),
@@ -711,6 +871,9 @@ class ClassPlanDraftRequest {
   final bool allowAiComplementaryProposals;
   final String? continuitySummary;
   final PedagogicalContinuityContext? continuityContext;
+  final PlannerSpaceContext spaceContext;
+  final bool materialsConfirmed;
+  final bool participantsConfirmed;
 
   const ClassPlanDraftRequest({
     required this.creationMode,
@@ -727,7 +890,7 @@ class ClassPlanDraftRequest {
     this.durationMin = 60,
     this.focuses = const ['Técnica'],
     this.objectives = const ['Consolidar base técnica y fluidez sin tiempos muertos'],
-    this.materials = const ['Berimbau', 'Pandeiro'],
+    this.materials = const [],
     this.includeMusicalityRoda = true,
     this.freeInstructions = '',
     this.selectedMovements = const [],
@@ -735,6 +898,9 @@ class ClassPlanDraftRequest {
     this.allowAiComplementaryProposals = true,
     this.continuitySummary,
     this.continuityContext,
+    this.spaceContext = const PlannerSpaceContext(),
+    this.materialsConfirmed = false,
+    this.participantsConfirmed = false,
   });
 
   String get focus => focuses.isNotEmpty ? focuses.join(' · ') : 'Técnica';
@@ -763,6 +929,10 @@ class ClassPlanDraftRequest {
       participantsCount: group.participantsCount,
       experienceDistribution: group.defaultDistribution,
       durationMin: 60,
+      materials: const [],
+      materialsConfirmed: false,
+      participantsConfirmed: false,
+      spaceContext: const PlannerSpaceContext(),
       focuses: group.audienceType == PlannerAudienceType.infantil
           ? const ['Juegos', 'Musicalidad']
           : const ['Técnica', 'Secuencias'],
@@ -797,6 +967,9 @@ class ClassPlanDraftRequest {
     String? continuitySummary,
     PedagogicalContinuityContext? continuityContext,
     bool clearContinuity = false,
+    PlannerSpaceContext? spaceContext,
+    bool? materialsConfirmed,
+    bool? participantsConfirmed,
   }) {
     return ClassPlanDraftRequest(
       creationMode: creationMode ?? this.creationMode,
@@ -827,8 +1000,56 @@ class ClassPlanDraftRequest {
           clearContinuity ? null : (continuitySummary ?? this.continuitySummary),
       continuityContext:
           clearContinuity ? null : (continuityContext ?? this.continuityContext),
+      spaceContext: spaceContext ?? this.spaceContext,
+      materialsConfirmed: materialsConfirmed ?? this.materialsConfirmed,
+      participantsConfirmed:
+          participantsConfirmed ?? this.participantsConfirmed,
     );
   }
+
+  /// Contrato v2.1.0 sanitizado y alineado con `functions/planner_v2`.
+  /// No incluye políticas de proveedor/modelo/cuota desde el cliente.
+  Map<String, dynamic> toPlannerV2RequestMap({required String requestId}) => {
+        'contract_version': '2.1.0',
+        'request_id': requestId,
+        'creation_mode': creationMode.id,
+        'group_context': {
+          'source': groupSource.id,
+          if (realClaseId != null) 'clase_id': realClaseId,
+          'group_label': PlannerPiiSanitizer.sanitizeFreeText(groupName),
+          'audience_type': audienceType.id,
+          'age_min': ageMin,
+          'age_max': ageMax,
+          'estimated_participants': participantsCount,
+          'experience_distribution': experienceDistribution.toMap(),
+        },
+        'curriculum_context': {
+          'scope': curriculumScope.id,
+          if (curriculumScope == PlannerCurriculumScope.adultoFiu)
+            'target_corda_index': targetAdultoCordaIndex,
+        },
+        'space_context': spaceContext.toMap(),
+        'session_config': {
+          'duration_min': durationMin,
+          'focus': focus,
+          'focuses': focuses,
+          'objectives': PlannerPiiSanitizer.sanitizeList(objectives),
+          if (materialsConfirmed || materials.isNotEmpty) 'materials': materials,
+          'include_musicality_roda': includeMusicalityRoda,
+          'free_instructions':
+              PlannerPiiSanitizer.sanitizeFreeText(freeInstructions),
+          'allow_ai_complementary_proposals': allowAiComplementaryProposals,
+        },
+        'selected_movements':
+            selectedMovements.map((m) => m.toPlannerMap()).toList(),
+        'selected_resources':
+            selectedResources.map((r) => r.toAiSafeMap()).toList(),
+        if (continuitySummary != null && continuitySummary!.trim().isNotEmpty)
+          'continuity_summary':
+              PlannerPiiSanitizer.sanitizeFreeText(continuitySummary!),
+        if (continuityContext != null && continuityContext!.hasContent)
+          'continuity_context': continuityContext!.toAiSafeMap(),
+      };
 
   /// Payload sanitizado libre de PII para futuros contratos con el backend.
   /// El servidor deberá revalidar permisos y elegibilidad curricular contra sus propias fuentes.
@@ -895,6 +1116,9 @@ class ClassPlanExercise {
   final String? differentiationAdvanced;
   final String? safetyNote;
   final String? videoReferenceNote;
+  final PlannerSongReference? cancioneroReference;
+  final String? activityAuthoring;
+  final List<String> sourceOrigins;
 
   const ClassPlanExercise({
     required this.exerciseId,
@@ -914,6 +1138,9 @@ class ClassPlanExercise {
     this.differentiationAdvanced,
     this.safetyNote,
     this.videoReferenceNote,
+    this.cancioneroReference,
+    this.activityAuthoring,
+    this.sourceOrigins = const [],
   });
 
   factory ClassPlanExercise.manualBlank({
@@ -957,6 +1184,10 @@ class ClassPlanExercise {
     bool clearSafetyNote = false,
     String? videoReferenceNote,
     bool clearVideoReferenceNote = false,
+    PlannerSongReference? cancioneroReference,
+    bool clearCancioneroReference = false,
+    String? activityAuthoring,
+    List<String>? sourceOrigins,
   }) {
     return ClassPlanExercise(
       exerciseId: exerciseId ?? this.exerciseId,
@@ -993,6 +1224,12 @@ class ClassPlanExercise {
       videoReferenceNote: clearVideoReferenceNote
           ? null
           : (videoReferenceNote ?? this.videoReferenceNote),
+      cancioneroReference: clearCancioneroReference
+          ? null
+          : (cancioneroReference ?? this.cancioneroReference),
+      activityAuthoring: activityAuthoring ?? this.activityAuthoring,
+      sourceOrigins: List<String>.unmodifiable(
+          sourceOrigins ?? this.sourceOrigins),
     );
   }
 
@@ -1065,6 +1302,15 @@ class ClassPlanExercise {
       differentiationAdvanced: cleanOpt(map['diferenciacion_avanzados']),
       safetyNote: cleanOpt(map['seguridad']),
       videoReferenceNote: cleanOpt(map['video_reference_note']),
+      cancioneroReference: map['cancionero_reference'] is Map
+          ? PlannerSongReference.fromMap(
+              Map<String, dynamic>.from(map['cancionero_reference'] as Map))
+          : null,
+      activityAuthoring: cleanOpt(map['activity_authoring']),
+      sourceOrigins: ((map['source_origins'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .where((e) => e.isNotEmpty)
+          .toList(),
     );
   }
 
@@ -1102,6 +1348,11 @@ class ClassPlanExercise {
         if (videoReferenceNote != null &&
             videoReferenceNote!.trim().isNotEmpty)
           'video_reference_note': videoReferenceNote!.trim(),
+        if (cancioneroReference != null)
+          'cancionero_reference': cancioneroReference!.toMap(),
+        if (activityAuthoring != null && activityAuthoring!.trim().isNotEmpty)
+          'activity_authoring': activityAuthoring!.trim(),
+        if (sourceOrigins.isNotEmpty) 'source_origins': sourceOrigins,
       };
 }
 
@@ -1201,6 +1452,8 @@ class ClassPlanModel {
   final DateTime? ultimaEjecucion;
   final String? duplicatedFromPlanId;
   final PedagogicalContinuityContext? continuityContext;
+  final PlannerGenerationMeta? generationMeta;
+  final PlannerSpaceContext? spaceSnapshot;
   final Map<String, dynamic> rawLegacyMap;
 
   const ClassPlanModel({
@@ -1229,6 +1482,8 @@ class ClassPlanModel {
     this.ultimaEjecucion,
     this.duplicatedFromPlanId,
     this.continuityContext,
+    this.generationMeta,
+    this.spaceSnapshot,
     this.rawLegacyMap = const {},
   });
 
@@ -1307,6 +1562,8 @@ class ClassPlanModel {
     bool clearDuplicatedFromPlanId = false,
     PedagogicalContinuityContext? continuityContext,
     bool clearContinuityContext = false,
+    PlannerGenerationMeta? generationMeta,
+    PlannerSpaceContext? spaceSnapshot,
     Map<String, dynamic>? rawLegacyMap,
   }) {
     final nextObjetivos =
@@ -1348,6 +1605,8 @@ class ClassPlanModel {
       continuityContext: clearContinuityContext
           ? null
           : (continuityContext ?? this.continuityContext),
+      generationMeta: generationMeta ?? this.generationMeta,
+      spaceSnapshot: spaceSnapshot ?? this.spaceSnapshot,
       rawLegacyMap: rawLegacyMap ?? this.rawLegacyMap,
     );
   }
@@ -1373,6 +1632,7 @@ class ClassPlanModel {
           'participants': participantsCount,
           'experience_distribution': experienceDistribution.toMap(),
         },
+        if (spaceSnapshot != null) 'space_snapshot': spaceSnapshot!.toMap(),
         'bloques': bloques.map((b) => b.toMap()).toList(),
         if (consejosInstructor != null &&
             consejosInstructor!.trim().isNotEmpty)
@@ -1386,6 +1646,7 @@ class ClassPlanModel {
           'duplicated_from_plan_id': duplicatedFromPlanId,
         if (continuityContext != null && continuityContext!.hasContent)
           'continuity_context': continuityContext!.toMap(),
+        if (generationMeta != null) 'generation_meta': generationMeta!.toMap(),
       };
 
   factory ClassPlanModel.fromMap(String id, Map<String, dynamic> map) {
@@ -1468,6 +1729,16 @@ class ClassPlanModel {
       continuityContext: map['continuity_context'] is Map
           ? PedagogicalContinuityContext.fromMap(
               Map<String, dynamic>.from(map['continuity_context'] as Map),
+            )
+          : null,
+      generationMeta: map['generation_meta'] is Map
+          ? PlannerGenerationMeta.fromMap(
+              Map<String, dynamic>.from(map['generation_meta'] as Map),
+            )
+          : null,
+      spaceSnapshot: map['space_snapshot'] is Map
+          ? PlannerSpaceContext.fromMap(
+              Map<String, dynamic>.from(map['space_snapshot'] as Map),
             )
           : null,
       rawLegacyMap: Map<String, dynamic>.from(map),

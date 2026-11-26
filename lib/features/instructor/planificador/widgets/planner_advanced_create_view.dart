@@ -19,6 +19,9 @@ class PlannerAdvancedCreateView extends StatefulWidget {
   final ClassPlanDraftRequest initialRequest;
   final CurriculumRepository? curriculumRepository;
   final ValueChanged<ClassPlanDraftRequest> onCreateLocalDraft;
+  final Future<void> Function(ClassPlanDraftRequest)? onGenerateWithEngine;
+  final bool isGenerating;
+  final String? generationError;
   final ValueChanged<ClassPlanDraftRequest> onSwitchToQuick;
   final VoidCallback onCancel;
 
@@ -30,6 +33,9 @@ class PlannerAdvancedCreateView extends StatefulWidget {
     required this.initialRequest,
     this.curriculumRepository,
     required this.onCreateLocalDraft,
+    this.onGenerateWithEngine,
+    this.isGenerating = false,
+    this.generationError,
     required this.onSwitchToQuick,
     required this.onCancel,
   });
@@ -155,6 +161,8 @@ class _PlannerAdvancedCreateViewState extends State<PlannerAdvancedCreateView> {
             : const [],
         selectedResources: _request.selectedResources,
         materials: _request.materials,
+        materialsConfirmed: _request.materialsConfirmed,
+        spaceContext: _request.spaceContext,
         includeMusicalityRoda: _request.includeMusicalityRoda,
         allowAiComplementaryProposals: _request.allowAiComplementaryProposals,
         continuityContext: nextContext,
@@ -341,11 +349,24 @@ class _PlannerAdvancedCreateViewState extends State<PlannerAdvancedCreateView> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      PlannerBadge(
-                        label: 'Modalidad avanzada · Control completo',
-                        color: pal.infoBlue,
-                        backgroundColor: pal.infoBlueBg,
-                        icon: Icons.tune_rounded,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          PlannerBadge(
+                            label: 'Modalidad avanzada · Control completo',
+                            color: pal.infoBlue,
+                            backgroundColor: pal.infoBlueBg,
+                            icon: Icons.tune_rounded,
+                          ),
+                          if (widget.onGenerateWithEngine != null)
+                            PlannerBadge(
+                              key: const Key('adv_simulated_mode_badge'),
+                              label: 'Motor V2 · Modo simulado offline',
+                              color: pal.accent,
+                              icon: Icons.auto_awesome_outlined,
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -408,6 +429,19 @@ class _PlannerAdvancedCreateViewState extends State<PlannerAdvancedCreateView> {
               ],
 
               const SizedBox(height: 20),
+              if (widget.generationError != null &&
+                  widget.generationError!.trim().isNotEmpty) ...[
+                PlannerNoticeBanner(
+                  key: const Key('adv_generation_error_banner'),
+                  title:
+                      'No se pudo generar la propuesta (tu configuración sigue protegida)',
+                  message: widget.generationError!,
+                  icon: Icons.error_outline,
+                  color: Colors.redAccent,
+                  backgroundColor: Colors.redAccent.withValues(alpha: 0.12),
+                ),
+                const SizedBox(height: 12),
+              ],
               // Footer acciones
               Container(
                 width: double.infinity,
@@ -426,7 +460,7 @@ class _PlannerAdvancedCreateViewState extends State<PlannerAdvancedCreateView> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     TextButton(
-                      onPressed: widget.onCancel,
+                      onPressed: widget.isGenerating ? null : widget.onCancel,
                       style: TextButton.styleFrom(
                         minimumSize: const Size(0, 44),
                         foregroundColor: pal.textSecondary,
@@ -456,25 +490,81 @@ class _PlannerAdvancedCreateViewState extends State<PlannerAdvancedCreateView> {
                                 '${_request.selectedMovements.length} movimientos FIU · ${_request.selectedResources.length} recursos',
                             color: pal.textSecondary,
                           ),
-                        ElevatedButton.icon(
-                          key: const Key('advanced_create_draft_button'),
-                          onPressed: distributionValid
-                              ? () =>
-                                  widget.onCreateLocalDraft(_currentRequest())
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(0, 46),
-                            backgroundColor: pal.accent,
-                            foregroundColor: pal.onAccent,
-                            padding: const EdgeInsets.symmetric(horizontal: 18),
+                        if (widget.onGenerateWithEngine != null) ...[
+                          OutlinedButton.icon(
+                            key: const Key('advanced_create_draft_button'),
+                            onPressed: (distributionValid && !widget.isGenerating)
+                                ? () =>
+                                    widget.onCreateLocalDraft(_currentRequest())
+                                : null,
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 46),
+                              side: BorderSide(color: pal.border),
+                              foregroundColor: pal.textPrimary,
+                            ),
+                            icon: const Icon(Icons.save_outlined, size: 18),
+                            label: Text(
+                              'Borrador manual',
+                              style: GoogleFonts.montserrat(
+                                  fontSize: 12.5, fontWeight: FontWeight.w700),
+                            ),
                           ),
-                          icon: const Icon(Icons.save_outlined, size: 18),
-                          label: Text(
-                            'Crear borrador',
-                            style: GoogleFonts.montserrat(
-                                fontSize: 13, fontWeight: FontWeight.w700),
+                          ElevatedButton.icon(
+                            key: const Key('advanced_generate_v2_button'),
+                            onPressed:
+                                (distributionValid && !widget.isGenerating)
+                                    ? () => widget.onGenerateWithEngine!(
+                                          _currentRequest(),
+                                        )
+                                    : null,
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(0, 46),
+                              backgroundColor: pal.accent,
+                              foregroundColor: pal.onAccent,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 18),
+                            ),
+                            icon: widget.isGenerating
+                                ? SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: pal.onAccent,
+                                    ),
+                                  )
+                                : const Icon(Icons.auto_awesome, size: 18),
+                            label: Text(
+                              widget.isGenerating
+                                  ? 'Generando propuesta...'
+                                  : (widget.generationError != null
+                                      ? 'Reintentar generación'
+                                      : 'Generar propuesta'),
+                              style: GoogleFonts.montserrat(
+                                  fontSize: 13, fontWeight: FontWeight.w700),
+                            ),
                           ),
-                        ),
+                        ] else
+                          ElevatedButton.icon(
+                            key: const Key('advanced_create_draft_button'),
+                            onPressed: distributionValid
+                                ? () =>
+                                    widget.onCreateLocalDraft(_currentRequest())
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(0, 46),
+                              backgroundColor: pal.accent,
+                              foregroundColor: pal.onAccent,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 18),
+                            ),
+                            icon: const Icon(Icons.save_outlined, size: 18),
+                            label: Text(
+                              'Crear borrador',
+                              style: GoogleFonts.montserrat(
+                                  fontSize: 13, fontWeight: FontWeight.w700),
+                            ),
+                          ),
                       ],
                     ),
                   ],
@@ -969,7 +1059,7 @@ class _PlannerAdvancedCreateViewState extends State<PlannerAdvancedCreateView> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Materiales disponibles y musicalidad',
+                'Materiales confirmados y musicalidad (no se asumen si no los marcas)',
                 style: GoogleFonts.montserrat(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -993,10 +1083,109 @@ class _PlannerAdvancedCreateViewState extends State<PlannerAdvancedCreateView> {
                           next.remove(mat);
                         }
                         setState(() {
-                          _request = _request.copyWith(materials: next);
+                          _request = _request.copyWith(
+                            materials: next,
+                            materialsConfirmed: true,
+                          );
                         });
                       },
                     ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Condiciones del espacio e instructores',
+                style: GoogleFonts.montserrat(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: pal.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final sz in const ['desconocido', 'amplio', 'mediano', 'reducido'])
+                    PlannerChoicePill(
+                      key: Key('adv_space_size_$sz'),
+                      label: sz == 'desconocido' ? 'Espacio sin confirmar' : 'Espacio $sz',
+                      selected: _request.spaceContext.spaceSize == sz,
+                      onTap: () => setState(() {
+                        _request = _request.copyWith(
+                          spaceContext: _request.spaceContext.copyWith(spaceSize: sz),
+                        );
+                      }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final fl in const ['desconocido', 'tatami', 'madera', 'cemento'])
+                    PlannerChoicePill(
+                      key: Key('adv_space_floor_$fl'),
+                      label: fl == 'desconocido' ? 'Piso sin confirmar' : 'Piso: $fl',
+                      selected: _request.spaceContext.floorType == fl,
+                      onTap: () => setState(() {
+                        _request = _request.copyWith(
+                          spaceContext: _request.spaceContext.copyWith(floorType: fl),
+                        );
+                      }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  PlannerChoicePill(
+                    key: const Key('adv_mats_unknown'),
+                    label: 'Colchonetas: sin confirmar',
+                    selected: _request.spaceContext.availableMats == null,
+                    onTap: () => setState(() {
+                      _request = _request.copyWith(
+                        spaceContext: _request.spaceContext.copyWith(clearAvailableMats: true),
+                      );
+                    }),
+                  ),
+                  PlannerChoicePill(
+                    key: const Key('adv_mats_yes'),
+                    label: 'Colchonetas: Sí',
+                    selected: _request.spaceContext.availableMats == true,
+                    onTap: () => setState(() {
+                      _request = _request.copyWith(
+                        spaceContext: _request.spaceContext.copyWith(availableMats: true),
+                      );
+                    }),
+                  ),
+                  PlannerChoicePill(
+                    key: const Key('adv_mats_no'),
+                    label: 'Colchonetas: No',
+                    selected: _request.spaceContext.availableMats == false,
+                    onTap: () => setState(() {
+                      _request = _request.copyWith(
+                        spaceContext: _request.spaceContext.copyWith(availableMats: false),
+                      );
+                    }),
+                  ),
+                  PlannerStepperField(
+                    key: const Key('adv_instructors_stepper'),
+                    label: 'Instructores',
+                    value: _request.spaceContext.instructorsAvailable,
+                    min: 1,
+                    max: 10,
+                    onChanged: (v) => setState(() {
+                      _request = _request.copyWith(
+                        spaceContext:
+                            _request.spaceContext.copyWith(instructorsAvailable: v),
+                      );
+                    }),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -1033,12 +1222,14 @@ class _PlannerAdvancedCreateViewState extends State<PlannerAdvancedCreateView> {
                         Icon(Icons.edit_note_rounded,
                             size: 18, color: pal.accent),
                         const SizedBox(width: 6),
-                        Text(
-                          'Instrucciones y contexto para la clase',
-                          style: GoogleFonts.montserrat(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                            color: pal.textPrimary,
+                        Expanded(
+                          child: Text(
+                            'Instrucciones y contexto para la clase',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: pal.textPrimary,
+                            ),
                           ),
                         ),
                       ],

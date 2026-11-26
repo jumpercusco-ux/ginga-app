@@ -335,6 +335,12 @@ void main() {
         find.byKey(const Key('adv_custom_objective_field')),
         'Conexión esquiva-rolê fluida',
       );
+      await tester.pumpAndSettle();
+      await Scrollable.ensureVisible(
+        tester.element(find.byKey(const Key('adv_add_objective_button'))),
+        alignment: 0.5,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('adv_add_objective_button')));
       await tester.pumpAndSettle();
       expect(find.text('Conexión esquiva-rolê fluida ×'), findsOneWidget);
