@@ -243,3 +243,12 @@ Cada decisión se clasifica estrictamente en uno de tres estados:
 
 
 
+
+### 23. Editor Pedagógico de Clases V2 Desacoplado, Inmutable y No Bloqueante (`PED-04B2`)
+- **Estado:** `[APROBADA]`
+- **Contexto:** Convertir los borradores del planificador V2 y los planes V1 heredados en clases completamente editables (bloques, ejercicios, tiempos y recursos) sin escribir en Firestore de producción ni usar llamadas IA de pago.
+- **Decisión:**
+  1. **Operaciones puras e inmutables (`ClassPlanEditorOperations`):** Toda edición, duplicación o reordenamiento de bloques, ejercicios o clases completas produce nuevas instancias preservando `blockId`, `exerciseId`, `curriculumMovementIds`, `linkedResourceIds` y `contentOrigin`, evitando mutaciones compartidas o alteración del plan original al reutilizar.
+  2. **Control permanente de tiempos no bloqueante (`ClassPlanTimingSummary`):** La barra superior de tiempos muestra permanentemente objetivo, total planificado, restante/excedente y avisos de desajuste por clase o bloque, permitiendo guardar borradores incompletos en todo momento.
+  3. **Protección curricular y honestidad de origen:** El editor contextual bloquea la vinculación automática del currículo Adulto FIU en clases `infantil` o `mixto`, nunca etiqueta contenido manual o duplicado como `Propuesta IA`, y nunca marca recursos de Pizarra como utilizados (`hasBeenTaught` / `timesUsed`).
+  4. **Refinamiento UX y separación de variantes/recursos (`PED-04B2-UX`):** Distribución ~60/40 en escritorio (`>=1200px`), tarjetas a ancho completo, etiquetas superiores (`PlannerFieldLabel` + `plannerInputDecoration`), variantes separadas en 3 niveles (`Principiantes`, `Intermedios` vía `diferenciacion_intermedios`, `Avanzados`), 5 opciones de organización pedagógica (`kPlannerOrganizationOptions`), notas de uso particulares por recurso (`resourceUsageNotes`) con apertura directa, origen propio independiente de los vínculos, y relación explícita bloque vs. suma de ejercicios.

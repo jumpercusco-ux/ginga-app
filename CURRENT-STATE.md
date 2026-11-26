@@ -3,10 +3,10 @@
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-26  
 > **Rama Actual:** `feat/ped03-biblioteca-curricular` (base `main` `fd891a7` intacta; sin merge ni despliegue)  
-> **Commits de Respaldo PED-03 / PED-04B1:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · PED-04B1 cerrado técnicamente sobre esta rama  
-> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** ✅ **VERDE** (en verificación de cierre PED-04B1 sobre commit nuevo)  
+> **Commits de Respaldo PED-03 / PED-04:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · `93ee84b` (cierre PED-04B1) · cierre `PED-04B2` / `PED-04B2-UX` en `feat/ped03-biblioteca-curricular`  
+> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** 🔄 En verificación de cierre `PED-04B2` sobre el commit nuevo (previo `93ee84b` en `success`)  
 > **Producción Intacta:** `whatsappWebhook v69` (Cloud Functions Gen 1, Node.js 22), web `https://www.gingaperu.com`, proyecto `capoeirafiu-ea8ljo`  
-> **Estado Actual:** **PED-04B1 CERRADO TÉCNICAMENTE — PREVIEW ACTIVO EN `http://127.0.0.1:8097/` — PENDIENTE APROBACIÓN PARA INICIAR PED-04B2**
+> **Estado Actual:** **PED-04B2 / PED-04B2-UX CERRADO TÉCNICAMENTE — PREVIEW ACTIVO EN `http://127.0.0.1:8097/` — PENDIENTE APROBACIÓN DE SIGUIENTE FASE**
 
 ---
 
@@ -456,8 +456,9 @@ flowchart TD
     PED03A --> PED03B["PED-03B..FINAL: Biblioteca Curricular Unificada + UX (APROBADO VISUALMENTE)"]
     PED03B --> PED03C["PED-03C: Firestore Emulator JDK 21 + Cierre Técnico (VALIDADO)"]
     PED03C --> PED04A["PED-04A: Diseño Funcional Planificador V2 (APROBADO)"]
-    PED04A --> PED04B1["PED-04B1: Hub, Rápida/Avanzada, Pizarra, Historial + Preview 8097 (CERRADO)"]
-    PED04B1 --> PED04B2["PED-04B2: Generación IA Real, Copiloto y Persistencia (PENDIENTE APROBACIÓN)"]
+    PED04A --> PED04B1["PED-04B1: Hub, Rápida/Avanzada, Pizarra, Historial + Preview 8097 (CERRADO 93ee84b)"]
+    PED04B1 --> PED04B2["PED-04B2 / UX: Editor Pedagógico de Clases V2 (CERRADO TÉCNICAMENTE)"]
+    PED04B2 --> PED04C["PED-04C: IA Real, Persistencia Firestore, En Vivo e Historial (PENDIENTE APROBACIÓN)"]
 ```
 
 ---
@@ -495,6 +496,22 @@ flowchart TD
 - **Usabilidad (`PED-04B1-FINAL`):** Tarjetas alineadas con altura uniforme, buscador de planes y última fecha de ejecución; selección múltiple de los 6 enfoques (`Técnica`, `Juegos`, `Acrobacias`, `Musicalidad`, `Secuencias`, `Roda`), prompt `¿Qué quieres trabajar hoy?` y conservación íntegra rápida↔avanzada; Pizarra con miniaturas, diferenciación `Video`/`Imagen`/`Enlace`/`Nota`, botón `Añadir recurso` y selección para planificar sin marcar recursos como usados; Historial con filtros por grupo/fecha, detalle de sesión, movimientos practicados y salto `Preparar siguiente clase` sobre fixtures locales claramente identificados (`isSimulatedFixture`).
 - **Preview Web Aislado sin Service Worker:** [lib/main_planificador_preview.dart](file:///Users/jumper/ginga_app/lib/main_planificador_preview.dart) compilado con `--pwa-strategy=none` (sin `flutter_service_worker.js`) activo en `http://127.0.0.1:8097/`.
 - **Validación Técnica:** `flutter analyze` (`No issues found!`) y `flutter test` (`47/47 All tests passed!` incluyendo `test/planificador_v2_test.dart` y `test/ped04b1_screenshot_capture_test.dart`).
+
+### 10.2. Editor Pedagógico de Clases V2 (`PED-04B2` / `PED-04B2-UX`)
+
+- **Operaciones Inmutables y Control de Tiempos (`class_plan_editor_operations.dart`, `class_plan_models.dart`):**
+  - `ClassPlanExercise` ampliado con los campos pedagógicos solicitados (`nombre`, `detalle`, `duracionMin`, `organizacion`, variantes separadas `differentiationBeginner` / `differentiationIntermediate` / `differentiationAdvanced`, `materiales`, `safetyNote`, `curriculumMovementIds`, `linkedResourceIds`, `resourceUsageNotes`, `observacionesProfesor`), manteniendo compatibilidad hacia atrás con planes V1 (`isLegacyV1`) y `ClassPlanModel.emptyManual` para clases desde cero.
+  - `ClassPlanEditorOperations` implementa creación desde cero, edición de metadatos (título, objetivos, duración objetivo, público), añadir/eliminar/duplicar/reordenar bloques y ejercicios con aislamiento estricto entre ejercicios y duplicación independiente de clases (`duplicatePlan`) con `duplicatedFromPlanId` y sin alterar el original.
+  - `ClassPlanTimingSummary` y cabeceras de bloque muestran permanentemente duración objetivo, total planificado, tiempo restante/excedente y relación bloque vs. suma de ejercicios (`Ejercicios: X/Y min`) mediante advertencias informativas no bloqueantes.
+- **Refinamiento UX, Edición Contextual y Recursos (`planner_class_editor_view.dart`, `planner_exercise_editor_panel.dart`, `planner_shared_widgets.dart`, `planner_palette.dart`):**
+  - Distribución escritorio ~60/40, tarjetas a ancho completo, etiquetas superiores nítidas (`PlannerFieldLabel` + `plannerInputDecoration`), tooltips en todos los controles de bloque/ejercicio, y `Cancelar` / `Aplicar cambios` visibles.
+  - Opciones de organización pedagógica (`Todos simultáneamente`, `Rotación por parejas`, `Estaciones simultáneas`, `Turnos`, `Organización personalizada`) sin inferir nivel técnico solo por corda.
+  - Vinculación múltiple de movimientos FIU (`CurriculumSelectionContract`, bloqueada para `infantil`/`mixto`) y recursos de Pizarra abribles con notas de uso particulares por recurso (`resourceUsageNotes`), manteniendo separado el origen del ejercicio y sin alterar `hasBeenTaught`/`timesUsed`.
+  - Conexión completa desde `PlannerHubBody` (`Crear desde cero`, `Ver plan`, `Editar plan`, `Reutilizar`) y `ClassPlanSummarySheet`.
+- **Validación Técnica (`PED-04B2-UX`):**
+  - `flutter analyze` sobre los 15 archivos del módulo/preview/tests: `No issues found!`.
+  - `flutter test`: **`59/59 All tests passed!`** (incluyendo `test/planificador_v2_editor_test.dart`, `test/planificador_v2_test.dart` y `test/ped04b2_screenshot_capture_test.dart`).
+  - Preview web aislado actualizado en `http://127.0.0.1:8097/` sin service worker (`--pwa-strategy=none`, `Cache-Control: no-store`).
 
 ---
 

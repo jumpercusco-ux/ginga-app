@@ -3,19 +3,23 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/services/curriculum_repository.dart';
 import '../../../../core/theme/ginga_theme.dart';
 import '../models/class_plan_models.dart';
+import '../services/class_plan_editor_operations.dart';
 import '../services/planner_data_source.dart';
 import '../theme/planner_palette.dart';
 import 'planner_advanced_create_view.dart';
+import 'planner_class_editor_view.dart';
 import 'planner_quick_create_view.dart';
 import 'planner_shared_widgets.dart';
 
-/// Hub unificado del Planificador Pedagógico GINGA (PED-04B1-FINAL).
-/// Integra Mis Planes, Pizarra de Recursos e Historial, más Creación Rápida y Avanzada.
+/// Hub unificado del Planificador Pedagógico GINGA (PED-04B1 / PED-04B2).
+/// Integra Mis Planes, Pizarra de Recursos, Historial, Creación Rápida/Avanzada y Editor V2.
 class PlannerHubBody extends StatefulWidget {
   final PlannerDataSource dataSource;
   final CurriculumRepository? curriculumRepository;
   final PlannerHubTab initialTab;
   final PlannerCreationMode? initialCreationMode;
+  final String? initialEditingPlanId;
+  final bool initialCreateManual;
   final VoidCallback? onOpenBiblioteca;
   final VoidCallback? onLegacyCreateIdea;
   final ValueChanged<PlannerResourceItem>? onLegacyEditIdea;
@@ -33,6 +37,8 @@ class PlannerHubBody extends StatefulWidget {
     this.curriculumRepository,
     this.initialTab = PlannerHubTab.plans,
     this.initialCreationMode,
+    this.initialEditingPlanId,
+    this.initialCreateManual = false,
     this.onOpenBiblioteca,
     this.onLegacyCreateIdea,
     this.onLegacyEditIdea,
@@ -52,6 +58,8 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
   late PlannerHubTab _activeTab;
   PlannerCreationMode? _activeCreationMode;
   ClassPlanDraftRequest? _pendingDraftRequest;
+  ClassPlanModel? _editingPlan;
+  bool _editingIsDuplicate = false;
 
   bool _loading = true;
   String? _loadError;
@@ -59,6 +67,7 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
   List<ClassPlanModel> _plans = const [];
   List<PlannerResourceItem> _resources = const [];
   List<TaughtSessionRecord> _history = const [];
+  Map<String, String> _movementNamesById = {};
 
   final TextEditingController _plansSearchCtrl = TextEditingController();
   final TextEditingController _resourcesSearchCtrl = TextEditingController();
@@ -86,11 +95,27 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
   void didUpdateWidget(covariant PlannerHubBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTab != widget.initialTab ||
-        oldWidget.initialCreationMode != widget.initialCreationMode) {
+        oldWidget.initialCreationMode != widget.initialCreationMode ||
+        oldWidget.initialEditingPlanId != widget.initialEditingPlanId ||
+        oldWidget.initialCreateManual != widget.initialCreateManual) {
       _activeTab = widget.initialTab;
       _activeCreationMode = widget.initialCreationMode;
+      _editingPlan = null;
+      _editingIsDuplicate = false;
       if (_activeCreationMode != null && _pendingDraftRequest == null) {
         _pendingDraftRequest = _buildDefaultRequest(_activeCreationMode!);
+      }
+      if (widget.initialCreateManual) {
+        _editingPlan = ClassPlanModel.emptyManual(
+          group: _groups.isNotEmpty ? _groups.first : null,
+        );
+      } else if (widget.initialEditingPlanId != null) {
+        for (final p in _plans) {
+          if (p.id == widget.initialEditingPlanId) {
+            _editingPlan = p;
+            break;
+          }
+        }
       }
     }
   }
@@ -120,11 +145,41 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
       final resources = results[2] as List<PlannerResourceItem>;
       final history = results[3] as List<TaughtSessionRecord>;
 
+      final namesMap = <String, String>{};
+      final repo = widget.curriculumRepository;
+      if (repo != null) {
+        try {
+          final movs = await repo.queryMovements();
+          for (final m in movs) {
+            namesMap[m.movementId] = m.canonicalName;
+          }
+        } catch (_) {}
+      }
+      if (!mounted) return;
+
+      ClassPlanModel? initialEditorPlan;
+      if (widget.initialCreateManual && _editingPlan == null) {
+        initialEditorPlan = ClassPlanModel.emptyManual(
+          group: groups.isNotEmpty ? groups.first : null,
+        );
+      } else if (widget.initialEditingPlanId != null && _editingPlan == null) {
+        for (final p in plans) {
+          if (p.id == widget.initialEditingPlanId) {
+            initialEditorPlan = p;
+            break;
+          }
+        }
+      }
+
       setState(() {
         _groups = groups;
         _plans = plans;
         _resources = resources;
         _history = history;
+        _movementNamesById = namesMap;
+        if (initialEditorPlan != null) {
+          _editingPlan = initialEditorPlan;
+        }
         _loading = false;
         if (_activeCreationMode != null && _pendingDraftRequest == null) {
           _pendingDraftRequest = _buildDefaultRequest(_activeCreationMode!);
@@ -244,12 +299,94 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
           'Borrador "${draft.titulo}" creado localmente sin marcar recursos como usados.',
         ),
         backgroundColor: PlannerPalette.of(context).accent,
+        action: SnackBarAction(
+          label: 'Abrir editor',
+          textColor: PlannerPalette.of(context).onAccent,
+          onPressed: () {
+            if (mounted) _openEditor(draft);
+          },
+        ),
       ),
     );
   }
 
+  void _openManualFromScratch() {
+    final blank = ClassPlanModel.emptyManual(
+      group: _groups.isNotEmpty ? _groups.first : null,
+    );
+    setState(() {
+      _activeCreationMode = null;
+      _pendingDraftRequest = null;
+      _editingPlan = blank;
+      _editingIsDuplicate = false;
+    });
+  }
+
+  void _openEditor(ClassPlanModel plan, {bool isDuplicate = false}) {
+    setState(() {
+      _activeCreationMode = null;
+      _pendingDraftRequest = null;
+      _editingPlan = plan;
+      _editingIsDuplicate = isDuplicate;
+    });
+  }
+
+  void _duplicateAndEditPlan(ClassPlanModel original) {
+    final copy = ClassPlanEditorOperations.duplicatePlan(
+      original,
+      existingPlanIds: _plans.map((p) => p.id).toSet(),
+    );
+    _openEditor(copy, isDuplicate: true);
+  }
+
+  Future<void> _handleSaveEditedPlan(ClassPlanModel savedPlan) async {
+    await widget.dataSource.saveLocalDraft(savedPlan);
+    final updatedPlans = await widget.dataSource.loadPlans();
+    if (!mounted) return;
+    setState(() {
+      _plans = updatedPlans;
+      _editingPlan = null;
+      _editingIsDuplicate = false;
+      _activeTab = PlannerHubTab.plans;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Clase "${savedPlan.titulo}" guardada sin marcar recursos como usados.',
+        ),
+        backgroundColor: PlannerPalette.of(context).accent,
+      ),
+    );
+  }
+
+  Future<PlannerResourceItem?> _createLocalResourceFromEditor() async {
+    final inMemory = widget.dataSource;
+    if (inMemory is! InMemoryPlannerDataSource) return null;
+    PlannerResourceItem? created;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => FractionallySizedBox(
+        heightFactor: 0.86,
+        child: LocalResourceEditorSheet(
+          onSave: (item) async {
+            await inMemory.saveLocalResource(item);
+            final updated = await inMemory.loadResources();
+            created = item;
+            if (!mounted) return;
+            setState(() => _resources = updated);
+          },
+        ),
+      ),
+    );
+    return created;
+  }
+
   void _openPlanDetail(ClassPlanModel plan) {
-    if (widget.onOpenLegacyPlanDetail != null && plan.rawLegacyMap.isNotEmpty) {
+    if (widget.onOpenLegacyPlanDetail != null &&
+        plan.isLegacyV1 &&
+        plan.rawLegacyMap.isNotEmpty) {
       widget.onOpenLegacyPlanDetail!(plan);
       return;
     }
@@ -261,10 +398,14 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         heightFactor: 0.88,
         child: ClassPlanSummarySheet(
           plan: plan,
+          movementNamesById: _movementNamesById,
+          resourcesById: {
+            for (final r in _resources) r.resourceId: r,
+          },
+          onEditPlan: () => _openEditor(plan),
+          onDuplicatePlan: () => _duplicateAndEditPlan(plan),
           onReuseInQuick: () =>
               _openCreation(PlannerCreationMode.quick, reusePlan: plan),
-          onReuseInAdvanced: () =>
-              _openCreation(PlannerCreationMode.advanced, reusePlan: plan),
         ),
       ),
     );
@@ -446,6 +587,27 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
       );
     }
 
+    if (_editingPlan != null) {
+      return PlannerClassEditorView(
+        key: ValueKey('class_editor_${_editingPlan!.id}_$_editingIsDuplicate'),
+        initialPlan: _editingPlan!,
+        isDuplicateCopy: _editingIsDuplicate,
+        resources: _resources,
+        curriculumRepository: widget.curriculumRepository,
+        movementNamesById: _movementNamesById,
+        onCreateLocalResource:
+            widget.dataSource is InMemoryPlannerDataSource
+                ? _createLocalResourceFromEditor
+                : null,
+        onOpenResource: _openResourceViewer,
+        onSavePlan: _handleSaveEditedPlan,
+        onCancel: () => setState(() {
+          _editingPlan = null;
+          _editingIsDuplicate = false;
+        }),
+      );
+    }
+
     if (_activeCreationMode == PlannerCreationMode.quick) {
       return PlannerQuickCreateView(
         groups: _groups,
@@ -614,6 +776,22 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
                           fontSize: 12.5, fontWeight: FontWeight.w700),
                     ),
                   ),
+                  OutlinedButton.icon(
+                    key: const Key('hub_manual_create_button'),
+                    onPressed: _openManualFromScratch,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 44),
+                      side: BorderSide(color: pal.border),
+                      foregroundColor: pal.textPrimary,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                    ),
+                    icon: const Icon(Icons.note_add_outlined, size: 17),
+                    label: Text(
+                      'Crear desde cero',
+                      style: GoogleFonts.montserrat(
+                          fontSize: 12.5, fontWeight: FontWeight.w700),
+                    ),
+                  ),
                   if (widget.onOpenBiblioteca != null)
                     OutlinedButton.icon(
                       onPressed: widget.onOpenBiblioteca,
@@ -766,11 +944,8 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
                 _PlanSummaryCard(
                   plan: plan,
                   onView: () => _openPlanDetail(plan),
-                  onEditPlan: () => _openCreation(
-                      PlannerCreationMode.advanced,
-                      reusePlan: plan),
-                  onReuseQuick: () =>
-                      _openCreation(PlannerCreationMode.quick, reusePlan: plan),
+                  onEditPlan: () => _openEditor(plan),
+                  onReuseQuick: () => _duplicateAndEditPlan(plan),
                   onStartLive: widget.onStartLegacyLiveClass != null &&
                           plan.rawLegacyMap.isNotEmpty
                       ? () => widget.onStartLegacyLiveClass!(plan)

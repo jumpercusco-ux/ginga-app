@@ -9,6 +9,24 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
+## [PED-04B2-UX] — 2026-11-26
+### [CERRADO TÉCNICAMENTE EN RAMA `feat/ped03-biblioteca-curricular` · PROBADO LOCALMENTE]
+- **Refinamiento UX y Cierre Técnico del Editor Pedagógico V2 (`PED-04B2-UX` / `PED-04B2-CLOSE`):**
+  - **Distribución y Campos Legibles:** Proporción 60/40 en escritorio (`>=1200px`), tarjetas a ancho completo, tokens `inputFill`/`inputBorder` en [planner_palette.dart](file:///Users/jumper/ginga_app/lib/features/instructor/planificador/theme/planner_palette.dart), `PlannerFieldLabel` + `plannerInputDecoration` en [planner_shared_widgets.dart](file:///Users/jumper/ginga_app/lib/features/instructor/planificador/widgets/planner_shared_widgets.dart) evitando etiquetas flotantes recortadas, y tooltips completos en bloques y ejercicios.
+  - **Variantes, Organización y Recursos:** Variantes separadas en `Principiantes`, `Intermedios` (`differentiationIntermediate`) y `Avanzados`; 5 opciones de organización pedagógica (`kPlannerOrganizationOptions`); vinculación múltiple de movimientos FIU y recursos de Pizarra abribles con notas de uso particulares (`resourceUsageNotes`) sin sobrescribir el origen del ejercicio ni marcar recursos como usados; y relación explícita bloque vs. suma de ejercicios.
+  - **Validación, Aprobación Manual y Preview Puerto `8097`:** Verificado manualmente por el propietario en `http://127.0.0.1:8097/` (conservación de duración `20 min`, organización `Todos simultáneamente`, movimientos FIU y variantes al guardar, volver al Hub y reabrir), `flutter analyze` limpio (`No issues found!`), `flutter test` (**`59/59 All tests passed!`**), suites Node de catálogo/importador/agente en verde, y preview aislado sin service worker (`--pwa-strategy=none`, `Cache-Control: no-store`) activo en `http://127.0.0.1:8097/`.
+
+---
+
+## [PED-04B2] — 2026-11-26
+### [CERRADO TÉCNICAMENTE EN RAMA `feat/ped03-biblioteca-curricular` · PROBADO LOCALMENTE]
+- **Editor Pedagógico de Clases V2 (`PED-04B2`):**
+  - **Modelos y Operaciones Inmutables:** Ampliación de `ClassPlanExercise`, `ClassPlanBlock` y `ClassPlanModel` en [class_plan_models.dart](file:///Users/jumper/ginga_app/lib/features/instructor/planificador/models/class_plan_models.dart) (11 campos pedagógicos por ejercicio, compatibilidad V1/V2, `toMap()` libre de PII, `ClassPlanModel.emptyManual`), creación de [class_plan_editor_operations.dart](file:///Users/jumper/ginga_app/lib/features/instructor/planificador/services/class_plan_editor_operations.dart) (`ClassPlanEditorOperations`, `ClassPlanTimingSummary`) y actualización de [planner_data_source.dart](file:///Users/jumper/ginga_app/lib/features/instructor/planificador/services/planner_data_source.dart) sin escrituras en producción.
+  - **Editor Contextual y Control de Tiempos:** Implementación de [planner_class_editor_view.dart](file:///Users/jumper/ginga_app/lib/features/instructor/planificador/widgets/planner_class_editor_view.dart) y [planner_exercise_editor_panel.dart](file:///Users/jumper/ginga_app/lib/features/instructor/planificador/widgets/planner_exercise_editor_panel.dart) con barra permanente de control de tiempos, bloques expandibles, edición lateral en escritorio y modal en tablet/móvil, selector curricular FIU vía `CurriculumSelectionContract` bloqueado para Infantil/Mixto, selector de recursos de Pizarra (`Video`, `Imagen`, `Enlace`, `Nota`) sin marcar uso y conexión con [planner_hub_body.dart](file:///Users/jumper/ginga_app/lib/features/instructor/planificador/widgets/planner_hub_body.dart), [planner_shared_widgets.dart](file:///Users/jumper/ginga_app/lib/features/instructor/planificador/widgets/planner_shared_widgets.dart), [instructor_pizarra_screen.dart](file:///Users/jumper/ginga_app/lib/features/instructor/instructor_pizarra_screen.dart) y [main_planificador_preview.dart](file:///Users/jumper/ginga_app/lib/main_planificador_preview.dart).
+  - **Validación, Capturas y Preview Puerto `8097`:** `flutter analyze` limpio sobre los 15 archivos del frente (`No issues found!`), `flutter test` (**`58/58 All tests passed!`** con [planificador_v2_editor_test.dart](file:///Users/jumper/ginga_app/test/planificador_v2_editor_test.dart) y [ped04b2_screenshot_capture_test.dart](file:///Users/jumper/ginga_app/test/ped04b2_screenshot_capture_test.dart)), validación de catálogo/importador (`6/6 PASS`) y preview aislado compilado sin service worker (`--pwa-strategy=none`) en `http://127.0.0.1:8097/`.
+
+---
+
 ## [PED-04B1] — 2026-11-26
 ### [RESPALDADO EN RAMA `feat/ped03-biblioteca-curricular` · PROBADO LOCALMENTE]
 - **Planificador Pedagógico GINGA V2 — Interfaz, Contratos y Preview Aislado (`PED-04A` / `PED-04B1` / `PED-04B1-FINAL` / `PED-04B1-CLOSE`):**

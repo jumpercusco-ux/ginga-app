@@ -347,6 +347,8 @@ class InstructorPizarraScreen extends StatefulWidget {
   final CurriculumRepository? curriculumRepository;
   final PlannerHubTab initialTab;
   final PlannerCreationMode? initialCreationMode;
+  final String? initialEditingPlanId;
+  final bool initialCreateManual;
   final VoidCallback? onOpenBiblioteca;
   final bool embedded;
 
@@ -356,6 +358,8 @@ class InstructorPizarraScreen extends StatefulWidget {
     this.curriculumRepository,
     this.initialTab = PlannerHubTab.plans,
     this.initialCreationMode,
+    this.initialEditingPlanId,
+    this.initialCreateManual = false,
     this.onOpenBiblioteca,
     this.embedded = false,
   });
@@ -397,6 +401,8 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
       curriculumRepository: widget.curriculumRepository,
       initialTab: widget.initialTab,
       initialCreationMode: widget.initialCreationMode,
+      initialEditingPlanId: widget.initialEditingPlanId,
+      initialCreateManual: widget.initialCreateManual,
       onOpenBiblioteca: widget.onOpenBiblioteca ??
           (_isIsolatedDataSource
               ? null

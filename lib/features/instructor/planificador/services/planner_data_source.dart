@@ -146,6 +146,10 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
           'curriculum_scope': 'adulto_fiu',
           'enfoque': 'Técnica · Secuencias',
           'objetivo': 'Conectar cocorinha y rolê evitando tiempos muertos.',
+          'objetivos': [
+            'Conectar cocorinha y rolê evitando tiempos muertos.',
+            'Mantener cobertura facial y base estable en parejas.',
+          ],
           'veces_impartida': 1,
           'created_at': '2026-11-20T18:00:00Z',
           'ultima_ejecucion': '2026-11-23T20:00:00Z',
@@ -171,8 +175,15 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
                   'exercise_id': 'ex_1_1',
                   'nombre': 'Juego espejo de esquivas en parejas',
                   'detalle_paso_a_paso': '6 parejas simultáneas alternando marcas alta/baja.',
+                  'duracion_min': 12,
+                  'organizacion': 'Rotación por parejas',
+                  'materiales': ['Conos'],
+                  'seguridad': 'Mantener 2 metros entre parejas al desplazar.',
                   'content_origin': 'teacher_resource',
                   'linked_resource_ids': ['idea_res_02'],
+                  'resource_usage_notes': {
+                    'idea_res_02': 'Aplicar en 2 rondas de 90s antes de pasar a cocorinha.',
+                  },
                 },
               ],
             },
@@ -184,7 +195,14 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
                 {
                   'exercise_id': 'ex_2_1',
                   'nombre': 'Cocorinha + salida en Rolê',
-                  'detalle_paso_a_paso': 'Progresión en 3 ritmos con cambio de pareja.',
+                  'detalle_paso_a_paso': 'Progresión en 3 ritmos con cambio de pareja cada 2 minutos.',
+                  'duracion_min': 28,
+                  'organizacion': 'Rotación por parejas',
+                  'diferenciacion_principiantes': 'Pausa breve en cocorinha verificando apoyo de mano.',
+                  'diferenciacion_intermedios': 'Mantener mirada continua hacia la pareja durante todo el rolê.',
+                  'diferenciacion_avanzados': 'Enlazar con negativa corta y entrada de meia lua.',
+                  'seguridad': 'Evitar apoyar rodillas al girar en rolê.',
+                  'observaciones_profesor': 'Corregir mirada hacia el compañero durante el giro.',
                   'content_origin': 'official_fiu_curriculum',
                   'curriculum_movement_ids': ['cocorinha', 'role'],
                 },
@@ -199,13 +217,16 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
                   'exercise_id': 'ex_3_1',
                   'nombre': 'Roda Benguela de diálogo corporal',
                   'detalle_paso_a_paso': 'Entradas obligatorias saliendo en rolê.',
+                  'duracion_min': 20,
+                  'organizacion': 'Roda única con rotación cada 60s',
+                  'materiales': ['Berimbau', 'Pandeiro', 'Atabaque'],
                   'content_origin': 'ai_complementary_proposal',
                 },
               ],
             },
           ],
         }),
-        // Plan V2 Infantil sin currículo adulto
+        // Plan V2 Infantil sin currículo adulto (40 min planificados de 60 min objetivo)
         ClassPlanModel.fromMap('v2_plan_infantil_01', {
           'schema_version': 2,
           'plan_status': 'saved',
@@ -217,6 +238,9 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
           'curriculum_scope': 'infantil_fiu_pending',
           'enfoque': 'Juegos & Agilidad',
           'objetivo': 'Coordinación motora, atención grupal y palmas en 3 tiempos.',
+          'objetivos': [
+            'Coordinación motora, atención grupal y palmas en 3 tiempos.',
+          ],
           'veces_impartida': 0,
           'created_at': '2026-11-22T14:00:00Z',
           'group_snapshot': {
@@ -241,6 +265,10 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
                   'exercise_id': 'ex_k1_1',
                   'nombre': 'Circuito animal: sapo, cangrejo y aú lento',
                   'detalle_paso_a_paso': '2 carriles paralelos para evitar filas.',
+                  'duracion_min': 20,
+                  'organizacion': 'Estaciones en 2 carriles',
+                  'materiales': ['Conos', 'Colchonetas', 'Aros'],
+                  'seguridad': 'Cuidar distancia de caída al pasar por las colchonetas.',
                   'content_origin': 'teacher_resource',
                   'linked_resource_ids': ['idea_res_04'],
                 },
@@ -255,6 +283,9 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
                   'exercise_id': 'ex_k2_1',
                   'nombre': 'Coro responsorial y ritmo en pandeiro',
                   'detalle_paso_a_paso': 'Turnos cortos de 30s con refuerzo positivo.',
+                  'duracion_min': 20,
+                  'organizacion': 'Roda en semicírculo',
+                  'materiales': ['Pandeiro'],
                   'content_origin': 'ai_complementary_proposal',
                 },
               ],
@@ -395,8 +426,12 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
 
   @override
   Future<void> saveLocalDraft(ClassPlanModel draft) async {
-    _plans.removeWhere((p) => p.id == draft.id);
-    _plans.insert(0, draft);
+    final idx = _plans.indexWhere((p) => p.id == draft.id);
+    if (idx >= 0) {
+      _plans[idx] = draft;
+    } else {
+      _plans.insert(0, draft);
+    }
   }
 
   Future<void> saveLocalResource(PlannerResourceItem resource) async {
@@ -522,7 +557,9 @@ class FirestorePlannerDataSource implements PlannerDataSource {
       ..sort((a, b) => (b.createdAt ?? DateTime(2000))
           .compareTo(a.createdAt ?? DateTime(2000)));
 
-    return [..._sessionDrafts, ...remote];
+    final localIds = _sessionDrafts.map((d) => d.id).toSet();
+    final filteredRemote = remote.where((r) => !localIds.contains(r.id));
+    return [..._sessionDrafts, ...filteredRemote];
   }
 
   @override

@@ -65,6 +65,14 @@ const List<String> kPlannerFocusOptions = [
   'Roda',
 ];
 
+const List<String> kPlannerOrganizationOptions = [
+  'Todos simultáneamente',
+  'Rotación por parejas',
+  'Estaciones simultáneas',
+  'Turnos',
+  'Organización personalizada',
+];
+
 /// Alcance curricular explícito. Nunca infiere automáticamente Adulto para Mixto o Infantil.
 enum PlannerCurriculumScope {
   adultoFiu(
@@ -616,11 +624,17 @@ class ClassPlanExercise {
   final String exerciseId;
   final String nombre;
   final String detalle;
+  final int? duracionMin;
+  final String? organizacion;
+  final List<String> materiales;
+  final String? observacionesProfesor;
   final ContentOrigin contentOrigin;
   final List<String> curriculumMovementIds;
   final List<String> linkedResourceIds;
+  final Map<String, String> resourceUsageNotes;
   final String? legacyRecursoRelacionado;
   final String? differentiationBeginner;
+  final String? differentiationIntermediate;
   final String? differentiationAdvanced;
   final String? safetyNote;
   final String? videoReferenceNote;
@@ -629,15 +643,101 @@ class ClassPlanExercise {
     required this.exerciseId,
     required this.nombre,
     required this.detalle,
+    this.duracionMin,
+    this.organizacion,
+    this.materiales = const [],
+    this.observacionesProfesor,
     this.contentOrigin = ContentOrigin.aiComplementaryProposal,
     this.curriculumMovementIds = const [],
     this.linkedResourceIds = const [],
+    this.resourceUsageNotes = const {},
     this.legacyRecursoRelacionado,
     this.differentiationBeginner,
+    this.differentiationIntermediate,
     this.differentiationAdvanced,
     this.safetyNote,
     this.videoReferenceNote,
   });
+
+  factory ClassPlanExercise.manualBlank({
+    required String exerciseId,
+    String nombre = 'Nuevo ejercicio',
+    int? duracionMin = 10,
+  }) {
+    return ClassPlanExercise(
+      exerciseId: exerciseId,
+      nombre: nombre,
+      detalle: '',
+      duracionMin: duracionMin,
+      contentOrigin: ContentOrigin.teacherResource,
+    );
+  }
+
+  ClassPlanExercise copyWith({
+    String? exerciseId,
+    String? nombre,
+    String? detalle,
+    int? duracionMin,
+    bool clearDuracionMin = false,
+    String? organizacion,
+    bool clearOrganizacion = false,
+    List<String>? materiales,
+    String? observacionesProfesor,
+    bool clearObservacionesProfesor = false,
+    ContentOrigin? contentOrigin,
+    List<String>? curriculumMovementIds,
+    List<String>? linkedResourceIds,
+    Map<String, String>? resourceUsageNotes,
+    String? legacyRecursoRelacionado,
+    bool clearLegacyRecursoRelacionado = false,
+    String? differentiationBeginner,
+    bool clearDifferentiationBeginner = false,
+    String? differentiationIntermediate,
+    bool clearDifferentiationIntermediate = false,
+    String? differentiationAdvanced,
+    bool clearDifferentiationAdvanced = false,
+    String? safetyNote,
+    bool clearSafetyNote = false,
+    String? videoReferenceNote,
+    bool clearVideoReferenceNote = false,
+  }) {
+    return ClassPlanExercise(
+      exerciseId: exerciseId ?? this.exerciseId,
+      nombre: nombre ?? this.nombre,
+      detalle: detalle ?? this.detalle,
+      duracionMin:
+          clearDuracionMin ? null : (duracionMin ?? this.duracionMin),
+      organizacion:
+          clearOrganizacion ? null : (organizacion ?? this.organizacion),
+      materiales: List<String>.unmodifiable(materiales ?? this.materiales),
+      observacionesProfesor: clearObservacionesProfesor
+          ? null
+          : (observacionesProfesor ?? this.observacionesProfesor),
+      contentOrigin: contentOrigin ?? this.contentOrigin,
+      curriculumMovementIds: List<String>.unmodifiable(
+          curriculumMovementIds ?? this.curriculumMovementIds),
+      linkedResourceIds:
+          List<String>.unmodifiable(linkedResourceIds ?? this.linkedResourceIds),
+      resourceUsageNotes:
+          Map<String, String>.unmodifiable(resourceUsageNotes ?? this.resourceUsageNotes),
+      legacyRecursoRelacionado: clearLegacyRecursoRelacionado
+          ? null
+          : (legacyRecursoRelacionado ?? this.legacyRecursoRelacionado),
+      differentiationBeginner: clearDifferentiationBeginner
+          ? null
+          : (differentiationBeginner ?? this.differentiationBeginner),
+      differentiationIntermediate: clearDifferentiationIntermediate
+          ? null
+          : (differentiationIntermediate ?? this.differentiationIntermediate),
+      differentiationAdvanced: clearDifferentiationAdvanced
+          ? null
+          : (differentiationAdvanced ?? this.differentiationAdvanced),
+      safetyNote: clearSafetyNote ? null : (safetyNote ?? this.safetyNote),
+      videoReferenceNote: clearVideoReferenceNote
+          ? null
+          : (videoReferenceNote ?? this.videoReferenceNote),
+    );
+  }
 
   factory ClassPlanExercise.fromMap(
     Map<String, dynamic> map, {
@@ -651,6 +751,21 @@ class ClassPlanExercise {
         .map((e) => e.toString())
         .where((e) => e.isNotEmpty)
         .toList();
+    final matList = ((map['materiales'] as List?) ?? const [])
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final usageNotes = <String, String>{};
+    if (map['resource_usage_notes'] is Map) {
+      final rawMap = map['resource_usage_notes'] as Map;
+      for (final entry in rawMap.entries) {
+        final k = entry.key.toString().trim();
+        final v = entry.value?.toString().trim() ?? '';
+        if (k.isNotEmpty && v.isNotEmpty) {
+          usageNotes[k] = v;
+        }
+      }
+    }
     final legacyRes = map['recurso_relacionado']?.toString();
 
     final ContentOrigin origin;
@@ -667,20 +782,32 @@ class ClassPlanExercise {
       origin = ContentOrigin.aiComplementaryProposal;
     }
 
+    String? cleanOpt(dynamic raw) {
+      if (raw == null) return null;
+      final s = raw.toString().trim();
+      return s.isEmpty || s.toLowerCase() == 'null' ? null : s;
+    }
+
     return ClassPlanExercise(
       exerciseId: (map['exercise_id'] as String?)?.trim().isNotEmpty == true
           ? map['exercise_id'].toString()
           : fallbackId,
       nombre: (map['nombre'] as String? ?? 'Ejercicio').trim(),
       detalle: (map['detalle_paso_a_paso'] ?? map['detalle'] ?? '').toString(),
+      duracionMin: (map['duracion_min'] as num?)?.toInt(),
+      organizacion: cleanOpt(map['organizacion']),
+      materiales: matList,
+      observacionesProfesor: cleanOpt(map['observaciones_profesor']),
       contentOrigin: origin,
       curriculumMovementIds: movIds,
       linkedResourceIds: resIds,
+      resourceUsageNotes: usageNotes,
       legacyRecursoRelacionado: legacyRes,
-      differentiationBeginner: map['diferenciacion_principiantes']?.toString(),
-      differentiationAdvanced: map['diferenciacion_avanzados']?.toString(),
-      safetyNote: map['seguridad']?.toString(),
-      videoReferenceNote: map['video_reference_note']?.toString(),
+      differentiationBeginner: cleanOpt(map['diferenciacion_principiantes']),
+      differentiationIntermediate: cleanOpt(map['diferenciacion_intermedios']),
+      differentiationAdvanced: cleanOpt(map['diferenciacion_avanzados']),
+      safetyNote: cleanOpt(map['seguridad']),
+      videoReferenceNote: cleanOpt(map['video_reference_note']),
     );
   }
 
@@ -688,20 +815,36 @@ class ClassPlanExercise {
         'exercise_id': exerciseId,
         'nombre': nombre,
         'detalle': detalle,
+        if (duracionMin != null) 'duracion_min': duracionMin,
+        if (organizacion != null && organizacion!.trim().isNotEmpty)
+          'organizacion': organizacion!.trim(),
+        if (materiales.isNotEmpty) 'materiales': materiales,
+        if (observacionesProfesor != null &&
+            observacionesProfesor!.trim().isNotEmpty)
+          'observaciones_profesor': observacionesProfesor!.trim(),
         'content_origin': contentOrigin.id,
         if (curriculumMovementIds.isNotEmpty)
           'curriculum_movement_ids': curriculumMovementIds,
         if (linkedResourceIds.isNotEmpty)
           'linked_resource_ids': linkedResourceIds,
+        if (resourceUsageNotes.isNotEmpty)
+          'resource_usage_notes': resourceUsageNotes,
         if (legacyRecursoRelacionado != null)
           'recurso_relacionado': legacyRecursoRelacionado,
-        if (differentiationBeginner != null)
-          'diferenciacion_principiantes': differentiationBeginner,
-        if (differentiationAdvanced != null)
-          'diferenciacion_avanzados': differentiationAdvanced,
-        if (safetyNote != null) 'seguridad': safetyNote,
-        if (videoReferenceNote != null)
-          'video_reference_note': videoReferenceNote,
+        if (differentiationBeginner != null &&
+            differentiationBeginner!.trim().isNotEmpty)
+          'diferenciacion_principiantes': differentiationBeginner!.trim(),
+        if (differentiationIntermediate != null &&
+            differentiationIntermediate!.trim().isNotEmpty)
+          'diferenciacion_intermedios': differentiationIntermediate!.trim(),
+        if (differentiationAdvanced != null &&
+            differentiationAdvanced!.trim().isNotEmpty)
+          'diferenciacion_avanzados': differentiationAdvanced!.trim(),
+        if (safetyNote != null && safetyNote!.trim().isNotEmpty)
+          'seguridad': safetyNote!.trim(),
+        if (videoReferenceNote != null &&
+            videoReferenceNote!.trim().isNotEmpty)
+          'video_reference_note': videoReferenceNote!.trim(),
       };
 }
 
@@ -717,6 +860,32 @@ class ClassPlanBlock {
     required this.duracionMin,
     required this.ejercicios,
   });
+
+  int get exercisesTotalDurationMin =>
+      ejercicios.fold<int>(0, (acc, e) => acc + (e.duracionMin ?? 0));
+
+  bool get hasExerciseDurationEntries =>
+      ejercicios.any((e) => (e.duracionMin ?? 0) > 0);
+
+  int get exerciseDurationDelta => exercisesTotalDurationMin - duracionMin;
+
+  bool get hasDurationMismatch =>
+      hasExerciseDurationEntries && exercisesTotalDurationMin != duracionMin;
+
+  ClassPlanBlock copyWith({
+    String? blockId,
+    String? fase,
+    int? duracionMin,
+    List<ClassPlanExercise>? ejercicios,
+  }) {
+    return ClassPlanBlock(
+      blockId: blockId ?? this.blockId,
+      fase: fase ?? this.fase,
+      duracionMin: (duracionMin ?? this.duracionMin).clamp(0, 300),
+      ejercicios: List<ClassPlanExercise>.unmodifiable(
+          ejercicios ?? this.ejercicios),
+    );
+  }
 
   factory ClassPlanBlock.fromMap(
     Map<String, dynamic> map, {
@@ -761,6 +930,7 @@ class ClassPlanModel {
   final PlannerCurriculumScope curriculumScope;
   final String enfoque;
   final String objetivo;
+  final List<String> objetivos;
   final String groupName;
   final int ageMin;
   final int ageMax;
@@ -770,7 +940,9 @@ class ClassPlanModel {
   final String? consejosInstructor;
   final int vecesImpartida;
   final DateTime? createdAt;
+  final DateTime? updatedAt;
   final DateTime? ultimaEjecucion;
+  final String? duplicatedFromPlanId;
   final Map<String, dynamic> rawLegacyMap;
 
   const ClassPlanModel({
@@ -785,6 +957,7 @@ class ClassPlanModel {
     required this.curriculumScope,
     required this.enfoque,
     required this.objetivo,
+    this.objetivos = const [],
     required this.groupName,
     required this.ageMin,
     required this.ageMax,
@@ -794,11 +967,31 @@ class ClassPlanModel {
     this.consejosInstructor,
     this.vecesImpartida = 0,
     this.createdAt,
+    this.updatedAt,
     this.ultimaEjecucion,
+    this.duplicatedFromPlanId,
     this.rawLegacyMap = const {},
   });
 
   bool get isLegacyV1 => schemaVersion < 2;
+
+  int get plannedDurationMin =>
+      bloques.fold<int>(0, (acc, b) => acc + b.duracionMin);
+
+  int get durationDeltaMin => plannedDurationMin - duracionTotal;
+
+  int get remainingDurationMin =>
+      durationDeltaMin < 0 ? -durationDeltaMin : 0;
+
+  int get excessDurationMin => durationDeltaMin > 0 ? durationDeltaMin : 0;
+
+  List<String> get allExerciseMaterials => bloques
+      .expand((b) => b.ejercicios)
+      .expand((e) => e.materiales)
+      .map((m) => m.trim())
+      .where((m) => m.isNotEmpty)
+      .toSet()
+      .toList();
 
   Set<ContentOrigin> get detectedOrigins {
     final origins = <ContentOrigin>{};
@@ -825,6 +1018,110 @@ class ClassPlanModel {
               e.legacyRecursoRelacionado!.toLowerCase() != 'null'))
       .length;
 
+  ClassPlanModel copyWith({
+    String? id,
+    int? schemaVersion,
+    ClassPlanStatus? planStatus,
+    PlannerCreationMode? creationMode,
+    String? titulo,
+    int? duracionTotal,
+    String? nivelLabel,
+    PlannerAudienceType? audienceType,
+    PlannerCurriculumScope? curriculumScope,
+    String? enfoque,
+    String? objetivo,
+    List<String>? objetivos,
+    String? groupName,
+    int? ageMin,
+    int? ageMax,
+    int? participantsCount,
+    ExperienceDistribution? experienceDistribution,
+    List<ClassPlanBlock>? bloques,
+    String? consejosInstructor,
+    bool clearConsejosInstructor = false,
+    int? vecesImpartida,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? ultimaEjecucion,
+    bool clearUltimaEjecucion = false,
+    String? duplicatedFromPlanId,
+    bool clearDuplicatedFromPlanId = false,
+    Map<String, dynamic>? rawLegacyMap,
+  }) {
+    final nextObjetivos =
+        List<String>.unmodifiable(objetivos ?? this.objetivos);
+    final nextObjetivo = objetivo ??
+        (objetivos != null ? nextObjetivos.join(' · ') : this.objetivo);
+    return ClassPlanModel(
+      id: id ?? this.id,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
+      planStatus: planStatus ?? this.planStatus,
+      creationMode: creationMode ?? this.creationMode,
+      titulo: titulo ?? this.titulo,
+      duracionTotal: (duracionTotal ?? this.duracionTotal).clamp(10, 300),
+      nivelLabel: nivelLabel ?? this.nivelLabel,
+      audienceType: audienceType ?? this.audienceType,
+      curriculumScope: curriculumScope ?? this.curriculumScope,
+      enfoque: enfoque ?? this.enfoque,
+      objetivo: nextObjetivo,
+      objetivos: nextObjetivos,
+      groupName: groupName ?? this.groupName,
+      ageMin: ageMin ?? this.ageMin,
+      ageMax: ageMax ?? this.ageMax,
+      participantsCount: participantsCount ?? this.participantsCount,
+      experienceDistribution:
+          experienceDistribution ?? this.experienceDistribution,
+      bloques: List<ClassPlanBlock>.unmodifiable(bloques ?? this.bloques),
+      consejosInstructor: clearConsejosInstructor
+          ? null
+          : (consejosInstructor ?? this.consejosInstructor),
+      vecesImpartida: vecesImpartida ?? this.vecesImpartida,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      ultimaEjecucion: clearUltimaEjecucion
+          ? null
+          : (ultimaEjecucion ?? this.ultimaEjecucion),
+      duplicatedFromPlanId: clearDuplicatedFromPlanId
+          ? null
+          : (duplicatedFromPlanId ?? this.duplicatedFromPlanId),
+      rawLegacyMap: rawLegacyMap ?? this.rawLegacyMap,
+    );
+  }
+
+  /// Serialización V2 completa y libre de PII de alumnos.
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'schema_version': schemaVersion,
+        'plan_status': planStatus.id,
+        'creation_mode': creationMode.id,
+        'titulo': titulo,
+        'duracion_total': duracionTotal,
+        'nivel': nivelLabel,
+        'audience_type': audienceType.id,
+        'curriculum_scope': curriculumScope.id,
+        'enfoque': enfoque,
+        'objetivo': objetivo,
+        if (objetivos.isNotEmpty) 'objetivos': objetivos,
+        'group_snapshot': {
+          'group_name': groupName,
+          'age_min': ageMin,
+          'age_max': ageMax,
+          'participants': participantsCount,
+          'experience_distribution': experienceDistribution.toMap(),
+        },
+        'bloques': bloques.map((b) => b.toMap()).toList(),
+        if (consejosInstructor != null &&
+            consejosInstructor!.trim().isNotEmpty)
+          'consejos_instructor': consejosInstructor!.trim(),
+        'veces_impartida': vecesImpartida,
+        if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
+        if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
+        if (ultimaEjecucion != null)
+          'ultima_ejecucion': ultimaEjecucion!.toIso8601String(),
+        if (duplicatedFromPlanId != null)
+          'duplicated_from_plan_id': duplicatedFromPlanId,
+      };
+
   factory ClassPlanModel.fromMap(String id, Map<String, dynamic> map) {
     final schemaVersion = (map['schema_version'] as num?)?.toInt() ?? 1;
     final nivelStr = (map['nivel'] as String? ?? 'Adultos').trim();
@@ -839,6 +1136,18 @@ class ClassPlanModel {
     final groupSnapshot = map['group_snapshot'] is Map
         ? Map<String, dynamic>.from(map['group_snapshot'] as Map)
         : const <String, dynamic>{};
+
+    final rawObjetivo = (map['objetivo'] as String? ?? '').trim();
+    final rawObjetivos = ((map['objetivos'] as List?) ?? const [])
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final effectiveObjetivos = rawObjetivos.isNotEmpty
+        ? rawObjetivos
+        : (rawObjetivo.isNotEmpty ? [rawObjetivo] : const <String>[]);
+    final effectiveObjetivo = rawObjetivo.isNotEmpty
+        ? rawObjetivo
+        : effectiveObjetivos.join(' · ');
 
     DateTime? parseDate(dynamic v) {
       if (v is Timestamp) return v.toDate();
@@ -858,7 +1167,8 @@ class ClassPlanModel {
       audienceType: audience,
       curriculumScope: scope,
       enfoque: (map['enfoque'] as String? ?? 'Técnica & Movilidad').trim(),
-      objetivo: (map['objetivo'] as String? ?? '').trim(),
+      objetivo: effectiveObjetivo,
+      objetivos: effectiveObjetivos,
       groupName: (groupSnapshot['group_name'] ??
               map['group_name'] ??
               nivelStr)
@@ -886,8 +1196,54 @@ class ClassPlanModel {
       consejosInstructor: map['consejos_instructor']?.toString(),
       vecesImpartida: (map['veces_impartida'] as num?)?.toInt() ?? 0,
       createdAt: parseDate(map['created_at']),
+      updatedAt: parseDate(map['updated_at']),
       ultimaEjecucion: parseDate(map['ultima_ejecucion']),
+      duplicatedFromPlanId: map['duplicated_from_plan_id']?.toString(),
       rawLegacyMap: Map<String, dynamic>.from(map),
+    );
+  }
+
+  /// Crea una clase V2 manual vacía desde cero sin contenido etiquetado como IA.
+  factory ClassPlanModel.emptyManual({
+    PlannerGroupProfile? group,
+    String? customId,
+  }) {
+    final audience = group?.audienceType ?? PlannerAudienceType.adultos;
+    final scope = PlannerCurriculumScope.suggestedForAudience(audience);
+    final now = DateTime.now();
+    return ClassPlanModel(
+      id: customId ?? 'manual_plan_${now.microsecondsSinceEpoch}',
+      schemaVersion: 2,
+      planStatus: ClassPlanStatus.draft,
+      creationMode: PlannerCreationMode.advanced,
+      titulo: 'Nueva clase manual',
+      duracionTotal: 60,
+      nivelLabel: audience.label,
+      audienceType: audience,
+      curriculumScope: scope,
+      enfoque: audience == PlannerAudienceType.infantil
+          ? 'Juegos · Musicalidad'
+          : 'Técnica',
+      objetivo: '',
+      objetivos: const [],
+      groupName: group?.name ?? 'Grupo ${audience.label}',
+      ageMin: group?.ageMin ??
+          (audience == PlannerAudienceType.infantil ? 6 : 16),
+      ageMax: group?.ageMax ??
+          (audience == PlannerAudienceType.infantil ? 12 : 40),
+      participantsCount: group?.participantsCount ?? 12,
+      experienceDistribution:
+          group?.defaultDistribution ?? const ExperienceDistribution(),
+      bloques: const [
+        ClassPlanBlock(
+          blockId: 'blk_manual_0',
+          fase: 'Calentamiento & Activación',
+          duracionMin: 10,
+          ejercicios: [],
+        ),
+      ],
+      createdAt: now,
+      updatedAt: now,
     );
   }
 
@@ -903,6 +1259,17 @@ class ClassPlanModel {
     final techMin = (total - warmupMin - calmMin - rodaMin - sueloMin)
         .clamp(10, total);
 
+    final techCount =
+        req.selectedMovements.length + req.selectedResources.length;
+    final effectiveCount = techCount > 0 ? techCount : 1;
+    final techBase = techMin ~/ effectiveCount;
+    var techRemainder = techMin % effectiveCount;
+    int nextTechDuration() {
+      final extra = techRemainder > 0 ? 1 : 0;
+      if (techRemainder > 0) techRemainder--;
+      return techBase + extra;
+    }
+
     final techExercises = <ClassPlanExercise>[
       for (int i = 0; i < req.selectedMovements.length; i++)
         ClassPlanExercise(
@@ -912,6 +1279,8 @@ class ClassPlanModel {
           detalle:
               'Progresión técnica en parejas simultáneas (${req.experienceDistribution.principiantes} principiantes, '
               '${req.experienceDistribution.intermedios} intermedios, ${req.experienceDistribution.avanzados} avanzados).',
+          duracionMin: nextTechDuration(),
+          organizacion: 'Parejas simultáneas',
           contentOrigin: ContentOrigin.officialFiuCurriculum,
           curriculumMovementIds: [req.selectedMovements[i].item.movementId],
           differentiationBeginner:
@@ -932,8 +1301,16 @@ class ClassPlanModel {
             else if (req.selectedResources[i].usageNote.trim().isEmpty)
               'Recurso seleccionado desde la Pizarra del profesor.',
           ].join(' · '),
+          duracionMin: nextTechDuration(),
+          organizacion: 'Estaciones simultáneas',
           contentOrigin: ContentOrigin.teacherResource,
           linkedResourceIds: [req.selectedResources[i].resource.resourceId],
+          resourceUsageNotes: req.selectedResources[i].usageNote.trim().isNotEmpty
+              ? {
+                  req.selectedResources[i].resource.resourceId:
+                      req.selectedResources[i].usageNote.trim(),
+                }
+              : const {},
           videoReferenceNote: req.selectedResources[i].resource.hasExternalVideo
               ? 'Video externo: el borrador usa título y notas escritas; la IA no inspecciona el video.'
               : null,
@@ -950,6 +1327,8 @@ class ClassPlanModel {
           detalle: req.freeInstructions.trim().isNotEmpty
               ? 'Instrucción del profesor: ${req.freeInstructions.trim()}'
               : 'Definir progresión técnica para el grupo ${req.groupName}.',
+          duracionMin: nextTechDuration(),
+          organizacion: 'Rotación por parejas',
           contentOrigin: ContentOrigin.teacherResource,
         ),
       );
@@ -970,6 +1349,8 @@ class ClassPlanModel {
                 : 'Activación articular + ginga progresiva simultánea',
             detalle:
                 'Todo el grupo (${req.participantsCount} alumnos, ${req.ageMin}–${req.ageMax} años) trabaja en paralelo.',
+            duracionMin: warmupMin,
+            organizacion: 'Todos simultáneamente',
             contentOrigin: ContentOrigin.teacherResource,
             safetyNote: 'Verificar espacio libre de al menos 2m por alumno.',
           ),
@@ -988,11 +1369,16 @@ class ClassPlanModel {
             : 'Movimientos de Suelo & Floreios',
         duracionMin: sueloMin,
         ejercicios: [
-          const ClassPlanExercise(
+          ClassPlanExercise(
             exerciseId: 'ex_solo_0',
             nombre: 'Estaciones progresivas de control en suelo',
             detalle:
                 'Alternar apoyos bajos y desplazamientos laterales en parejas.',
+            duracionMin: sueloMin,
+            organizacion: 'Estaciones en parejas',
+            materiales: req.materials.contains('Colchonetas')
+                ? const ['Colchonetas']
+                : const [],
             contentOrigin: ContentOrigin.teacherResource,
           ),
         ],
@@ -1003,11 +1389,17 @@ class ClassPlanModel {
           fase: 'Roda & Musicalidad',
           duracionMin: rodaMin,
           ejercicios: [
-            const ClassPlanExercise(
+            ClassPlanExercise(
               exerciseId: 'ex_roda_0',
               nombre: 'Coro, palmas y juego rotativo guiado',
               detalle:
                   'Rotación continua cada 60 segundos aplicando el objetivo del día.',
+              duracionMin: rodaMin,
+              organizacion: 'Roda única rotativa',
+              materiales: req.materials
+                  .where((m) =>
+                      m == 'Berimbau' || m == 'Pandeiro' || m == 'Atabaque')
+                  .toList(),
               contentOrigin: ContentOrigin.teacherResource,
             ),
           ],
@@ -1021,14 +1413,17 @@ class ClassPlanModel {
             exerciseId: 'ex_calm_0',
             nombre: 'Estiramiento y feedback del grupo',
             detalle: 'Respiración, descarga de muñecas/caderas y cierre técnico.',
+            duracionMin: calmMin,
+            organizacion: 'Círculo grupal',
             contentOrigin: ContentOrigin.teacherResource,
           ),
         ],
       ),
     ];
 
+    final now = DateTime.now();
     return ClassPlanModel(
-      id: 'local_draft_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'local_draft_${now.millisecondsSinceEpoch}',
       schemaVersion: 2,
       planStatus: ClassPlanStatus.draft,
       creationMode: req.creationMode,
@@ -1041,6 +1436,7 @@ class ClassPlanModel {
       objetivo: req.objectives.isNotEmpty
           ? req.objectives.join(' · ')
           : 'Sesión planificada para ${req.groupName}',
+      objetivos: List<String>.unmodifiable(req.objectives),
       groupName: req.groupName,
       ageMin: req.ageMin,
       ageMax: req.ageMax,
@@ -1053,7 +1449,8 @@ class ClassPlanModel {
           : (req.curriculumScope == PlannerCurriculumScope.infantilFiuPending
               ? 'Currículo Infantil en extracción: evitar usar secuencias adultas automáticamente.'
               : 'Diferenciar consigna base y progresión sin detener la fluidez del grupo.'),
-      createdAt: DateTime.now(),
+      createdAt: now,
+      updatedAt: now,
     );
   }
 }

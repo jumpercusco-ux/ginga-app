@@ -20,6 +20,8 @@ class PlannerPalette {
   final Color infoBlueBg;
   final Color purple;
   final Color purpleBg;
+  final Color inputFill;
+  final Color inputBorder;
 
   const PlannerPalette._({
     required this.isDark,
@@ -38,6 +40,8 @@ class PlannerPalette {
     required this.infoBlueBg,
     required this.purple,
     required this.purpleBg,
+    required this.inputFill,
+    required this.inputBorder,
   });
 
   factory PlannerPalette.of(BuildContext context) {
@@ -60,6 +64,8 @@ class PlannerPalette {
         infoBlueBg: const Color(0xFF64B5F6).withValues(alpha: 0.15),
         purple: const Color(0xFFCE93D8),
         purpleBg: const Color(0xFFCE93D8).withValues(alpha: 0.16),
+        inputFill: const Color(0xFF111511),
+        inputBorder: const Color(0xFF475647),
       );
     }
 
@@ -80,6 +86,8 @@ class PlannerPalette {
       infoBlueBg: Color(0xFFE3F2FD),
       purple: Color(0xFF6A1B9A),
       purpleBg: Color(0xFFF3E5F5),
+      inputFill: Color(0xFFFFFFFF),
+      inputBorder: Color(0xFFC2D1C2),
     );
   }
 }

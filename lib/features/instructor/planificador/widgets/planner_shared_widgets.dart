@@ -4,6 +4,88 @@ import '../../../../core/theme/ginga_theme.dart';
 import '../models/class_plan_models.dart';
 import '../theme/planner_palette.dart';
 
+/// Decoración consistente y de alto contraste para campos editables del planificador.
+InputDecoration plannerInputDecoration(
+  PlannerPalette pal, {
+  String? hintText,
+  Widget? prefixIcon,
+  Widget? suffixIcon,
+  bool isDense = false,
+}) {
+  return InputDecoration(
+    filled: true,
+    fillColor: pal.inputFill,
+    isDense: isDense,
+    hintText: hintText,
+    hintStyle: GoogleFonts.montserrat(
+      fontSize: 12.5,
+      color: pal.textSecondary.withValues(alpha: 0.78),
+    ),
+    prefixIcon: prefixIcon,
+    suffixIcon: suffixIcon,
+    contentPadding: EdgeInsets.symmetric(
+      horizontal: 14,
+      vertical: isDense ? 10 : 12,
+    ),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(GingaRadius.md),
+      borderSide: BorderSide(color: pal.inputBorder, width: 1.2),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(GingaRadius.md),
+      borderSide: BorderSide(color: pal.inputBorder, width: 1.2),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(GingaRadius.md),
+      borderSide: BorderSide(color: pal.accent, width: 1.8),
+    ),
+  );
+}
+
+/// Etiqueta superior nítida para campos de formulario, evitando etiquetas flotantes recortadas.
+class PlannerFieldLabel extends StatelessWidget {
+  final String text;
+  final bool optional;
+
+  const PlannerFieldLabel(
+    this.text, {
+    super.key,
+    this.optional = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = PlannerPalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            text,
+            style: GoogleFonts.montserrat(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: pal.textPrimary,
+            ),
+          ),
+          if (optional)
+            Text(
+              '(opcional)',
+              style: GoogleFonts.montserrat(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: pal.textSecondary,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Etiqueta compacta adaptable al tema activo para metadatos del planificador.
 class PlannerBadge extends StatelessWidget {
   final String label;
@@ -322,19 +404,34 @@ class _StepIconBtn extends StatelessWidget {
 /// Visor de detalle para planes guardados o borradores locales.
 class ClassPlanSummarySheet extends StatelessWidget {
   final ClassPlanModel plan;
+  final Map<String, String>? movementNamesById;
+  final Map<String, PlannerResourceItem>? resourcesById;
+  final VoidCallback? onEditPlan;
+  final VoidCallback? onDuplicatePlan;
   final VoidCallback? onReuseInQuick;
   final VoidCallback? onReuseInAdvanced;
 
   const ClassPlanSummarySheet({
     super.key,
     required this.plan,
+    this.movementNamesById,
+    this.resourcesById,
+    this.onEditPlan,
+    this.onDuplicatePlan,
     this.onReuseInQuick,
     this.onReuseInAdvanced,
   });
 
+  String _movementLabel(String id) {
+    final found = movementNamesById?[id];
+    if (found != null && found.isNotEmpty) return found;
+    return id;
+  }
+
   @override
   Widget build(BuildContext context) {
     final pal = PlannerPalette.of(context);
+    final planned = plan.plannedDurationMin;
     return SafeArea(
       child: Container(
         color: pal.background,
@@ -357,9 +454,15 @@ class ClassPlanSummarySheet extends StatelessWidget {
                           runSpacing: 6,
                           children: [
                             PlannerBadge(
-                              label: '${plan.duracionTotal} min',
+                              label: '${plan.duracionTotal} min objetivo',
                               color: pal.accent,
                             ),
+                            if (planned != plan.duracionTotal)
+                              PlannerBadge(
+                                label: '$planned min planificados',
+                                color: pal.amber,
+                                backgroundColor: pal.amberBg,
+                              ),
                             PlannerBadge(
                               label: plan.planStatus.label,
                               color: pal.infoBlue,
@@ -394,18 +497,33 @@ class ClassPlanSummarySheet extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  if (plan.planStatus == ClassPlanStatus.draft) ...[
+                  if (plan.planStatus == ClassPlanStatus.draft &&
+                      !plan.detectedOrigins
+                          .contains(ContentOrigin.aiComplementaryProposal)) ...[
                     PlannerNoticeBanner(
                       title: 'Borrador local sin generación IA',
                       message:
-                          'Esta estructura base se creó localmente con tus parámetros sin invocar modelos de IA. La generación asistida se conectará en la siguiente fase.',
+                          'Esta estructura base se creó localmente con tus parámetros sin invocar modelos de IA.',
                       icon: Icons.edit_note_rounded,
                       color: pal.amber,
                       backgroundColor: pal.amberBg,
                     ),
                     const SizedBox(height: 12),
                   ],
-                  if (plan.objetivo.isNotEmpty) ...[
+                  if (plan.objetivos.isNotEmpty) ...[
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final obj in plan.objetivos)
+                          PlannerBadge(
+                            label: obj,
+                            color: pal.accent,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ] else if (plan.objetivo.isNotEmpty) ...[
                     Text(
                       plan.objetivo,
                       style: GoogleFonts.montserrat(
@@ -469,15 +587,28 @@ class ClassPlanSummarySheet extends StatelessWidget {
                                     children: [
                                       PlannerOriginBadge(
                                           origin: ej.contentOrigin),
-                                      if (ej.curriculumMovementIds.isNotEmpty)
+                                      if (ej.duracionMin != null)
                                         PlannerBadge(
-                                          label:
-                                              '${ej.curriculumMovementIds.length} mov FIU',
+                                          label: '${ej.duracionMin} min',
                                           color: pal.accent,
                                         ),
-                                      if (ej.linkedResourceIds.isNotEmpty)
+                                      if (ej.organizacion != null &&
+                                          ej.organizacion!.isNotEmpty)
                                         PlannerBadge(
-                                          label: 'Recurso vinculado',
+                                          label: ej.organizacion!,
+                                          color: pal.infoBlue,
+                                          backgroundColor: pal.infoBlueBg,
+                                        ),
+                                      for (final movId
+                                          in ej.curriculumMovementIds)
+                                        PlannerBadge(
+                                          label: _movementLabel(movId),
+                                          color: pal.accent,
+                                        ),
+                                      for (final resId in ej.linkedResourceIds)
+                                        PlannerBadge(
+                                          label: resourcesById?[resId]?.title ??
+                                              'Recurso vinculado',
                                           color: pal.infoBlue,
                                           backgroundColor: pal.infoBlueBg,
                                         ),
@@ -503,6 +634,83 @@ class ClassPlanSummarySheet extends StatelessWidget {
                                       ),
                                     ),
                                   ],
+                                  if (ej.differentiationBeginner != null &&
+                                      ej.differentiationBeginner!.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Principiantes: ${ej.differentiationBeginner}',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 11.5,
+                                        color: pal.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                  if (ej.differentiationIntermediate != null &&
+                                      ej.differentiationIntermediate!.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Intermedios: ${ej.differentiationIntermediate}',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 11.5,
+                                        color: pal.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                  if (ej.differentiationAdvanced != null &&
+                                      ej.differentiationAdvanced!.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Avanzados: ${ej.differentiationAdvanced}',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 11.5,
+                                        color: pal.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                  if (ej.resourceUsageNotes.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    for (final entry
+                                        in ej.resourceUsageNotes.entries)
+                                      Text(
+                                        'Uso de ${resourcesById?[entry.key]?.title ?? entry.key}: ${entry.value}',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 11.5,
+                                          color: pal.infoBlue,
+                                        ),
+                                      ),
+                                  ],
+                                  if (ej.materiales.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Materiales: ${ej.materiales.join(", ")}',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 11.5,
+                                        color: pal.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                  if (ej.safetyNote != null &&
+                                      ej.safetyNote!.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Seguridad: ${ej.safetyNote}',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 11.5,
+                                        color: pal.amber,
+                                      ),
+                                    ),
+                                  ],
+                                  if (ej.observacionesProfesor != null &&
+                                      ej.observacionesProfesor!.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Notas del profesor: ${ej.observacionesProfesor}',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 11.5,
+                                        color: pal.textSecondary,
+                                      ),
+                                    ),
+                                  ],
                                   if (ej.videoReferenceNote != null) ...[
                                     const SizedBox(height: 6),
                                     Text(
@@ -525,7 +733,10 @@ class ClassPlanSummarySheet extends StatelessWidget {
                 ],
               ),
             ),
-            if (onReuseInQuick != null || onReuseInAdvanced != null)
+            if (onEditPlan != null ||
+                onDuplicatePlan != null ||
+                onReuseInQuick != null ||
+                onReuseInAdvanced != null)
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -536,6 +747,24 @@ class ClassPlanSummarySheet extends StatelessWidget {
                   spacing: 10,
                   runSpacing: 8,
                   children: [
+                    if (onDuplicatePlan != null)
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onDuplicatePlan!();
+                        },
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 44),
+                          side: BorderSide(color: pal.border),
+                          foregroundColor: pal.textPrimary,
+                        ),
+                        icon: const Icon(Icons.copy_all_outlined, size: 17),
+                        label: Text(
+                          'Duplicar clase',
+                          style: GoogleFonts.montserrat(
+                              fontSize: 12.5, fontWeight: FontWeight.w700),
+                        ),
+                      ),
                     if (onReuseInQuick != null)
                       OutlinedButton.icon(
                         onPressed: () {
@@ -554,11 +783,15 @@ class ClassPlanSummarySheet extends StatelessWidget {
                               fontSize: 12.5, fontWeight: FontWeight.w700),
                         ),
                       ),
-                    if (onReuseInAdvanced != null)
+                    if (onEditPlan != null || onReuseInAdvanced != null)
                       ElevatedButton.icon(
                         onPressed: () {
                           Navigator.of(context).pop();
-                          onReuseInAdvanced!();
+                          if (onEditPlan != null) {
+                            onEditPlan!();
+                          } else {
+                            onReuseInAdvanced!();
+                          }
                         },
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(0, 44),
