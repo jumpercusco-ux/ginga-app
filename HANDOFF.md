@@ -8,9 +8,10 @@
 
 - **Proyecto:** `/Users/jumper/ginga_app`
 - **Rama Activa:** `feat/ped03-biblioteca-curricular` (derivada de `main` `fd891a7` / `v1.0.0-feedback-v1`; `main` permanece intacta sin merge).
-- **Frente Pedagógico Activo (`PED-01..PED-03C-CI`):** **CERRADO DEFINITIVAMENTE CON CI EN VERDE — PENDIENTE APROBACIÓN PARA INICIAR PED-04.**
-  - Respaldo en GitHub: commit `613cefe` (`29` archivos curriculares) + commit `1b9729e` (`test(ci): make reservation date semantics tests deterministic` tras reproducir el fallo temporal preexistente en `fd891a7` y sin modificar `functions/index.js`).
-  - GitHub Actions CI ([run #45475260519](https://github.com/jumpercusco-ux/ginga-app/actions/runs/45475260519)): `Flutter Web & Unit Tests` (`success`) y `Node.js 22 & Agent Quality Benchmark` (`success`).
+- **Frente Pedagógico Activo (`PED-01..PED-04B1`):** **`PED-04B1` CERRADO TÉCNICAMENTE Y VALIDADO VISUALMENTE EN PUERTO `8097` — PENDIENTE APROBACIÓN PARA INICIAR `PED-04B2`.**
+  - Respaldo en GitHub: commits `613cefe` (`29` archivos curriculares), `74f1fcc` (`PED-03C-CI`) y commit de cierre `PED-04B1` (`15` archivos en `feat/ped03-biblioteca-curricular`).
+  - Planificador Pedagógico V2 (`PED-04A` / `PED-04B1`): Hub unificado en `InstructorPizarraScreen` (`PlannerHubBody`) con `Mis Planes`, `Pizarra de Recursos`, `Historial`, `Creación rápida` y `Creación avanzada`, compatible con planes V1, conectado a `CurriculumSelectionContract`, con 6 enfoques simultáneos, validación de distribución por nivel, borradores locales honestos (sin etiqueta de IA) y preview aislado en `http://127.0.0.1:8097/` (sin service worker).
+  - Suite Flutter completa: `47/47 All tests passed!`; `flutter analyze` limpio (`No issues found!`); preview web compilado con `--pwa-strategy=none` respondiendo `HTTP 200` en `127.0.0.1:8097`.
   - Catálogo curricular consolidado [data/curriculum/fiu_adulto_v1.json](file:///Users/jumper/ginga_app/data/curriculum/fiu_adulto_v1.json) (`97` movimientos canónicos Adulto Cordas `1–6`, `94` elegibles IA, `3` pendientes de revisión técnica, `1` bloque compartido `adulto_bloque_05_06`, `12` cordas infantiles en metadata, `21` tutoriales con `5` videos reales y `26` términos de glosario).
   - Biblioteca Curricular unificada (Alumnos + Profesores) en Flutter con soporte adaptable `GingaTheme` claro/oscuro, separación estricta entre rol y graduación personal, preview web aislado en [lib/main_biblioteca_preview.dart](file:///Users/jumper/ginga_app/lib/main_biblioteca_preview.dart) y contrato opt-in `CurriculumSelectionContract` listo para `PED-04`.
   - Bloqueo de **Java 21 resuelto** vía `/opt/homebrew/opt/openjdk@21` sin alterar el JDK global del sistema: Firebase Firestore Emulator (`--project demo-ginga-test`) superado al 100% en reglas curriculares (`7/7 PASS`), reglas generales (`9/9 PASS`) e importador idempotente (`6/6 PASS`, preservando los `21` tutoriales y `5` videos reales).
@@ -26,6 +27,7 @@
 2. **PED-03A:** Implementación de modelos tipados (`curriculum_models.dart`), repositorio offline/Firestore (`curriculum_repository.dart`), deprecación segura del seed mockup (`TutorialesService.legacyMockSeedEnabled = false`), endurecimiento de [firestore.rules](file:///Users/jumper/ginga_app/firestore.rules) (Custom Claims firmados + bloqueo de borrado y auto-elevación), importador idempotente (`import_curriculum_to_firestore.js`) y contrato IA (`docs/CURRICULUM_AI_PLANNER_CONTRACT.md`).
 3. **PED-03B / PED-03B-V / PED-03B-UX / PED-03B-FINAL:** Evolución unificada de [biblioteca_screen.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/biblioteca_screen.dart), [curriculo_biblioteca_screen.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/curriculo_biblioteca_screen.dart), [movimiento_detalle_screen.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/movimiento_detalle_screen.dart) y [biblioteca_user_context.dart](file:///Users/jumper/ginga_app/lib/features/biblioteca/widgets/biblioteca_user_context.dart), conservando `GingaTheme` adaptable claro/oscuro, compactando tarjetas con corda de introducción, agregando filtro `Con video`, eliminando alias visualmente duplicados, y preparando `CurriculumSelectionContract` para `PED-04`.
 4. **PED-03C:** Desbloqueo de Firestore Emulator con JDK 21 (`demo-ginga-test`), aislamiento de estado entre suites en [test_curriculum_importer.js](file:///Users/jumper/ginga_app/scripts/test_curriculum_importer.js), verificación explícita de los `21` tutoriales y `5` videos reales, actualización documental integral y propuesta de respaldo Git.
+5. **PED-04A / PED-04B1 / PED-04B1-FINAL:** Diseño e implementación de interfaz del Planificador Pedagógico GINGA V2 en `lib/features/instructor/planificador/` (`class_plan_models.dart`, `planner_data_source.dart`, `planner_palette.dart`, `planner_hub_body.dart`, `planner_quick_create_view.dart`, `planner_advanced_create_view.dart`, `planner_shared_widgets.dart`) + integración con [instructor_pizarra_screen.dart](file:///Users/jumper/ginga_app/lib/features/instructor/instructor_pizarra_screen.dart) conservando modales legacy (`_ModalIdea`, `_GeneradorClaseModal`, `_ClaseEnVivoScreen`), pruebas automatizadas en [planificador_v2_test.dart](file:///Users/jumper/ginga_app/test/planificador_v2_test.dart) y preview web sin service worker en [main_planificador_preview.dart](file:///Users/jumper/ginga_app/lib/main_planificador_preview.dart) (puerto `8097`).
 
 ### B. Histórico Consolidado — Agente WhatsApp y CI/CD (`v1.0.0-feedback-v1`)
 1. **Sincronización y CI/CD (`fd891a7`):** Eliminado el trigger masivo de `.github/workflows/deploy.yml`; flujos separados en `ci.yml`, `deploy-web.yml`, `deploy-functions.yml` y `deploy-firestore.yml` con despliegues manuales confirmados.
@@ -68,8 +70,9 @@ PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" JAVA_HOME="/opt/homebrew/opt/openj
 /Users/jumper/development/flutter/bin/flutter analyze lib/core/models/curriculum_models.dart lib/core/services/curriculum_repository.dart lib/core/services/tutoriales_service.dart lib/core/router/app_router.dart lib/features/biblioteca/biblioteca_screen.dart lib/features/biblioteca/curriculo_biblioteca_screen.dart lib/features/biblioteca/movimiento_detalle_screen.dart lib/features/biblioteca/widgets/biblioteca_user_context.dart lib/main_biblioteca_preview.dart test/curriculum_fiu_unit_test.dart test/biblioteca_curriculo_widget_test.dart test/ped03b_screenshot_capture_test.dart
 /Users/jumper/development/flutter/bin/flutter test
 
-# 5. Compilar preview web aislado (sin Firebase de producción)
-/Users/jumper/development/flutter/bin/flutter build web --release --pwa-strategy=none -t lib/main_biblioteca_preview.dart -o /tmp/ginga_ped03b_preview
+# 5. Compilar preview web aislado (sin Firebase de producción ni service worker)
+/Users/jumper/development/flutter/bin/flutter build web --release --pwa-strategy=none -t lib/main_planificador_preview.dart -o /tmp/ginga_ped04b1_final_8097
+rm -f /tmp/ginga_ped04b1_final_8097/flutter_service_worker.js
 
 # 6. Suites del agente WhatsApp (referencia)
 node real_agent_harness/test_p1a_runtime_guard.js
@@ -80,11 +83,10 @@ node real_agent_harness/test_qa_regressions.js
 
 ## 4. Qué Sigue Exactamente (Siguiente Tarea)
 
-1. **Aprobación del propietario para iniciar `PED-04`:**
-   - Respaldo en `feat/ped03-biblioteca-curricular` (`613cefe` + `1b9729e`) y CI en verde (`#45475260519`) completados; `main`, `PRE_LIVE_BASELINE.md`, `docs/DEPLOYMENT_AND_CICD.md`, `demo/assets/backup/*.mp4` y `scratch/` permanecen fuera e intactos.
-2. **Inicio de `PED-04` (Planificador Pedagógico IA y Pizarra):**
-   - Evolucionar `generarPlanClaseIA` e `InstructorPizarraScreen` consumiendo `CurriculumRepository.buildAiPlannerCurriculumPayload(...)` y el selector opt-in `CurriculumSelectionContract` documentado en [CURRICULUM_AI_PLANNER_CONTRACT.md](file:///Users/jumper/ginga_app/docs/CURRICULUM_AI_PLANNER_CONTRACT.md).
-   - Evaluar autorización explícita previa antes de cualquier importación de `curriculum_*` o despliegue de `firestore.rules` / `firestore.indexes.json` hacia `capoeirafiu-ea8ljo`.
+1. **Aprobación del propietario para iniciar `PED-04B2`:**
+   - `PED-04B1` queda respaldado en `feat/ped03-biblioteca-curricular` con preview activo en `http://127.0.0.1:8097/`. `main`, `PRE_LIVE_BASELINE.md`, `docs/DEPLOYMENT_AND_CICD.md`, `demo/assets/backup/*.mp4` y `scratch/` permanecen fuera e intactos.
+2. **Alcance de `PED-04B2` / `PED-04C` (cuando se autorice):**
+   - Conectar generación IA real (`generarPlanClaseIA` / backend) bajo el contrato Zero-PII + `CurriculumSelectionContract`, persistencia real de planes V2 y registro real de sesiones impartidas para el Historial, manteniendo la separación visual entre `Currículo FIU`, `Recurso Profesor` y `Propuesta IA`.
 
 ---
 

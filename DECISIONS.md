@@ -230,5 +230,16 @@ Cada decisión se clasifica estrictamente en uno de tres estados:
   1. **Mantener `GingaTheme` adaptable claro/oscuro:** Se conserva intacto `lib/core/theme/ginga_theme.dart`; el preview (`main_biblioteca_preview.dart`) sincroniza `ThemeManager.instance` igual que `main.dart`, y las pantallas de Biblioteca blindan colores y dimensiones de botones leyendo `Theme.of(context).brightness` con acentos legibles en oscuro (`#66BB6A` sobre `surfaceDark`).
   2. **Contrato de selección sin IA para `PED-04`:** Se define el contrato opt-in `CurriculumSelectionContract` + `CurriculumMovementSelectionItem` en `lib/core/models/curriculum_models.dart`, conectando tarjetas y fichas de movimiento para selección manual en futuras pantallas del planificador mientras se mantiene bloqueada la selección automática de movimientos en revisión técnica.
 
+---
+
+### 22. Planificador Pedagógico Unificado V2, Honestidad de Borradores Locales y No-Fallback Infantil (`PED-04A/04B1`)
+- **Estado:** `[APROBADA]`
+- **Contexto:** Evolucionar `InstructorPizarraScreen` sin crear un segundo planificador paralelo, permitiendo preparación rápida y avanzada sobre los mismos contratos tipados antes de conectar llamadas IA de pago o persistencia de sesiones en `PED-04B2`.
+- **Decisión:**
+  1. **Un único planificador integrado con Pizarra y Biblioteca:** `InstructorPizarraScreen` conserva sus modales productivos (`_ModalIdea`, `_GeneradorClaseModal`, `_ClaseEnVivoScreen`) e incorpora `PlannerHubBody` (`Mis Planes`, `Pizarra de Recursos`, `Historial`, `Creación rápida`, `Creación avanzada`) conectado al `CurriculumSelectionContract` y con lectura retrocompatible de planes V1 (`ClassPlanModel.fromMap`).
+  2. **Seguridad curricular y privacidad por defecto:** Se bloquea explícitamente cualquier fallback automático al currículo Adulto FIU para grupos `infantil` o `mixto` (`PlannerCurriculumScope.suggestedForAudience`), `toAiSafeRequestMap()` excluye PII y las referencias técnicas (`UID`, `PED-04C`, `Zero-PII`, `ID estable`, `V1 Compatible`) se mantienen internas sin exponerse en la UI del profesor.
+  3. **Honestidad de origen en borradores y fixtures:** Los borradores creados localmente sin backend IA (`ClassPlanModel.fromLocalDraftRequest`) nunca se etiquetan como `Propuesta IA` y muestran el aviso explícito `Borrador local sin generación IA`; las sesiones del Historial en preview muestran aviso de fixtures locales de demostración (`isSimulatedFixture`) y seleccionar recursos para planificar no altera `hasBeenTaught` ni `timesUsed`.
+  4. **Preview web sin Service Worker en puerto dedicado:** Para evitar caché persistente durante validación visual, `lib/main_planificador_preview.dart` se compila con `--pwa-strategy=none` (eliminando `flutter_service_worker.js`) y se sirve en puerto `8097`.
+
 
 

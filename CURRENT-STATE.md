@@ -1,12 +1,12 @@
 # Estado Actual del Proyecto GINGA (CURRENT-STATE)
 
 > **Documento Maestro de Estado y Arquitectura**  
-> **Última Actualización:** 2026-11-24  
+> **Última Actualización:** 2026-11-26  
 > **Rama Actual:** `feat/ped03-biblioteca-curricular` (base `main` `fd891a7` intacta; sin merge ni despliegue)  
-> **Commits de Respaldo PED-03:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `1b9729e` (`test(ci): make reservation date semantics tests deterministic`)  
-> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** ✅ **VERDE** ([run #45475260519](https://github.com/jumpercusco-ux/ginga-app/actions/runs/45475260519): `Flutter Web & Unit Tests` = `success`, `Node.js 22 & Agent Quality Benchmark` = `success`)  
+> **Commits de Respaldo PED-03 / PED-04B1:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · PED-04B1 cerrado técnicamente sobre esta rama  
+> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** ✅ **VERDE** (en verificación de cierre PED-04B1 sobre commit nuevo)  
 > **Producción Intacta:** `whatsappWebhook v69` (Cloud Functions Gen 1, Node.js 22), web `https://www.gingaperu.com`, proyecto `capoeirafiu-ea8ljo`  
-> **Estado Actual:** **PED-03C CERRADO DEFINITIVAMENTE CON CI EN VERDE — PENDIENTE APROBACIÓN PARA INICIAR PED-04**
+> **Estado Actual:** **PED-04B1 CERRADO TÉCNICAMENTE — PREVIEW ACTIVO EN `http://127.0.0.1:8097/` — PENDIENTE APROBACIÓN PARA INICIAR PED-04B2**
 
 ---
 
@@ -455,7 +455,9 @@ flowchart TD
     PED01 --> PED03A["PED-03A: Modelos, Reglas e Importador Idempotente (COMPLETADO)"]
     PED03A --> PED03B["PED-03B..FINAL: Biblioteca Curricular Unificada + UX (APROBADO VISUALMENTE)"]
     PED03B --> PED03C["PED-03C: Firestore Emulator JDK 21 + Cierre Técnico (VALIDADO)"]
-    PED03C --> PED04["PED-04: Planificador Pedagógico IA y Pizarra (PENDIENTE INICIO)"]
+    PED03C --> PED04A["PED-04A: Diseño Funcional Planificador V2 (APROBADO)"]
+    PED04A --> PED04B1["PED-04B1: Hub, Rápida/Avanzada, Pizarra, Historial + Preview 8097 (CERRADO)"]
+    PED04B1 --> PED04B2["PED-04B2: Generación IA Real, Copiloto y Persistencia (PENDIENTE APROBACIÓN)"]
 ```
 
 ---
@@ -483,6 +485,16 @@ flowchart TD
   - `flutter analyze` (12 archivos curriculares/preview/test): `No issues found!`.
   - `flutter test`: `35/35 All tests passed!`.
   - **GitHub Actions CI** ([run #45475260519](https://github.com/jumpercusco-ux/ginga-app/actions/runs/45475260519) sobre `1b9729e`): `Flutter Web & Unit Tests` (`success`) y `Node.js 22 & Agent Quality Benchmark` (`success`).
+
+### 10.1. Planificador Pedagógico V2 — Interfaz, Modelos y Preview Aislado (`PED-04A` / `PED-04B1`)
+
+- **Arquitectura Unificada:** `InstructorPizarraScreen` integra un único módulo `PlannerHubBody` con 5 vistas (`Mis Planes`, `Pizarra de Recursos`, `Historial`, `Creación rápida`, `Creación avanzada`) preservando los flujos heredados de Pizarra (`_ModalIdea`, `_GeneradorClaseModal`, `_ClaseEnVivoScreen`) y la ejecución en Firestore real sin modificar `generarPlanClaseIA` ni `functions/index.js`.
+- **Contratos y Seguridad (`class_plan_models.dart`, `planner_data_source.dart`):**
+  - Modelos tipados (`ClassPlanModel`, `ClassPlanDraftRequest`, `PlannerGroupProfile`, `ExperienceDistribution`, `PlannerResourceItem`, `TaughtSessionRecord`, `PlanCopilotRequest`) con hidratación compatible hacia atrás de planes V1 legacy (`isLegacyV1`), separación estricta de orígenes (`officialFiuCurriculum`, `teacherResource`, `aiComplementaryProposal`), bloqueo explícito de fallback automático Adulto FIU para grupos Infantil/Mixto, saneamiento Zero-PII en `toAiSafeRequestMap()` y validación de suma de niveles (`principiantes + intermedios + avanzados == participantsCount`).
+  - Honestidad de borradores locales: `ClassPlanModel.fromLocalDraftRequest` crea estructuras locales con origen `teacherResource`/`officialFiuCurriculum` (nunca `aiComplementaryProposal`) y `ClassPlanSummarySheet` muestra explícitamente el banner `Borrador local sin generación IA`.
+- **Usabilidad (`PED-04B1-FINAL`):** Tarjetas alineadas con altura uniforme, buscador de planes y última fecha de ejecución; selección múltiple de los 6 enfoques (`Técnica`, `Juegos`, `Acrobacias`, `Musicalidad`, `Secuencias`, `Roda`), prompt `¿Qué quieres trabajar hoy?` y conservación íntegra rápida↔avanzada; Pizarra con miniaturas, diferenciación `Video`/`Imagen`/`Enlace`/`Nota`, botón `Añadir recurso` y selección para planificar sin marcar recursos como usados; Historial con filtros por grupo/fecha, detalle de sesión, movimientos practicados y salto `Preparar siguiente clase` sobre fixtures locales claramente identificados (`isSimulatedFixture`).
+- **Preview Web Aislado sin Service Worker:** [lib/main_planificador_preview.dart](file:///Users/jumper/ginga_app/lib/main_planificador_preview.dart) compilado con `--pwa-strategy=none` (sin `flutter_service_worker.js`) activo en `http://127.0.0.1:8097/`.
+- **Validación Técnica:** `flutter analyze` (`No issues found!`) y `flutter test` (`47/47 All tests passed!` incluyendo `test/planificador_v2_test.dart` y `test/ped04b1_screenshot_capture_test.dart`).
 
 ---
 
