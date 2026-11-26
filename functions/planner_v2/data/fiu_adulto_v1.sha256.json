@@ -1,0 +1,13 @@
+{
+  "catalog_id": "fiu_curriculum_adulto_v1",
+  "schema_version": "1.0.0",
+  "source_relative_path": "data/curriculum/fiu_adulto_v1.json",
+  "sha256": "0a4b223770e468330b7ba9af74026bca3c6b935b43da2bec969a49f9f0a2c923",
+  "movements_count": 97,
+  "ai_planner_eligible_count": 94,
+  "excluded_pending_ids": [
+    "au_chibata_pulado",
+    "desequilibrante",
+    "espelho_cruz"
+  ]
+}

@@ -81,6 +81,14 @@ jobs:
       - name: Run agent continuous evaluations suite (Accostupa & AgentFeedback)
         run: node real_agent_harness/test_agent_evaluations.js
 
+      - name: Run FIU catalog & Planner V2 sync validation
+        run: |
+          node scripts/validate_curriculum_catalog.js
+          node scripts/verify_planner_v2_catalog_sync.js
+
+      - name: Run Planner V2 offline quality benchmark (20 Golden scenarios)
+        run: node real_agent_harness/test_planner_v2_quality.js
+
       - name: Run Firestore security rules emulator test suite
         run: |
           firebase emulators:exec --only firestore 'node real_agent_harness/test_firestore_rules.js'

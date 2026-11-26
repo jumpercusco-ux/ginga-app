@@ -6,7 +6,7 @@
 > **Commits de Respaldo PED-03 / PED-04:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · `93ee84b` (cierre PED-04B1) · `62bb7f8` (cierre `PED-04B2` / `PED-04B2-UX`) · cierre `PED-04C1` en `feat/ped03-biblioteca-curricular`  
 > **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** 🔄 En verificación de cierre `PED-04C1` (previo `62bb7f8` en `success`: `Flutter Web & Unit Tests` + `Node.js 22 & Agent Quality Benchmark`)  
 > **Producción Intacta:** `whatsappWebhook v69` (Cloud Functions Gen 1, Node.js 22), web `https://www.gingaperu.com`, proyecto `capoeirafiu-ea8ljo`  
-> **Estado Actual:** **PED-04C1 CERRADO TÉCNICAMENTE Y RESPALDADO EN `feat/ped03-biblioteca-curricular` — PREVIEW ACTIVO EN `http://127.0.0.1:8097/`**
+> **Estado Actual:** **PED-04C2-B IMPLEMENTADO Y PROBADO OFFLINE EN `feat/ped03-biblioteca-curricular` (MOTOR `functions/planner_v2/`, PROVEEDOR REAL DESHABILITADO, PREVIEW `8097` INTACTO)**
 
 ---
 
@@ -533,6 +533,18 @@ flowchart TD
   - `flutter test`: **`69/69 All tests passed!`** (incluyendo `test/planificador_v2_live_test.dart` con blindaje Zero-PII de texto libre y `test/ped04c1_screenshot_capture_test.dart`).
   - Suites Node: `validate_curriculum_catalog.js` (`PASS`), `test_curriculum_importer.js` (`6/6 PASS`), `test_reservation_date_semantics.js` (`8/8 PASS`), `test_agent_evaluations.js` (`9/9 PASS`).
   - Capturas reales verificadas en escritorio (`1440×900`), tablet (`834×1024`) y móvil (`390×844`) claro/oscuro, y preview aislado actualizado en `http://127.0.0.1:8097/`.
+
+### 10.4. Motor de Inteligencia Pedagógica Offline V2 (`PED-04C2-B`)
+
+- **Paquete Modular en Backend (`functions/planner_v2/`, 14 módulos + catálogo SHA-256):**
+  - Catálogo canónico empaquetado [fiu_adulto_v1.json](file:///Users/jumper/ginga_app/functions/planner_v2/data/fiu_adulto_v1.json) + manifiesto [fiu_adulto_v1.sha256.json](file:///Users/jumper/ginga_app/functions/planner_v2/data/fiu_adulto_v1.sha256.json) (`0a4b223770e468330b7ba9af74026bca3c6b935b43da2bec969a49f9f0a2c923`) y script [verify_planner_v2_catalog_sync.js](file:///Users/jumper/ginga_app/scripts/verify_planner_v2_catalog_sync.js).
+  - Orquestación y guardias de servidor ([index.js](file:///Users/jumper/ginga_app/functions/planner_v2/index.js), [config.js](file:///Users/jumper/ginga_app/functions/planner_v2/config.js), [auth_and_quota_guard.js](file:///Users/jumper/ginga_app/functions/planner_v2/auth_and_quota_guard.js), [context_builder.js](file:///Users/jumper/ginga_app/functions/planner_v2/context_builder.js), [pii_and_injection_guard.js](file:///Users/jumper/ginga_app/functions/planner_v2/pii_and_injection_guard.js)): políticas exclusivas de servidor (`gpt-4.1-mini` / `gpt-4o-mini`, `20/día`, `4/min`, `max_repair_attempts=1`), autorización por Custom Claims, bloqueo de overrides de cliente (`FORBIDDEN_CLIENT_POLICY_OVERRIDE`), rechazo explícito de movimientos/recursos obligatorios inválidos o ajenos, no-suposición de `tatami`/`colchonetas`/materiales desconocidos, parámetro opcional `instructors_available`, idempotencia por `request_id` y cuota atómica concurrente, zero IDs internos/URLs hacia LLM y disclaimer explícito de límites de la sanitización heurística.
+  - Contrato, simulador, validador y reparador ([prompt_builder.js](file:///Users/jumper/ginga_app/functions/planner_v2/prompt_builder.js), [response_schema.js](file:///Users/jumper/ginga_app/functions/planner_v2/response_schema.js), [llm_adapter.js](file:///Users/jumper/ginga_app/functions/planner_v2/llm_adapter.js), [simulated_provider.js](file:///Users/jumper/ginga_app/functions/planner_v2/simulated_provider.js), [plan_validator.js](file:///Users/jumper/ginga_app/functions/planner_v2/plan_validator.js), [plan_repairer.js](file:///Users/jumper/ginga_app/functions/planner_v2/plan_repairer.js), [telemetry.js](file:///Users/jumper/ginga_app/functions/planner_v2/telemetry.js), [PLANNER_V2_ENGINE_CONTRACT.md](file:///Users/jumper/ginga_app/docs/PLANNER_V2_ENGINE_CONTRACT.md)): proveedor real deshabilitado (`REAL_PROVIDER_DISABLED`), estructura flexible (sin plantilla fija de 5 bloques), precedencia explícita FIU + Pizarra (`teacher_resource_with_official_fiu_movements` vs `ai_exercise_from_official_fiu`), reglas Infantil sin atribución FIU infantil no validada, reparación Nivel 1 no semántica + Nivel 2 máx. `1` intento.
+- **Validación Offline Separada (`test_planner_v2_quality.js` e integrada en `ci.yml`):**
+  - Infraestructura: `6/6 PASS` (incluye presupuesto escalado `4500`/`5600` tokens para 60 y 90 min).
+  - Validación estructural (20 escenarios Golden): `20/20 PASS` (incluye desglose de tiempos internos, ejercicios breves infantiles, progresiones previas independientes, bloqueo de inversiones sin condiciones, `cancionero_reference` sin IDs inventados).
+  - Evaluación pedagógica heurística offline: promedio `93.9/100` calculado exclusivamente sobre `17` planes generados (`3` escenarios de error esperado excluidos; no equivale a evaluación humana ni LLM real).
+  - Evaluación pedagógica humana en tatami y calidad del proveedor LLM real: **explícitamente pendientes**.
 
 ---
 

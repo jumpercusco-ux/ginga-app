@@ -9,6 +9,15 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
+## [PED-04C2-B] — 2026-11-26
+### [IMPLEMENTADO Y PROBADO LOCALMENTE EN RAMA `feat/ped03-biblioteca-curricular` · PROVEEDOR REAL DESHABILITADO]
+- **Motor de Inteligencia Pedagógica Offline V2 (`functions/planner_v2/`):**
+  - **Catálogo Verificado e Integridad CI:** Empaquetado de `functions/planner_v2/data/fiu_adulto_v1.json` + manifiesto `fiu_adulto_v1.sha256.json` (`0a4b223770e468330b7ba9af74026bca3c6b935b43da2bec969a49f9f0a2c923`) y verificador [verify_planner_v2_catalog_sync.js](file:///Users/jumper/ginga_app/scripts/verify_planner_v2_catalog_sync.js) (`97` movimientos, `94` elegibles IA, `3` excluidos).
+  - **Arquitectura Modular (14 módulos en [functions/planner_v2/index.js](file:///Users/jumper/ginga_app/functions/planner_v2/index.js)):** `config.js` (tope escalado `4500` tokens hasta `60 min` / `5600` tokens para `>60 min`), `errors.js`, `curriculum_catalog_loader.js`, `auth_and_quota_guard.js` (Custom Claims + cuota atómica `20/día`, `4/min` e idempotencia por `request_id`), `pii_and_injection_guard.js` (sanitización heurística con disclaimer explícito + zero IDs internos/URLs en `llmPayloadContext`), `context_builder.js` (bloqueo de overrides cliente, rechazo explícito de obligatorios inválidos/ajenos, no-suposición de tatami/colchonetas/materiales, `instructors_available`), `prompt_builder.js` (estructura flexible sin plantilla fija, desglose exacto de sub-tiempos, varios ejercicios breves en Infantil, progresiones técnicas independientes previas a combinar, bloqueo de `Bananeira`/inversiones sin condiciones explícitas, reglas Infantil/Mixto/Adultos y precedencia de orígenes), `response_schema.js` (`v2.1.0` + `cancionero_reference` sin IDs inventados), `llm_adapter.js` (deshabilitado con `REAL_PROVIDER_DISABLED`), `simulated_provider.js`, `plan_validator.js` (validación estructural separada de rúbrica heurística), `plan_repairer.js` (Nivel 1 estrictamente no semántico + Nivel 2 máx. `1` intento) y `telemetry.js` Zero-PII.
+  - **Contratos y Benchmark CI:** Documentación en [docs/PLANNER_V2_ENGINE_CONTRACT.md](file:///Users/jumper/ginga_app/docs/PLANNER_V2_ENGINE_CONTRACT.md), suite [test_planner_v2_quality.js](file:///Users/jumper/ginga_app/real_agent_harness/test_planner_v2_quality.js) (**`6/6` Infraestructura + `20/20` Escenarios Golden estructurales + promedio heurístico offline `93.9/100` sobre `17` planes excluyendo `3` errores esperados**), integrada en [.github/workflows/ci.yml](file:///Users/jumper/ginga_app/.github/workflows/ci.yml). Sin cambios en `functions/index.js`, Flutter ni Firestore productivo.
+
+---
+
 ## [PED-04C1] — 2026-11-26
 ### [CERRADO TÉCNICAMENTE Y RESPALDADO EN RAMA `feat/ped03-biblioteca-curricular` · PROBADO LOCALMENTE]
 - **Ejecución de Clases en Vivo V2 Integrada (`PED-04C1`):**
