@@ -410,6 +410,7 @@ class ClassPlanSummarySheet extends StatelessWidget {
   final VoidCallback? onDuplicatePlan;
   final VoidCallback? onReuseInQuick;
   final VoidCallback? onReuseInAdvanced;
+  final VoidCallback? onStartLive;
 
   const ClassPlanSummarySheet({
     super.key,
@@ -420,6 +421,7 @@ class ClassPlanSummarySheet extends StatelessWidget {
     this.onDuplicatePlan,
     this.onReuseInQuick,
     this.onReuseInAdvanced,
+    this.onStartLive,
   });
 
   String _movementLabel(String id) {
@@ -507,6 +509,13 @@ class ClassPlanSummarySheet extends StatelessWidget {
                       icon: Icons.edit_note_rounded,
                       color: pal.amber,
                       backgroundColor: pal.amberBg,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (plan.continuityContext != null &&
+                      plan.continuityContext!.hasContent) ...[
+                    PlannerContinuityContextCard(
+                      contextData: plan.continuityContext,
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -736,7 +745,8 @@ class ClassPlanSummarySheet extends StatelessWidget {
             if (onEditPlan != null ||
                 onDuplicatePlan != null ||
                 onReuseInQuick != null ||
-                onReuseInAdvanced != null)
+                onReuseInAdvanced != null ||
+                onStartLive != null)
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -747,6 +757,24 @@ class ClassPlanSummarySheet extends StatelessWidget {
                   spacing: 10,
                   runSpacing: 8,
                   children: [
+                    if (onStartLive != null)
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onStartLive!();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(0, 44),
+                          backgroundColor: pal.accent,
+                          foregroundColor: pal.onAccent,
+                        ),
+                        icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                        label: Text(
+                          'Iniciar clase',
+                          style: GoogleFonts.montserrat(
+                              fontSize: 12.5, fontWeight: FontWeight.w700),
+                        ),
+                      ),
                     if (onDuplicatePlan != null)
                       OutlinedButton.icon(
                         onPressed: () {
@@ -896,7 +924,7 @@ class TaughtSessionDetailSheet extends StatelessWidget {
                     PlannerNoticeBanner(
                       title: 'Sesión de ejemplo del entorno local',
                       message:
-                          'Este registro pertenece a fixtures locales de prueba. El registro real de sesiones impartidas se implementará en la siguiente fase.',
+                          'Este registro pertenece a fixtures locales de demostración.',
                       color: pal.amber,
                       backgroundColor: pal.amberBg,
                     ),
@@ -920,8 +948,120 @@ class TaughtSessionDetailSheet extends StatelessWidget {
                             '${session.completedExercisesCount}/${session.totalExercisesCount} ejercicios completados',
                         color: pal.accent,
                       ),
+                      if (session.endedEarly)
+                        PlannerBadge(
+                          label: 'Finalizada anticipadamente',
+                          color: pal.amber,
+                          backgroundColor: pal.amberBg,
+                        ),
+                      if (session.groupResponse != null &&
+                          session.groupResponse!.isNotEmpty)
+                        PlannerBadge(
+                          label: 'Respuesta: ${session.groupResponse}',
+                          color: pal.accent,
+                        ),
+                      if (session.planSnapshot != null)
+                        PlannerBadge(
+                          label: 'Instantánea del plan conservada',
+                          color: pal.infoBlue,
+                          backgroundColor: pal.infoBlueBg,
+                          icon: Icons.photo_library_outlined,
+                        ),
+                      if (session.taughtResourceIds.isNotEmpty)
+                        PlannerBadge(
+                          label:
+                              '${session.taughtResourceIds.length} recursos contabilizados',
+                          color: pal.accent,
+                          icon: Icons.check_circle_outline,
+                        ),
                     ],
                   ),
+                  if (session.completedExercises.isNotEmpty ||
+                      session.skippedExercises.isNotEmpty ||
+                      session.pendingExercises.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Desglose de ejercicios',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: pal.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: pal.surface,
+                        borderRadius: BorderRadius.circular(GingaRadius.md),
+                        border: Border.all(color: pal.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (session.completedExercises.isNotEmpty) ...[
+                            Text(
+                              'Completados (${session.completedExercises.length})',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: pal.accent,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            for (final name in session.completedExercises)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Text(
+                                  '• $name',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 12,
+                                    color: pal.textPrimary,
+                                  ),
+                                ),
+                              ),
+                          ],
+                          if (session.skippedExercises.isNotEmpty ||
+                              session.pendingExercises.isNotEmpty) ...[
+                            if (session.completedExercises.isNotEmpty)
+                              const SizedBox(height: 8),
+                            Text(
+                              'Omitidos / pendientes (${session.skippedExercises.length + session.pendingExercises.length})',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: pal.amber,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            for (final name in session.skippedExercises)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Text(
+                                  '• $name (Omitido)',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 12,
+                                    color: pal.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            for (final name in session.pendingExercises)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Text(
+                                  '• $name (Pendiente)',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 12,
+                                    color: pal.textSecondary,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                   if (session.practicedMovements.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Text(
@@ -949,7 +1089,7 @@ class TaughtSessionDetailSheet extends StatelessWidget {
                   if (session.summaryNote.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Text(
-                      'Notas de la sesión',
+                      'Observaciones del profesor',
                       style: GoogleFonts.montserrat(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -973,6 +1113,28 @@ class TaughtSessionDetailSheet extends StatelessWidget {
                           height: 1.4,
                         ),
                       ),
+                    ),
+                  ],
+                  if (session.difficulties != null &&
+                      session.difficulties!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    PlannerNoticeBanner(
+                      title: 'Dificultades encontradas',
+                      message: session.difficulties!,
+                      icon: Icons.report_problem_outlined,
+                      color: pal.amber,
+                      backgroundColor: pal.amberBg,
+                    ),
+                  ],
+                  if (session.reinforceContent != null &&
+                      session.reinforceContent!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    PlannerNoticeBanner(
+                      title: 'Contenido a reforzar',
+                      message: session.reinforceContent!,
+                      icon: Icons.fitness_center_outlined,
+                      color: pal.infoBlue,
+                      backgroundColor: pal.infoBlueBg,
                     ),
                   ],
                   if (session.pendingNextSession.isNotEmpty) ...[
@@ -1250,6 +1412,272 @@ class _LocalResourceEditorSheetState extends State<LocalResourceEditorSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Resumen expandible del contexto pedagógico transferido desde la sesión previa del grupo.
+/// Conserva toda la traza pedagógica en preparación, borrador y editor para uso futuro con IA sin PII.
+class PlannerContinuityContextCard extends StatefulWidget {
+  final PedagogicalContinuityContext? contextData;
+  final String? fallbackSummary;
+  final bool initiallyExpanded;
+  final VoidCallback? onClear;
+
+  const PlannerContinuityContextCard({
+    super.key,
+    this.contextData,
+    this.fallbackSummary,
+    this.initiallyExpanded = false,
+    this.onClear,
+  });
+
+  @override
+  State<PlannerContinuityContextCard> createState() =>
+      _PlannerContinuityContextCardState();
+}
+
+class _PlannerContinuityContextCardState
+    extends State<PlannerContinuityContextCard> {
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+  }
+
+  Widget _buildDetailRow(
+    PlannerPalette pal, {
+    required String label,
+    required String value,
+    Color? highlightColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.montserrat(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: highlightColor ?? pal.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: GoogleFonts.montserrat(
+              fontSize: 12,
+              color: pal.textPrimary,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = PlannerPalette.of(context);
+    final ctx = widget.contextData;
+    final cleanFallback = widget.fallbackSummary?.trim() ?? '';
+    if ((ctx == null || !ctx.hasContent) && cleanFallback.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final headline = (ctx != null && ctx.hasContent)
+        ? ctx.shortHeadline
+        : cleanFallback;
+
+    return Container(
+      key: const Key('continuity_context_card'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: pal.surfaceTint,
+        borderRadius: BorderRadius.circular(GingaRadius.md),
+        border: Border.all(color: pal.accent.withValues(alpha: 0.42)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(Icons.forward_outlined, size: 18, color: pal.accent),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          'Continuidad de sesión anterior',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: pal.textPrimary,
+                          ),
+                        ),
+                        if (ctx != null)
+                          PlannerBadge(
+                            label: ctx.groupName,
+                            color: pal.infoBlue,
+                            backgroundColor: pal.infoBlueBg,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      headline,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        color: pal.textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (widget.onClear != null)
+                IconButton(
+                  key: const Key('continuity_context_clear_btn'),
+                  icon: Icon(Icons.close, size: 16, color: pal.textSecondary),
+                  onPressed: widget.onClear,
+                  tooltip: 'Quitar continuidad',
+                ),
+            ],
+          ),
+          if (ctx != null && ctx.hasContent) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const Key('continuity_context_toggle'),
+                onPressed: () => setState(() => _expanded = !_expanded),
+                style: TextButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: const Size(0, 32),
+                  foregroundColor: pal.accent,
+                ),
+                icon: Icon(
+                  _expanded ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                ),
+                label: Text(
+                  _expanded
+                      ? 'Ocultar contexto pedagógico'
+                      : 'Ver contexto completo',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            if (_expanded)
+              Container(
+                key: const Key('continuity_context_expanded_body'),
+                width: double.infinity,
+                margin: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: pal.background,
+                  borderRadius: BorderRadius.circular(GingaRadius.md),
+                  border: Border.all(color: pal.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDetailRow(
+                      pal,
+                      label: 'Grupo correspondiente',
+                      value: '${ctx.groupName} (${ctx.audienceType.label})',
+                    ),
+                    _buildDetailRow(
+                      pal,
+                      label: 'Ejercicios realizados (${ctx.completedExercises.length})',
+                      value: ctx.completedExercises.isNotEmpty
+                          ? ctx.completedExercises.join(' · ')
+                          : 'Sin ejercicios completados registrados.',
+                      highlightColor: pal.accent,
+                    ),
+                    _buildDetailRow(
+                      pal,
+                      label: 'Ejercicios omitidos (${ctx.skippedExercises.length})',
+                      value: ctx.skippedExercises.isNotEmpty
+                          ? ctx.skippedExercises.join(' · ')
+                          : 'Ninguno omitido.',
+                      highlightColor: pal.amber,
+                    ),
+                    if (ctx.pendingExercises.isNotEmpty)
+                      _buildDetailRow(
+                        pal,
+                        label: 'Ejercicios pendientes (${ctx.pendingExercises.length})',
+                        value: ctx.pendingExercises.join(' · '),
+                      ),
+                    _buildDetailRow(
+                      pal,
+                      label: 'Movimientos trabajados',
+                      value: ctx.practicedMovements.isNotEmpty
+                          ? ctx.practicedMovements.join(', ')
+                          : 'Sin movimientos FIU específicos registrados.',
+                    ),
+                    _buildDetailRow(
+                      pal,
+                      label: 'Dificultades encontradas',
+                      value: ctx.difficulties.isNotEmpty
+                          ? ctx.difficulties
+                          : 'Sin dificultades registradas.',
+                    ),
+                    _buildDetailRow(
+                      pal,
+                      label: 'Observaciones del profesor',
+                      value: ctx.teacherObservations.isNotEmpty
+                          ? ctx.teacherObservations
+                          : 'Sin observaciones adicionales.',
+                    ),
+                    _buildDetailRow(
+                      pal,
+                      label: 'Contenido por reforzar',
+                      value: ctx.reinforceContent.isNotEmpty
+                          ? ctx.reinforceContent
+                          : 'Sin refuerzos pendientes indicados.',
+                    ),
+                    _buildDetailRow(
+                      pal,
+                      label: 'Propuesta de continuidad',
+                      value: ctx.continuityProposal.isNotEmpty
+                          ? ctx.continuityProposal
+                          : 'Sin propuesta específica registrada.',
+                      highlightColor: pal.accent,
+                    ),
+                    Text(
+                      'Contexto pedagógico conservado en el borrador y editor para futura asistencia IA (sin llamadas activas).',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 10.5,
+                        fontStyle: FontStyle.italic,
+                        color: pal.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
       ),
     );
   }

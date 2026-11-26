@@ -15,6 +15,7 @@ import '../../core/services/curriculum_repository.dart';
 import '../../core/theme/ginga_theme.dart';
 import '../../core/widgets/video_player_modal.dart';
 import 'planificador/models/class_plan_models.dart';
+import 'planificador/services/live_session_persistence.dart';
 import 'planificador/services/planner_data_source.dart';
 import 'planificador/theme/planner_palette.dart';
 import 'planificador/widgets/planner_hub_body.dart';
@@ -348,7 +349,10 @@ class InstructorPizarraScreen extends StatefulWidget {
   final PlannerHubTab initialTab;
   final PlannerCreationMode? initialCreationMode;
   final String? initialEditingPlanId;
+  final String? initialLivePlanId;
   final bool initialCreateManual;
+  final LiveSessionStorage? liveSessionStorage;
+  final DateTime Function()? clock;
   final VoidCallback? onOpenBiblioteca;
   final bool embedded;
 
@@ -359,7 +363,10 @@ class InstructorPizarraScreen extends StatefulWidget {
     this.initialTab = PlannerHubTab.plans,
     this.initialCreationMode,
     this.initialEditingPlanId,
+    this.initialLivePlanId,
     this.initialCreateManual = false,
+    this.liveSessionStorage,
+    this.clock,
     this.onOpenBiblioteca,
     this.embedded = false,
   });
@@ -402,7 +409,10 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
       initialTab: widget.initialTab,
       initialCreationMode: widget.initialCreationMode,
       initialEditingPlanId: widget.initialEditingPlanId,
+      initialLivePlanId: widget.initialLivePlanId,
       initialCreateManual: widget.initialCreateManual,
+      liveSessionStorage: widget.liveSessionStorage,
+      clock: widget.clock,
       onOpenBiblioteca: widget.onOpenBiblioteca ??
           (_isIsolatedDataSource
               ? null
@@ -447,20 +457,6 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
                   uid: _uid,
                   initialPlan: plan.rawLegacyMap,
                   initialPlanId: plan.id,
-                ),
-              );
-            },
-      onStartLegacyLiveClass: _isIsolatedDataSource
-          ? null
-          : (plan) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => _ClaseEnVivoScreen(
-                    planId: plan.id,
-                    planData: plan.rawLegacyMap,
-                    uid: _uid,
-                  ),
                 ),
               );
             },

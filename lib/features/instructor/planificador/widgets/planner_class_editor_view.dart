@@ -670,6 +670,13 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
         children: [
         _buildMetadataCard(pal),
         const SizedBox(height: 14),
+        if (_plan.continuityContext != null &&
+            _plan.continuityContext!.hasContent) ...[
+          PlannerContinuityContextCard(
+            contextData: _plan.continuityContext,
+          ),
+          const SizedBox(height: 14),
+        ],
         if (_plan.audienceType == PlannerAudienceType.infantil) ...[
           PlannerNoticeBanner(
             title: 'Protección Curricular Infantil activa',

@@ -15,6 +15,7 @@ import 'planner_shared_widgets.dart';
 class PlannerAdvancedCreateView extends StatefulWidget {
   final List<PlannerGroupProfile> groups;
   final List<PlannerResourceItem> resources;
+  final List<TaughtSessionRecord> history;
   final ClassPlanDraftRequest initialRequest;
   final CurriculumRepository? curriculumRepository;
   final ValueChanged<ClassPlanDraftRequest> onCreateLocalDraft;
@@ -25,6 +26,7 @@ class PlannerAdvancedCreateView extends StatefulWidget {
     super.key,
     required this.groups,
     required this.resources,
+    this.history = const [],
     required this.initialRequest,
     this.curriculumRepository,
     required this.onCreateLocalDraft,
@@ -116,6 +118,30 @@ class _PlannerAdvancedCreateViewState extends State<PlannerAdvancedCreateView> {
   }
 
   void _applyGroup(PlannerGroupProfile group) {
+    final existingCtx = _request.continuityContext;
+    final keepExisting = existingCtx != null &&
+        existingCtx.matchesGroup(
+          groupId: group.id,
+          groupName: group.name,
+          audienceType: group.audienceType,
+        );
+    final matchedSession = keepExisting
+        ? null
+        : PedagogicalContinuityContext.findLatestSessionForGroup(
+            widget.history,
+            groupId: group.id,
+            groupName: group.name,
+            audienceType: group.audienceType,
+          );
+    final nextContext = keepExisting
+        ? existingCtx
+        : (matchedSession != null
+            ? PedagogicalContinuityContext.fromSession(matchedSession)
+            : null);
+    final nextSummary = keepExisting
+        ? _request.continuitySummary
+        : nextContext?.shortHeadline;
+
     setState(() {
       _request = ClassPlanDraftRequest.fromGroup(
         group,
@@ -131,7 +157,9 @@ class _PlannerAdvancedCreateViewState extends State<PlannerAdvancedCreateView> {
         materials: _request.materials,
         includeMusicalityRoda: _request.includeMusicalityRoda,
         allowAiComplementaryProposals: _request.allowAiComplementaryProposals,
-        continuitySummary: _request.continuitySummary,
+        continuityContext: nextContext,
+        continuitySummary: nextSummary,
+        clearContinuity: nextContext == null && nextSummary == null,
       );
       _groupNameCtrl.text = _request.groupName;
     });
@@ -350,6 +378,20 @@ class _PlannerAdvancedCreateViewState extends State<PlannerAdvancedCreateView> {
               ),
               const SizedBox(height: 16),
 
+              if ((_request.continuityContext != null &&
+                      _request.continuityContext!.hasContent) ||
+                  (_request.continuitySummary != null &&
+                      _request.continuitySummary!.trim().isNotEmpty)) ...[
+                PlannerContinuityContextCard(
+                  contextData: _request.continuityContext,
+                  fallbackSummary: _request.continuitySummary,
+                  onClear: () => setState(() {
+                    _request = _request.copyWith(clearContinuity: true);
+                  }),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               if (isWide)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -486,6 +528,7 @@ class _PlannerAdvancedCreateViewState extends State<PlannerAdvancedCreateView> {
                       _request = _request.copyWith(
                         groupSource: PlannerGroupSource.manual,
                         clearRealClaseId: true,
+                        clearContinuity: true,
                       );
                     }),
                   ),

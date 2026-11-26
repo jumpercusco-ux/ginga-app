@@ -3,11 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/services/curriculum_repository.dart';
 import '../../../../core/theme/ginga_theme.dart';
 import '../models/class_plan_models.dart';
+import '../models/live_session_models.dart';
 import '../services/class_plan_editor_operations.dart';
+import '../services/live_session_persistence.dart';
 import '../services/planner_data_source.dart';
 import '../theme/planner_palette.dart';
 import 'planner_advanced_create_view.dart';
 import 'planner_class_editor_view.dart';
+import 'planner_live_class_view.dart';
 import 'planner_quick_create_view.dart';
 import 'planner_shared_widgets.dart';
 
@@ -19,7 +22,10 @@ class PlannerHubBody extends StatefulWidget {
   final PlannerHubTab initialTab;
   final PlannerCreationMode? initialCreationMode;
   final String? initialEditingPlanId;
+  final String? initialLivePlanId;
   final bool initialCreateManual;
+  final LiveSessionStorage? liveSessionStorage;
+  final DateTime Function()? clock;
   final VoidCallback? onOpenBiblioteca;
   final VoidCallback? onLegacyCreateIdea;
   final ValueChanged<PlannerResourceItem>? onLegacyEditIdea;
@@ -38,7 +44,10 @@ class PlannerHubBody extends StatefulWidget {
     this.initialTab = PlannerHubTab.plans,
     this.initialCreationMode,
     this.initialEditingPlanId,
+    this.initialLivePlanId,
     this.initialCreateManual = false,
+    this.liveSessionStorage,
+    this.clock,
     this.onOpenBiblioteca,
     this.onLegacyCreateIdea,
     this.onLegacyEditIdea,
@@ -60,6 +69,11 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
   ClassPlanDraftRequest? _pendingDraftRequest;
   ClassPlanModel? _editingPlan;
   bool _editingIsDuplicate = false;
+  late LiveSessionStorage _liveStorage;
+  LiveSessionState? _activeLiveSession;
+  LiveSessionState? _recoverableSession;
+
+  DateTime _now() => (widget.clock ?? DateTime.now)();
 
   bool _loading = true;
   String? _loadError;
@@ -88,20 +102,28 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
     super.initState();
     _activeTab = widget.initialTab;
     _activeCreationMode = widget.initialCreationMode;
+    _liveStorage =
+        widget.liveSessionStorage ?? const SharedPreferencesLiveSessionStorage();
     _loadAll();
   }
 
   @override
   void didUpdateWidget(covariant PlannerHubBody oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.liveSessionStorage != widget.liveSessionStorage) {
+      _liveStorage =
+          widget.liveSessionStorage ?? const SharedPreferencesLiveSessionStorage();
+    }
     if (oldWidget.initialTab != widget.initialTab ||
         oldWidget.initialCreationMode != widget.initialCreationMode ||
         oldWidget.initialEditingPlanId != widget.initialEditingPlanId ||
+        oldWidget.initialLivePlanId != widget.initialLivePlanId ||
         oldWidget.initialCreateManual != widget.initialCreateManual) {
       _activeTab = widget.initialTab;
       _activeCreationMode = widget.initialCreationMode;
       _editingPlan = null;
       _editingIsDuplicate = false;
+      _activeLiveSession = null;
       if (_activeCreationMode != null && _pendingDraftRequest == null) {
         _pendingDraftRequest = _buildDefaultRequest(_activeCreationMode!);
       }
@@ -109,6 +131,13 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         _editingPlan = ClassPlanModel.emptyManual(
           group: _groups.isNotEmpty ? _groups.first : null,
         );
+      } else if (widget.initialLivePlanId != null) {
+        for (final p in _plans) {
+          if (p.id == widget.initialLivePlanId) {
+            _activeLiveSession = _buildLiveSessionFromPlan(p);
+            break;
+          }
+        }
       } else if (widget.initialEditingPlanId != null) {
         for (final p in _plans) {
           if (p.id == widget.initialEditingPlanId) {
@@ -138,12 +167,14 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         widget.dataSource.loadPlans(),
         widget.dataSource.loadResources(),
         widget.dataSource.loadHistory(),
+        _liveStorage.loadActiveSession(),
       ]);
       if (!mounted) return;
       final groups = results[0] as List<PlannerGroupProfile>;
       final plans = results[1] as List<ClassPlanModel>;
       final resources = results[2] as List<PlannerResourceItem>;
       final history = results[3] as List<TaughtSessionRecord>;
+      final recovered = results[4] as LiveSessionState?;
 
       final namesMap = <String, String>{};
       final repo = widget.curriculumRepository;
@@ -158,10 +189,23 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
       if (!mounted) return;
 
       ClassPlanModel? initialEditorPlan;
+      LiveSessionState? initialLiveSession;
       if (widget.initialCreateManual && _editingPlan == null) {
         initialEditorPlan = ClassPlanModel.emptyManual(
           group: groups.isNotEmpty ? groups.first : null,
         );
+      } else if (widget.initialLivePlanId != null && _activeLiveSession == null) {
+        for (final p in plans) {
+          if (p.id == widget.initialLivePlanId) {
+            initialLiveSession = LiveSessionState.startFromPlan(
+              plan: p,
+              resources: resources,
+              now: _now(),
+              groupId: _resolveGroupId(p, groups),
+            );
+            break;
+          }
+        }
       } else if (widget.initialEditingPlanId != null && _editingPlan == null) {
         for (final p in plans) {
           if (p.id == widget.initialEditingPlanId) {
@@ -176,9 +220,13 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         _plans = plans;
         _resources = resources;
         _history = history;
+        _recoverableSession = recovered;
         _movementNamesById = namesMap;
         if (initialEditorPlan != null) {
           _editingPlan = initialEditorPlan;
+        }
+        if (initialLiveSession != null) {
+          _activeLiveSession = initialLiveSession;
         }
         _loading = false;
         if (_activeCreationMode != null && _pendingDraftRequest == null) {
@@ -196,10 +244,19 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
 
   ClassPlanDraftRequest _buildDefaultRequest(PlannerCreationMode mode) {
     if (_groups.isNotEmpty) {
-      final base = ClassPlanDraftRequest.fromGroup(_groups.first, mode: mode);
-      final latestSession = _history.isNotEmpty ? _history.first : null;
+      final firstGroup = _groups.first;
+      final base = ClassPlanDraftRequest.fromGroup(firstGroup, mode: mode);
+      final matched = PedagogicalContinuityContext.findLatestSessionForGroup(
+        _history,
+        groupId: firstGroup.id,
+        groupName: firstGroup.name,
+        audienceType: firstGroup.audienceType,
+      );
+      if (matched == null) return base;
+      final ctx = PedagogicalContinuityContext.fromSession(matched);
       return base.copyWith(
-        continuitySummary: latestSession?.pendingNextSession,
+        continuityContext: ctx,
+        continuitySummary: ctx.hasContent ? ctx.shortHeadline : null,
       );
     }
     return ClassPlanDraftRequest(
@@ -223,8 +280,31 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
   }) {
     var req = _buildDefaultRequest(mode);
     if (reusePlan != null) {
+      PlannerGroupProfile? matchedPlanGroup;
+      for (final g in _groups) {
+        if (g.name.toLowerCase() == reusePlan.groupName.toLowerCase() &&
+            g.audienceType == reusePlan.audienceType) {
+          matchedPlanGroup = g;
+          break;
+        }
+      }
+      final latestForPlanGroup =
+          PedagogicalContinuityContext.findLatestSessionForGroup(
+        _history,
+        groupId: matchedPlanGroup?.id,
+        groupName: reusePlan.groupName,
+        audienceType: reusePlan.audienceType,
+      );
+      final planGroupCtx = latestForPlanGroup != null
+          ? PedagogicalContinuityContext.fromSession(latestForPlanGroup)
+          : null;
       req = req.copyWith(
         creationMode: mode,
+        groupSource: matchedPlanGroup != null
+            ? PlannerGroupSource.realClass
+            : PlannerGroupSource.manual,
+        realClaseId: matchedPlanGroup?.id,
+        clearRealClaseId: matchedPlanGroup == null,
         groupName: reusePlan.groupName,
         audienceType: reusePlan.audienceType,
         curriculumScope: reusePlan.curriculumScope,
@@ -241,6 +321,10 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         objectives: reusePlan.objetivo.isNotEmpty
             ? [reusePlan.objetivo]
             : req.objectives,
+        continuityContext: planGroupCtx,
+        continuitySummary:
+            planGroupCtx != null && planGroupCtx.hasContent ? planGroupCtx.shortHeadline : null,
+        clearContinuity: planGroupCtx == null,
       );
     }
     if (fromSession != null) {
@@ -256,16 +340,18 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         req = ClassPlanDraftRequest.fromGroup(matchedGroup, mode: mode);
       } else {
         req = req.copyWith(
+          groupSource: PlannerGroupSource.manual,
+          clearRealClaseId: true,
           groupName: fromSession.groupName,
           audienceType: fromSession.audienceType,
           curriculumScope:
               PlannerCurriculumScope.suggestedForAudience(fromSession.audienceType),
         );
       }
+      final ctx = PedagogicalContinuityContext.fromSession(fromSession);
       req = req.copyWith(
-        continuitySummary: fromSession.pendingNextSession.isNotEmpty
-            ? fromSession.pendingNextSession
-            : fromSession.summaryNote,
+        continuityContext: ctx,
+        continuitySummary: ctx.hasContent ? ctx.shortHeadline : null,
       );
     }
     if (preselectedResources != null && preselectedResources.isNotEmpty) {
@@ -306,6 +392,99 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
             if (mounted) _openEditor(draft);
           },
         ),
+      ),
+    );
+  }
+
+  String? _resolveGroupId(
+    ClassPlanModel plan,
+    List<PlannerGroupProfile> groups,
+  ) {
+    for (final g in groups) {
+      if (g.name.toLowerCase() == plan.groupName.toLowerCase()) {
+        return g.id;
+      }
+    }
+    return null;
+  }
+
+  LiveSessionState _buildLiveSessionFromPlan(ClassPlanModel plan) {
+    return LiveSessionState.startFromPlan(
+      plan: plan,
+      resources: _resources,
+      now: _now(),
+      groupId: _resolveGroupId(plan, _groups),
+    );
+  }
+
+  Future<void> _startLiveClass(ClassPlanModel plan) async {
+    final session = _buildLiveSessionFromPlan(plan);
+    await _liveStorage.saveActiveSession(session);
+    if (!mounted) return;
+    setState(() {
+      _activeCreationMode = null;
+      _pendingDraftRequest = null;
+      _editingPlan = null;
+      _editingIsDuplicate = false;
+      _activeLiveSession = session;
+      _recoverableSession = session;
+    });
+  }
+
+  void _resumeRecoveredSession() {
+    final rec = _recoverableSession;
+    if (rec == null) return;
+    final resumed = rec.resume(_now());
+    _liveStorage.saveActiveSession(resumed);
+    setState(() {
+      _activeCreationMode = null;
+      _pendingDraftRequest = null;
+      _editingPlan = null;
+      _activeLiveSession = resumed;
+      _recoverableSession = resumed;
+    });
+  }
+
+  Future<void> _discardRecoveredSession() async {
+    await _liveStorage.clearActiveSession();
+    if (!mounted) return;
+    setState(() {
+      _activeLiveSession = null;
+      _recoverableSession = null;
+    });
+  }
+
+  Future<void> _handleFinalizeLiveSession(
+    TaughtSessionRecord record,
+    Set<String> taughtResourceIds,
+  ) async {
+    final recorded = await widget.dataSource.recordCompletedLiveSession(
+      record,
+      taughtResourceIds: taughtResourceIds,
+    );
+    await _liveStorage.clearActiveSession();
+    final results = await Future.wait([
+      widget.dataSource.loadHistory(),
+      widget.dataSource.loadResources(),
+      widget.dataSource.loadPlans(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _history = results[0] as List<TaughtSessionRecord>;
+      _resources = results[1] as List<PlannerResourceItem>;
+      _plans = results[2] as List<ClassPlanModel>;
+      _activeLiveSession = null;
+      _recoverableSession = null;
+      _activeTab = PlannerHubTab.history;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          recorded
+              ? 'Sesión "${record.planTitle}" guardada en Historial (${taughtResourceIds.length} recursos contabilizados).'
+              : 'Esta sesión ya había sido registrada en Historial.',
+        ),
+        backgroundColor: PlannerPalette.of(context).accent,
       ),
     );
   }
@@ -406,6 +585,7 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
           onDuplicatePlan: () => _duplicateAndEditPlan(plan),
           onReuseInQuick: () =>
               _openCreation(PlannerCreationMode.quick, reusePlan: plan),
+          onStartLive: () => _startLiveClass(plan),
         ),
       ),
     );
@@ -587,6 +767,29 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
       );
     }
 
+    if (_activeLiveSession != null) {
+      return PlannerLiveClassView(
+        key: ValueKey('live_class_${_activeLiveSession!.sessionId}'),
+        initialSession: _activeLiveSession!,
+        resources: _resources,
+        curriculumRepository: widget.curriculumRepository,
+        movementNamesById: _movementNamesById,
+        storage: _liveStorage,
+        clock: widget.clock,
+        onOpenResource: _openResourceViewer,
+        onFinalizeSession: _handleFinalizeLiveSession,
+        onExitKeepPaused: () async {
+          final loaded = await _liveStorage.loadActiveSession();
+          if (!mounted) return;
+          setState(() {
+            _activeLiveSession = null;
+            _recoverableSession = loaded;
+          });
+        },
+        onDiscardSession: _discardRecoveredSession,
+      );
+    }
+
     if (_editingPlan != null) {
       return PlannerClassEditorView(
         key: ValueKey('class_editor_${_editingPlan!.id}_$_editingIsDuplicate'),
@@ -612,6 +815,7 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
       return PlannerQuickCreateView(
         groups: _groups,
         resources: _resources,
+        history: _history,
         curriculumRepository: widget.curriculumRepository,
         initialRequest: _pendingDraftRequest ??
             _buildDefaultRequest(PlannerCreationMode.quick),
@@ -629,6 +833,7 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
       return PlannerAdvancedCreateView(
         groups: _groups,
         resources: _resources,
+        history: _history,
         curriculumRepository: widget.curriculumRepository,
         initialRequest: _pendingDraftRequest ??
             _buildDefaultRequest(PlannerCreationMode.advanced),
@@ -657,6 +862,10 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (_recoverableSession != null) ...[
+                    _buildRecoverableSessionBanner(pal, _recoverableSession!),
+                    const SizedBox(height: 12),
+                  ],
                   _buildHeaderBanner(pal),
                   const SizedBox(height: 14),
                   _buildTabBar(pal),
@@ -670,6 +879,99 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecoverableSessionBanner(
+    PlannerPalette pal,
+    LiveSessionState recovered,
+  ) {
+    return Container(
+      key: const Key('hub_resume_live_banner'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: pal.amberBg,
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        border: Border.all(color: pal.amber.withValues(alpha: 0.55)),
+      ),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 10,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.play_circle_outline_rounded,
+                    color: pal.amber, size: 24),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Clase en vivo interrumpida lista para reanudar',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: pal.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${recovered.planTitle} · ${recovered.completedCount}/${recovered.totalExercisesCount} ejercicios completados',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          color: pal.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              TextButton(
+                key: const Key('hub_discard_live_btn'),
+                onPressed: _discardRecoveredSession,
+                child: Text(
+                  'Descartar',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: pal.textSecondary,
+                  ),
+                ),
+              ),
+              ElevatedButton.icon(
+                key: const Key('hub_resume_live_btn'),
+                onPressed: _resumeRecoveredSession,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 42),
+                  backgroundColor: pal.accent,
+                  foregroundColor: pal.onAccent,
+                ),
+                icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                label: Text(
+                  'Reanudar clase',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -946,10 +1248,9 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
                   onView: () => _openPlanDetail(plan),
                   onEditPlan: () => _openEditor(plan),
                   onReuseQuick: () => _duplicateAndEditPlan(plan),
-                  onStartLive: widget.onStartLegacyLiveClass != null &&
-                          plan.rawLegacyMap.isNotEmpty
+                  onStartLive: widget.onStartLegacyLiveClass != null
                       ? () => widget.onStartLegacyLiveClass!(plan)
-                      : null,
+                      : () => _startLiveClass(plan),
                   onDelete: widget.onDeletePlan != null
                       ? () => widget.onDeletePlan!(plan)
                       : null,
@@ -1234,7 +1535,7 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
           PlannerNoticeBanner(
             title: 'Datos de ejemplo del entorno local',
             message:
-                'Estas sesiones son fixtures de demostración para validar el historial y la continuidad. El registro real de clases impartidas se activará en la siguiente fase.',
+                'Estas sesiones de muestra conviven con las sesiones reales que finalices y guardes localmente.',
             icon: Icons.science_outlined,
             color: pal.amber,
             backgroundColor: pal.amberBg,

@@ -14,6 +14,7 @@ import 'planner_shared_widgets.dart';
 class PlannerQuickCreateView extends StatefulWidget {
   final List<PlannerGroupProfile> groups;
   final List<PlannerResourceItem> resources;
+  final List<TaughtSessionRecord> history;
   final CurriculumRepository? curriculumRepository;
   final ClassPlanDraftRequest initialRequest;
   final ValueChanged<ClassPlanDraftRequest> onCreateLocalDraft;
@@ -24,6 +25,7 @@ class PlannerQuickCreateView extends StatefulWidget {
     super.key,
     required this.groups,
     this.resources = const [],
+    this.history = const [],
     this.curriculumRepository,
     required this.initialRequest,
     required this.onCreateLocalDraft,
@@ -58,6 +60,30 @@ class _PlannerQuickCreateViewState extends State<PlannerQuickCreateView> {
   }
 
   void _selectRealGroup(PlannerGroupProfile group) {
+    final existingCtx = _request.continuityContext;
+    final keepExisting = existingCtx != null &&
+        existingCtx.matchesGroup(
+          groupId: group.id,
+          groupName: group.name,
+          audienceType: group.audienceType,
+        );
+    final matchedSession = keepExisting
+        ? null
+        : PedagogicalContinuityContext.findLatestSessionForGroup(
+            widget.history,
+            groupId: group.id,
+            groupName: group.name,
+            audienceType: group.audienceType,
+          );
+    final nextContext = keepExisting
+        ? existingCtx
+        : (matchedSession != null
+            ? PedagogicalContinuityContext.fromSession(matchedSession)
+            : null);
+    final nextSummary = keepExisting
+        ? _request.continuitySummary
+        : nextContext?.shortHeadline;
+
     setState(() {
       _request = ClassPlanDraftRequest.fromGroup(
         group,
@@ -70,7 +96,9 @@ class _PlannerQuickCreateViewState extends State<PlannerQuickCreateView> {
             ? _request.selectedMovements
             : const [],
         selectedResources: _request.selectedResources,
-        continuitySummary: _request.continuitySummary,
+        continuityContext: nextContext,
+        continuitySummary: nextSummary,
+        clearContinuity: nextContext == null && nextSummary == null,
       );
     });
   }
@@ -84,6 +112,7 @@ class _PlannerQuickCreateViewState extends State<PlannerQuickCreateView> {
       _request = _request.copyWith(
         groupSource: PlannerGroupSource.manual,
         clearRealClaseId: true,
+        clearContinuity: true,
         groupName: 'Grupo ${audience.label} manual',
         audienceType: audience,
         curriculumScope: PlannerCurriculumScope.suggestedForAudience(audience),
@@ -244,57 +273,18 @@ class _PlannerQuickCreateViewState extends State<PlannerQuickCreateView> {
               ),
               const SizedBox(height: 14),
 
-              if (_request.continuitySummary != null &&
-                  _request.continuitySummary!.trim().isNotEmpty) ...[
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 14),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: pal.surfaceTint,
-                    borderRadius: BorderRadius.circular(GingaRadius.md),
-                    border:
-                        Border.all(color: pal.accent.withValues(alpha: 0.4)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.forward_outlined, size: 18, color: pal.accent),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Continuidad de sesión anterior',
-                              style: GoogleFonts.montserrat(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: pal.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _request.continuitySummary!,
-                              style: GoogleFonts.montserrat(
-                                fontSize: 12,
-                                color: pal.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close,
-                            size: 16, color: pal.textSecondary),
-                        onPressed: () => setState(() {
-                          _request = _request.copyWith(clearContinuity: true);
-                        }),
-                        tooltip: 'Quitar nota de continuidad',
-                      ),
-                    ],
-                  ),
+              if ((_request.continuityContext != null &&
+                      _request.continuityContext!.hasContent) ||
+                  (_request.continuitySummary != null &&
+                      _request.continuitySummary!.trim().isNotEmpty)) ...[
+                PlannerContinuityContextCard(
+                  contextData: _request.continuityContext,
+                  fallbackSummary: _request.continuitySummary,
+                  onClear: () => setState(() {
+                    _request = _request.copyWith(clearContinuity: true);
+                  }),
                 ),
+                const SizedBox(height: 14),
               ],
 
               // Bloque 1: Grupo real o manual en 1 toque

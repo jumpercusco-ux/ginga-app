@@ -8,6 +8,13 @@ abstract class PlannerDataSource {
   Future<List<PlannerResourceItem>> loadResources();
   Future<List<TaughtSessionRecord>> loadHistory();
   Future<void> saveLocalDraft(ClassPlanModel draft);
+
+  /// Registra una sesión finalizada en Historial y contabiliza recursos solo de ejercicios completados.
+  /// Devuelve `true` si se registró por primera vez o `false` si [session.sessionId] ya había sido contabilizado.
+  Future<bool> recordCompletedLiveSession(
+    TaughtSessionRecord session, {
+    required Set<String> taughtResourceIds,
+  });
 }
 
 /// Implementación local aislada con fixtures realistas libres de PII para pruebas y vista previa.
@@ -16,6 +23,7 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
   final List<ClassPlanModel> _plans;
   final List<PlannerResourceItem> _resources;
   final List<TaughtSessionRecord> _history;
+  final Set<String> _recordedSessionIds = {};
 
   InMemoryPlannerDataSource({
     required List<PlannerGroupProfile> groups,
@@ -25,7 +33,11 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
   })  : _groups = List.of(groups),
         _plans = List.of(plans),
         _resources = List.of(resources),
-        _history = List.of(history);
+        _history = List.of(history) {
+    for (final s in _history) {
+      _recordedSessionIds.add(s.sessionId);
+    }
+  }
 
   factory InMemoryPlannerDataSource.demoFixtures() {
     return InMemoryPlannerDataSource(
@@ -362,9 +374,19 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
           attendeesCount: 12,
           completedExercisesCount: 3,
           totalExercisesCount: 3,
+          completedExercises: const [
+            'Juego espejo de esquivas en parejas',
+            'Cocorinha + salida en Rolê',
+            'Roda Benguela de diálogo corporal',
+          ],
+          groupResponse: 'Excelente',
           practicedMovements: const ['Ginga', 'Cocorinha', 'Rolê'],
           summaryNote:
               'Fluidez alta en parejas; las rotaciones de 60s evitaron tiempos muertos.',
+          difficulties:
+              'Mantener la mirada continua al pasar de cocorinha a rolê en principiantes.',
+          reinforceContent:
+              'Cobertura facial en transición de rolê y entrada sin pausa.',
           pendingNextSession:
               'Añadir entrada con meia lua de frente tras la salida en rolê.',
           isSimulatedFixture: true,
@@ -381,9 +403,17 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
           attendeesCount: 11,
           completedExercisesCount: 3,
           totalExercisesCount: 3,
+          completedExercises: const [
+            'Movilidad articular + ginga progresiva',
+            'Bênção con salida en cocorinha',
+            'Roda cadenciada São Bento Grande',
+          ],
+          groupResponse: 'Buena',
           practicedMovements: const ['Ginga', 'Bênção', 'Cocorinha'],
           summaryNote:
               'Muy buena energía en parejas; los 4 alumnos nuevos consolidaron base de ginga.',
+          difficulties: 'Sincronización de cocorinha ante bênção frontal.',
+          reinforceContent: 'Distancia segura y guardia alta tras pateo.',
           pendingNextSession:
               'Conectar cocorinha con salida lateral en rolê en ritmo Benguela.',
           isSimulatedFixture: true,
@@ -398,10 +428,19 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
           date: DateTime.now().subtract(const Duration(days: 14)),
           durationMin: 58,
           attendeesCount: 10,
-          completedExercisesCount: 4,
-          totalExercisesCount: 5,
+          completedExercisesCount: 1,
+          totalExercisesCount: 2,
+          completedExercises: const [
+            'Circuito animal: sapo, cangrejo y aú lento',
+          ],
+          skippedExercises: const [
+            'Coro responsorial y ritmo en pandeiro',
+          ],
+          groupResponse: 'Buena',
           practicedMovements: const ['Ginga', 'Cocorinha', 'Aú'],
           summaryNote: 'Excelente respuesta en el circuito motor por estaciones.',
+          difficulties: 'Mantener atención en el cierre rítmico tras el circuito.',
+          reinforceContent: 'Palmas de 3 tiempos y coordinación básica en aú.',
           pendingNextSession:
               'Reforzar canto responsorial y entrada ordenada a la roda.',
           isSimulatedFixture: true,
@@ -442,13 +481,53 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
       _resources.insert(0, resource);
     }
   }
+
+  @override
+  Future<bool> recordCompletedLiveSession(
+    TaughtSessionRecord session, {
+    required Set<String> taughtResourceIds,
+  }) async {
+    if (_recordedSessionIds.contains(session.sessionId)) {
+      return false;
+    }
+    _recordedSessionIds.add(session.sessionId);
+    _history.removeWhere((h) => h.sessionId == session.sessionId);
+    _history.insert(0, session);
+
+    if (taughtResourceIds.isNotEmpty) {
+      for (int i = 0; i < _resources.length; i++) {
+        final res = _resources[i];
+        if (taughtResourceIds.contains(res.resourceId)) {
+          _resources[i] = res.copyWith(
+            hasBeenTaught: true,
+            timesUsed: res.timesUsed + 1,
+          );
+        }
+      }
+    }
+    // Actualiza solo ultimaEjecucion y vecesImpartida del plan original, sin tocar bloques, ejercicios ni contenido pedagógico.
+    final planIdx = _plans.indexWhere((p) => p.id == session.planId);
+    if (planIdx >= 0) {
+      final original = _plans[planIdx];
+      _plans[planIdx] = original.copyWith(
+        vecesImpartida: original.vecesImpartida + 1,
+        ultimaEjecucion: session.date,
+      );
+    }
+    return true;
+  }
 }
 
-/// Fuente de datos real en Firestore (solo lectura en PED-04B1 + saneamiento Zero-PII).
+/// Fuente de datos real en Firestore (solo lectura en PED-04B1/04C1 + estado de sesión local sin escrituras a producción).
 class FirestorePlannerDataSource implements PlannerDataSource {
   final FirebaseFirestore _firestore;
   final String? instructorUid;
   final List<ClassPlanModel> _sessionDrafts = [];
+  final List<TaughtSessionRecord> _sessionHistory = [];
+  final Set<String> _recordedSessionIds = {};
+  final Map<String, int> _sessionResourceIncrements = {};
+  final Map<String, DateTime> _sessionPlanLastExecuted = {};
+  final Map<String, int> _sessionPlanExecutionIncrements = {};
 
   FirestorePlannerDataSource({
     FirebaseFirestore? firestore,
@@ -559,7 +638,16 @@ class FirestorePlannerDataSource implements PlannerDataSource {
 
     final localIds = _sessionDrafts.map((d) => d.id).toSet();
     final filteredRemote = remote.where((r) => !localIds.contains(r.id));
-    return [..._sessionDrafts, ...filteredRemote];
+    final combined = [..._sessionDrafts, ...filteredRemote];
+    return combined.map((p) {
+      final execAt = _sessionPlanLastExecuted[p.id];
+      final inc = _sessionPlanExecutionIncrements[p.id] ?? 0;
+      if (execAt == null && inc <= 0) return p;
+      return p.copyWith(
+        ultimaEjecucion: execAt ?? p.ultimaEjecucion,
+        vecesImpartida: p.vecesImpartida + inc,
+      );
+    }).toList();
   }
 
   @override
@@ -568,35 +656,69 @@ class FirestorePlannerDataSource implements PlannerDataSource {
         .collection('instructor_ideas')
         .orderBy('created_at', descending: true)
         .get();
-    return snap.docs
-        .map((d) => PlannerResourceItem.fromMap(d.id, d.data()))
-        .toList();
+    return snap.docs.map((d) {
+      final item = PlannerResourceItem.fromMap(d.id, d.data());
+      final inc = _sessionResourceIncrements[item.resourceId] ?? 0;
+      if (inc <= 0) return item;
+      return item.copyWith(
+        hasBeenTaught: true,
+        timesUsed: item.timesUsed + inc,
+      );
+    }).toList();
   }
 
   @override
   Future<List<TaughtSessionRecord>> loadHistory() async {
-    if (instructorUid == null) return const [];
+    if (instructorUid == null) return List.unmodifiable(_sessionHistory);
     try {
       final snap = await _firestore
           .collection('instructor_sesiones_impartidas')
           .where('instructor_id', isEqualTo: instructorUid)
           .limit(30)
           .get();
-      final list = snap.docs
+      final remote = snap.docs
           .map((d) => TaughtSessionRecord.fromMap(d.id, d.data()))
           .toList()
         ..sort((a, b) => b.date.compareTo(a.date));
-      return list;
+      final localIds = _sessionHistory.map((e) => e.sessionId).toSet();
+      return [
+        ..._sessionHistory,
+        ...remote.where((r) => !localIds.contains(r.sessionId)),
+      ];
     } catch (_) {
       // Tolerante si la colección aún no existe en este entorno
-      return const [];
+      return List.unmodifiable(_sessionHistory);
     }
   }
 
   @override
   Future<void> saveLocalDraft(ClassPlanModel draft) async {
-    // PED-04B1 mantiene los borradores nuevos localmente sin escribir en producción.
+    // Mantiene los borradores nuevos localmente sin escribir en producción.
     _sessionDrafts.removeWhere((p) => p.id == draft.id);
     _sessionDrafts.insert(0, draft);
+  }
+
+  @override
+  Future<bool> recordCompletedLiveSession(
+    TaughtSessionRecord session, {
+    required Set<String> taughtResourceIds,
+  }) async {
+    // PED-04C1: registra localmente en memoria de sesión sin escribir en Firestore de producción.
+    if (_recordedSessionIds.contains(session.sessionId)) {
+      return false;
+    }
+    _recordedSessionIds.add(session.sessionId);
+    _sessionHistory.removeWhere((h) => h.sessionId == session.sessionId);
+    _sessionHistory.insert(0, session);
+    for (final resId in taughtResourceIds) {
+      _sessionResourceIncrements[resId] =
+          (_sessionResourceIncrements[resId] ?? 0) + 1;
+    }
+    if (session.planId.trim().isNotEmpty) {
+      _sessionPlanLastExecuted[session.planId] = session.date;
+      _sessionPlanExecutionIncrements[session.planId] =
+          (_sessionPlanExecutionIncrements[session.planId] ?? 0) + 1;
+    }
+    return true;
   }
 }

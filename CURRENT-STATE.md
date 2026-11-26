@@ -3,10 +3,10 @@
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-26  
 > **Rama Actual:** `feat/ped03-biblioteca-curricular` (base `main` `fd891a7` intacta; sin merge ni despliegue)  
-> **Commits de Respaldo PED-03 / PED-04:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · `93ee84b` (cierre PED-04B1) · cierre `PED-04B2` / `PED-04B2-UX` en `feat/ped03-biblioteca-curricular`  
-> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** 🔄 En verificación de cierre `PED-04B2` sobre el commit nuevo (previo `93ee84b` en `success`)  
+> **Commits de Respaldo PED-03 / PED-04:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · `93ee84b` (cierre PED-04B1) · `62bb7f8` (cierre `PED-04B2` / `PED-04B2-UX`) · cierre `PED-04C1` en `feat/ped03-biblioteca-curricular`  
+> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** 🔄 En verificación de cierre `PED-04C1` (previo `62bb7f8` en `success`: `Flutter Web & Unit Tests` + `Node.js 22 & Agent Quality Benchmark`)  
 > **Producción Intacta:** `whatsappWebhook v69` (Cloud Functions Gen 1, Node.js 22), web `https://www.gingaperu.com`, proyecto `capoeirafiu-ea8ljo`  
-> **Estado Actual:** **PED-04B2 / PED-04B2-UX CERRADO TÉCNICAMENTE — PREVIEW ACTIVO EN `http://127.0.0.1:8097/` — PENDIENTE APROBACIÓN DE SIGUIENTE FASE**
+> **Estado Actual:** **PED-04C1 CERRADO TÉCNICAMENTE Y RESPALDADO EN `feat/ped03-biblioteca-curricular` — PREVIEW ACTIVO EN `http://127.0.0.1:8097/`**
 
 ---
 
@@ -457,8 +457,9 @@ flowchart TD
     PED03B --> PED03C["PED-03C: Firestore Emulator JDK 21 + Cierre Técnico (VALIDADO)"]
     PED03C --> PED04A["PED-04A: Diseño Funcional Planificador V2 (APROBADO)"]
     PED04A --> PED04B1["PED-04B1: Hub, Rápida/Avanzada, Pizarra, Historial + Preview 8097 (CERRADO 93ee84b)"]
-    PED04B1 --> PED04B2["PED-04B2 / UX: Editor Pedagógico de Clases V2 (CERRADO TÉCNICAMENTE)"]
-    PED04B2 --> PED04C["PED-04C: IA Real, Persistencia Firestore, En Vivo e Historial (PENDIENTE APROBACIÓN)"]
+    PED04B1 --> PED04B2["PED-04B2 / UX: Editor Pedagógico de Clases V2 (CERRADO 62bb7f8)"]
+    PED04B2 --> PED04C1["PED-04C1: Ejecución en Vivo V2, Recuperación Local e Historial (CERRADO TÉCNICAMENTE)"]
+    PED04C1 --> PED04C2["PED-04C2: Generación IA V2 y Persistencia Remota (PENDIENTE AUTORIZACIÓN)"]
 ```
 
 ---
@@ -512,6 +513,26 @@ flowchart TD
   - `flutter analyze` sobre los 15 archivos del módulo/preview/tests: `No issues found!`.
   - `flutter test`: **`59/59 All tests passed!`** (incluyendo `test/planificador_v2_editor_test.dart`, `test/planificador_v2_test.dart` y `test/ped04b2_screenshot_capture_test.dart`).
   - Preview web aislado actualizado en `http://127.0.0.1:8097/` sin service worker (`--pwa-strategy=none`, `Cache-Control: no-store`).
+
+### 10.3. Ejecución de Clases en Vivo V2 (`PED-04C1`)
+
+- **Modelos y Persistencia Local (`live_session_models.dart`, `live_session_persistence.dart`):**
+  - `LiveSessionState`, `LiveExerciseExecution`, `LiveExerciseStatus` (`pending`, `completed`, `skipped`) y `LiveSessionClosureInput` con cálculo por marcas de reloj de pared (`lastResumedAt` + reloj inyectable `clock`), pausa, reanudación, reinicio por ejercicio y ajustes de minutos (`-1 m` / `+1 m`).
+  - Compatibilidad con planes V1 y V2 (reparto automático de duraciones de bloque cuando los ejercicios legacy no tienen `duracionMin` y resolución de `recurso_relacionado` hacia `PlannerResourceItem`).
+  - Recuperación local automática mediante `LiveSessionStorage` (`SharedPreferencesLiveSessionStorage` usando clave `ginga_active_live_session_v2`, e `InMemoryLiveSessionStorage` para tests), con banner destacado de reanudación en el Hub.
+- **Experiencia en Vivo y Cierre (`planner_live_class_view.dart`, `planner_live_closure_sheet.dart`, `planner_hub_body.dart`):**
+  - `PlannerLiveClassView` reutiliza el stepper horizontal de bloques, feedback háptico al cumplir el tiempo y códigos cromáticos de `_ClaseEnVivoScreen` V1 adaptados a `PlannerPalette` (`GingaTheme` claro/oscuro), priorizando tablet y móvil con botones grandes y accesibles (`>= 48px`).
+  - Muestra título, grupo, duración total real vs. planificada, progreso, bloque y ejercicio activo, instrucciones detalladas, organización, variantes (`Principiantes`, `Intermedios`, `Avanzados`) con modo **`Ver todos los niveles`** simultáneo, advertencia con confirmación manual al completar ejercicios en `00:00`, materiales, seguridad, observaciones y consulta directa de movimientos FIU (`MovimientoDetalleScreen`) y recursos de Pizarra sin perder el estado en curso.
+  - `PlannerLiveClosureSheet` permite cierre anticipado o completo con campo de continuidad inicialmente vacío (sin texto residual + botón opcional de sugerencia de pendientes), resumen de realizados/pendientes, respuesta general del grupo, asistentes, observaciones, dificultades, contenido a reforzar y propuesta de continuidad.
+- **Historial, Continuidad Estructurada, Snapshot e Idempotencia (`planner_data_source.dart`, `class_plan_models.dart`, `planner_shared_widgets.dart`):**
+  - `TaughtSessionRecord` conserva la instantánea inmutable ejecutada (`planSnapshot`), desglose de ejercicios, respuesta del grupo, dificultades, contenido a reforzar y recursos efectivamente impartidos (`taughtResourceIds`). Al guardar sesión, se actualiza exclusivamente `ultimaEjecucion` y `vecesImpartida` del plan original sin modificar su contenido pedagógico.
+  - `PedagogicalContinuityContext` y `PlannerContinuityContextCard` transfieren y muestran de forma expandible los 8 campos estructurados (grupo, realizados, omitidos, movimientos trabajados, dificultades, observaciones, contenido por reforzar y propuesta de continuidad) en `Preparar siguiente clase` (Rápida y Avanzada), borrador, visor y Editor V2, con aislamiento estricto por grupo y sanitización determinista Zero-PII (`PlannerPiiSanitizer.sanitizeFreeText` en `toAiSafeRequestMap()` y `toAiSafeMap()`, redactando nombres, teléfonos, correos, fechas e IDs aun en texto libre) lista para futura IA sin llamadas activas.
+  - `PlannerDataSource.recordCompletedLiveSession` incrementa `timesUsed` y marca `hasBeenTaught = true` **exclusivamente** para los recursos de ejercicios marcados como `completed` (nunca `skipped` ni `pending`), con guardia idempotente por `sessionId` (`_recordedSessionIds`) y cero escrituras en Firestore real.
+- **Validación Técnica (`PED-04C1` + `PED-04C1-CLOSE`):**
+  - `flutter analyze` sobre los 7 objetivos del planificador/preview/tests: `No issues found!`.
+  - `flutter test`: **`69/69 All tests passed!`** (incluyendo `test/planificador_v2_live_test.dart` con blindaje Zero-PII de texto libre y `test/ped04c1_screenshot_capture_test.dart`).
+  - Suites Node: `validate_curriculum_catalog.js` (`PASS`), `test_curriculum_importer.js` (`6/6 PASS`), `test_reservation_date_semantics.js` (`8/8 PASS`), `test_agent_evaluations.js` (`9/9 PASS`).
+  - Capturas reales verificadas en escritorio (`1440×900`), tablet (`834×1024`) y móvil (`390×844`) claro/oscuro, y preview aislado actualizado en `http://127.0.0.1:8097/`.
 
 ---
 

@@ -25,7 +25,8 @@ enum PlannerPreviewScenario {
   quickCreate('Creación Rápida'),
   advancedCreate('Creación Avanzada'),
   editorV2('Editor · Clase V2'),
-  editorManual('Editor · Desde cero');
+  editorManual('Editor · Desde cero'),
+  liveClass('En Vivo · Clase V2');
 
   final String label;
   const PlannerPreviewScenario(this.label);
@@ -107,7 +108,7 @@ class _PlanificadorPreviewAppState extends State<PlanificadorPreviewApp> {
                 MediaQuery.platformBrightnessOf(context) == Brightness.dark);
 
         return MaterialApp(
-          title: 'GINGA Planificador V2 Preview (PED-04B2)',
+          title: 'GINGA Planificador V2 Preview (PED-04C1)',
           debugShowCheckedModeBanner: false,
           theme: gingaLightTheme,
           darkTheme: gingaDarkTheme,
@@ -240,6 +241,8 @@ class _PlanificadorPreviewAppState extends State<PlanificadorPreviewApp> {
     };
     final initialEditingPlanId =
         _scenario == PlannerPreviewScenario.editorV2 ? 'v2_plan_adulto_01' : null;
+    final initialLivePlanId =
+        _scenario == PlannerPreviewScenario.liveClass ? 'v2_plan_adulto_01' : null;
     final initialCreateManual =
         _scenario == PlannerPreviewScenario.editorManual;
 
@@ -252,6 +255,7 @@ class _PlanificadorPreviewAppState extends State<PlanificadorPreviewApp> {
           initialTab: initialTab,
           initialCreationMode: initialMode,
           initialEditingPlanId: initialEditingPlanId,
+          initialLivePlanId: initialLivePlanId,
           initialCreateManual: initialCreateManual,
           onOpenBiblioteca: () {
             Navigator.of(navCtx).push(

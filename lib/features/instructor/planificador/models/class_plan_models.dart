@@ -312,6 +312,32 @@ class PlannerResourceItem {
     this.timesUsed = 0,
   });
 
+  PlannerResourceItem copyWith({
+    String? resourceId,
+    String? title,
+    String? type,
+    String? category,
+    String? audienceLabel,
+    String? notes,
+    String? url,
+    String? thumbnailUrl,
+    bool? hasBeenTaught,
+    int? timesUsed,
+  }) {
+    return PlannerResourceItem(
+      resourceId: resourceId ?? this.resourceId,
+      title: title ?? this.title,
+      type: type ?? this.type,
+      category: category ?? this.category,
+      audienceLabel: audienceLabel ?? this.audienceLabel,
+      notes: notes ?? this.notes,
+      url: url ?? this.url,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      hasBeenTaught: hasBeenTaught ?? this.hasBeenTaught,
+      timesUsed: timesUsed ?? this.timesUsed,
+    );
+  }
+
   ResourceMediaKind get mediaKind {
     final t = type.toLowerCase().trim();
     final u = url.toLowerCase().trim();
@@ -428,16 +454,237 @@ class SelectedTeacherResource {
 
   Map<String, dynamic> toAiSafeMap() => {
         'resource_id': resource.resourceId,
-        'title': resource.title,
+        'title': PlannerPiiSanitizer.sanitizeFreeText(resource.title),
         'type': resource.type,
         'category': resource.category,
-        'notes': resource.notes,
-        if (usageNote.trim().isNotEmpty) 'usage_note': usageNote.trim(),
+        'notes': PlannerPiiSanitizer.sanitizeFreeText(resource.notes),
+        if (usageNote.trim().isNotEmpty)
+          'usage_note': PlannerPiiSanitizer.sanitizeFreeText(usageNote),
         'has_external_video': resource.hasExternalVideo,
         'video_visual_inspected': false,
         'origin': ContentOrigin.teacherResource.id,
         'priority': priority.id,
       };
+}
+
+/// Contexto pedagógico estructurado transferido desde una sesión impartida
+/// hacia la preparación de la siguiente clase (y listo para futuro consumo IA Zero-PII).
+class PedagogicalContinuityContext {
+  final String? sourceSessionId;
+  final DateTime? sourceSessionDate;
+  final String? sourcePlanTitle;
+  final String? groupId;
+  final String groupName;
+  final PlannerAudienceType audienceType;
+  final List<String> completedExercises;
+  final List<String> skippedExercises;
+  final List<String> pendingExercises;
+  final List<String> practicedMovements;
+  final String? groupResponse;
+  final String difficulties;
+  final String teacherObservations;
+  final String reinforceContent;
+  final String continuityProposal;
+
+  const PedagogicalContinuityContext({
+    this.sourceSessionId,
+    this.sourceSessionDate,
+    this.sourcePlanTitle,
+    this.groupId,
+    required this.groupName,
+    required this.audienceType,
+    this.completedExercises = const [],
+    this.skippedExercises = const [],
+    this.pendingExercises = const [],
+    this.practicedMovements = const [],
+    this.groupResponse,
+    this.difficulties = '',
+    this.teacherObservations = '',
+    this.reinforceContent = '',
+    this.continuityProposal = '',
+  });
+
+  bool get hasContent =>
+      completedExercises.isNotEmpty ||
+      skippedExercises.isNotEmpty ||
+      pendingExercises.isNotEmpty ||
+      practicedMovements.isNotEmpty ||
+      difficulties.trim().isNotEmpty ||
+      teacherObservations.trim().isNotEmpty ||
+      reinforceContent.trim().isNotEmpty ||
+      continuityProposal.trim().isNotEmpty;
+
+  String get shortHeadline {
+    if (continuityProposal.trim().isNotEmpty) {
+      return continuityProposal.trim();
+    }
+    if (reinforceContent.trim().isNotEmpty) {
+      return 'Reforzar: ${reinforceContent.trim()}';
+    }
+    if (teacherObservations.trim().isNotEmpty) {
+      return teacherObservations.trim();
+    }
+    return '${completedExercises.length} realizados · ${skippedExercises.length} omitidos';
+  }
+
+  /// Garantiza correspondencia estricta con el grupo seleccionado sin mezclar historiales.
+  bool matchesGroup({
+    String? groupId,
+    required String groupName,
+    required PlannerAudienceType audienceType,
+  }) {
+    final cleanId = groupId?.trim();
+    final myId = this.groupId?.trim();
+    if (cleanId != null &&
+        cleanId.isNotEmpty &&
+        myId != null &&
+        myId.isNotEmpty) {
+      return cleanId == myId;
+    }
+    return groupName.trim().toLowerCase() ==
+            this.groupName.trim().toLowerCase() &&
+        audienceType == this.audienceType;
+  }
+
+  static TaughtSessionRecord? findLatestSessionForGroup(
+    List<TaughtSessionRecord> history, {
+    String? groupId,
+    required String groupName,
+    required PlannerAudienceType audienceType,
+  }) {
+    final cleanId = groupId?.trim();
+    final cleanName = groupName.trim().toLowerCase();
+    TaughtSessionRecord? best;
+    for (final ses in history) {
+      final sesId = ses.groupId?.trim();
+      final matches = (cleanId != null &&
+              cleanId.isNotEmpty &&
+              sesId != null &&
+              sesId.isNotEmpty)
+          ? cleanId == sesId
+          : (ses.groupName.trim().toLowerCase() == cleanName &&
+              ses.audienceType == audienceType);
+      if (!matches) continue;
+      if (best == null || ses.date.isAfter(best.date)) {
+        best = ses;
+      }
+    }
+    return best;
+  }
+
+  factory PedagogicalContinuityContext.fromSession(
+    TaughtSessionRecord session,
+  ) {
+    return PedagogicalContinuityContext(
+      sourceSessionId: session.sessionId,
+      sourceSessionDate: session.date,
+      sourcePlanTitle: session.planTitle,
+      groupId: session.groupId,
+      groupName: session.groupName,
+      audienceType: session.audienceType,
+      completedExercises: List<String>.unmodifiable(session.completedExercises),
+      skippedExercises: List<String>.unmodifiable(session.skippedExercises),
+      pendingExercises: List<String>.unmodifiable(session.pendingExercises),
+      practicedMovements: List<String>.unmodifiable(session.practicedMovements),
+      groupResponse: session.groupResponse,
+      difficulties: session.difficulties ?? '',
+      teacherObservations: session.summaryNote,
+      reinforceContent: session.reinforceContent ?? '',
+      continuityProposal: session.pendingNextSession,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        if (sourceSessionId != null) 'source_session_id': sourceSessionId,
+        if (sourceSessionDate != null)
+          'source_session_date': sourceSessionDate!.toIso8601String(),
+        if (sourcePlanTitle != null) 'source_plan_title': sourcePlanTitle,
+        if (groupId != null) 'group_id': groupId,
+        'group_name': groupName,
+        'audience_type': audienceType.id,
+        'completed_exercises': completedExercises,
+        'skipped_exercises': skippedExercises,
+        if (pendingExercises.isNotEmpty) 'pending_exercises': pendingExercises,
+        'practiced_movements': practicedMovements,
+        if (groupResponse != null && groupResponse!.trim().isNotEmpty)
+          'group_response': groupResponse!.trim(),
+        if (difficulties.trim().isNotEmpty) 'difficulties': difficulties.trim(),
+        if (teacherObservations.trim().isNotEmpty)
+          'teacher_observations': teacherObservations.trim(),
+        if (reinforceContent.trim().isNotEmpty)
+          'reinforce_content': reinforceContent.trim(),
+        if (continuityProposal.trim().isNotEmpty)
+          'continuity_proposal': continuityProposal.trim(),
+      };
+
+  /// Contrato sanitizado Zero-PII listo para futuro consumo de IA sin datos personales de alumnos.
+  Map<String, dynamic> toAiSafeMap() => {
+        if (groupId != null) 'clase_id': groupId,
+        'group_label': PlannerPiiSanitizer.sanitizeFreeText(groupName),
+        'audience_type': audienceType.id,
+        'pii_sanitized': true,
+        'completed_exercises':
+            PlannerPiiSanitizer.sanitizeList(completedExercises),
+        'skipped_exercises': PlannerPiiSanitizer.sanitizeList(skippedExercises),
+        if (pendingExercises.isNotEmpty)
+          'pending_exercises':
+              PlannerPiiSanitizer.sanitizeList(pendingExercises),
+        'worked_movements':
+            PlannerPiiSanitizer.sanitizeList(practicedMovements),
+        if (groupResponse != null && groupResponse!.trim().isNotEmpty)
+          'group_response': PlannerPiiSanitizer.sanitizeFreeText(groupResponse!),
+        if (difficulties.trim().isNotEmpty)
+          'difficulties': PlannerPiiSanitizer.sanitizeFreeText(difficulties),
+        if (teacherObservations.trim().isNotEmpty)
+          'teacher_observations':
+              PlannerPiiSanitizer.sanitizeFreeText(teacherObservations),
+        if (reinforceContent.trim().isNotEmpty)
+          'reinforce_content':
+              PlannerPiiSanitizer.sanitizeFreeText(reinforceContent),
+        if (continuityProposal.trim().isNotEmpty)
+          'continuity_proposal':
+              PlannerPiiSanitizer.sanitizeFreeText(continuityProposal),
+      };
+
+  factory PedagogicalContinuityContext.fromMap(Map<String, dynamic> map) {
+    return PedagogicalContinuityContext(
+      sourceSessionId: (map['source_session_id'] as String?)?.trim(),
+      sourceSessionDate:
+          DateTime.tryParse(map['source_session_date']?.toString() ?? ''),
+      sourcePlanTitle: (map['source_plan_title'] as String?)?.trim(),
+      groupId: (map['group_id'] as String? ?? map['clase_id'] as String?)?.trim(),
+      groupName: (map['group_name'] as String? ??
+              map['group_label'] as String? ??
+              'Grupo')
+          .trim(),
+      audienceType:
+          PlannerAudienceType.fromLegacyLevel(map['audience_type']?.toString()),
+      completedExercises:
+          ((map['completed_exercises'] as List?) ?? const [])
+              .map((e) => e.toString())
+              .toList(),
+      skippedExercises:
+          ((map['skipped_exercises'] as List?) ?? const [])
+              .map((e) => e.toString())
+              .toList(),
+      pendingExercises:
+          ((map['pending_exercises'] as List?) ?? const [])
+              .map((e) => e.toString())
+              .toList(),
+      practicedMovements:
+          ((map['practiced_movements'] ?? map['worked_movements']) as List? ??
+                  const [])
+              .map((e) => e.toString())
+              .toList(),
+      groupResponse: (map['group_response'] as String?)?.trim(),
+      difficulties: (map['difficulties'] as String? ?? '').trim(),
+      teacherObservations:
+          (map['teacher_observations'] as String? ?? '').trim(),
+      reinforceContent: (map['reinforce_content'] as String? ?? '').trim(),
+      continuityProposal:
+          (map['continuity_proposal'] as String? ?? '').trim(),
+    );
+  }
 }
 
 /// Contrato unificado compartido por Creación Rápida y Creación Avanzada.
@@ -463,6 +710,7 @@ class ClassPlanDraftRequest {
   final List<SelectedTeacherResource> selectedResources;
   final bool allowAiComplementaryProposals;
   final String? continuitySummary;
+  final PedagogicalContinuityContext? continuityContext;
 
   const ClassPlanDraftRequest({
     required this.creationMode,
@@ -486,6 +734,7 @@ class ClassPlanDraftRequest {
     this.selectedResources = const [],
     this.allowAiComplementaryProposals = true,
     this.continuitySummary,
+    this.continuityContext,
   });
 
   String get focus => focuses.isNotEmpty ? focuses.join(' · ') : 'Técnica';
@@ -546,6 +795,7 @@ class ClassPlanDraftRequest {
     List<SelectedTeacherResource>? selectedResources,
     bool? allowAiComplementaryProposals,
     String? continuitySummary,
+    PedagogicalContinuityContext? continuityContext,
     bool clearContinuity = false,
   }) {
     return ClassPlanDraftRequest(
@@ -575,6 +825,8 @@ class ClassPlanDraftRequest {
           allowAiComplementaryProposals ?? this.allowAiComplementaryProposals,
       continuitySummary:
           clearContinuity ? null : (continuitySummary ?? this.continuitySummary),
+      continuityContext:
+          clearContinuity ? null : (continuityContext ?? this.continuityContext),
     );
   }
 
@@ -585,10 +837,11 @@ class ClassPlanDraftRequest {
         'creation_mode': creationMode.id,
         'server_validation_required': true,
         'content_origins_separated': true,
+        'pii_sanitized': true,
         'group_context': {
           'source': groupSource.id,
           if (realClaseId != null) 'clase_id': realClaseId,
-          'group_label': groupName,
+          'group_label': PlannerPiiSanitizer.sanitizeFreeText(groupName),
           'audience_type': audienceType.id,
           'age_min': ageMin,
           'age_max': ageMax,
@@ -605,10 +858,11 @@ class ClassPlanDraftRequest {
           'duration_min': durationMin,
           'focus': focus,
           'focuses': focuses,
-          'objectives': objectives,
+          'objectives': PlannerPiiSanitizer.sanitizeList(objectives),
           'materials': materials,
           'include_musicality_roda': includeMusicalityRoda,
-          'free_instructions': freeInstructions.trim(),
+          'free_instructions':
+              PlannerPiiSanitizer.sanitizeFreeText(freeInstructions),
           'allow_ai_complementary_proposals': allowAiComplementaryProposals,
         },
         'selected_movements':
@@ -616,7 +870,10 @@ class ClassPlanDraftRequest {
         'selected_resources':
             selectedResources.map((r) => r.toAiSafeMap()).toList(),
         if (continuitySummary != null && continuitySummary!.trim().isNotEmpty)
-          'continuity_summary': continuitySummary!.trim(),
+          'continuity_summary':
+              PlannerPiiSanitizer.sanitizeFreeText(continuitySummary!),
+        if (continuityContext != null && continuityContext!.hasContent)
+          'continuity_context': continuityContext!.toAiSafeMap(),
       };
 }
 
@@ -943,6 +1200,7 @@ class ClassPlanModel {
   final DateTime? updatedAt;
   final DateTime? ultimaEjecucion;
   final String? duplicatedFromPlanId;
+  final PedagogicalContinuityContext? continuityContext;
   final Map<String, dynamic> rawLegacyMap;
 
   const ClassPlanModel({
@@ -970,6 +1228,7 @@ class ClassPlanModel {
     this.updatedAt,
     this.ultimaEjecucion,
     this.duplicatedFromPlanId,
+    this.continuityContext,
     this.rawLegacyMap = const {},
   });
 
@@ -1046,6 +1305,8 @@ class ClassPlanModel {
     bool clearUltimaEjecucion = false,
     String? duplicatedFromPlanId,
     bool clearDuplicatedFromPlanId = false,
+    PedagogicalContinuityContext? continuityContext,
+    bool clearContinuityContext = false,
     Map<String, dynamic>? rawLegacyMap,
   }) {
     final nextObjetivos =
@@ -1084,6 +1345,9 @@ class ClassPlanModel {
       duplicatedFromPlanId: clearDuplicatedFromPlanId
           ? null
           : (duplicatedFromPlanId ?? this.duplicatedFromPlanId),
+      continuityContext: clearContinuityContext
+          ? null
+          : (continuityContext ?? this.continuityContext),
       rawLegacyMap: rawLegacyMap ?? this.rawLegacyMap,
     );
   }
@@ -1120,6 +1384,8 @@ class ClassPlanModel {
           'ultima_ejecucion': ultimaEjecucion!.toIso8601String(),
         if (duplicatedFromPlanId != null)
           'duplicated_from_plan_id': duplicatedFromPlanId,
+        if (continuityContext != null && continuityContext!.hasContent)
+          'continuity_context': continuityContext!.toMap(),
       };
 
   factory ClassPlanModel.fromMap(String id, Map<String, dynamic> map) {
@@ -1199,6 +1465,11 @@ class ClassPlanModel {
       updatedAt: parseDate(map['updated_at']),
       ultimaEjecucion: parseDate(map['ultima_ejecucion']),
       duplicatedFromPlanId: map['duplicated_from_plan_id']?.toString(),
+      continuityContext: map['continuity_context'] is Map
+          ? PedagogicalContinuityContext.fromMap(
+              Map<String, dynamic>.from(map['continuity_context'] as Map),
+            )
+          : null,
       rawLegacyMap: Map<String, dynamic>.from(map),
     );
   }
@@ -1451,6 +1722,7 @@ class ClassPlanModel {
               : 'Diferenciar consigna base y progresión sin detener la fluidez del grupo.'),
       createdAt: now,
       updatedAt: now,
+      continuityContext: req.continuityContext,
     );
   }
 }
@@ -1465,12 +1737,23 @@ class TaughtSessionRecord {
   final PlannerAudienceType audienceType;
   final DateTime date;
   final int durationMin;
+  final int? actualDurationSec;
   final int attendeesCount;
   final int completedExercisesCount;
   final int totalExercisesCount;
   final List<String> practicedMovements;
   final String summaryNote;
   final String pendingNextSession;
+  final String? groupResponse;
+  final String? difficulties;
+  final String? reinforceContent;
+  final List<String> completedExercises;
+  final List<String> skippedExercises;
+  final List<String> pendingExercises;
+  final Map<String, int> exerciseRealDurationsSec;
+  final List<String> taughtResourceIds;
+  final Map<String, dynamic>? planSnapshot;
+  final bool endedEarly;
   final bool isSimulatedFixture;
 
   const TaughtSessionRecord({
@@ -1482,14 +1765,61 @@ class TaughtSessionRecord {
     required this.audienceType,
     required this.date,
     required this.durationMin,
+    this.actualDurationSec,
     required this.attendeesCount,
     required this.completedExercisesCount,
     required this.totalExercisesCount,
     this.practicedMovements = const [],
     required this.summaryNote,
     required this.pendingNextSession,
+    this.groupResponse,
+    this.difficulties,
+    this.reinforceContent,
+    this.completedExercises = const [],
+    this.skippedExercises = const [],
+    this.pendingExercises = const [],
+    this.exerciseRealDurationsSec = const {},
+    this.taughtResourceIds = const [],
+    this.planSnapshot,
+    this.endedEarly = false,
     this.isSimulatedFixture = false,
   });
+
+  Map<String, dynamic> toMap() => {
+        'session_id': sessionId,
+        'plan_id': planId,
+        'plan_titulo_snapshot': planTitle,
+        if (groupId != null) 'clase_id': groupId,
+        'grupo_nombre_snapshot': groupName,
+        'track_id': audienceType.id,
+        'ended_at': date.toIso8601String(),
+        'duracion_real_min': durationMin,
+        if (actualDurationSec != null) 'duracion_real_seg': actualDurationSec,
+        'asistentes_count': attendeesCount,
+        'completed_exercises_count': completedExercisesCount,
+        'total_exercises_count': totalExercisesCount,
+        if (practicedMovements.isNotEmpty)
+          'practiced_movements': practicedMovements,
+        'notas_post_clase': summaryNote,
+        'pendiente_proxima_sesion': pendingNextSession,
+        if (groupResponse != null && groupResponse!.trim().isNotEmpty)
+          'respuesta_grupo': groupResponse!.trim(),
+        if (difficulties != null && difficulties!.trim().isNotEmpty)
+          'dificultades': difficulties!.trim(),
+        if (reinforceContent != null && reinforceContent!.trim().isNotEmpty)
+          'contenido_reforzar': reinforceContent!.trim(),
+        if (completedExercises.isNotEmpty)
+          'ejercicios_completados': completedExercises,
+        if (skippedExercises.isNotEmpty) 'ejercicios_omitidos': skippedExercises,
+        if (pendingExercises.isNotEmpty) 'ejercicios_pendientes': pendingExercises,
+        if (exerciseRealDurationsSec.isNotEmpty)
+          'ejercicios_duracion_real_seg': exerciseRealDurationsSec,
+        if (taughtResourceIds.isNotEmpty)
+          'taught_resource_ids': taughtResourceIds,
+        if (planSnapshot != null) 'plan_snapshot': planSnapshot,
+        'ended_early': endedEarly,
+        'is_simulated_fixture': isSimulatedFixture,
+      };
 
   factory TaughtSessionRecord.fromMap(String id, Map<String, dynamic> map) {
     DateTime parsedDate = DateTime.now();
@@ -1509,6 +1839,15 @@ class TaughtSessionRecord {
         estados.values.where((v) => v?.toString() == 'completed').length;
     final rawMovs = (map['practiced_movements'] ?? map['movement_ids_impartidos'])
         as List?;
+    final realSec = (map['duracion_real_seg'] as num?)?.toInt();
+    final realDurMap = <String, int>{};
+    if (map['ejercicios_duracion_real_seg'] is Map) {
+      for (final e
+          in (map['ejercicios_duracion_real_seg'] as Map).entries) {
+        final v = (e.value as num?)?.toInt();
+        if (v != null) realDurMap[e.key.toString()] = v;
+      }
+    }
 
     return TaughtSessionRecord(
       sessionId: id,
@@ -1520,7 +1859,9 @@ class TaughtSessionRecord {
       audienceType:
           PlannerAudienceType.fromLegacyLevel(map['track_id']?.toString()),
       date: parsedDate,
-      durationMin: ((map['duracion_real_seg'] as num?)?.toInt() ?? 3600) ~/ 60,
+      durationMin: (map['duracion_real_min'] as num?)?.toInt() ??
+          ((realSec ?? 3600) ~/ 60),
+      actualDurationSec: realSec,
       attendeesCount: (map['asistentes_count'] as num?)?.toInt() ?? 0,
       completedExercisesCount: (map['completed_exercises_count'] as num?)?.toInt() ??
           completed,
@@ -1533,9 +1874,189 @@ class TaughtSessionRecord {
       summaryNote: (map['notas_post_clase'] as String? ?? '').trim(),
       pendingNextSession:
           (map['pendiente_proxima_sesion'] as String? ?? '').trim(),
+      groupResponse: (map['respuesta_grupo'] as String?)?.trim(),
+      difficulties: (map['dificultades'] as String?)?.trim(),
+      reinforceContent: (map['contenido_reforzar'] as String?)?.trim(),
+      completedExercises: ((map['ejercicios_completados'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+      skippedExercises: ((map['ejercicios_omitidos'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+      pendingExercises: ((map['ejercicios_pendientes'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+      exerciseRealDurationsSec: realDurMap,
+      taughtResourceIds: ((map['taught_resource_ids'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+      planSnapshot: map['plan_snapshot'] is Map
+          ? Map<String, dynamic>.from(map['plan_snapshot'] as Map)
+          : null,
+      endedEarly: map['ended_early'] == true,
       isSimulatedFixture: map['is_simulated_fixture'] == true,
     );
   }
+}
+
+/// Sanitizador determinista de texto libre antes de construir payloads hacia IA (`Zero-PII`).
+/// Preserva terminología técnica de Capoeira/FIU y redacta nombres, teléfonos, correos, fechas e IDs.
+class PlannerPiiSanitizer {
+  static const Set<String> _safeCapitalizedTerms = {
+    'Adultos',
+    'Angola',
+    'Armada',
+    'Atabaque',
+    'Avanzado',
+    'Avanzados',
+    'Aú',
+    'Base',
+    'Benguela',
+    'Bento',
+    'Berimbau',
+    'Bloque',
+    'Bênção',
+    'Cabecada',
+    'Cabeçada',
+    'Calentamiento',
+    'Capoeira',
+    'Clase',
+    'Cocorinha',
+    'Cru',
+    'Crua',
+    'Domingo',
+    'Ejercicio',
+    'Entreno',
+    'Esquiva',
+    'Estaciones',
+    'FIU',
+    'Frente',
+    'GINGA',
+    'Ginga',
+    'Grande',
+    'Grupo',
+    'Infantil',
+    'Intermedio',
+    'Intermedios',
+    'Iúna',
+    'Juego',
+    'Juegos',
+    'Jueves',
+    'Kids',
+    'Laranja',
+    'Lua',
+    'Lunes',
+    'Macaco',
+    'Martelo',
+    'Martes',
+    'Meia',
+    'Miércoles',
+    'Mixto',
+    'Movilidad',
+    'Musicalidad',
+    'Negativa',
+    'Niños',
+    'Pandeiro',
+    'Parejas',
+    'Pizarra',
+    'Plan',
+    'Ponte',
+    'Principiante',
+    'Principiantes',
+    'Queixada',
+    'Roda',
+    'Rolê',
+    'Secuencias',
+    'Sábado',
+    'São',
+    'Terreiro',
+    'Todos',
+    'Técnica',
+    'Verde',
+    'Viernes',
+    'Vuelta',
+  };
+
+  static final RegExp _emailRe = RegExp(
+    r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b',
+  );
+  static final RegExp _handleRe = RegExp(r'(?<!\w)@[A-Za-z0-9_.-]{2,}');
+  static final RegExp _explicitIdRe = RegExp(
+    r'\b(?:uid|user_id|alumno_id|dni|ce|pasaporte|doc(?:umento)?)\s*[:=#]?\s*[A-Za-z0-9_-]{4,}\b',
+    caseSensitive: false,
+  );
+  static final RegExp _dateRe = RegExp(
+    r'\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b',
+  );
+  static final RegExp _phoneRe = RegExp(r'(?:\+?\d[\d\s().-]{6,}\d)');
+  static final RegExp _roleNamedPersonRe = RegExp(
+    r'\b(el\s+alumno|la\s+alumna|alumno|alumna|estudiante|niño|niña|menor|chico|chica|hijo|hija|mamá|papá|madre|padre|apoderado|tutor|sr\.?|sra\.?)\s+(?:de\s+)?([A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]{1,}(?:\s+[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]{1,}){0,2})',
+    caseSensitive: false,
+  );
+  static final RegExp _multiWordCapRe = RegExp(
+    r'\b([A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]{1,}(?:\s+(?:de|del|la|y)\s+)?(?:\s+[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]{1,}){1,2})\b',
+  );
+  static final RegExp _prepSingleNameRe = RegExp(
+    r'\b(con|para|sobre|junto\s+a)\s+([A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]{2,})\b',
+    caseSensitive: false,
+  );
+  static final RegExp _subjectVerbNameRe = RegExp(
+    r'\b([A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]{2,})\s+(necesita|tuvo|mejoró|avanzó|logró|presentó|faltó|mostró|mantuvo|perdió|debe|pidió|llegó|tiene|está|hizo|entrenó)\b',
+  );
+
+  static String sanitizeFreeText(String raw) {
+    var out = raw.trim();
+    if (out.isEmpty) return '';
+
+    out = out.replaceAll(_emailRe, '[correo_omitido]');
+    out = out.replaceAll(_handleRe, '[cuenta_omitida]');
+    out = out.replaceAll(_explicitIdRe, '[id_omitido]');
+    out = out.replaceAll(_dateRe, '[fecha_omitida]');
+    out = out.replaceAllMapped(_phoneRe, (m) {
+      final token = m.group(0) ?? '';
+      final digitCount = RegExp(r'\d').allMatches(token).length;
+      return digitCount >= 7 ? '[telefono_omitido]' : token;
+    });
+
+    out = out.replaceAllMapped(_roleNamedPersonRe, (m) {
+      final role = m.group(1) ?? '';
+      final name = m.group(2) ?? '';
+      final firstToken = name.split(RegExp(r'\s+')).first;
+      if (_safeCapitalizedTerms.contains(firstToken)) return m.group(0)!;
+      return '$role [participante]';
+    });
+
+    out = out.replaceAllMapped(_multiWordCapRe, (m) {
+      final phrase = m.group(1) ?? '';
+      final capWords = RegExp(r'[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]{1,}')
+          .allMatches(phrase)
+          .map((e) => e.group(0)!)
+          .toList();
+      if (capWords.length < 2) return phrase;
+      final unsafeCount =
+          capWords.where((w) => !_safeCapitalizedTerms.contains(w)).length;
+      return unsafeCount >= 2 ? '[participante]' : phrase;
+    });
+
+    out = out.replaceAllMapped(_prepSingleNameRe, (m) {
+      final prep = m.group(1) ?? '';
+      final word = m.group(2) ?? '';
+      if (_safeCapitalizedTerms.contains(word)) return m.group(0)!;
+      return '$prep [participante]';
+    });
+
+    out = out.replaceAllMapped(_subjectVerbNameRe, (m) {
+      final word = m.group(1) ?? '';
+      final verb = m.group(2) ?? '';
+      if (_safeCapitalizedTerms.contains(word)) return m.group(0)!;
+      return '[participante] $verb';
+    });
+
+    return out;
+  }
+
+  static List<String> sanitizeList(List<String> items) =>
+      items.map(sanitizeFreeText).where((e) => e.isNotEmpty).toList();
 }
 
 /// Contrato tipado para el futuro Copiloto Conversacional (edición incremental sin regenerar toda la clase).
