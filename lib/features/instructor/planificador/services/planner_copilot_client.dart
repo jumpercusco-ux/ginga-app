@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:http/http.dart' as http;
 import '../models/class_plan_models.dart';
 import '../models/copilot_models.dart';
@@ -16,6 +17,7 @@ abstract class PlannerCopilotClient {
     List<PlannerResourceItem> availableResources = const [],
     List<CopilotChatMessage> conversationHistory = const [],
     List<String>? confirmedMaterials,
+    PedagogicalContinuityContext? continuityContext,
   });
 
   Future<List<CopilotChatMessage>> fetchSavedPreviewSession({
@@ -161,10 +163,13 @@ class HttpLocalPlannerCopilotClient implements PlannerCopilotClient {
     List<PlannerResourceItem> availableResources = const [],
     List<CopilotChatMessage> conversationHistory = const [],
     List<String>? confirmedMaterials,
+    PedagogicalContinuityContext? continuityContext,
   }) async {
     final reqId = 'req_copilot_${DateTime.now().microsecondsSinceEpoch}';
+    final effContinuity = continuityContext ?? plan.continuityContext;
     final payload = <String, dynamic>{
       'request_id': reqId,
+      'base_draft_version': baseDraftVersion,
       'message': message,
       'selected_block_id': selectedBlockId,
       'selected_exercise_id': selectedExerciseId,
@@ -172,6 +177,8 @@ class HttpLocalPlannerCopilotClient implements PlannerCopilotClient {
         'materials_known': true,
         'confirmed_materials': confirmedMaterials,
       },
+      if (effContinuity != null && effContinuity.hasContent)
+        'continuity_context': effContinuity.toCopilotSummaryMap(),
       'conversation_history': [
         for (final m in conversationHistory.take(6))
           {'role': m.isUser ? 'user' : 'assistant', 'text': m.text},
@@ -266,7 +273,9 @@ class OfflineSimulatedPlannerCopilotClient extends PlannerCopilotClient {
     List<PlannerResourceItem> availableResources = const [],
     List<CopilotChatMessage> conversationHistory = const [],
     List<String>? confirmedMaterials,
+    PedagogicalContinuityContext? continuityContext,
   }) async {
+    final effContinuity = continuityContext ?? plan.continuityContext;
     final low = message.toLowerCase();
     final isInfantil = plan.audienceType == PlannerAudienceType.infantil;
     final floorType = plan.spaceSnapshot?.floorType ?? 'desconocido';
@@ -333,8 +342,10 @@ class OfflineSimulatedPlannerCopilotClient extends PlannerCopilotClient {
         assistantMessage:
             'Consulta pedagógica: enfócate en base estable de Ginga, giro de cadera antes de extender Armada y apoyos firmes de manos en Aú. '
             'Recursos disponibles: ${availableResources.map((r) => r.title).join(', ')}.',
-        pedagogicalNotes: const [
+        pedagogicalNotes: [
           'Consulta informativa: no modifica tu clase actual.',
+          if (effContinuity != null && effContinuity.hasContent)
+            'Continuidad (${effContinuity.groupName}): ${effContinuity.shortHeadline}',
         ],
       );
     }
@@ -551,5 +562,119 @@ class OfflineSimulatedPlannerCopilotClient extends PlannerCopilotClient {
       ],
       proposedPlan: proposed,
     );
+  }
+}
+
+/// Cliente autenticado para la Callable Function `copilotoPedagogicoV1` (`PED-05`).
+class FirebaseFunctionsPlannerCopilotClient extends PlannerCopilotClient {
+  final String region;
+  final String functionName;
+  final Future<Map<String, dynamic>> Function(Map<String, dynamic> payload)?
+      _callableInvoker;
+
+  FirebaseFunctionsPlannerCopilotClient({
+    this.region = 'us-central1',
+    this.functionName = 'copilotoPedagogicoV1',
+    Future<Map<String, dynamic>> Function(Map<String, dynamic> payload)?
+        callableInvoker,
+  }) : _callableInvoker = callableInvoker;
+
+  @override
+  Future<CopilotTurnResponse> sendMessage({
+    required ClassPlanModel plan,
+    required String baseDraftVersion,
+    required String message,
+    String? selectedBlockId,
+    String? selectedExerciseId,
+    List<PlannerResourceItem> availableResources = const [],
+    List<CopilotChatMessage> conversationHistory = const [],
+    List<String>? confirmedMaterials,
+    PedagogicalContinuityContext? continuityContext,
+  }) async {
+    final reqId = 'req_copilot_cf_${DateTime.now().microsecondsSinceEpoch}';
+    final effContinuity = continuityContext ?? plan.continuityContext;
+    final payload = <String, dynamic>{
+      'request': {
+        'request_id': reqId,
+        'base_draft_version': baseDraftVersion,
+        'message': message,
+        'selected_block_id': selectedBlockId,
+        'selected_exercise_id': selectedExerciseId,
+        if (confirmedMaterials != null) ...{
+          'materials_known': true,
+          'confirmed_materials': confirmedMaterials,
+        },
+        if (effContinuity != null && effContinuity.hasContent)
+          'continuity_context': effContinuity.toCopilotSummaryMap(),
+        'conversation_history': [
+          for (final m in conversationHistory.take(6))
+            {'role': m.isUser ? 'user' : 'assistant', 'text': m.text},
+        ],
+        'available_resource_ids': [
+          for (final r in availableResources) r.resourceId,
+        ],
+        'available_resources': [
+          for (final r in availableResources)
+            {
+              'resource_id': r.resourceId,
+              'title': r.title,
+              'type': r.type,
+              'category': r.category,
+              'notes': r.notes,
+              'has_external_video': r.hasExternalVideo,
+            },
+        ],
+        'plan': plan.toMap(),
+      },
+    };
+
+    try {
+      final Map<String, dynamic> rawMap;
+      final invoker = _callableInvoker;
+      if (invoker != null) {
+        rawMap = await invoker(payload);
+      } else {
+        final callable = FirebaseFunctions.instanceFor(region: region)
+            .httpsCallable(functionName);
+        final res = await callable.call<dynamic>(payload);
+        if (res.data is Map) {
+          rawMap = Map<String, dynamic>.from(res.data as Map);
+        } else {
+          throw const PlannerV2EngineException(
+            code: 'INVALID_RESPONSE',
+            userMessage:
+                'El copiloto remoto devolvió una respuesta inesperada. Tu borrador sigue intacto.',
+            retryable: true,
+          );
+        }
+      }
+      return HttpLocalPlannerCopilotClient._parseOkTurnResponse(
+        rawMap,
+        planId: plan.id,
+        baseDraftVersion: baseDraftVersion,
+      );
+    } on PlannerV2EngineException {
+      rethrow;
+    } on FirebaseFunctionsException catch (e) {
+      final detailsMap = e.details is Map
+          ? Map<String, dynamic>.from(e.details as Map)
+          : const <String, dynamic>{};
+      final code = detailsMap['planner_code']?.toString() ?? e.code.toUpperCase();
+      throw PlannerV2EngineException(
+        code: code,
+        userMessage: e.message ??
+            'No se pudo consultar al copiloto ($code). Tu borrador permanece intacto.',
+        retryable: detailsMap['retryable'] == true ||
+            e.code == 'deadline-exceeded' ||
+            e.code == 'unavailable',
+      );
+    } catch (e) {
+      throw PlannerV2EngineException(
+        code: 'CLOUD_FUNCTION_ERROR',
+        userMessage:
+            'No se pudo invocar $functionName ($e). Tu borrador sigue intacto.',
+        retryable: true,
+      );
+    }
   }
 }

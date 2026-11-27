@@ -210,7 +210,21 @@ async function runPedagogicalCopilotV1({
           ],
         };
 
-        const fullValidation = validateGeneratedPlan(candidatePlan, validationCtx, catalog);
+        const {
+          created_at: _omitCreatedAt,
+          updated_at: _omitUpdatedAt,
+          ultima_ejecucion: _omitUltimaEj,
+          migrated_metadata_at: _omitMigratedAt,
+          last_copilot_summary: _omitCopilotMeta,
+          instructor_id: _omitInstructorId,
+          clase_id: _omitClaseId,
+          updated_by_device: _omitDeviceId,
+          id: _omitDocId,
+          revision: _omitRevision,
+          ...planForPedagogicalValidation
+        } = candidatePlan;
+
+        const fullValidation = validateGeneratedPlan(planForPedagogicalValidation, validationCtx, catalog);
         validationReport = {
           structural: {
             passed: fullValidation.structuralValidation.passed,

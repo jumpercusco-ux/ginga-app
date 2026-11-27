@@ -127,13 +127,137 @@ service cloud.firestore {
     }
 
     // ==========================================
-    // REGLA PARA LA PIZARRA DE IDEAS Y PLANES DE CLASE DEL INSTRUCTOR 💡
+    // REGLAS DEL PLANIFICADOR PEDAGÓGICO Y PIZARRA (PED-05)
+    // Aislamiento estricto por instructor y rol, estados válidos e inmutabilidad histórica.
+    // NOTA BLOQUEADORES P0 PREEXISTENTES: `users/{userId}` y colecciones legacy siguen abiertos
+    // en otros bloques hasta la fase dedicada de endurecimiento de auth/migración de roles.
     // ==========================================
-    match /instructor_ideas/{ideaId} {
-      allow read, write: if request.auth != null;
+    function isPlannerAdmin() {
+      return request.auth != null && (
+        request.auth.token.admin == true ||
+        request.auth.token.rol == 'admin' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'admin')
+      );
     }
+
+    function isPlannerInstructor() {
+      return isPlannerAdmin() || (
+        request.auth != null && (
+          request.auth.token.profesor == true ||
+          request.auth.token.instructor == true ||
+          request.auth.token.rol == 'profesor' ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor')
+        )
+      );
+    }
+
+    function isValidPlanStatus(status) {
+      return status in ['draft', 'saved', 'planned', 'in_progress', 'completed', 'archived'];
+    }
+
+    match /instructor_ideas/{ideaId} {
+      allow read: if isPlannerInstructor() && (
+        isPlannerAdmin() ||
+        resource.data.instructor_id == request.auth.uid ||
+        resource.data.shared == true ||
+        !('instructor_id' in resource.data)
+      );
+      allow create: if isPlannerInstructor() &&
+        request.resource.data.instructor_id == request.auth.uid &&
+        request.resource.data.titulo is string &&
+        request.resource.data.titulo.size() > 0;
+      allow update: if isPlannerInstructor() && (
+        isPlannerAdmin() ||
+        resource.data.instructor_id == request.auth.uid ||
+        !('instructor_id' in resource.data)
+      ) &&
+        request.resource.data.instructor_id == (
+          ('instructor_id' in resource.data) ? resource.data.instructor_id : request.auth.uid
+        );
+      allow delete: if isPlannerInstructor() && (
+        isPlannerAdmin() ||
+        resource.data.instructor_id == request.auth.uid
+      );
+    }
+
     match /instructor_planes_clase/{planId} {
-      allow read, write: if request.auth != null;
+      allow read: if isPlannerInstructor() && (
+        isPlannerAdmin() ||
+        resource.data.instructor_id == request.auth.uid ||
+        !('instructor_id' in resource.data)
+      );
+      allow create: if isPlannerInstructor() &&
+        request.resource.data.instructor_id == request.auth.uid &&
+        request.resource.data.titulo is string &&
+        request.resource.data.titulo.size() > 0 &&
+        request.resource.data.duracion_total is int &&
+        request.resource.data.duracion_total > 0 &&
+        (!('plan_status' in request.resource.data) || isValidPlanStatus(request.resource.data.plan_status)) &&
+        (!('revision' in request.resource.data) || (request.resource.data.revision is int && request.resource.data.revision >= 1));
+      allow update: if isPlannerInstructor() && (
+        isPlannerAdmin() ||
+        resource.data.instructor_id == request.auth.uid ||
+        !('instructor_id' in resource.data)
+      ) &&
+        request.resource.data.instructor_id == (
+          ('instructor_id' in resource.data) ? resource.data.instructor_id : request.auth.uid
+        ) &&
+        (!('plan_status' in request.resource.data) || isValidPlanStatus(request.resource.data.plan_status)) &&
+        (!('revision' in request.resource.data) || (request.resource.data.revision is int && request.resource.data.revision >= 1));
+      allow delete: if isPlannerInstructor() && (
+        isPlannerAdmin() ||
+        resource.data.instructor_id == request.auth.uid
+      );
+    }
+
+    match /instructor_sesiones_activas/{activeSessionId} {
+      allow read, delete: if isPlannerInstructor() && (
+        isPlannerAdmin() ||
+        resource.data.instructor_id == request.auth.uid
+      );
+      allow create, update: if isPlannerInstructor() &&
+        request.resource.data.instructor_id == request.auth.uid &&
+        request.resource.data.plan_id is string &&
+        request.resource.data.plan_id.size() > 0 &&
+        request.resource.data.started_at is string &&
+        request.resource.data.started_at.size() > 0;
+    }
+
+    match /instructor_sesiones_impartidas/{sessionId} {
+      allow read: if isPlannerInstructor() && (
+        isPlannerAdmin() ||
+        resource.data.instructor_id == request.auth.uid
+      );
+      allow create: if isPlannerInstructor() &&
+        request.resource.data.instructor_id == request.auth.uid &&
+        request.resource.data.session_id == sessionId &&
+        request.resource.data.plan_id is string &&
+        request.resource.data.plan_id.size() > 0 &&
+        request.resource.data.plan_snapshot is map &&
+        (
+          request.resource.data.ended_at is string ||
+          request.resource.data.ended_at is timestamp ||
+          request.resource.data.completed_at is string
+        );
+      allow update, delete: if false;
+    }
+
+    match /planner_v2_quotas/{quotaDocId} {
+      allow read, write: if false;
+    }
+    match /planner_ai_usage/{docId} {
+      allow read, write: if false;
+    }
+    match /planner_ai_requests/{docId} {
+      allow read, write: if false;
+    }
+    match /planner_copilot_usage/{docId} {
+      allow read, write: if false;
+    }
+    match /planner_copilot_requests/{docId} {
+      allow read, write: if false;
     }
 
     // ==========================================

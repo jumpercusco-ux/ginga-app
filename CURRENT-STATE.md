@@ -3,10 +3,10 @@
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-27  
 > **Rama Actual:** `feat/ped03-biblioteca-curricular` (base `main` `fd891a7` intacta; sin merge ni despliegue)  
-> **Commits de Respaldo PED-03 / PED-04:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · `93ee84b` (cierre PED-04B1) · `62bb7f8` (cierre `PED-04B2` / `PED-04B2-UX`) · `a966b6c` (cierre `PED-04C1`) · `2b68974` (`PED-04C2-B`) · `753d686` (`PED-04C2-C`) · `cac524d` (`PED-04C2-D`) · `0451294` (`PED-04C2-E`) · `4a15613` (`PED-04C3` offline) · cierre real `PED-04C3` + Keychain en `feat/ped03-biblioteca-curricular`
-> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** ✅ `4a15613` (`45946924536`) en `success`; pipeline [.github/workflows/ci.yml](file:///Users/jumper/ginga_app/.github/workflows/ci.yml) con `test_planner_v2_copilot_ped04c3.js`
+> **Commits de Respaldo PED-03 / PED-04 / PED-05:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · `93ee84b` (cierre PED-04B1) · `62bb7f8` (cierre `PED-04B2` / `PED-04B2-UX`) · `a966b6c` (cierre `PED-04C1`) · `2b68974` (`PED-04C2-B`) · `753d686` (`PED-04C2-C`) · `cac524d` (`PED-04C2-D`) · `0451294` (`PED-04C2-E`) · `4a15613` (`PED-04C3` offline) · `9cc4a60` (`PED-04C3` real + Keychain) · cierre `PED-05` sobre `feat/ped03-biblioteca-curricular`
+> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** ✅ `9cc4a60` (`45999995203`) en `success`; pipeline [.github/workflows/ci.yml](file:///Users/jumper/ginga_app/.github/workflows/ci.yml) actualizado con `test_ped05_firestore_persistence_emulator.js`, `test_curriculum_firestore_rules.js` y `test_curriculum_importer.js` en Firestore Emulator (`demo-ginga-test`)
 > **Producción Intacta:** `whatsappWebhook v69` (Cloud Functions Gen 1, Node.js 22), web `https://www.gingaperu.com`, proyecto `capoeirafiu-ea8ljo`
-> **Estado Actual:** **PED-04C3 CERRADO CON VALIDACIÓN REAL ACOTADA (`gpt-4o-mini`, `$0.004682 / $0.05` EN 6 ESCENARIOS + macOS Keychain + `82/82` FLUTTER + `11/11` COPILOTO NODE + PREVIEW `http://127.0.0.1:8097/`) · PILOTO `8/8` INTACTO (`$0.020187 / $0.10`) · SIN `PED-05` NI CAMBIOS EN PRODUCCIÓN**
+> **Estado Actual:** **PED-05 COMPLETADO Y VERIFICADO LOCALMENTE (`12/12` CRITERIOS EN FIRESTORE EMULATOR `demo-ginga-test` + `9/9` + `7/7` + `6/6` EMULATOR + `88/88` FLUTTER + `11/11` SUITES NODE OFFLINE + MIGRACIÓN IDEMPOTENTE `--dry-run`/`--apply` + PREVIEW `/tmp/ginga_ped04c2d_8097`) · PILOTO `8/8` (`$0.020187 / $0.10`) Y COPILOTO (`$0.004682 / $0.05`) INTACTOS · BLOQUEADORES P0 PREEXISTENTES DOCUMENTADOS ANTES DE PRODUCCIÓN · SIN `PED-06` NI CAMBIOS EN PRODUCCIÓN**
 
 ---
 

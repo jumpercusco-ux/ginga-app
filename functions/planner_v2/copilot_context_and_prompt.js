@@ -255,6 +255,34 @@ async function buildCopilotContext({ request, actor, catalog, resourceRepository
     : [];
 
   const curriculumSlice = buildPertinentCurriculumSlice(catalog, audienceType, curriculumScope, rawMessage, plan);
+  const rawContinuity =
+    request.continuity_context && typeof request.continuity_context === 'object'
+      ? request.continuity_context
+      : null;
+  const sanitizedContinuity = rawContinuity
+    ? {
+        group_label: sanitizeFreeTextServer(String(rawContinuity.group_label || groupSnapshot.group_name || 'Grupo')).text,
+        audience_type: String(rawContinuity.audience_type || audienceType),
+        worked_movements: Array.isArray(rawContinuity.worked_movements)
+          ? rawContinuity.worked_movements
+              .slice(0, 12)
+              .map((m) => sanitizeFreeTextServer(String(m || '')).text)
+              .filter(Boolean)
+          : [],
+        reinforce_content: rawContinuity.reinforce_content
+          ? sanitizeFreeTextServer(String(rawContinuity.reinforce_content)).text
+          : '',
+        continuity_proposal: rawContinuity.continuity_proposal
+          ? sanitizeFreeTextServer(String(rawContinuity.continuity_proposal)).text
+          : '',
+        difficulties: rawContinuity.difficulties
+          ? sanitizeFreeTextServer(String(rawContinuity.difficulties)).text
+          : '',
+        teacher_observations: rawContinuity.teacher_observations
+          ? sanitizeFreeTextServer(String(rawContinuity.teacher_observations)).text
+          : '',
+      }
+    : null;
 
   const llmContext = {
     message: msgInj.neutralizedText ? sanitizeFreeTextServer(msgInj.neutralizedText).text : msgSan.text,
@@ -275,6 +303,7 @@ async function buildCopilotContext({ request, actor, catalog, resourceRepository
         avanzados: 2,
       },
     },
+    ...(sanitizedContinuity ? { group_continuity: sanitizedContinuity } : {}),
     space_and_materials: {
       space_size: spaceSnapshot.space_size || 'desconocido',
       floor_type: spaceSnapshot.floor_type || 'desconocido',
@@ -355,6 +384,7 @@ function buildCopilotPrompts(copilotContext) {
     isInfantil
       ? '- INFANTIL: prohibido asignar curriculum_movement_ids adultos FIU o acrobacias de impacto sin colchonetas confirmadas; usa `technical_movement_refs` en apoyos bajos/seguros.'
       : '- ADULTOS: usa únicamente movement_id presentes en pertinent_fiu_movements si vinculas FIU.',
+    '- Si existe `group_continuity` (últimas sesiones reales de este grupo exacto), úsalo para orientar progresiones sin mezclar otros grupos ni incluir nombres personales.',
     '- Prohibido inventar materiales físicos fuera de `confirmed_materials` o proponer instrumentos sin alternativa de palmas/voz.',
   ];
   const systemPrompt = systemLines.join('\n');

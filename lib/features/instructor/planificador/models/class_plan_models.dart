@@ -316,19 +316,84 @@ enum ResourcePriority {
 
 enum ClassPlanStatus {
   draft('draft', 'Borrador'),
-  saved('saved', 'Guardado'),
-  archived('archived', 'Archivado');
+  saved('saved', 'Planificada'),
+  inProgress('in_progress', 'En ejecución'),
+  completed('completed', 'Finalizada'),
+  archived('archived', 'Archivada');
 
   final String id;
   final String label;
   const ClassPlanStatus(this.id, this.label);
 
+  bool canTransitionTo(ClassPlanStatus next) {
+    switch (this) {
+      case ClassPlanStatus.draft:
+        return next == ClassPlanStatus.draft ||
+            next == ClassPlanStatus.saved ||
+            next == ClassPlanStatus.inProgress ||
+            next == ClassPlanStatus.archived;
+      case ClassPlanStatus.saved:
+        return next == ClassPlanStatus.draft ||
+            next == ClassPlanStatus.saved ||
+            next == ClassPlanStatus.inProgress ||
+            next == ClassPlanStatus.archived;
+      case ClassPlanStatus.inProgress:
+        return next == ClassPlanStatus.inProgress ||
+            next == ClassPlanStatus.completed ||
+            next == ClassPlanStatus.saved;
+      case ClassPlanStatus.completed:
+        return next == ClassPlanStatus.completed ||
+            next == ClassPlanStatus.saved ||
+            next == ClassPlanStatus.draft ||
+            next == ClassPlanStatus.inProgress ||
+            next == ClassPlanStatus.archived;
+      case ClassPlanStatus.archived:
+        return next == ClassPlanStatus.archived ||
+            next == ClassPlanStatus.draft ||
+            next == ClassPlanStatus.saved;
+    }
+  }
+
   static ClassPlanStatus fromId(String? value) {
+    final norm = value?.trim().toLowerCase();
+    if (norm == 'planned') return ClassPlanStatus.saved;
     return ClassPlanStatus.values.firstWhere(
-      (s) => s.id == value,
+      (s) => s.id == norm,
       orElse: () => ClassPlanStatus.saved,
     );
   }
+}
+
+enum PlannerSyncState {
+  idle('idle', 'Sin cambios pendientes'),
+  saving('saving', 'Guardando...'),
+  synced('synced', 'Sincronizado'),
+  pendingOffline('pending_offline', 'Pendiente (sin conexión)'),
+  conflict('conflict', 'Conflicto de versión'),
+  error('error', 'Error de sincronización');
+
+  final String id;
+  final String label;
+  const PlannerSyncState(this.id, this.label);
+}
+
+class PlannerConcurrencyConflictException implements Exception {
+  final String planId;
+  final int expectedRevision;
+  final int remoteRevision;
+  final ClassPlanModel? remotePlan;
+  final String message;
+
+  const PlannerConcurrencyConflictException({
+    required this.planId,
+    required this.expectedRevision,
+    required this.remoteRevision,
+    this.remotePlan,
+    required this.message,
+  });
+
+  @override
+  String toString() => message;
 }
 
 enum PlanCopilotTargetScope {
@@ -458,6 +523,8 @@ class PlannerResourceItem {
   final String? thumbnailUrl;
   final bool hasBeenTaught;
   final int timesUsed;
+  final String? instructorId;
+  final bool shared;
 
   const PlannerResourceItem({
     required this.resourceId,
@@ -470,6 +537,8 @@ class PlannerResourceItem {
     this.thumbnailUrl,
     this.hasBeenTaught = false,
     this.timesUsed = 0,
+    this.instructorId,
+    this.shared = false,
   });
 
   PlannerResourceItem copyWith({
@@ -483,6 +552,8 @@ class PlannerResourceItem {
     String? thumbnailUrl,
     bool? hasBeenTaught,
     int? timesUsed,
+    String? instructorId,
+    bool? shared,
   }) {
     return PlannerResourceItem(
       resourceId: resourceId ?? this.resourceId,
@@ -495,6 +566,8 @@ class PlannerResourceItem {
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       hasBeenTaught: hasBeenTaught ?? this.hasBeenTaught,
       timesUsed: timesUsed ?? this.timesUsed,
+      instructorId: instructorId ?? this.instructorId,
+      shared: shared ?? this.shared,
     );
   }
 
@@ -563,8 +636,29 @@ class PlannerResourceItem {
       hasBeenTaught:
           completado || (clUsada != null && clUsada.trim().isNotEmpty) || vUsada > 0,
       timesUsed: vUsada,
+      instructorId: (map['instructor_id'] as String?)?.trim(),
+      shared: map['shared'] == true,
     );
   }
+
+  Map<String, dynamic> toFirestoreMap({required String instructorUid}) => {
+        'titulo': title.trim(),
+        'tipo': type.trim(),
+        'categoria': category.trim().isNotEmpty ? category.trim() : 'General',
+        'tipo_ejercicio': category.trim().isNotEmpty ? category.trim() : 'General',
+        'publico': audienceLabel.trim().isNotEmpty ? audienceLabel.trim() : 'Todos',
+        'notas': notes.trim(),
+        'url': url.trim(),
+        if (thumbnailUrl != null && thumbnailUrl!.trim().isNotEmpty)
+          'thumbnail_url': thumbnailUrl!.trim(),
+        'completado': hasBeenTaught,
+        'veces_impartida': timesUsed,
+        'instructor_id': (instructorId != null && instructorId!.isNotEmpty)
+            ? instructorId!
+            : instructorUid,
+        'shared': shared,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
 }
 
 class SelectedCurriculumMovement {
@@ -712,9 +806,26 @@ class PedagogicalContinuityContext {
     required String groupName,
     required PlannerAudienceType audienceType,
   }) {
+    final recent = findRecentSessionsForGroup(
+      history,
+      groupId: groupId,
+      groupName: groupName,
+      audienceType: audienceType,
+      limit: 1,
+    );
+    return recent.isEmpty ? null : recent.first;
+  }
+
+  static List<TaughtSessionRecord> findRecentSessionsForGroup(
+    List<TaughtSessionRecord> history, {
+    String? groupId,
+    required String groupName,
+    required PlannerAudienceType audienceType,
+    int limit = 3,
+  }) {
     final cleanId = groupId?.trim();
     final cleanName = groupName.trim().toLowerCase();
-    TaughtSessionRecord? best;
+    final matched = <TaughtSessionRecord>[];
     for (final ses in history) {
       final sesId = ses.groupId?.trim();
       final matches = (cleanId != null &&
@@ -724,13 +835,80 @@ class PedagogicalContinuityContext {
           ? cleanId == sesId
           : (ses.groupName.trim().toLowerCase() == cleanName &&
               ses.audienceType == audienceType);
-      if (!matches) continue;
-      if (best == null || ses.date.isAfter(best.date)) {
-        best = ses;
+      if (matches) matched.add(ses);
+    }
+    matched.sort((a, b) => b.date.compareTo(a.date));
+    return matched.take(limit).toList();
+  }
+
+  static PedagogicalContinuityContext? fromGroupHistory(
+    List<TaughtSessionRecord> history, {
+    String? groupId,
+    required String groupName,
+    required PlannerAudienceType audienceType,
+    int maxSessions = 3,
+  }) {
+    final recent = findRecentSessionsForGroup(
+      history,
+      groupId: groupId,
+      groupName: groupName,
+      audienceType: audienceType,
+      limit: maxSessions,
+    );
+    if (recent.isEmpty) return null;
+    final latest = recent.first;
+    final base = PedagogicalContinuityContext.fromSession(latest);
+    if (recent.length == 1) return base;
+
+    final movements = <String>[];
+    final movSeen = <String>{};
+    for (final s in recent) {
+      for (final m in s.practicedMovements) {
+        final key = m.trim().toLowerCase();
+        if (key.isNotEmpty && movSeen.add(key)) {
+          movements.add(m.trim());
+        }
       }
     }
-    return best;
+
+    final extraReinforce = <String>[];
+    final refSeen = <String>{};
+    for (final s in recent) {
+      final r = (s.reinforceContent ?? '').trim();
+      if (r.isNotEmpty && refSeen.add(r.toLowerCase())) {
+        extraReinforce.add(r);
+      }
+    }
+
+    final extraPending = <String>[];
+    final pendSeen = <String>{};
+    for (final s in recent) {
+      final p = s.pendingNextSession.trim();
+      if (p.isNotEmpty && pendSeen.add(p.toLowerCase())) {
+        extraPending.add(p);
+      }
+    }
+
+    return PedagogicalContinuityContext(
+      sourceSessionId: base.sourceSessionId,
+      sourceSessionDate: base.sourceSessionDate,
+      sourcePlanTitle: base.sourcePlanTitle,
+      groupId: base.groupId ?? groupId,
+      groupName: base.groupName,
+      audienceType: base.audienceType,
+      completedExercises: base.completedExercises,
+      skippedExercises: base.skippedExercises,
+      pendingExercises: base.pendingExercises,
+      practicedMovements: List<String>.unmodifiable(movements),
+      groupResponse: base.groupResponse,
+      difficulties: base.difficulties,
+      teacherObservations: base.teacherObservations,
+      reinforceContent: extraReinforce.join(' · '),
+      continuityProposal: extraPending.join(' · '),
+    );
   }
+
+  Map<String, dynamic> toCopilotSummaryMap() => toAiSafeMap();
 
   factory PedagogicalContinuityContext.fromSession(
     TaughtSessionRecord session,
@@ -1568,6 +1746,7 @@ class ClassPlanModel {
   final String enfoque;
   final String objetivo;
   final List<String> objetivos;
+  final String? groupId;
   final String groupName;
   final int ageMin;
   final int ageMax;
@@ -1576,6 +1755,10 @@ class ClassPlanModel {
   final List<ClassPlanBlock> bloques;
   final String? consejosInstructor;
   final int vecesImpartida;
+  final int revision;
+  final String? instructorId;
+  final String? updatedByDevice;
+  final Map<String, dynamic>? lastCopilotSummary;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final DateTime? ultimaEjecucion;
@@ -1598,6 +1781,7 @@ class ClassPlanModel {
     required this.enfoque,
     required this.objetivo,
     this.objetivos = const [],
+    this.groupId,
     required this.groupName,
     required this.ageMin,
     required this.ageMax,
@@ -1606,6 +1790,10 @@ class ClassPlanModel {
     required this.bloques,
     this.consejosInstructor,
     this.vecesImpartida = 0,
+    this.revision = 1,
+    this.instructorId,
+    this.updatedByDevice,
+    this.lastCopilotSummary,
     this.createdAt,
     this.updatedAt,
     this.ultimaEjecucion,
@@ -1674,6 +1862,8 @@ class ClassPlanModel {
     String? enfoque,
     String? objetivo,
     List<String>? objetivos,
+    String? groupId,
+    bool clearGroupId = false,
     String? groupName,
     int? ageMin,
     int? ageMax,
@@ -1683,6 +1873,11 @@ class ClassPlanModel {
     String? consejosInstructor,
     bool clearConsejosInstructor = false,
     int? vecesImpartida,
+    int? revision,
+    String? instructorId,
+    String? updatedByDevice,
+    Map<String, dynamic>? lastCopilotSummary,
+    bool clearLastCopilotSummary = false,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? ultimaEjecucion,
@@ -1712,6 +1907,7 @@ class ClassPlanModel {
       enfoque: enfoque ?? this.enfoque,
       objetivo: nextObjetivo,
       objetivos: nextObjetivos,
+      groupId: clearGroupId ? null : (groupId ?? this.groupId),
       groupName: groupName ?? this.groupName,
       ageMin: ageMin ?? this.ageMin,
       ageMax: ageMax ?? this.ageMax,
@@ -1723,6 +1919,12 @@ class ClassPlanModel {
           ? null
           : (consejosInstructor ?? this.consejosInstructor),
       vecesImpartida: vecesImpartida ?? this.vecesImpartida,
+      revision: (revision ?? this.revision).clamp(1, 1000000),
+      instructorId: instructorId ?? this.instructorId,
+      updatedByDevice: updatedByDevice ?? this.updatedByDevice,
+      lastCopilotSummary: clearLastCopilotSummary
+          ? null
+          : (lastCopilotSummary ?? this.lastCopilotSummary),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       ultimaEjecucion: clearUltimaEjecucion
@@ -1754,7 +1956,11 @@ class ClassPlanModel {
         'enfoque': enfoque,
         'objetivo': objetivo,
         if (objetivos.isNotEmpty) 'objetivos': objetivos,
+        if (groupId != null && groupId!.trim().isNotEmpty)
+          'clase_id': groupId!.trim(),
         'group_snapshot': {
+          if (groupId != null && groupId!.trim().isNotEmpty)
+            'clase_id': groupId!.trim(),
           'group_name': groupName,
           'age_min': ageMin,
           'age_max': ageMax,
@@ -1767,6 +1973,13 @@ class ClassPlanModel {
             consejosInstructor!.trim().isNotEmpty)
           'consejos_instructor': consejosInstructor!.trim(),
         'veces_impartida': vecesImpartida,
+        'revision': revision,
+        if (instructorId != null && instructorId!.trim().isNotEmpty)
+          'instructor_id': instructorId!.trim(),
+        if (updatedByDevice != null && updatedByDevice!.trim().isNotEmpty)
+          'updated_by_device': updatedByDevice!.trim(),
+        if (lastCopilotSummary != null && lastCopilotSummary!.isNotEmpty)
+          'last_copilot_summary': lastCopilotSummary,
         if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
         if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
         if (ultimaEjecucion != null)
@@ -1777,6 +1990,30 @@ class ClassPlanModel {
           'continuity_context': continuityContext!.toMap(),
         if (generationMeta != null) 'generation_meta': generationMeta!.toMap(),
       };
+
+  /// Serialización lista para Firestore (`instructor_planes_clase`) conservando compatibilidad V1+V2.
+  Map<String, dynamic> toFirestoreMap({
+    required String instructorUid,
+    String? deviceId,
+    DateTime? now,
+  }) {
+    final ts = (now ?? DateTime.now()).toIso8601String();
+    final map = toMap();
+    map['schema_version'] = schemaVersion < 2 ? 2 : schemaVersion;
+    map['instructor_id'] = instructorUid;
+    map['revision'] = revision;
+    map['plan_status'] = planStatus.id;
+    map['updated_at'] = ts;
+    map['created_at'] = (createdAt ?? (now ?? DateTime.now())).toIso8601String();
+    if (groupId != null && groupId!.trim().isNotEmpty) {
+      map['clase_id'] = groupId!.trim();
+    }
+    final effDevice = (deviceId ?? updatedByDevice)?.trim();
+    if (effDevice != null && effDevice.isNotEmpty) {
+      map['updated_by_device'] = effDevice;
+    }
+    return map;
+  }
 
   factory ClassPlanModel.fromMap(String id, Map<String, dynamic> map) {
     final schemaVersion = (map['schema_version'] as num?)?.toInt() ?? 1;
@@ -1825,6 +2062,9 @@ class ClassPlanModel {
       enfoque: (map['enfoque'] as String? ?? 'Técnica & Movilidad').trim(),
       objetivo: effectiveObjetivo,
       objetivos: effectiveObjetivos,
+      groupId: (map['clase_id'] as String? ??
+              groupSnapshot['clase_id'] as String?)
+          ?.trim(),
       groupName: (groupSnapshot['group_name'] ??
               map['group_name'] ??
               nivelStr)
@@ -1852,6 +2092,12 @@ class ClassPlanModel {
       ],
       consejosInstructor: map['consejos_instructor']?.toString(),
       vecesImpartida: (map['veces_impartida'] as num?)?.toInt() ?? 0,
+      revision: ((map['revision'] as num?)?.toInt() ?? 1).clamp(1, 1000000),
+      instructorId: (map['instructor_id'] as String?)?.trim(),
+      updatedByDevice: (map['updated_by_device'] as String?)?.trim(),
+      lastCopilotSummary: map['last_copilot_summary'] is Map
+          ? Map<String, dynamic>.from(map['last_copilot_summary'] as Map)
+          : null,
       createdAt: parseDate(map['created_at']),
       updatedAt: parseDate(map['updated_at']),
       ultimaEjecucion: parseDate(map['ultima_ejecucion']),
@@ -1898,6 +2144,7 @@ class ClassPlanModel {
           : 'Técnica',
       objetivo: '',
       objetivos: const [],
+      groupId: group?.source == PlannerGroupSource.realClass ? group?.id : null,
       groupName: group?.name ?? 'Grupo ${audience.label}',
       ageMin: group?.ageMin ??
           (audience == PlannerAudienceType.infantil ? 6 : 16),
@@ -2109,6 +2356,7 @@ class ClassPlanModel {
           ? req.objectives.join(' · ')
           : 'Sesión planificada para ${req.groupName}',
       objetivos: List<String>.unmodifiable(req.objectives),
+      groupId: req.realClaseId,
       groupName: req.groupName,
       ageMin: req.ageMin,
       ageMax: req.ageMax,

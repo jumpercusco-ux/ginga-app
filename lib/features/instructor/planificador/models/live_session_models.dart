@@ -150,6 +150,9 @@ class LiveSessionState {
   final int activeExerciseAccumulatedSec;
   final bool isRunning;
   final List<LiveExerciseExecution> exercises;
+  final int revision;
+  final String? deviceId;
+  final DateTime? updatedAt;
 
   const LiveSessionState({
     required this.sessionId,
@@ -169,6 +172,9 @@ class LiveSessionState {
     required this.activeExerciseAccumulatedSec,
     required this.isRunning,
     required this.exercises,
+    this.revision = 1,
+    this.deviceId,
+    this.updatedAt,
   });
 
   /// Inicia una sesión en vivo a partir de un plan V1 o V2 conservando su instantánea inmutable.
@@ -569,7 +575,58 @@ class LiveSessionState {
         'active_exercise_accumulated_sec': activeExerciseAccumulatedSec,
         'is_running': isRunning,
         'exercises': exercises.map((e) => e.toMap()).toList(),
+        'revision': revision,
+        if (deviceId != null && deviceId!.trim().isNotEmpty)
+          'device_id': deviceId!.trim(),
+        if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
       };
+
+  Map<String, dynamic> toFirestoreMap({
+    required String instructorUid,
+    String? deviceId,
+    DateTime? now,
+  }) {
+    final ts = now ?? updatedAt ?? DateTime.now();
+    final effDevice = (deviceId ?? this.deviceId)?.trim();
+    return {
+      ...toJsonMap(),
+      'instructor_id': instructorUid,
+      if (groupId != null && groupId!.trim().isNotEmpty)
+        'clase_id': groupId!.trim(),
+      'revision': revision,
+      if (effDevice != null && effDevice.isNotEmpty) 'device_id': effDevice,
+      'updated_at': ts.toIso8601String(),
+    };
+  }
+
+  LiveSessionState copyWithSyncMeta({
+    int? revision,
+    String? deviceId,
+    DateTime? updatedAt,
+  }) {
+    return LiveSessionState(
+      sessionId: sessionId,
+      planId: planId,
+      planSnapshot: planSnapshot,
+      planTitle: planTitle,
+      groupId: groupId,
+      groupName: groupName,
+      audienceType: audienceType,
+      plannedTotalDurationMin: plannedTotalDurationMin,
+      participantsCount: participantsCount,
+      startedAt: startedAt,
+      lastResumedAt: lastResumedAt,
+      accumulatedSessionElapsedSec: accumulatedSessionElapsedSec,
+      activeExerciseIndex: activeExerciseIndex,
+      activeExerciseAllocatedSec: activeExerciseAllocatedSec,
+      activeExerciseAccumulatedSec: activeExerciseAccumulatedSec,
+      isRunning: isRunning,
+      exercises: exercises,
+      revision: (revision ?? this.revision).clamp(1, 1000000),
+      deviceId: deviceId ?? this.deviceId,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 
   String toJsonString() => jsonEncode(toJsonMap());
 
@@ -590,7 +647,7 @@ class LiveSessionState {
       planId: (map['plan_id'] as String? ?? '').trim(),
       planSnapshot: Map<String, dynamic>.unmodifiable(rawSnapshot),
       planTitle: (map['plan_title'] as String? ?? 'Clase en vivo').trim(),
-      groupId: (map['group_id'] as String?)?.trim(),
+      groupId: (map['group_id'] as String? ?? map['clase_id'] as String?)?.trim(),
       groupName: (map['group_name'] as String? ?? 'Grupo').trim(),
       audienceType:
           PlannerAudienceType.fromLegacyLevel(map['audience_type']?.toString()),
@@ -613,6 +670,9 @@ class LiveSessionState {
               .clamp(0, 86400),
       isRunning: map['is_running'] == true,
       exercises: List<LiveExerciseExecution>.unmodifiable(exercisesList),
+      revision: ((map['revision'] as num?)?.toInt() ?? 1).clamp(1, 1000000),
+      deviceId: (map['device_id'] as String?)?.trim(),
+      updatedAt: DateTime.tryParse(map['updated_at']?.toString() ?? ''),
     );
   }
 

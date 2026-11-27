@@ -3,11 +3,61 @@ import '../models/class_plan_models.dart';
 
 /// Fuente de datos desacoplada para el Planificador V2 (fixtures locales aislados o Firestore).
 abstract class PlannerDataSource {
+  bool get isPersistentRemote => false;
+
   Future<List<PlannerGroupProfile>> loadGroups();
   Future<List<ClassPlanModel>> loadPlans();
   Future<List<PlannerResourceItem>> loadResources();
   Future<List<TaughtSessionRecord>> loadHistory();
+
+  /// Carga individual por ID (útil para resolver conflictos entre dispositivos).
+  Future<ClassPlanModel?> loadPlanById(String planId) async {
+    final all = await loadPlans();
+    for (final p in all) {
+      if (p.id == planId) return p;
+    }
+    return null;
+  }
+
+  /// Guarda un plan o borrador aplicando control de concurrencia optimista si se pasa [expectedRevision].
+  Future<ClassPlanModel> savePlan(
+    ClassPlanModel plan, {
+    int? expectedRevision,
+    String? deviceId,
+  }) async {
+    await saveLocalDraft(plan);
+    return plan;
+  }
+
+  /// Compatibilidad retroactiva: guarda un borrador sin retornar revisión.
   Future<void> saveLocalDraft(ClassPlanModel draft);
+
+  /// Transiciona explícitamente el ciclo de vida validando [ClassPlanStatus.canTransitionTo].
+  Future<ClassPlanModel> updatePlanStatus(
+    String planId,
+    ClassPlanStatus nextStatus, {
+    int? expectedRevision,
+    String? deviceId,
+  }) async {
+    final current = await loadPlanById(planId);
+    if (current == null) {
+      throw StateError('No se encontró el plan $planId.');
+    }
+    if (!current.planStatus.canTransitionTo(nextStatus)) {
+      throw StateError(
+        'Transición inválida de ${current.planStatus.label} a ${nextStatus.label}.',
+      );
+    }
+    return savePlan(
+      current.copyWith(planStatus: nextStatus, updatedAt: DateTime.now()),
+      expectedRevision: expectedRevision ?? current.revision,
+      deviceId: deviceId,
+    );
+  }
+
+  /// Crea o actualiza un recurso de Pizarra sin marcarlo como usado automáticamente.
+  Future<PlannerResourceItem> saveResource(PlannerResourceItem resource) async =>
+      resource;
 
   /// Registra una sesión finalizada en Historial y contabiliza recursos solo de ejercicios completados.
   /// Devuelve `true` si se registró por primera vez o `false` si [session.sessionId] ya había sido contabilizado.
@@ -17,27 +67,61 @@ abstract class PlannerDataSource {
   });
 }
 
+/// Almacén compartido en memoria para simular múltiples clientes/dispositivos en pruebas deterministas.
+class InMemoryPlannerBackingStore {
+  final List<PlannerGroupProfile> groups;
+  final List<ClassPlanModel> plans;
+  final List<PlannerResourceItem> resources;
+  final List<TaughtSessionRecord> history;
+  final Set<String> recordedSessionIds = {};
+
+  InMemoryPlannerBackingStore({
+    required List<PlannerGroupProfile> groups,
+    required List<ClassPlanModel> plans,
+    required List<PlannerResourceItem> resources,
+    required List<TaughtSessionRecord> history,
+  })  : groups = List.of(groups),
+        plans = List.of(plans),
+        resources = List.of(resources),
+        history = List.of(history) {
+    for (final s in history) {
+      recordedSessionIds.add(s.sessionId);
+    }
+  }
+}
+
 /// Implementación local aislada con fixtures realistas libres de PII para pruebas y vista previa.
 class InMemoryPlannerDataSource implements PlannerDataSource {
-  final List<PlannerGroupProfile> _groups;
-  final List<ClassPlanModel> _plans;
-  final List<PlannerResourceItem> _resources;
-  final List<TaughtSessionRecord> _history;
-  final Set<String> _recordedSessionIds = {};
+  final InMemoryPlannerBackingStore _store;
+  final String? instructorUid;
+  final String? defaultDeviceId;
+  bool simulateConnectionError = false;
+  Object? nextWriteError;
+
+  @override
+  bool get isPersistentRemote => false;
 
   InMemoryPlannerDataSource({
     required List<PlannerGroupProfile> groups,
     required List<ClassPlanModel> plans,
     required List<PlannerResourceItem> resources,
     required List<TaughtSessionRecord> history,
-  })  : _groups = List.of(groups),
-        _plans = List.of(plans),
-        _resources = List.of(resources),
-        _history = List.of(history) {
-    for (final s in _history) {
-      _recordedSessionIds.add(s.sessionId);
-    }
-  }
+    this.instructorUid,
+    this.defaultDeviceId,
+  }) : _store = InMemoryPlannerBackingStore(
+          groups: groups,
+          plans: plans,
+          resources: resources,
+          history: history,
+        );
+
+  InMemoryPlannerDataSource.shared({
+    required InMemoryPlannerBackingStore store,
+    this.instructorUid,
+    this.defaultDeviceId,
+  }) : _store = store;
+
+  InMemoryPlannerBackingStore get backingStore => _store;
 
   factory InMemoryPlannerDataSource.demoFixtures() =>
       _buildDemoFixtures(includeCopilot8of8: false);
@@ -729,36 +813,152 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
   }
 
   @override
-  Future<List<PlannerGroupProfile>> loadGroups() async => List.unmodifiable(_groups);
+  Future<List<PlannerGroupProfile>> loadGroups() async {
+    if (simulateConnectionError) {
+      throw StateError('Sin conexión simulada al cargar grupos.');
+    }
+    return List.unmodifiable(_store.groups);
+  }
 
   @override
-  Future<List<ClassPlanModel>> loadPlans() async => List.unmodifiable(_plans);
+  Future<List<ClassPlanModel>> loadPlans() async {
+    if (simulateConnectionError) {
+      throw StateError('Sin conexión simulada al cargar planes.');
+    }
+    return List.unmodifiable(_store.plans);
+  }
 
   @override
-  Future<List<PlannerResourceItem>> loadResources() async =>
-      List.unmodifiable(_resources);
+  Future<ClassPlanModel?> loadPlanById(String planId) async {
+    if (simulateConnectionError) {
+      throw StateError('Sin conexión simulada al cargar el plan $planId.');
+    }
+    final idx = _store.plans.indexWhere((p) => p.id == planId);
+    return idx >= 0 ? _store.plans[idx] : null;
+  }
 
   @override
-  Future<List<TaughtSessionRecord>> loadHistory() async =>
-      List.unmodifiable(_history);
+  Future<List<PlannerResourceItem>> loadResources() async {
+    if (simulateConnectionError) {
+      throw StateError('Sin conexión simulada al cargar recursos.');
+    }
+    return List.unmodifiable(_store.resources);
+  }
 
   @override
-  Future<void> saveLocalDraft(ClassPlanModel draft) async {
-    final idx = _plans.indexWhere((p) => p.id == draft.id);
-    if (idx >= 0) {
-      _plans[idx] = draft;
-    } else {
-      _plans.insert(0, draft);
+  Future<List<TaughtSessionRecord>> loadHistory() async {
+    if (simulateConnectionError) {
+      throw StateError('Sin conexión simulada al cargar historial.');
+    }
+    return List.unmodifiable(_store.history);
+  }
+
+  void _checkSimulatedWriteError() {
+    if (nextWriteError != null) {
+      final err = nextWriteError!;
+      nextWriteError = null;
+      throw err;
+    }
+    if (simulateConnectionError) {
+      throw StateError('Sin conexión simulada: no se pudo sincronizar el cambio.');
     }
   }
 
-  Future<void> saveLocalResource(PlannerResourceItem resource) async {
-    final idx = _resources.indexWhere((r) => r.resourceId == resource.resourceId);
+  @override
+  Future<ClassPlanModel> savePlan(
+    ClassPlanModel draft, {
+    int? expectedRevision,
+    String? deviceId,
+  }) async {
+    _checkSimulatedWriteError();
+    final now = DateTime.now();
+    final idx = _store.plans.indexWhere((p) => p.id == draft.id);
     if (idx >= 0) {
-      _resources[idx] = resource;
+      final existing = _store.plans[idx];
+      if (expectedRevision != null && existing.revision != expectedRevision) {
+        throw PlannerConcurrencyConflictException(
+          planId: draft.id,
+          expectedRevision: expectedRevision,
+          remoteRevision: existing.revision,
+          remotePlan: existing,
+          message:
+              'Otro dispositivo guardó una versión más reciente (${existing.revision} vs $expectedRevision).',
+        );
+      }
+      final nextRev = existing.revision + 1;
+      final saved = draft.copyWith(
+        revision: nextRev,
+        instructorId: instructorUid ?? draft.instructorId,
+        updatedByDevice: deviceId ?? defaultDeviceId ?? draft.updatedByDevice,
+        updatedAt: now,
+        vecesImpartida: draft.vecesImpartida > existing.vecesImpartida
+            ? draft.vecesImpartida
+            : existing.vecesImpartida,
+        ultimaEjecucion: draft.ultimaEjecucion ?? existing.ultimaEjecucion,
+      );
+      _store.plans[idx] = saved;
+      return saved;
     } else {
-      _resources.insert(0, resource);
+      final saved = draft.copyWith(
+        revision: 1,
+        instructorId: instructorUid ?? draft.instructorId,
+        updatedByDevice: deviceId ?? defaultDeviceId ?? draft.updatedByDevice,
+        createdAt: draft.createdAt ?? now,
+        updatedAt: now,
+      );
+      _store.plans.insert(0, saved);
+      return saved;
     }
+  }
+
+  @override
+  Future<void> saveLocalDraft(ClassPlanModel draft) async {
+    await savePlan(draft);
+  }
+
+  @override
+  Future<ClassPlanModel> updatePlanStatus(
+    String planId,
+    ClassPlanStatus nextStatus, {
+    int? expectedRevision,
+    String? deviceId,
+  }) async {
+    _checkSimulatedWriteError();
+    final idx = _store.plans.indexWhere((p) => p.id == planId);
+    if (idx < 0) {
+      throw StateError('No se encontró el plan $planId.');
+    }
+    final current = _store.plans[idx];
+    if (!current.planStatus.canTransitionTo(nextStatus)) {
+      throw StateError(
+        'Transición inválida de ${current.planStatus.label} a ${nextStatus.label}.',
+      );
+    }
+    return savePlan(
+      current.copyWith(planStatus: nextStatus),
+      expectedRevision: expectedRevision ?? current.revision,
+      deviceId: deviceId,
+    );
+  }
+
+  @override
+  Future<PlannerResourceItem> saveResource(PlannerResourceItem resource) async {
+    _checkSimulatedWriteError();
+    final idx =
+        _store.resources.indexWhere((r) => r.resourceId == resource.resourceId);
+    final updated = resource.copyWith(
+      instructorId: instructorUid ?? resource.instructorId,
+    );
+    if (idx >= 0) {
+      _store.resources[idx] = updated;
+    } else {
+      _store.resources.insert(0, updated);
+    }
+    return updated;
+  }
+
+  Future<void> saveLocalResource(PlannerResourceItem resource) async {
+    await saveResource(resource);
   }
 
   @override
@@ -766,52 +966,66 @@ class InMemoryPlannerDataSource implements PlannerDataSource {
     TaughtSessionRecord session, {
     required Set<String> taughtResourceIds,
   }) async {
-    if (_recordedSessionIds.contains(session.sessionId)) {
+    _checkSimulatedWriteError();
+    if (_store.recordedSessionIds.contains(session.sessionId)) {
       return false;
     }
-    _recordedSessionIds.add(session.sessionId);
-    _history.removeWhere((h) => h.sessionId == session.sessionId);
-    _history.insert(0, session);
+    _store.recordedSessionIds.add(session.sessionId);
+    _store.history.removeWhere((h) => h.sessionId == session.sessionId);
+    _store.history.insert(0, session);
 
     if (taughtResourceIds.isNotEmpty) {
-      for (int i = 0; i < _resources.length; i++) {
-        final res = _resources[i];
+      for (int i = 0; i < _store.resources.length; i++) {
+        final res = _store.resources[i];
         if (taughtResourceIds.contains(res.resourceId)) {
-          _resources[i] = res.copyWith(
+          _store.resources[i] = res.copyWith(
             hasBeenTaught: true,
             timesUsed: res.timesUsed + 1,
           );
         }
       }
     }
-    // Actualiza solo ultimaEjecucion y vecesImpartida del plan original, sin tocar bloques, ejercicios ni contenido pedagógico.
-    final planIdx = _plans.indexWhere((p) => p.id == session.planId);
+    // Actualiza solo vecesImpartida, ultimaEjecucion, planStatus y revision del plan original,
+    // preservando intactos bloques, ejercicios y snapshot histórico separado.
+    final planIdx = _store.plans.indexWhere((p) => p.id == session.planId);
     if (planIdx >= 0) {
-      final original = _plans[planIdx];
-      _plans[planIdx] = original.copyWith(
+      final original = _store.plans[planIdx];
+      _store.plans[planIdx] = original.copyWith(
         vecesImpartida: original.vecesImpartida + 1,
         ultimaEjecucion: session.date,
+        planStatus: ClassPlanStatus.completed,
+        revision: original.revision + 1,
+        updatedAt: DateTime.now(),
       );
     }
     return true;
   }
 }
 
-/// Fuente de datos real en Firestore (solo lectura en PED-04B1/04C1 + estado de sesión local sin escrituras a producción).
+/// Fuente de datos real y persistente en Firestore (`PED-05`).
 class FirestorePlannerDataSource implements PlannerDataSource {
   final FirebaseFirestore _firestore;
   final String? instructorUid;
-  final List<ClassPlanModel> _sessionDrafts = [];
-  final List<TaughtSessionRecord> _sessionHistory = [];
-  final Set<String> _recordedSessionIds = {};
-  final Map<String, int> _sessionResourceIncrements = {};
-  final Map<String, DateTime> _sessionPlanLastExecuted = {};
-  final Map<String, int> _sessionPlanExecutionIncrements = {};
+  final String? deviceId;
+
+  @override
+  bool get isPersistentRemote => true;
 
   FirestorePlannerDataSource({
     FirebaseFirestore? firestore,
     required this.instructorUid,
+    this.deviceId,
   }) : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  String _requireUid() {
+    final uid = instructorUid?.trim() ?? '';
+    if (uid.isEmpty) {
+      throw StateError(
+        'Se requiere sesión autenticada del instructor para sincronizar con Firestore.',
+      );
+    }
+    return uid;
+  }
 
   @override
   Future<List<PlannerGroupProfile>> loadGroups() async {
@@ -903,78 +1117,213 @@ class FirestorePlannerDataSource implements PlannerDataSource {
 
   @override
   Future<List<ClassPlanModel>> loadPlans() async {
-    if (instructorUid == null) return List.unmodifiable(_sessionDrafts);
+    final uid = instructorUid?.trim() ?? '';
+    if (uid.isEmpty) return const [];
     final snap = await _firestore
         .collection('instructor_planes_clase')
-        .where('instructor_id', isEqualTo: instructorUid)
+        .where('instructor_id', isEqualTo: uid)
         .get();
 
     final remote = snap.docs
         .map((d) => ClassPlanModel.fromMap(d.id, d.data()))
         .toList()
-      ..sort((a, b) => (b.createdAt ?? DateTime(2000))
-          .compareTo(a.createdAt ?? DateTime(2000)));
+      ..sort((a, b) => (b.updatedAt ?? b.createdAt ?? DateTime(2000))
+          .compareTo(a.updatedAt ?? a.createdAt ?? DateTime(2000)));
+    return remote;
+  }
 
-    final localIds = _sessionDrafts.map((d) => d.id).toSet();
-    final filteredRemote = remote.where((r) => !localIds.contains(r.id));
-    final combined = [..._sessionDrafts, ...filteredRemote];
-    return combined.map((p) {
-      final execAt = _sessionPlanLastExecuted[p.id];
-      final inc = _sessionPlanExecutionIncrements[p.id] ?? 0;
-      if (execAt == null && inc <= 0) return p;
-      return p.copyWith(
-        ultimaEjecucion: execAt ?? p.ultimaEjecucion,
-        vecesImpartida: p.vecesImpartida + inc,
-      );
-    }).toList();
+  @override
+  Future<ClassPlanModel?> loadPlanById(String planId) async {
+    _requireUid();
+    final doc = await _firestore
+        .collection('instructor_planes_clase')
+        .doc(planId)
+        .get();
+    if (!doc.exists || doc.data() == null) return null;
+    return ClassPlanModel.fromMap(doc.id, doc.data()!);
   }
 
   @override
   Future<List<PlannerResourceItem>> loadResources() async {
-    final snap = await _firestore
+    final uid = instructorUid?.trim() ?? '';
+    if (uid.isEmpty) return const [];
+    final byId = <String, Map<String, dynamic>>{};
+
+    final ownSnap = await _firestore
         .collection('instructor_ideas')
-        .orderBy('created_at', descending: true)
+        .where('instructor_id', isEqualTo: uid)
         .get();
-    return snap.docs.map((d) {
-      final item = PlannerResourceItem.fromMap(d.id, d.data());
-      final inc = _sessionResourceIncrements[item.resourceId] ?? 0;
-      if (inc <= 0) return item;
-      return item.copyWith(
-        hasBeenTaught: true,
-        timesUsed: item.timesUsed + inc,
-      );
-    }).toList();
+    for (final d in ownSnap.docs) {
+      byId[d.id] = d.data();
+    }
+
+    try {
+      final sharedSnap = await _firestore
+          .collection('instructor_ideas')
+          .where('shared', isEqualTo: true)
+          .get();
+      for (final d in sharedSnap.docs) {
+        byId.putIfAbsent(d.id, () => d.data());
+      }
+    } catch (_) {
+      // Tolerante si las reglas o el entorno no habilitan lectura compartida aún.
+    }
+
+    final items = byId.entries
+        .map((e) => PlannerResourceItem.fromMap(e.key, e.value))
+        .toList();
+    items.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    return items;
   }
 
   @override
   Future<List<TaughtSessionRecord>> loadHistory() async {
-    if (instructorUid == null) return List.unmodifiable(_sessionHistory);
-    try {
-      final snap = await _firestore
-          .collection('instructor_sesiones_impartidas')
-          .where('instructor_id', isEqualTo: instructorUid)
-          .limit(30)
-          .get();
-      final remote = snap.docs
-          .map((d) => TaughtSessionRecord.fromMap(d.id, d.data()))
-          .toList()
-        ..sort((a, b) => b.date.compareTo(a.date));
-      final localIds = _sessionHistory.map((e) => e.sessionId).toSet();
-      return [
-        ..._sessionHistory,
-        ...remote.where((r) => !localIds.contains(r.sessionId)),
-      ];
-    } catch (_) {
-      // Tolerante si la colección aún no existe en este entorno
-      return List.unmodifiable(_sessionHistory);
-    }
+    final uid = instructorUid?.trim() ?? '';
+    if (uid.isEmpty) return const [];
+    final snap = await _firestore
+        .collection('instructor_sesiones_impartidas')
+        .where('instructor_id', isEqualTo: uid)
+        .limit(50)
+        .get();
+    final remote = snap.docs
+        .map((d) => TaughtSessionRecord.fromMap(d.id, d.data()))
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    return remote;
+  }
+
+  @override
+  Future<ClassPlanModel> savePlan(
+    ClassPlanModel plan, {
+    int? expectedRevision,
+    String? deviceId,
+  }) async {
+    final uid = _requireUid();
+    final effDevice = (deviceId ?? this.deviceId ?? plan.updatedByDevice)?.trim();
+    final docRef = _firestore.collection('instructor_planes_clase').doc(plan.id);
+    final now = DateTime.now();
+
+    return _firestore.runTransaction((tx) async {
+      final snap = await tx.get(docRef);
+      int nextRevision = 1;
+      int preservedVeces = plan.vecesImpartida;
+      DateTime? preservedUltima = plan.ultimaEjecucion;
+
+      if (snap.exists && snap.data() != null) {
+        final remotePlan = ClassPlanModel.fromMap(snap.id, snap.data()!);
+        if (expectedRevision != null &&
+            remotePlan.revision != expectedRevision) {
+          throw PlannerConcurrencyConflictException(
+            planId: plan.id,
+            expectedRevision: expectedRevision,
+            remoteRevision: remotePlan.revision,
+            remotePlan: remotePlan,
+            message:
+                'Otro dispositivo guardó la revisión ${remotePlan.revision} (tenías ${expectedRevision}).',
+          );
+        }
+        nextRevision = remotePlan.revision + 1;
+        if (remotePlan.vecesImpartida > preservedVeces) {
+          preservedVeces = remotePlan.vecesImpartida;
+        }
+        if (remotePlan.ultimaEjecucion != null &&
+            (preservedUltima == null ||
+                remotePlan.ultimaEjecucion!.isAfter(preservedUltima))) {
+          preservedUltima = remotePlan.ultimaEjecucion;
+        }
+      }
+
+      final toPersist = plan.copyWith(
+        revision: nextRevision,
+        instructorId: uid,
+        updatedByDevice: effDevice,
+        updatedAt: now,
+        createdAt: plan.createdAt ?? now,
+        vecesImpartida: preservedVeces,
+        ultimaEjecucion: preservedUltima,
+      );
+      tx.set(
+        docRef,
+        toPersist.toFirestoreMap(
+          instructorUid: uid,
+          deviceId: effDevice,
+          now: now,
+        ),
+        SetOptions(merge: true),
+      );
+      return toPersist;
+    });
   }
 
   @override
   Future<void> saveLocalDraft(ClassPlanModel draft) async {
-    // Mantiene los borradores nuevos localmente sin escribir en producción.
-    _sessionDrafts.removeWhere((p) => p.id == draft.id);
-    _sessionDrafts.insert(0, draft);
+    await savePlan(draft);
+  }
+
+  @override
+  Future<ClassPlanModel> updatePlanStatus(
+    String planId,
+    ClassPlanStatus nextStatus, {
+    int? expectedRevision,
+    String? deviceId,
+  }) async {
+    final uid = _requireUid();
+    final effDevice = (deviceId ?? this.deviceId)?.trim();
+    final docRef = _firestore.collection('instructor_planes_clase').doc(planId);
+    final now = DateTime.now();
+
+    return _firestore.runTransaction((tx) async {
+      final snap = await tx.get(docRef);
+      if (!snap.exists || snap.data() == null) {
+        throw StateError('No se encontró el plan $planId.');
+      }
+      final current = ClassPlanModel.fromMap(snap.id, snap.data()!);
+      if (!current.planStatus.canTransitionTo(nextStatus)) {
+        throw StateError(
+          'Transición inválida de ${current.planStatus.label} a ${nextStatus.label}.',
+        );
+      }
+      if (expectedRevision != null && current.revision != expectedRevision) {
+        throw PlannerConcurrencyConflictException(
+          planId: planId,
+          expectedRevision: expectedRevision,
+          remoteRevision: current.revision,
+          remotePlan: current,
+          message:
+              'Otro dispositivo actualizó el estado a revisión ${current.revision}.',
+        );
+      }
+      final next = current.copyWith(
+        planStatus: nextStatus,
+        revision: current.revision + 1,
+        updatedAt: now,
+        updatedByDevice: effDevice ?? current.updatedByDevice,
+      );
+      tx.update(docRef, {
+        'instructor_id': current.instructorId ?? uid,
+        'plan_status': nextStatus.id,
+        'revision': next.revision,
+        'updated_at': now.toIso8601String(),
+        if (effDevice != null && effDevice.isNotEmpty)
+          'updated_by_device': effDevice,
+      });
+      return next;
+    });
+  }
+
+  @override
+  Future<PlannerResourceItem> saveResource(PlannerResourceItem resource) async {
+    final uid = _requireUid();
+    final docRef = _firestore.collection('instructor_ideas').doc(resource.resourceId);
+    await docRef.set(
+      resource.toFirestoreMap(instructorUid: uid),
+      SetOptions(merge: true),
+    );
+    return resource.copyWith(
+      instructorId: resource.instructorId?.isNotEmpty == true
+          ? resource.instructorId
+          : uid,
+    );
   }
 
   @override
@@ -982,22 +1331,71 @@ class FirestorePlannerDataSource implements PlannerDataSource {
     TaughtSessionRecord session, {
     required Set<String> taughtResourceIds,
   }) async {
-    // PED-04C1: registra localmente en memoria de sesión sin escribir en Firestore de producción.
-    if (_recordedSessionIds.contains(session.sessionId)) {
-      return false;
-    }
-    _recordedSessionIds.add(session.sessionId);
-    _sessionHistory.removeWhere((h) => h.sessionId == session.sessionId);
-    _sessionHistory.insert(0, session);
-    for (final resId in taughtResourceIds) {
-      _sessionResourceIncrements[resId] =
-          (_sessionResourceIncrements[resId] ?? 0) + 1;
-    }
-    if (session.planId.trim().isNotEmpty) {
-      _sessionPlanLastExecuted[session.planId] = session.date;
-      _sessionPlanExecutionIncrements[session.planId] =
-          (_sessionPlanExecutionIncrements[session.planId] ?? 0) + 1;
-    }
-    return true;
+    final uid = _requireUid();
+    final sessionRef = _firestore
+        .collection('instructor_sesiones_impartidas')
+        .doc(session.sessionId);
+    final planRef = session.planId.trim().isNotEmpty
+        ? _firestore.collection('instructor_planes_clase').doc(session.planId)
+        : null;
+    final resourceRefs = taughtResourceIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .map((id) => _firestore.collection('instructor_ideas').doc(id))
+        .toList();
+
+    final nowIso = DateTime.now().toIso8601String();
+    return _firestore.runTransaction((tx) async {
+      // 1. Todas las lecturas antes de cualquier escritura (requisito de transacciones Firestore).
+      final sessionSnap = await tx.get(sessionRef);
+      if (sessionSnap.exists) {
+        return false;
+      }
+
+      final planSnap = planRef != null ? await tx.get(planRef) : null;
+      final resSnaps = <DocumentSnapshot<Map<String, dynamic>>>[];
+      for (final ref in resourceRefs) {
+        resSnaps.add(await tx.get(ref));
+      }
+
+      // 2. Registro inmutable de historial separado del plan editable original.
+      final sessionPayload = session.toMap()
+        ..['instructor_id'] = uid
+        ..['schema_version'] = 2
+        ..['immutable'] = true
+        ..['recorded_at'] = nowIso;
+      tx.set(sessionRef, sessionPayload);
+
+      // 3. Actualizar solo métricas de ejecución y estado del plan (sin alterar bloques/ejercicios).
+      if (planRef != null && planSnap != null && planSnap.exists && planSnap.data() != null) {
+        final planData = planSnap.data()!;
+        final currentVeces = (planData['veces_impartida'] as num?)?.toInt() ?? 0;
+        final currentRev = (planData['revision'] as num?)?.toInt() ?? 1;
+        tx.update(planRef, {
+          'veces_impartida': currentVeces + 1,
+          'ultima_ejecucion': session.date.toIso8601String(),
+          'plan_status': ClassPlanStatus.completed.id,
+          'revision': currentRev + 1,
+          'updated_at': nowIso,
+        });
+      }
+
+      // 4. Contabilizar únicamente recursos efectivamente completados.
+      for (final resSnap in resSnaps) {
+        if (!resSnap.exists || resSnap.data() == null) continue;
+        final resData = resSnap.data()!;
+        final currentCount = (resData['veces_impartida'] as num?)?.toInt() ??
+            (resData['veces_usada'] as num?)?.toInt() ??
+            0;
+        tx.update(resSnap.reference, {
+          'completado': true,
+          'veces_impartida': currentCount + 1,
+          'clase_usada': session.groupName,
+          'updated_at': nowIso,
+        });
+      }
+
+      return true;
+    });
   }
 }

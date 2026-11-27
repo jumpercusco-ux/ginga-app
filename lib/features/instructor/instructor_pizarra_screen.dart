@@ -422,7 +422,10 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
       initialEditingPlanId: widget.initialEditingPlanId,
       initialLivePlanId: widget.initialLivePlanId,
       initialCreateManual: widget.initialCreateManual,
-      liveSessionStorage: widget.liveSessionStorage,
+      liveSessionStorage: widget.liveSessionStorage ??
+          (!_isIsolatedDataSource && _uid != null
+              ? FirestoreLiveSessionStorage(instructorUid: _uid!)
+              : null),
       clock: widget.clock,
       onOpenBiblioteca: widget.onOpenBiblioteca ??
           (_isIsolatedDataSource

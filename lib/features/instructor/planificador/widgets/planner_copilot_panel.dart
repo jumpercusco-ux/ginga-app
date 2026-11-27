@@ -16,6 +16,7 @@ class PlannerCopilotPanel extends StatefulWidget {
   final ClassPlanBlock? selectedBlock;
   final ClassPlanExercise? selectedExercise;
   final List<PlannerResourceItem> availableResources;
+  final PedagogicalContinuityContext? continuityContext;
   final PlannerCopilotClient copilotClient;
   final List<CopilotChatMessage> messages;
   final ValueChanged<List<CopilotChatMessage>> onMessagesChanged;
@@ -31,6 +32,7 @@ class PlannerCopilotPanel extends StatefulWidget {
     this.selectedBlock,
     this.selectedExercise,
     this.availableResources = const [],
+    this.continuityContext,
     required this.copilotClient,
     required this.messages,
     required this.onMessagesChanged,
@@ -125,6 +127,7 @@ class _PlannerCopilotPanelState extends State<PlannerCopilotPanel> {
         selectedExerciseId: widget.selectedExercise?.exerciseId,
         availableResources: widget.availableResources,
         conversationHistory: widget.messages,
+        continuityContext: widget.continuityContext,
       );
       if (!mounted) return;
       final assistantMsg = CopilotChatMessage(

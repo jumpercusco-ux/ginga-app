@@ -22,6 +22,9 @@ class PlannerClassEditorView extends StatefulWidget {
   final CurriculumRepository? curriculumRepository;
   final Map<String, String> movementNamesById;
   final PlannerCopilotClient? copilotClient;
+  final PedagogicalContinuityContext? continuityContext;
+  final PlannerSyncState syncState;
+  final String? syncErrorMessage;
   final Future<PlannerResourceItem?> Function()? onCreateLocalResource;
   final ValueChanged<PlannerResourceItem>? onOpenResource;
   final ValueChanged<ClassPlanModel> onSavePlan;
@@ -35,6 +38,9 @@ class PlannerClassEditorView extends StatefulWidget {
     this.curriculumRepository,
     this.movementNamesById = const {},
     this.copilotClient,
+    this.continuityContext,
+    this.syncState = PlannerSyncState.idle,
+    this.syncErrorMessage,
     this.onCreateLocalResource,
     this.onOpenResource,
     required this.onSavePlan,
@@ -194,11 +200,19 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
     final proposal = msg.response;
     if (proposal == null) return;
     try {
-      final applied = CopilotOperationApplier.applyProposal(
+      final appliedRaw = CopilotOperationApplier.applyProposal(
         currentPlan: _plan,
         proposal: proposal,
         availableResources: _resources,
       );
+      final copilotMeta = <String, dynamic>{
+        'applied_at': DateTime.now().toIso8601String(),
+        'mode': proposal.mode.id,
+        'operations_count': proposal.operations.length,
+        'diff_count': proposal.diffSummary.length,
+        'resulting_draft_version': proposal.resultingDraftVersion,
+      };
+      final applied = appliedRaw.copyWith(lastCopilotSummary: copilotMeta);
       setState(() {
         _copilotUndoStack.add(_plan);
         _plan = applied;
@@ -300,6 +314,8 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
               selectedBlock: _selectedPair?.block,
               selectedExercise: _selectedPair?.exercise,
               availableResources: _resources,
+              continuityContext:
+                  widget.continuityContext ?? _plan.continuityContext,
               copilotClient: _effectiveCopilotClient,
               messages: _copilotMessages,
               onMessagesChanged: (next) {
@@ -583,17 +599,16 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
               ),
               PlannerChoicePill(
                 key: const Key('editor_status_toggle'),
-                label: _plan.planStatus == ClassPlanStatus.draft
-                    ? 'Estado: Borrador'
-                    : 'Estado: Guardado',
+                label: 'Estado: ${_plan.planStatus.label}',
                 icon: _plan.planStatus == ClassPlanStatus.draft
                     ? Icons.edit_note_rounded
                     : Icons.check_circle_outline,
-                selected: _plan.planStatus == ClassPlanStatus.saved,
+                selected: _plan.planStatus != ClassPlanStatus.draft,
                 onTap: () {
                   final nextStatus = _plan.planStatus == ClassPlanStatus.draft
                       ? ClassPlanStatus.saved
                       : ClassPlanStatus.draft;
+                  if (!_plan.planStatus.canTransitionTo(nextStatus)) return;
                   _applyPlanUpdate(
                     ClassPlanEditorOperations.updateMetadata(
                       _plan,
@@ -602,6 +617,31 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
                   );
                 },
               ),
+              PlannerBadge(
+                label: 'rev ${_plan.revision}',
+                color: pal.textSecondary,
+                icon: Icons.history_outlined,
+              ),
+              if (widget.syncState != PlannerSyncState.idle)
+                PlannerBadge(
+                  key: const Key('editor_sync_state_badge'),
+                  label: widget.syncState.label,
+                  color: widget.syncState == PlannerSyncState.synced
+                      ? pal.accent
+                      : (widget.syncState == PlannerSyncState.saving
+                          ? pal.infoBlue
+                          : pal.amber),
+                  backgroundColor: widget.syncState == PlannerSyncState.synced
+                      ? null
+                      : (widget.syncState == PlannerSyncState.saving
+                          ? pal.infoBlueBg
+                          : pal.amberBg),
+                  icon: widget.syncState == PlannerSyncState.synced
+                      ? Icons.cloud_done_outlined
+                      : (widget.syncState == PlannerSyncState.saving
+                          ? Icons.sync_rounded
+                          : Icons.cloud_off_outlined),
+                ),
               if (_isDuplicateCopy)
                 PlannerBadge(
                   label: 'Copia independiente',
@@ -682,7 +722,9 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
               ),
               ElevatedButton.icon(
                 key: const Key('editor_save_button'),
-                onPressed: _saveCurrentPlan,
+                onPressed: widget.syncState == PlannerSyncState.saving
+                    ? null
+                    : _saveCurrentPlan,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(0, 42),
                   backgroundColor: pal.accent,
@@ -691,9 +733,11 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
                 ),
                 icon: const Icon(Icons.save_outlined, size: 17),
                 label: Text(
-                  _plan.planStatus == ClassPlanStatus.draft
-                      ? 'Guardar borrador'
-                      : 'Guardar clase',
+                  widget.syncState == PlannerSyncState.saving
+                      ? 'Guardando...'
+                      : (_plan.planStatus == ClassPlanStatus.draft
+                          ? 'Guardar borrador'
+                          : 'Guardar clase'),
                   style: GoogleFonts.montserrat(
                       fontSize: 12.5, fontWeight: FontWeight.w700),
                 ),
@@ -1955,6 +1999,7 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
         selectedBlock: _selectedPair?.block,
         selectedExercise: _selectedPair?.exercise,
         availableResources: _resources,
+        continuityContext: widget.continuityContext ?? _plan.continuityContext,
         copilotClient: _effectiveCopilotClient,
         messages: _copilotMessages,
         onMessagesChanged: (next) {

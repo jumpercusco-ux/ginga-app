@@ -86,6 +86,8 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
   bool _forceSimulatedInRealMode = false;
   ClassPlanModel? _lastServerGeneratedPlan;
   bool _dismissedLastServerPlan = false;
+  PlannerSyncState _syncState = PlannerSyncState.idle;
+  String? _syncErrorMessage;
 
   DateTime _now() => (widget.clock ?? DateTime.now)();
 
@@ -290,14 +292,13 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         }
       }
       final base = ClassPlanDraftRequest.fromGroup(firstGroup, mode: mode);
-      final matched = PedagogicalContinuityContext.findLatestSessionForGroup(
+      final ctx = PedagogicalContinuityContext.fromGroupHistory(
         _history,
         groupId: firstGroup.id,
         groupName: firstGroup.name,
         audienceType: firstGroup.audienceType,
       );
-      if (matched == null) return base;
-      final ctx = PedagogicalContinuityContext.fromSession(matched);
+      if (ctx == null) return base;
       return base.copyWith(
         continuityContext: ctx,
         continuitySummary: ctx.hasContent ? ctx.shortHeadline : null,
@@ -332,16 +333,12 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
           break;
         }
       }
-      final latestForPlanGroup =
-          PedagogicalContinuityContext.findLatestSessionForGroup(
+      final planGroupCtx = PedagogicalContinuityContext.fromGroupHistory(
         _history,
-        groupId: matchedPlanGroup?.id,
+        groupId: matchedPlanGroup?.id ?? reusePlan.groupId,
         groupName: reusePlan.groupName,
         audienceType: reusePlan.audienceType,
       );
-      final planGroupCtx = latestForPlanGroup != null
-          ? PedagogicalContinuityContext.fromSession(latestForPlanGroup)
-          : null;
       req = req.copyWith(
         creationMode: mode,
         groupSource: matchedPlanGroup != null
@@ -411,34 +408,65 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
     });
   }
 
+  PedagogicalContinuityContext? _resolveContinuityForPlan(ClassPlanModel plan) {
+    final fromHistory = PedagogicalContinuityContext.fromGroupHistory(
+      _history,
+      groupId: plan.groupId ?? _resolveGroupId(plan, _groups),
+      groupName: plan.groupName,
+      audienceType: plan.audienceType,
+    );
+    return fromHistory ?? plan.continuityContext;
+  }
+
   Future<void> _handleCreateLocalDraft(ClassPlanDraftRequest req) async {
     final draft = ClassPlanModel.fromLocalDraftRequest(req);
-    await widget.dataSource.saveLocalDraft(draft);
-    final updatedPlans = await widget.dataSource.loadPlans();
-    if (!mounted) return;
     setState(() {
-      _plans = updatedPlans;
-      _activeCreationMode = null;
-      _pendingDraftRequest = null;
-      _generationError = null;
-      _selectedResourceIdsForPlan.clear();
-      _activeTab = PlannerHubTab.plans;
+      _syncState = PlannerSyncState.saving;
+      _syncErrorMessage = null;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Borrador "${draft.titulo}" creado localmente sin marcar recursos como usados.',
+    try {
+      final saved = await widget.dataSource.savePlan(draft);
+      final updatedPlans = await widget.dataSource.loadPlans();
+      if (!mounted) return;
+      setState(() {
+        _plans = updatedPlans;
+        _syncState = PlannerSyncState.synced;
+        _activeCreationMode = null;
+        _pendingDraftRequest = null;
+        _generationError = null;
+        _selectedResourceIdsForPlan.clear();
+        _activeTab = PlannerHubTab.plans;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Borrador "${saved.titulo}" creado localmente sin marcar recursos como usados.',
+          ),
+          backgroundColor: PlannerPalette.of(context).accent,
+          action: SnackBarAction(
+            label: 'Abrir editor',
+            textColor: PlannerPalette.of(context).onAccent,
+            onPressed: () {
+              if (mounted) _openEditor(saved);
+            },
+          ),
         ),
-        backgroundColor: PlannerPalette.of(context).accent,
-        action: SnackBarAction(
-          label: 'Abrir editor',
-          textColor: PlannerPalette.of(context).onAccent,
-          onPressed: () {
-            if (mounted) _openEditor(draft);
-          },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _syncState = PlannerSyncState.pendingOffline;
+        _syncErrorMessage = e.toString();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No se pudo guardar el borrador ($e). Verifica tu conexión e inténtalo nuevamente.',
+          ),
+          backgroundColor: PlannerPalette.of(context).amber,
         ),
-      ),
-    );
+      );
+    }
   }
 
   Future<void> _handleGenerateWithEngine(ClassPlanDraftRequest req) async {
@@ -459,18 +487,24 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         request: req,
         forceSimulated: _forceSimulatedInRealMode,
       );
-      await widget.dataSource.saveLocalDraft(result.plan);
+      final persisted = await widget.dataSource.savePlan(
+        req.realClaseId != null
+            ? result.plan.copyWith(groupId: req.realClaseId)
+            : result.plan,
+      );
       final updatedPlans = await widget.dataSource.loadPlans();
       await _refreshEngineStatus();
       if (!mounted) return;
       setState(() {
         _plans = updatedPlans;
+        _syncState = PlannerSyncState.synced;
+        _syncErrorMessage = null;
         _isGeneratingWithEngine = false;
         _generationError = null;
         _activeCreationMode = null;
         _pendingDraftRequest = null;
         _selectedResourceIdsForPlan.clear();
-        _editingPlan = result.plan;
+        _editingPlan = persisted;
         _editingIsDuplicate = false;
       });
       final providerSummary = result.generationMeta.isSimulated
@@ -479,7 +513,7 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Propuesta "${result.plan.titulo}" generada $providerSummary y abierta para revisión.',
+            'Propuesta "${persisted.titulo}" generada $providerSummary y abierta para revisión.',
           ),
           backgroundColor: PlannerPalette.of(context).accent,
         ),
@@ -522,7 +556,19 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
   }
 
   Future<void> _startLiveClass(ClassPlanModel plan) async {
-    final session = _buildLiveSessionFromPlan(plan);
+    ClassPlanModel activePlan = plan;
+    if (plan.planStatus.canTransitionTo(ClassPlanStatus.inProgress)) {
+      try {
+        activePlan = await widget.dataSource.updatePlanStatus(
+          plan.id,
+          ClassPlanStatus.inProgress,
+          expectedRevision: plan.revision,
+        );
+      } catch (_) {
+        // Tolerante: la ejecución en vivo no se bloquea por un fallo transitorio al actualizar estado.
+      }
+    }
+    final session = _buildLiveSessionFromPlan(activePlan);
     await _liveStorage.saveActiveSession(session);
     if (!mounted) return;
     setState(() {
@@ -532,6 +578,12 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
       _editingIsDuplicate = false;
       _activeLiveSession = session;
       _recoverableSession = session;
+      final idx = _plans.indexWhere((p) => p.id == activePlan.id);
+      if (idx >= 0) {
+        final next = List<ClassPlanModel>.of(_plans);
+        next[idx] = activePlan;
+        _plans = next;
+      }
     });
   }
 
@@ -550,9 +602,26 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
   }
 
   Future<void> _discardRecoveredSession() async {
+    final discarded = _recoverableSession ?? _activeLiveSession;
     await _liveStorage.clearActiveSession();
+    if (discarded != null) {
+      final plan = await widget.dataSource.loadPlanById(discarded.planId);
+      if (plan != null &&
+          plan.planStatus == ClassPlanStatus.inProgress &&
+          plan.planStatus.canTransitionTo(ClassPlanStatus.saved)) {
+        try {
+          await widget.dataSource.updatePlanStatus(
+            plan.id,
+            ClassPlanStatus.saved,
+            expectedRevision: plan.revision,
+          );
+        } catch (_) {}
+      }
+    }
+    final updatedPlans = await widget.dataSource.loadPlans().catchError((_) => _plans);
     if (!mounted) return;
     setState(() {
+      _plans = updatedPlans;
       _activeLiveSession = null;
       _recoverableSession = null;
     });
@@ -623,28 +692,168 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
   }
 
   Future<void> _handleSaveEditedPlan(ClassPlanModel savedPlan) async {
-    await widget.dataSource.saveLocalDraft(savedPlan);
-    final updatedPlans = await widget.dataSource.loadPlans();
-    if (!mounted) return;
     setState(() {
-      _plans = updatedPlans;
-      _editingPlan = null;
-      _editingIsDuplicate = false;
-      _activeTab = PlannerHubTab.plans;
+      _syncState = PlannerSyncState.saving;
+      _syncErrorMessage = null;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Clase "${savedPlan.titulo}" guardada sin marcar recursos como usados.',
+    try {
+      final persisted = await widget.dataSource.savePlan(
+        savedPlan,
+        expectedRevision: _editingIsDuplicate ? null : savedPlan.revision,
+      );
+      final updatedPlans = await widget.dataSource.loadPlans();
+      if (!mounted) return;
+      setState(() {
+        _plans = updatedPlans;
+        _syncState = PlannerSyncState.synced;
+        _syncErrorMessage = null;
+        _editingPlan = null;
+        _editingIsDuplicate = false;
+        _activeTab = PlannerHubTab.plans;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Clase "${persisted.titulo}" guardada sin marcar recursos como usados.',
+          ),
+          backgroundColor: PlannerPalette.of(context).accent,
         ),
-        backgroundColor: PlannerPalette.of(context).accent,
+      );
+    } on PlannerConcurrencyConflictException catch (conflict) {
+      if (!mounted) return;
+      setState(() {
+        _syncState = PlannerSyncState.conflict;
+        _syncErrorMessage = conflict.message;
+      });
+      await _showConcurrencyConflictDialog(savedPlan, conflict);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _syncState = PlannerSyncState.pendingOffline;
+        _syncErrorMessage = e.toString();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Sin conexión o error al sincronizar. Tus cambios locales siguen abiertos para reintentar.',
+          ),
+          backgroundColor: PlannerPalette.of(context).amber,
+          action: SnackBarAction(
+            label: 'Reintentar',
+            textColor: PlannerPalette.of(context).onAccent,
+            onPressed: () {
+              if (mounted) _handleSaveEditedPlan(savedPlan);
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showConcurrencyConflictDialog(
+    ClassPlanModel localPlan,
+    PlannerConcurrencyConflictException conflict,
+  ) async {
+    final pal = PlannerPalette.of(context);
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('planner_concurrency_conflict_dialog'),
+        backgroundColor: pal.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(GingaRadius.lg),
+          side: BorderSide(color: pal.amber.withValues(alpha: 0.6)),
+        ),
+        title: Text(
+          'Conflicto de edición multidispositivo',
+          style: GoogleFonts.montserrat(
+            fontWeight: FontWeight.w800,
+            color: pal.textPrimary,
+          ),
+        ),
+        content: Text(
+          'Otro dispositivo guardó una versión más reciente (${conflict.remoteRevision} vs ${conflict.expectedRevision}). '
+          'Para evitar sobrescribir cambios silenciosamente, elige cómo proceder:',
+          style: GoogleFonts.montserrat(
+            fontSize: 12.5,
+            color: pal.textSecondary,
+            height: 1.45,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop('cancel'),
+            child: Text(
+              'Seguir revisando',
+              style: GoogleFonts.montserrat(color: pal.textSecondary),
+            ),
+          ),
+          OutlinedButton(
+            key: const Key('conflict_save_copy_btn'),
+            onPressed: () => Navigator.of(ctx).pop('copy'),
+            child: Text(
+              'Guardar como copia independiente',
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+            ),
+          ),
+          ElevatedButton(
+            key: const Key('conflict_reload_remote_btn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: pal.accent,
+              foregroundColor: pal.onAccent,
+            ),
+            onPressed: () => Navigator.of(ctx).pop('reload'),
+            child: Text(
+              'Cargar versión más reciente',
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
       ),
     );
+    if (!mounted) return;
+    if (action == 'reload') {
+      final latest = conflict.remotePlan ??
+          await widget.dataSource.loadPlanById(localPlan.id);
+      final updatedPlans = await widget.dataSource.loadPlans().catchError((_) => _plans);
+      if (!mounted) return;
+      if (latest != null) {
+        setState(() {
+          _plans = updatedPlans;
+          _editingPlan = latest;
+          _editingIsDuplicate = false;
+          _syncState = PlannerSyncState.synced;
+          _syncErrorMessage = null;
+        });
+      }
+    } else if (action == 'copy') {
+      final copy = ClassPlanEditorOperations.duplicatePlan(
+        localPlan,
+        existingPlanIds: _plans.map((p) => p.id).toSet(),
+      );
+      final persistedCopy = await widget.dataSource.savePlan(copy);
+      final updatedPlans = await widget.dataSource.loadPlans();
+      if (!mounted) return;
+      setState(() {
+        _plans = updatedPlans;
+        _editingPlan = null;
+        _editingIsDuplicate = false;
+        _syncState = PlannerSyncState.synced;
+        _syncErrorMessage = null;
+        _activeTab = PlannerHubTab.plans;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Guardado como copia independiente "${persistedCopy.titulo}".',
+          ),
+          backgroundColor: PlannerPalette.of(context).accent,
+        ),
+      );
+    }
   }
 
   Future<PlannerResourceItem?> _createLocalResourceFromEditor() async {
-    final inMemory = widget.dataSource;
-    if (inMemory is! InMemoryPlannerDataSource) return null;
     PlannerResourceItem? created;
     await showModalBottomSheet<void>(
       context: context,
@@ -654,9 +863,9 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         heightFactor: 0.86,
         child: LocalResourceEditorSheet(
           onSave: (item) async {
-            await inMemory.saveLocalResource(item);
-            final updated = await inMemory.loadResources();
-            created = item;
+            final saved = await widget.dataSource.saveResource(item);
+            final updated = await widget.dataSource.loadResources();
+            created = saved;
             if (!mounted) return;
             setState(() => _resources = updated);
           },
@@ -696,8 +905,6 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
   }
 
   void _openAddOrEditLocalResource({PlannerResourceItem? initial}) {
-    final inMemory = widget.dataSource;
-    if (inMemory is! InMemoryPlannerDataSource) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -707,8 +914,8 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         child: LocalResourceEditorSheet(
           initialResource: initial,
           onSave: (item) async {
-            await inMemory.saveLocalResource(item);
-            final updated = await inMemory.loadResources();
+            await widget.dataSource.saveResource(item);
+            final updated = await widget.dataSource.loadResources();
             if (!mounted) return;
             setState(() => _resources = updated);
           },
@@ -787,7 +994,8 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
             ),
           ),
           if (widget.onLegacyEditIdea != null ||
-              widget.dataSource is InMemoryPlannerDataSource)
+              widget.dataSource is InMemoryPlannerDataSource ||
+              widget.dataSource.isPersistentRemote)
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(0, 40),
@@ -904,22 +1112,24 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
                 )
               : OfflineSimulatedPlannerCopilotClient());
       return PlannerClassEditorView(
-        key: ValueKey('class_editor_${_editingPlan!.id}_$_editingIsDuplicate'),
+        key: ValueKey('class_editor_${_editingPlan!.id}_${_editingPlan!.revision}_$_editingIsDuplicate'),
         initialPlan: _editingPlan!,
         isDuplicateCopy: _editingIsDuplicate,
         resources: _resources,
         curriculumRepository: widget.curriculumRepository,
         movementNamesById: _movementNamesById,
         copilotClient: resolvedCopilot,
-        onCreateLocalResource:
-            widget.dataSource is InMemoryPlannerDataSource
-                ? _createLocalResourceFromEditor
-                : null,
+        continuityContext: _resolveContinuityForPlan(_editingPlan!),
+        syncState: _syncState,
+        syncErrorMessage: _syncErrorMessage,
+        onCreateLocalResource: _createLocalResourceFromEditor,
         onOpenResource: _openResourceViewer,
         onSavePlan: _handleSaveEditedPlan,
         onCancel: () => setState(() {
           _editingPlan = null;
           _editingIsDuplicate = false;
+          _syncState = PlannerSyncState.idle;
+          _syncErrorMessage = null;
         }),
       );
     }
@@ -1259,6 +1469,25 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
                           color: pal.infoBlue,
                           backgroundColor: pal.infoBlueBg,
                         ),
+                        if (_syncState != PlannerSyncState.idle)
+                          PlannerBadge(
+                            key: const Key('hub_sync_state_badge'),
+                            label: _syncState.label,
+                            color: _syncState == PlannerSyncState.synced
+                                ? pal.accent
+                                : (_syncState == PlannerSyncState.saving
+                                    ? pal.infoBlue
+                                    : pal.amber),
+                            backgroundColor:
+                                _syncState == PlannerSyncState.synced
+                                    ? null
+                                    : (_syncState == PlannerSyncState.saving
+                                        ? pal.infoBlueBg
+                                        : pal.amberBg),
+                            icon: _syncState == PlannerSyncState.synced
+                                ? Icons.cloud_done_outlined
+                                : Icons.sync_problem_outlined,
+                          ),
                       ],
                     ),
                     const SizedBox(height: 8),

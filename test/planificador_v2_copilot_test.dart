@@ -28,6 +28,7 @@ class _ErrorCopilotClient implements PlannerCopilotClient {
     List<PlannerResourceItem> availableResources = const [],
     List<CopilotChatMessage> conversationHistory = const [],
     List<String>? confirmedMaterials,
+    PedagogicalContinuityContext? continuityContext,
   }) async {
     throw error;
   }
