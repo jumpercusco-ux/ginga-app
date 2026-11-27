@@ -21,7 +21,7 @@ const { createPlannerV2LocalServer } = require('./planner_v2_local_server');
 
 function loadInfantil8of8Plan() {
   const file = path.join(__dirname, '..', 'scratch', 'autonomous_pilot_result.json');
-  if (fs.existsSync(file)) {
+  if (process.env.CI_IGNORE_SCRATCH !== '1' && fs.existsSync(file)) {
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (parsed?.ok && parsed?.plan?.bloques?.length >= 4) {
       return parsed.plan;
@@ -69,6 +69,9 @@ function loadInfantil8of8Plan() {
             sugerencias_ia: 'Mirada al frente.',
             observaciones_profesor: '',
             technical_movement_refs: ['Ginga', 'Esquiva'],
+            content_origin: 'ai_complementary_proposal',
+            source_origins: ['ai_complementary_proposal'],
+            activity_authoring: 'ai_complementary_proposal',
             curriculum_movement_ids: [],
             linked_resource_ids: [],
             resource_usage_notes: {},
@@ -89,6 +92,9 @@ function loadInfantil8of8Plan() {
             sugerencias_ia: 'Cuidar postura.',
             observaciones_profesor: '',
             technical_movement_refs: ['Armada', 'Aú'],
+            content_origin: 'ai_complementary_proposal',
+            source_origins: ['ai_complementary_proposal'],
+            activity_authoring: 'ai_complementary_proposal',
             curriculum_movement_ids: [],
             linked_resource_ids: [],
             resource_usage_notes: {},
@@ -117,6 +123,9 @@ function loadInfantil8of8Plan() {
             sugerencias_ia: 'Peso centrado.',
             observaciones_profesor: '',
             technical_movement_refs: ['Ginga', 'Armada'],
+            content_origin: 'ai_complementary_proposal',
+            source_origins: ['ai_complementary_proposal'],
+            activity_authoring: 'ai_complementary_proposal',
             curriculum_movement_ids: [],
             linked_resource_ids: [],
             resource_usage_notes: {},
@@ -137,6 +146,9 @@ function loadInfantil8of8Plan() {
             sugerencias_ia: 'Dedos separados.',
             observaciones_profesor: '',
             technical_movement_refs: ['Aú', 'Esquiva'],
+            content_origin: 'ai_complementary_proposal',
+            source_origins: ['ai_complementary_proposal'],
+            activity_authoring: 'ai_complementary_proposal',
             curriculum_movement_ids: [],
             linked_resource_ids: [],
             resource_usage_notes: {},
@@ -188,6 +200,9 @@ function loadInfantil8of8Plan() {
             sugerencias_ia: 'Postura erguida.',
             observaciones_profesor: '',
             technical_movement_refs: ['Ginga'],
+            content_origin: 'ai_complementary_proposal',
+            source_origins: ['ai_complementary_proposal'],
+            activity_authoring: 'ai_complementary_proposal',
             curriculum_movement_ids: [],
             linked_resource_ids: [],
             resource_usage_notes: {},
@@ -216,6 +231,9 @@ function loadInfantil8of8Plan() {
             sugerencias_ia: 'Manos firmes.',
             observaciones_profesor: '',
             technical_movement_refs: ['Ginga', 'Aú', 'Cocorinha'],
+            content_origin: 'ai_complementary_proposal',
+            source_origins: ['ai_complementary_proposal'],
+            activity_authoring: 'ai_complementary_proposal',
             curriculum_movement_ids: [],
             linked_resource_ids: [],
             resource_usage_notes: {},
@@ -236,6 +254,9 @@ function loadInfantil8of8Plan() {
             sugerencias_ia: 'Mirada al centro.',
             observaciones_profesor: '',
             technical_movement_refs: ['Rolê', 'Esquiva'],
+            content_origin: 'ai_complementary_proposal',
+            source_origins: ['ai_complementary_proposal'],
+            activity_authoring: 'ai_complementary_proposal',
             curriculum_movement_ids: [],
             linked_resource_ids: [],
             resource_usage_notes: {},
@@ -264,6 +285,9 @@ function loadInfantil8of8Plan() {
             sugerencias_ia: 'Pulso estable.',
             observaciones_profesor: '',
             technical_movement_refs: ['Ginga', 'Armada', 'Aú', 'Esquiva'],
+            content_origin: 'ai_complementary_proposal',
+            source_origins: ['ai_complementary_proposal'],
+            activity_authoring: 'ai_complementary_proposal',
             curriculum_movement_ids: [],
             linked_resource_ids: [],
             resource_usage_notes: {},
