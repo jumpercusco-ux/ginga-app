@@ -13,6 +13,14 @@ const FORBIDDEN_UNVALIDATED_INFANTIL_FIU_CLAIM_RE =
 const EXIGENT_INVERSION_RE =
   /\b(bananeira|ponte|parada\s+de\s+m[aã]o|queda\s+de\s+rim)\b/i;
 
+function normalizeMaterialKey(value) {
+  return String(value || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 function hasInversionPreconditions(context) {
   const confirmedSurface = context.space.floorType === 'tatami' && context.space.availableMats === true;
   const sufficientSupervision = context.instructorsAvailable >= 2 || context.participants <= 8;
@@ -118,7 +126,7 @@ function validateGeneratedPlan(plan, context, catalog) {
 
   const resourceById = new Map(context.selectedResources.map((r) => [r.resource_id, r]));
   const hasAcrobaciasFocus = context.focuses.some((f) => /acrobacia/i.test(f));
-  const declaredMaterialsLower = new Set(context.materials.map((m) => m.toLowerCase()));
+  const declaredMaterialsLower = new Set(context.materials.map((m) => normalizeMaterialKey(m)));
 
   let allExercisesCount = 0;
   let simultaneousMinutes = 0;
@@ -261,12 +269,27 @@ function validateGeneratedPlan(plan, context, catalog) {
           );
         }
         if (ex.tipo_actividad === 'juego_dinamico') {
-          const det = String(ex.detalle || '');
-          const hasRules = /regla|señal|ronda|rotaci[oó]n|preparaci[oó]n/i.test(det);
-          if (!hasRules) {
+          const detBody = String(ex.detalle || '')
+            .replace(/\s*Tiempos internos\s*\([^)]*\)\.?/gi, '')
+            .trim();
+          // Verify 3 distinct executable dimensions (never satisfied by repeating 1 keyword):
+          // 1) Spatial/group setup, 2) Rules/cues/win-action, 3) Rounds/turns/rotation.
+          const hasSetup =
+            /preparaci[oó]n|c[ií]rculo|parejas|espacio|organiza|ubicad|formaci[oó]n|distancia|grupos?|estaci[oó]n|frente\s+a\s+frente|l[ií]nea/i.test(
+              detBody
+            );
+          const hasRuleOrCue =
+            /regla|se[nñ]al|consigna|indicaci[oó]n|toque|pandeiro|berimbau|palmas|silbato|comando|cuando\s+suen|al\s+escuchar|si\s+el\s+profesor|deben|sin\s+contacto|espejo/i.test(
+              detBody
+            );
+          const hasRoundsOrRotation =
+            /ronda|rotaci[oó]n|rotan|turno|intercambi|cambian\s+de|alternan|cada\s+\d+\s*(?:seg|min)|series?|repeticion/i.test(
+              detBody
+            );
+          if (detBody.length < 75 || !hasSetup || !hasRuleOrCue || !hasRoundsOrRotation) {
             addError(
               'GAME_MISSING_EXECUTABLE_RULES',
-              `Juego infantil ${ex.exercise_id} carece de preparación/reglas/señales/rondas/rotación claras.`
+              `Juego infantil ${ex.exercise_id} carece de preparación espacial, reglas/señales y rondas/rotación ejecutables.`
             );
           }
         }
@@ -292,14 +315,44 @@ function validateGeneratedPlan(plan, context, catalog) {
         );
       }
 
-      // Internal timing breakdown coherence for games and infantile activities
+      // Internal timing breakdown coherence for structured tiempos_internos + games/infantile activities
+      const structuredTimings = Array.isArray(ex.tiempos_internos) ? ex.tiempos_internos : [];
+      let validStructuredTimingSum = null;
+      if (structuredTimings.length > 0) {
+        let sum = 0;
+        let allValid = true;
+        for (const item of structuredTimings) {
+          const etapa = String(item?.etapa || '').trim();
+          const mins = Number(item?.minutos);
+          if (!etapa || !Number.isInteger(mins) || mins < 1) {
+            allValid = false;
+            addError(
+              'INVALID_INTERNAL_TIMING_ENTRY',
+              `Ejercicio ${ex.exercise_id} tiene entrada inválida en tiempos_internos.`
+            );
+          } else {
+            sum += mins;
+          }
+        }
+        if (allValid && Number.isInteger(eDur)) {
+          validStructuredTimingSum = sum;
+          if (sum !== eDur) {
+            addError(
+              'INTERNAL_TIMING_SUM_MISMATCH',
+              `Los tiempos_internos de ${ex.exercise_id} suman ${sum} min pero duracion_min=${eDur} min.`
+            );
+          }
+        }
+      }
+
       if ((ex.tipo_actividad === 'juego_dinamico' || context.audienceType === 'infantil') && Number.isInteger(eDur)) {
         const det = String(ex.detalle || '');
-        const hasTimingBreakdown = /\d+\s*min|\b\d+\s*rondas?\b/i.test(det);
+        const hasTextTimingBreakdown = /\d+\s*(?:min|minutos?|seg|segundos?)|\b\d+\s*rondas?\b/i.test(det);
+        const hasTimingBreakdown = validStructuredTimingSum === eDur || hasTextTimingBreakdown;
         if (!hasTimingBreakdown) {
           addError(
             'MISSING_INTERNAL_TIMING_BREAKDOWN',
-            `Ejercicio ${ex.exercise_id} (${eDur} min) carece de desglose temporal interno en detalle.`
+            `Ejercicio ${ex.exercise_id} (${eDur} min) carece de desglose temporal interno (detalle o tiempos_internos).`
           );
         }
         const exactTotalMatch = det.match(/total\s*[:=]?\s*(\d+)\s*min/i);
@@ -350,7 +403,7 @@ function validateGeneratedPlan(plan, context, catalog) {
       // Space & unknown material honesty
       const exMaterials = Array.isArray(ex.materiales) ? ex.materiales : [];
       for (const mat of exMaterials) {
-        const mLow = String(mat).toLowerCase();
+        const mLow = normalizeMaterialKey(mat);
         if (mLow.includes('colchoneta') && context.space.availableMats !== true && !declaredMaterialsLower.has(mLow)) {
           addError(
             'ASSUMED_UNAVAILABLE_MATS',

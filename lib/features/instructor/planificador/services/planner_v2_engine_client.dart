@@ -1,7 +1,36 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:http/http.dart' as http;
 import '../models/class_plan_models.dart';
+
+class PlannerV2EngineStatus {
+  final String mode;
+  final bool realProviderEnabled;
+  final bool credentialsPresent;
+  final String primaryModel;
+  final Map<String, dynamic> pilotBudget;
+
+  const PlannerV2EngineStatus({
+    required this.mode,
+    required this.realProviderEnabled,
+    this.credentialsPresent = false,
+    this.primaryModel = 'gpt-4.1-mini',
+    this.pilotBudget = const {},
+  });
+
+  factory PlannerV2EngineStatus.fromHealthJson(Map<String, dynamic> json) {
+    return PlannerV2EngineStatus(
+      mode: json['mode']?.toString() ?? 'simulated_offline',
+      realProviderEnabled: json['real_provider_enabled'] == true,
+      credentialsPresent: json['real_provider_credentials_present'] == true,
+      primaryModel: json['primary_model']?.toString() ?? 'gpt-4.1-mini',
+      pilotBudget: json['pilot_budget'] is Map
+          ? Map<String, dynamic>.from(json['pilot_budget'] as Map)
+          : const {},
+    );
+  }
+}
 
 class PlannerV2EngineException implements Exception {
   final String code;
@@ -33,9 +62,14 @@ class PlannerV2GenerationResult {
 }
 
 abstract class PlannerV2EngineClient {
+  Future<PlannerV2EngineStatus?> fetchHealthStatus() async => null;
+
+  Future<PlannerV2GenerationResult?> fetchLastCompletedPlan() async => null;
+
   Future<PlannerV2GenerationResult> generatePlan({
     required ClassPlanDraftRequest request,
     String? requestId,
+    bool forceSimulated = false,
   });
 }
 
@@ -46,6 +80,33 @@ class PlannerV2ResponseAdapter {
   static PlannerV2GenerationResult fromJsonResponse(
     Map<String, dynamic> json,
     ClassPlanDraftRequest request, {
+    String? forcedPlanId,
+  }) =>
+      _adaptServerPayload(
+        json,
+        creationModeId: request.creationMode.id,
+        continuityMap: (request.continuityContext != null &&
+                request.continuityContext!.hasContent)
+            ? request.continuityContext!.toMap()
+            : null,
+        forcedPlanId: forcedPlanId,
+      );
+
+  static PlannerV2GenerationResult fromCompletedServerPayload(
+    Map<String, dynamic> json, {
+    String creationModeId = 'avanzada',
+    String? forcedPlanId,
+  }) =>
+      _adaptServerPayload(
+        json,
+        creationModeId: creationModeId,
+        forcedPlanId: forcedPlanId,
+      );
+
+  static PlannerV2GenerationResult _adaptServerPayload(
+    Map<String, dynamic> json, {
+    required String creationModeId,
+    Map<String, dynamic>? continuityMap,
     String? forcedPlanId,
   }) {
     if (json['status'] == 'error' && json['error'] is Map) {
@@ -97,11 +158,9 @@ class PlannerV2ResponseAdapter {
       ...planMap,
       'schema_version': 2,
       'plan_status': 'draft',
-      'creation_mode': request.creationMode.id,
+      'creation_mode': creationModeId,
       'generation_meta': genMeta.toMap(),
-      if (request.continuityContext != null &&
-          request.continuityContext!.hasContent)
-        'continuity_context': request.continuityContext!.toMap(),
+      if (continuityMap != null) 'continuity_context': continuityMap,
     };
 
     final model = ClassPlanModel.fromMap(planId, hydratedMap).copyWith(
@@ -143,8 +202,11 @@ class PlannerV2ResponseAdapter {
       case 'PROVIDER_TRUNCATED_OUTPUT':
       case 'VALIDATION_FAILED_AFTER_REPAIR':
         return 'La propuesta generada quedó incompleta tras validar reglas. Intenta nuevamente; tu borrador se conservó.';
+      case 'PILOT_BUDGET_EXCEEDED':
+        return fallback ??
+            'Se alcanzó el tope presupuestal del piloto (USD 0.10 / 4 generaciones). Puedes continuar con Modo simulado o Creación manual.';
       case 'REAL_PROVIDER_DISABLED':
-        return 'El proveedor IA real está deshabilitado en esta fase (solo modo simulado local).';
+        return 'El proveedor IA real está deshabilitado por defecto (modo simulado offline activo).';
       default:
         return (fallback != null && fallback.trim().isNotEmpty)
             ? fallback
@@ -165,27 +227,85 @@ class HttpLocalPlannerV2Client implements PlannerV2EngineClient {
     this.baseUrl = '',
     this.previewToken,
     http.Client? httpClient,
-    this.timeout = const Duration(seconds: 15),
+    this.timeout = const Duration(seconds: 120),
   }) : _http = httpClient ?? http.Client();
 
-  Uri _generateUri() {
+  Uri _endpointUri(String suffix) {
     final base = baseUrl.trim();
     if (base.isEmpty) {
-      return Uri.parse('/api/planner-v2/generate');
+      return Uri.parse(suffix);
     }
     final normalized =
         base.endsWith('/') ? base.substring(0, base.length - 1) : base;
-    return Uri.parse('$normalized/api/planner-v2/generate');
+    return Uri.parse('$normalized$suffix');
+  }
+
+  Uri _healthUri() => _endpointUri('/api/planner-v2/health');
+
+  Uri _lastStatusUri() => _endpointUri('/api/planner-v2/last-status');
+
+  Uri _generateUri() => _endpointUri('/api/planner-v2/generate');
+
+  @override
+  Future<PlannerV2EngineStatus?> fetchHealthStatus() async {
+    try {
+      final headers = <String, String>{
+        if (previewToken != null && previewToken!.trim().isNotEmpty)
+          'X-Preview-Token': previewToken!.trim(),
+      };
+      final resp = await _http
+          .get(_healthUri(), headers: headers)
+          .timeout(const Duration(seconds: 4));
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        final decoded = jsonDecode(resp.body);
+        if (decoded is Map) {
+          return PlannerV2EngineStatus.fromHealthJson(
+            Map<String, dynamic>.from(decoded),
+          );
+        }
+      }
+    } catch (_) {
+      // Silencioso si el servidor local no expone /health en pruebas de widgets
+    }
+    return null;
+  }
+
+  @override
+  Future<PlannerV2GenerationResult?> fetchLastCompletedPlan() async {
+    try {
+      final headers = <String, String>{
+        if (previewToken != null && previewToken!.trim().isNotEmpty)
+          'X-Preview-Token': previewToken!.trim(),
+      };
+      final resp = await _http
+          .get(_lastStatusUri(), headers: headers)
+          .timeout(const Duration(seconds: 4));
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        final decoded = jsonDecode(resp.body);
+        if (decoded is Map &&
+            decoded['has_last_completed_result'] == true &&
+            decoded['last_completed_result'] is Map) {
+          return PlannerV2ResponseAdapter.fromCompletedServerPayload(
+            Map<String, dynamic>.from(decoded['last_completed_result'] as Map),
+          );
+        }
+      }
+    } catch (_) {
+      // Silencioso en pruebas de widgets sin servidor activo
+    }
+    return null;
   }
 
   @override
   Future<PlannerV2GenerationResult> generatePlan({
     required ClassPlanDraftRequest request,
     String? requestId,
+    bool forceSimulated = false,
   }) async {
     final effectiveRequestId =
         requestId ?? 'req_ui_${DateTime.now().microsecondsSinceEpoch}';
     final payload = <String, dynamic>{
+      if (forceSimulated) 'force_simulated': true,
       'request': request.toPlannerV2RequestMap(requestId: effectiveRequestId),
       'preview_resources_catalog': [
         for (final sel in request.selectedResources)
@@ -207,83 +327,168 @@ class HttpLocalPlannerV2Client implements PlannerV2EngineClient {
         'X-Preview-Token': previewToken!.trim(),
     };
 
-    // Máximo 1 reintento automático para errores transitorios de red o 502/504 conservando el mismo request_id
-    for (int attempt = 0; attempt < 2; attempt++) {
+    // Una única solicitud HTTP por clic para evitar duplicar llamadas pagadas ni consumir slots del piloto silenciosamente.
+    try {
+      final resp = await _http
+          .post(
+            _generateUri(),
+            headers: headers,
+            body: jsonEncode(payload),
+          )
+          .timeout(timeout);
+
+      Map<String, dynamic> decoded = const {};
       try {
-        final resp = await _http
-            .post(
-              _generateUri(),
-              headers: headers,
-              body: jsonEncode(payload),
-            )
-            .timeout(timeout);
-
-        Map<String, dynamic> decoded = const {};
-        try {
-          final parsed = jsonDecode(resp.body);
-          if (parsed is Map) {
-            decoded = Map<String, dynamic>.from(parsed);
-          }
-        } catch (_) {
-          throw const PlannerV2EngineException(
-            code: 'INVALID_RESPONSE',
-            userMessage:
-                'No se pudo leer la respuesta del motor local. Tu configuración fue preservada.',
-            retryable: true,
-          );
+        final parsed = jsonDecode(resp.body);
+        if (parsed is Map) {
+          decoded = Map<String, dynamic>.from(parsed);
         }
-
-        if (resp.statusCode >= 200 &&
-            resp.statusCode < 300 &&
-            decoded['status'] == 'ok') {
-          return PlannerV2ResponseAdapter.fromJsonResponse(decoded, request);
-        }
-
-        final errObj = decoded['error'] is Map
-            ? Map<String, dynamic>.from(decoded['error'] as Map)
-            : const <String, dynamic>{};
-        final code = errObj['code']?.toString() ?? 'HTTP_${resp.statusCode}';
-        final retryable = errObj['retryable'] == true ||
-            resp.statusCode == 502 ||
-            resp.statusCode == 504;
-
-        if (attempt == 0 && retryable && resp.statusCode >= 500) {
-          continue;
-        }
-
-        throw PlannerV2EngineException(
-          code: code,
-          userMessage: PlannerV2ResponseAdapter.friendlyMessageForCode(
-            code,
-            fallback: errObj['message']?.toString(),
-          ),
-          retryable: retryable,
-        );
-      } on PlannerV2EngineException {
-        rethrow;
-      } on TimeoutException {
-        if (attempt == 0) continue;
+      } catch (_) {
         throw const PlannerV2EngineException(
-          code: 'PROVIDER_TIMEOUT',
+          code: 'INVALID_RESPONSE',
           userMessage:
-              'Tiempo de espera agotado al conectar con el motor local V2. Tu borrador está protegido; intenta reintentar.',
-          retryable: true,
-        );
-      } catch (e) {
-        if (attempt == 0) continue;
-        throw PlannerV2EngineException(
-          code: 'LOCAL_TRANSPORT_UNAVAILABLE',
-          userMessage:
-              'No fue posible conectar con el servidor local del motor V2 ($e). Tu formulario sigue intacto.',
+              'No se pudo leer la respuesta del motor local. Tu configuración fue preservada.',
           retryable: true,
         );
       }
-    }
 
-    throw const PlannerV2EngineException(
-      code: 'UNKNOWN_ERROR',
-      userMessage: 'No se pudo completar la generación.',
-      retryable: true,
-    );
+      if (resp.statusCode >= 200 &&
+          resp.statusCode < 300 &&
+          decoded['status'] == 'ok') {
+        return PlannerV2ResponseAdapter.fromJsonResponse(decoded, request);
+      }
+
+      final errObj = decoded['error'] is Map
+          ? Map<String, dynamic>.from(decoded['error'] as Map)
+          : const <String, dynamic>{};
+      final code = errObj['code']?.toString() ?? 'HTTP_${resp.statusCode}';
+      final retryable = errObj['retryable'] == true ||
+          resp.statusCode == 502 ||
+          resp.statusCode == 504;
+
+      throw PlannerV2EngineException(
+        code: code,
+        userMessage: PlannerV2ResponseAdapter.friendlyMessageForCode(
+          code,
+          fallback: errObj['message']?.toString(),
+        ),
+        retryable: retryable,
+      );
+    } on PlannerV2EngineException {
+      rethrow;
+    } on TimeoutException {
+      throw const PlannerV2EngineException(
+        code: 'PROVIDER_TIMEOUT',
+        userMessage:
+            'Tiempo de espera agotado al conectar con el motor local V2. Tu borrador está protegido; intenta reintentar.',
+        retryable: true,
+      );
+    } catch (e) {
+      throw PlannerV2EngineException(
+        code: 'LOCAL_TRANSPORT_UNAVAILABLE',
+        userMessage:
+            'No fue posible conectar con el servidor local del motor V2 ($e). Tu formulario sigue intacto.',
+        retryable: true,
+      );
+    }
+  }
+}
+
+/// Cliente remoto para la futura Callable Function `generarPlanClaseV2` (`PED-04C2-D`).
+/// En preview aislado no inicializa Firebase por defecto; acepta un `callableInvoker`
+/// inyectable para pruebas deterministas y usará `FirebaseFunctions` cuando se despliegue.
+class FirebaseFunctionsPlannerV2Client implements PlannerV2EngineClient {
+  final String region;
+  final String functionName;
+  final Future<Map<String, dynamic>> Function(Map<String, dynamic> payload)?
+      _callableInvoker;
+
+  FirebaseFunctionsPlannerV2Client({
+    this.region = 'us-central1',
+    this.functionName = 'generarPlanClaseV2',
+    Future<Map<String, dynamic>> Function(Map<String, dynamic> payload)?
+        callableInvoker,
+  }) : _callableInvoker = callableInvoker;
+
+  @override
+  Future<PlannerV2EngineStatus?> fetchHealthStatus() async => null;
+
+  @override
+  Future<PlannerV2GenerationResult?> fetchLastCompletedPlan() async => null;
+
+  @override
+  Future<PlannerV2GenerationResult> generatePlan({
+    required ClassPlanDraftRequest request,
+    String? requestId,
+    bool forceSimulated = false,
+  }) async {
+    final effectiveRequestId =
+        requestId ?? 'req_cf_${DateTime.now().microsecondsSinceEpoch}';
+    final payload = <String, dynamic>{
+      'request': request.toPlannerV2RequestMap(requestId: effectiveRequestId),
+    };
+
+    try {
+      final Map<String, dynamic> rawMap;
+      final invoker = _callableInvoker;
+      if (invoker != null) {
+        rawMap = await invoker(payload);
+      } else {
+        final callable = FirebaseFunctions.instanceFor(region: region)
+            .httpsCallable(functionName);
+        final res = await callable.call<dynamic>(payload);
+        if (res.data is Map) {
+          rawMap = Map<String, dynamic>.from(res.data as Map);
+        } else {
+          throw const PlannerV2EngineException(
+            code: 'INVALID_RESPONSE',
+            userMessage:
+                'La función remota devolvió una respuesta inesperada. Tu formulario sigue intacto.',
+            retryable: true,
+          );
+        }
+      }
+      return PlannerV2ResponseAdapter.fromJsonResponse(rawMap, request);
+    } on PlannerV2EngineException {
+      rethrow;
+    } on FirebaseFunctionsException catch (e) {
+      final detailsMap = e.details is Map
+          ? Map<String, dynamic>.from(e.details as Map)
+          : const <String, dynamic>{};
+      final plannerCode = detailsMap['planner_code']?.toString();
+      final mappedCode = plannerCode ?? _mapFunctionsCode(e.code);
+      throw PlannerV2EngineException(
+        code: mappedCode,
+        userMessage: PlannerV2ResponseAdapter.friendlyMessageForCode(
+          mappedCode,
+          fallback: e.message,
+        ),
+        retryable: detailsMap['retryable'] == true ||
+            e.code == 'deadline-exceeded' ||
+            e.code == 'unavailable',
+      );
+    } catch (e) {
+      throw PlannerV2EngineException(
+        code: 'CLOUD_FUNCTION_ERROR',
+        userMessage:
+            'No se pudo invocar $functionName ($e). Tu borrador sigue intacto.',
+        retryable: true,
+      );
+    }
+  }
+
+  static String _mapFunctionsCode(String code) {
+    switch (code) {
+      case 'unauthenticated':
+        return 'UNAUTHENTICATED';
+      case 'permission-denied':
+        return 'FORBIDDEN_ROLE';
+      case 'resource-exhausted':
+        return 'QUOTA_EXCEEDED';
+      case 'deadline-exceeded':
+        return 'PROVIDER_TIMEOUT';
+      default:
+        return code.toUpperCase();
+    }
   }
 }

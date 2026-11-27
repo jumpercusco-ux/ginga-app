@@ -21,11 +21,23 @@ function getServerConfig(serverOverrides = {}) {
   const allowLocalDevSimulatedBypass =
     !isProductionEnv && serverOverrides.allowLocalDevSimulatedBypass === true;
 
+  const overridePrimary =
+    typeof serverOverrides.primaryModel === 'string' && serverOverrides.primaryModel.trim()
+      ? serverOverrides.primaryModel.trim()
+      : '';
+  const overrideFallback =
+    typeof serverOverrides.fallbackModel === 'string'
+      ? serverOverrides.fallbackModel.trim()
+      : null;
+
   return Object.freeze({
     engineVersion: 'planner_v2.1.0',
     contractVersion: '2.1.0',
-    primaryModel: process.env.PLANNER_V2_MODEL || 'gpt-4.1-mini',
-    fallbackModel: process.env.PLANNER_V2_FALLBACK_MODEL || 'gpt-4o-mini',
+    primaryModel: overridePrimary || process.env.PLANNER_V2_MODEL || 'gpt-4o-mini',
+    fallbackModel:
+      overrideFallback !== null
+        ? overrideFallback
+        : (process.env.PLANNER_V2_FALLBACK_MODEL || 'gpt-4.1-mini'),
     // Real LLM provider stays strictly disabled in PED-04C2-B unless explicitly enabled on server in PED-04C2-D.
     realProviderEnabled: serverOverrides.realProviderEnabled === true && !isProductionEnv ? true : false,
     providerMode: serverOverrides.providerMode === 'openai' ? 'openai' : 'simulated',
@@ -39,9 +51,17 @@ function getServerConfig(serverOverrides = {}) {
       maxOutputTokensDefault: 4500,
       maxOutputTokensExtended: 5600,
       maxOutputTokens: Number.isInteger(serverOverrides.maxOutputTokens) ? serverOverrides.maxOutputTokens : 4500,
-      primaryTimeoutMs: Number.isInteger(serverOverrides.primaryTimeoutMs) ? serverOverrides.primaryTimeoutMs : 25000,
-      repairTimeoutMs: Number.isInteger(serverOverrides.repairTimeoutMs) ? serverOverrides.repairTimeoutMs : 12000,
+      primaryTimeoutMs: Number.isInteger(serverOverrides.primaryTimeoutMs) ? serverOverrides.primaryTimeoutMs : 55000,
+      repairTimeoutMs: Number.isInteger(serverOverrides.repairTimeoutMs) ? serverOverrides.repairTimeoutMs : 35000,
       maxRepairAttempts: 1,
+      blockMaxOutputTokens: Number.isInteger(serverOverrides.blockMaxOutputTokens)
+        ? serverOverrides.blockMaxOutputTokens
+        : 1600,
+      blockTimeoutMs: Number.isInteger(serverOverrides.blockTimeoutMs) ? serverOverrides.blockTimeoutMs : 30000,
+      blockRepairTimeoutMs: Number.isInteger(serverOverrides.blockRepairTimeoutMs)
+        ? serverOverrides.blockRepairTimeoutMs
+        : 30000,
+      blockConcurrency: Number.isInteger(serverOverrides.blockConcurrency) ? serverOverrides.blockConcurrency : 2,
     }),
   });
 }
@@ -54,7 +74,7 @@ function resolveMaxOutputTokens(durationMin, serverConfig) {
 }
 
 function estimateCostUsd(model, inputTokens, outputTokens) {
-  const pricing = MODEL_PRICING_USD_PER_1M[model] || MODEL_PRICING_USD_PER_1M['gpt-4.1-mini'];
+  const pricing = MODEL_PRICING_USD_PER_1M[model] || MODEL_PRICING_USD_PER_1M['gpt-4o-mini'];
   const inCost = ((inputTokens || 0) / 1000000) * pricing.input;
   const outCost = ((outputTokens || 0) / 1000000) * pricing.output;
   return Number((inCost + outCost).toFixed(6));
@@ -67,10 +87,22 @@ function estimateTokensFromText(text) {
   return Math.ceil(s.length / 3.5);
 }
 
+function resolveServerOpenAiApiKey() {
+  return String(
+    process.env.PLANNER_V2_OPENAI_API_KEY || process.env.OPENAI_API_KEY || ''
+  ).trim();
+}
+
+function hasServerOpenAiCredentials() {
+  return resolveServerOpenAiApiKey().length > 0;
+}
+
 module.exports = {
   MODEL_PRICING_USD_PER_1M,
   getServerConfig,
   resolveMaxOutputTokens,
   estimateCostUsd,
   estimateTokensFromText,
+  resolveServerOpenAiApiKey,
+  hasServerOpenAiCredentials,
 };

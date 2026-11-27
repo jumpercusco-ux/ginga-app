@@ -13,6 +13,7 @@ const {
   detectPromptInjection,
   inspectPayloadForForbiddenKeysOrUrls,
 } = require('./pii_and_injection_guard');
+const { buildFlexibleTemporalBlueprint } = require('./temporal_planner');
 
 const FORBIDDEN_TOP_LEVEL_CLIENT_KEYS = [
   'provider',
@@ -456,6 +457,21 @@ async function buildValidatedContext({
     },
   };
 
+  const temporalBlueprint = buildFlexibleTemporalBlueprint({
+    durationMin,
+    audienceType,
+    curriculumScope,
+    focuses,
+    selectedMovements: validatedMovements,
+    selectedResources: validatedResources,
+    includeMusicalityRoda,
+    allowAiComplementaryProposals,
+    freeInstructions: sanitizedFreeInstructions,
+    space,
+  });
+
+  llmPayloadContext.temporal_blueprint = temporalBlueprint;
+
   const payloadViolations = inspectPayloadForForbiddenKeysOrUrls(llmPayloadContext, 'llmPayloadContext');
   if (payloadViolations.length > 0) {
     throw new PlannerV2Error(
@@ -473,6 +489,7 @@ async function buildValidatedContext({
     targetCordaIndex,
     cordaMeta,
     durationMin,
+    temporalBlueprint,
     participants,
     ageMin,
     ageMax,

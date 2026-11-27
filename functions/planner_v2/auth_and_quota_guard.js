@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const { PlannerV2Error } = require('./errors');
 
 const ALLOWED_CLAIM_KEYS = ['instructor', 'teacher', 'admin', 'curriculum_admin'];
@@ -215,19 +216,195 @@ class InMemoryAtomicQuotaStore {
 }
 
 /**
- * Production Firestore transaction design blueprint for PED-04C2-D (not invoked in PED-04C2-B).
+ * Atomic transactional Firestore quota and requestId idempotency store (`PED-04C2-D`).
+ * Enforces emulator-only safety by default unless `allowLiveFirestore: true` is explicitly passed.
  */
 class FirestoreTransactionQuotaStore {
-  constructor(firestoreDb) {
+  constructor(firestoreDb, { allowLiveFirestore = false, collectionPrefix = 'planner_ai' } = {}) {
     this.db = firestoreDb;
+    this.allowLiveFirestore = allowLiveFirestore === true;
+    this.usageCollection = `${collectionPrefix}_usage`;
+    this.requestsCollection = `${collectionPrefix}_requests`;
   }
 
-  async acquireSlot() {
-    throw new PlannerV2Error(
-      'REAL_PROVIDER_DISABLED',
-      'FirestoreTransactionQuotaStore está reservado para PED-04C2-D y no escribe en Firebase durante PED-04C2-B.',
-      { httpStatus: 501 }
+  _assertSafeFirestoreTarget() {
+    if (!this.db) {
+      throw new PlannerV2Error(
+        'PRODUCTION_WRITE_BLOCKED',
+        'No se proporcionó una instancia de Firestore válida para FirestoreTransactionQuotaStore.',
+        { httpStatus: 503 }
+      );
+    }
+    const isEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
+    if (!isEmulator && !this.allowLiveFirestore) {
+      throw new PlannerV2Error(
+        'PRODUCTION_WRITE_BLOCKED',
+        'Escritura bloqueada: FirestoreTransactionQuotaStore requiere FIRESTORE_EMULATOR_HOST o autorización explícita.',
+        { httpStatus: 503 }
+      );
+    }
+  }
+
+  _requestDocId(actorId, requestId) {
+    const reqHash = crypto.createHash('sha256').update(`${actorId}::${requestId}`).digest('hex').slice(0, 32);
+    const safeActor = String(actorId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 48);
+    return `${safeActor}__${reqHash}`;
+  }
+
+  _usageDocId(actorId, dayBucket) {
+    const safeActor = String(actorId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+    return `${safeActor}_${dayBucket}`;
+  }
+
+  async acquireSlot({
+    actorId,
+    requestId,
+    nowMs = Date.now(),
+    dailyLimit = 20,
+    perMinuteLimit = 4,
+  }) {
+    this._assertSafeFirestoreTarget();
+    const cleanReqId = typeof requestId === 'string' ? requestId.trim() : '';
+    if (!cleanReqId) {
+      throw new PlannerV2Error(
+        'INVALID_REQUEST',
+        'El identificador request_id es obligatorio para idempotencia y control de cuota.',
+        { httpStatus: 400 }
+      );
+    }
+
+    const dayBucket = getLimaDayBucket(nowMs);
+    const usageRef = this.db.collection(this.usageCollection).doc(this._usageDocId(actorId, dayBucket));
+    const reqRef = this.db.collection(this.requestsCollection).doc(this._requestDocId(actorId, cleanReqId));
+
+    return this.db.runTransaction(async (tx) => {
+      const reqSnap = await tx.get(reqRef);
+      if (reqSnap.exists) {
+        const existing = reqSnap.data() || {};
+        if (existing.status === 'completed' && existing.response_json) {
+          return {
+            status: 'replay',
+            cachedResponse: JSON.parse(existing.response_json),
+          };
+        }
+        if (existing.status === 'in_progress') {
+          throw new PlannerV2Error(
+            'CONCURRENT_REQUEST_IN_PROGRESS',
+            'Ya existe una solicitud en curso con el mismo request_id.',
+            { httpStatus: 409, retryable: true }
+          );
+        }
+      }
+
+      const usageSnap = await tx.get(usageRef);
+      const usageData = usageSnap.exists ? usageSnap.data() || {} : {};
+      let dailyReserved = usageData.day_bucket === dayBucket ? Number(usageData.daily_reserved || 0) : 0;
+      let minuteTimestamps = Array.isArray(usageData.minute_timestamps)
+        ? usageData.minute_timestamps.map((n) => Number(n)).filter((ts) => nowMs - ts < 60000)
+        : [];
+
+      if (dailyReserved >= dailyLimit) {
+        throw new PlannerV2Error(
+          'QUOTA_EXCEEDED',
+          `Se alcanzó la cuota diaria de ${dailyLimit} generaciones para este instructor.`,
+          { httpStatus: 429, details: { scope: 'daily', limit: dailyLimit } }
+        );
+      }
+
+      if (minuteTimestamps.length >= perMinuteLimit) {
+        throw new PlannerV2Error(
+          'QUOTA_EXCEEDED',
+          `Se alcanzó el límite de ${perMinuteLimit} generaciones por minuto. Intenta nuevamente en unos segundos.`,
+          { httpStatus: 429, details: { scope: 'per_minute', limit: perMinuteLimit }, retryable: true }
+        );
+      }
+
+      dailyReserved += 1;
+      minuteTimestamps.push(nowMs);
+      const reservationToken = `${nowMs}_${dailyReserved}`;
+
+      tx.set(usageRef, {
+        actor_id: actorId,
+        day_bucket: dayBucket,
+        daily_reserved: dailyReserved,
+        minute_timestamps: minuteTimestamps,
+        updated_at_ms: nowMs,
+      });
+
+      tx.set(reqRef, {
+        actor_id: actorId,
+        request_id: cleanReqId,
+        day_bucket: dayBucket,
+        status: 'in_progress',
+        started_at_ms: nowMs,
+        reservation_token: reservationToken,
+      });
+
+      return {
+        status: 'acquired',
+        reservationToken,
+        usageSnapshot: {
+          dayBucket,
+          dailyUsed: dailyReserved,
+          dailyLimit,
+          minuteUsed: minuteTimestamps.length,
+          perMinuteLimit,
+        },
+      };
+    });
+  }
+
+  async commitResult({ actorId, requestId, response }) {
+    this._assertSafeFirestoreTarget();
+    const cleanReqId = String(requestId || '').trim();
+    const reqRef = this.db.collection(this.requestsCollection).doc(this._requestDocId(actorId, cleanReqId));
+    await reqRef.set(
+      {
+        actor_id: actorId,
+        request_id: cleanReqId,
+        status: 'completed',
+        completed_at_ms: Date.now(),
+        response_json: JSON.stringify(response),
+      },
+      { merge: true }
     );
+  }
+
+  async releaseOnFailure({ actorId, requestId, nowMs = Date.now(), billable = false }) {
+    this._assertSafeFirestoreTarget();
+    const cleanReqId = String(requestId || '').trim();
+    if (!cleanReqId) return;
+    const dayBucket = getLimaDayBucket(nowMs);
+    const reqRef = this.db.collection(this.requestsCollection).doc(this._requestDocId(actorId, cleanReqId));
+    const usageRef = this.db.collection(this.usageCollection).doc(this._usageDocId(actorId, dayBucket));
+
+    await this.db.runTransaction(async (tx) => {
+      const reqSnap = await tx.get(reqRef);
+      const usageSnap = await tx.get(usageRef);
+      if (reqSnap.exists && reqSnap.data()?.status === 'in_progress') {
+        tx.delete(reqRef);
+      }
+      if (!billable && usageSnap.exists) {
+        const usageData = usageSnap.data() || {};
+        const dailyReserved = Math.max(0, Number(usageData.daily_reserved || 0) - 1);
+        const minuteTimestamps = Array.isArray(usageData.minute_timestamps)
+          ? usageData.minute_timestamps.map((n) => Number(n)).filter((ts) => nowMs - ts < 60000)
+          : [];
+        if (minuteTimestamps.length > 0) {
+          minuteTimestamps.pop();
+        }
+        tx.set(
+          usageRef,
+          {
+            ...usageData,
+            daily_reserved: dailyReserved,
+            minute_timestamps: minuteTimestamps,
+            updated_at_ms: nowMs,
+          },
+          { merge: true }
+        );
+      }
+    });
   }
 }
 

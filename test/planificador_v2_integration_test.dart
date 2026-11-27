@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -17,17 +18,30 @@ import 'package:ginga_app/features/instructor/planificador/widgets/planner_hub_b
 class _FakeFailingThenSucceedingEngineClient implements PlannerV2EngineClient {
   int calls = 0;
   final List<ClassPlanDraftRequest> receivedRequests = [];
+  final List<bool> receivedForceSimulatedFlags = [];
   bool failNextCall;
+  final PlannerV2EngineStatus? statusOverride;
 
-  _FakeFailingThenSucceedingEngineClient({this.failNextCall = true});
+  _FakeFailingThenSucceedingEngineClient({
+    this.failNextCall = true,
+    this.statusOverride,
+  });
+
+  @override
+  Future<PlannerV2EngineStatus?> fetchHealthStatus() async => statusOverride;
+
+  @override
+  Future<PlannerV2GenerationResult?> fetchLastCompletedPlan() async => null;
 
   @override
   Future<PlannerV2GenerationResult> generatePlan({
     required ClassPlanDraftRequest request,
     String? requestId,
+    bool forceSimulated = false,
   }) async {
     calls++;
     receivedRequests.add(request);
+    receivedForceSimulatedFlags.add(forceSimulated);
     if (failNextCall) {
       failNextCall = false;
       throw const PlannerV2EngineException(
@@ -171,7 +185,8 @@ void main() {
     expect((wireMap['session_config'] as Map).containsKey('materials'), isFalse);
   });
 
-  test('HttpLocalPlannerV2Client reintenta ante 502 manteniendo request_id y adapta respuesta',
+  test(
+      'HttpLocalPlannerV2Client NO reintenta silenciosamente ante 504 y permite reintento manual manteniendo request_id',
       () async {
     int attempts = 0;
     final seenRequestIds = <String>[];
@@ -265,6 +280,16 @@ void main() {
           ExperienceDistribution(principiantes: 5, intermedios: 5, avanzados: 2),
     );
 
+    // 1. Ante 504 PROVIDER_TIMEOUT, devuelve error en 1 solo intento sin quemar otro cupo en segundo plano
+    await expectLater(
+      client.generatePlan(request: req, requestId: 'req_fixed'),
+      throwsA(isA<PlannerV2EngineException>()
+          .having((e) => e.code, 'code', 'PROVIDER_TIMEOUT')
+          .having((e) => e.retryable, 'retryable', isTrue)),
+    );
+    expect(attempts, 1);
+
+    // 2. Reintento manual explícito conserva request_id y adapta correctamente
     final res = await client.generatePlan(request: req, requestId: 'req_fixed');
     expect(attempts, 2);
     expect(seenRequestIds, ['req_fixed', 'req_fixed']);
@@ -278,6 +303,45 @@ void main() {
       res.plan.bloques.first.ejercicios.first.cancioneroReference?.cantigaId,
       isNull,
     );
+
+    // 3. También adapta /api/planner-v2/last-status sin disparar generación nueva
+    final recoveryHttp = MockClient((httpReq) async {
+      if (httpReq.url.path.endsWith('/last-status')) {
+        return http.Response(
+          jsonEncode({
+            'status': 'ok',
+            'has_last_completed_result': true,
+            'last_completed_result': {
+              'contract_version': '2.1.0',
+              'status': 'ok',
+              'plan': {
+                'titulo': 'Recuperada Infantil M/J 18:00',
+                'duracion_total': 60,
+                'nivel': 'Infantil',
+                'audience_type': 'infantil',
+                'curriculum_scope': 'infantil_fiu_pending',
+                'bloques': [],
+              },
+              'generation_meta': {
+                'provider': 'openai',
+                'model': 'gpt-4o-mini',
+                'is_simulated': false,
+              },
+            },
+          }),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+    final recoveryClient = HttpLocalPlannerV2Client(
+      baseUrl: 'http://127.0.0.1:8097',
+      httpClient: recoveryHttp,
+    );
+    expect(recoveryClient.timeout, const Duration(seconds: 120));
+    final recovered = await recoveryClient.fetchLastCompletedPlan();
+    expect(recovered?.plan.titulo, 'Recuperada Infantil M/J 18:00');
+    expect(recovered?.generationMeta.isSimulated, isFalse);
   });
 
   testWidgets(
@@ -404,5 +468,130 @@ void main() {
     }
 
     addTearDown(tester.view.resetPhysicalSize);
+  });
+
+  test('FirebaseFunctionsPlannerV2Client adapta callable y mapea errores de autorización/presupuesto',
+      () async {
+    final ds = InMemoryPlannerDataSource.demoFixtures();
+    final groups = await ds.loadGroups();
+    final kidsGroup = groups.firstWhere((g) => g.id == 'clase_kids_mj_1800');
+    final req = ClassPlanDraftRequest.fromGroup(kidsGroup);
+
+    final okClient = FirebaseFunctionsPlannerV2Client(
+      callableInvoker: (payload) async {
+        expect(payload['request'], isA<Map>());
+        return {
+          'contract_version': '2.1.0',
+          'status': 'ok',
+          'plan': {
+            'titulo': 'Infantil Callable V2',
+            'duracion_total': 60,
+            'audience_type': 'infantil',
+            'curriculum_scope': 'infantil_fiu_pending',
+            'enfoque': 'Técnica · Juegos',
+            'objetivo': 'Ginga y esquivas',
+            'bloques': [
+              {
+                'block_id': 'b1',
+                'fase': 'Calentamiento',
+                'duracion_min': 60,
+                'ejercicios': [
+                  {
+                    'exercise_id': 'e1',
+                    'nombre': 'Ginga y sombra',
+                    'detalle': 'Tiempos internos (base 30m + juego 30m = total: 60 min).',
+                    'duracion_min': 60,
+                    'organizacion': 'Todos simultáneamente',
+                    'materiales': [],
+                    'curriculum_movement_ids': [],
+                    'linked_resource_ids': [],
+                    'content_origin': 'ai_complementary_proposal',
+                    'source_origins': ['ai_complementary_proposal'],
+                    'activity_authoring': 'ai_complementary_proposal',
+                  }
+                ],
+              }
+            ],
+          },
+          'generation_meta': {
+            'provider': 'openai',
+            'model': 'gpt-4.1-mini',
+            'is_simulated': false,
+            'repair_attempts_used': 0,
+            'origin_breakdown': {'ai_complementary_proposal': 1},
+            'transparency_notices': const ['Prueba unitaria callable'],
+          },
+        };
+      },
+    );
+
+    final okRes = await okClient.generatePlan(request: req, requestId: 'cf_1');
+    expect(okRes.generationMeta.provider, 'openai');
+    expect(okRes.generationMeta.model, 'gpt-4.1-mini');
+    expect(okRes.generationMeta.isSimulated, isFalse);
+
+    final deniedClient = FirebaseFunctionsPlannerV2Client(
+      callableInvoker: (_) async {
+        throw FirebaseFunctionsException(
+          code: 'permission-denied',
+          message: 'Falta Custom Claim de instructor.',
+        );
+      },
+    );
+    await expectLater(
+      deniedClient.generatePlan(request: req),
+      throwsA(isA<PlannerV2EngineException>()
+          .having((e) => e.code, 'code', 'FORBIDDEN_ROLE')),
+    );
+
+    final budgetMsg = PlannerV2ResponseAdapter.friendlyMessageForCode(
+        'PILOT_BUDGET_EXCEEDED');
+    expect(budgetMsg, contains('0.10'));
+  });
+
+  testWidgets('Creación Rápida muestra estado OpenAI real y permite volver a simulado cuando está habilitado',
+      (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final ds = InMemoryPlannerDataSource.demoFixtures();
+    final realStatusEngine = _FakeFailingThenSucceedingEngineClient(
+      failNextCall: false,
+      statusOverride: const PlannerV2EngineStatus(
+        mode: 'openai_real_local_dev',
+        realProviderEnabled: true,
+        credentialsPresent: true,
+        primaryModel: 'gpt-4.1-mini',
+        pilotBudget: {'max_budget_usd': 0.10, 'max_generations': 4},
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: gingaLightTheme,
+        home: Scaffold(
+          body: PlannerHubBody(
+            dataSource: ds,
+            engineClient: realStatusEngine,
+            initialCreationMode: PlannerCreationMode.quick,
+            initialGroupIdForCreation: 'clase_kids_mj_1800',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('OpenAI (gpt-4.1-mini)'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('quick_toggle_simulated_pill')));
+    await tester.pumpAndSettle();
+    expect(find.text('Motor V2 · Modo simulado offline'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('quick_generate_v2_button')));
+    await tester.tap(find.byKey(const Key('quick_generate_v2_button')));
+    await tester.pumpAndSettle();
+
+    expect(realStatusEngine.receivedForceSimulatedFlags, [true]);
+    expect(find.byType(PlannerClassEditorView), findsOneWidget);
   });
 }

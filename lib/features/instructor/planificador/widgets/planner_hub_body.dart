@@ -79,6 +79,10 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
   LiveSessionState? _recoverableSession;
   bool _isGeneratingWithEngine = false;
   String? _generationError;
+  PlannerV2EngineStatus? _engineStatus;
+  bool _forceSimulatedInRealMode = false;
+  ClassPlanModel? _lastServerGeneratedPlan;
+  bool _dismissedLastServerPlan = false;
 
   DateTime _now() => (widget.clock ?? DateTime.now)();
 
@@ -112,6 +116,24 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
     _liveStorage =
         widget.liveSessionStorage ?? const SharedPreferencesLiveSessionStorage();
     _loadAll();
+    _refreshEngineStatus();
+  }
+
+  Future<void> _refreshEngineStatus() async {
+    final client = widget.engineClient;
+    if (client == null) return;
+    final results = await Future.wait<dynamic>([
+      client.fetchHealthStatus(),
+      client.fetchLastCompletedPlan(),
+    ]);
+    if (!mounted) return;
+    final status = results[0] as PlannerV2EngineStatus?;
+    final lastCompleted = results[1] as PlannerV2GenerationResult?;
+    if (status == null && lastCompleted == null) return;
+    setState(() {
+      if (status != null) _engineStatus = status;
+      if (lastCompleted != null) _lastServerGeneratedPlan = lastCompleted.plan;
+    });
   }
 
   @override
@@ -430,9 +452,13 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
     });
 
     try {
-      final result = await client.generatePlan(request: req);
+      final result = await client.generatePlan(
+        request: req,
+        forceSimulated: _forceSimulatedInRealMode,
+      );
       await widget.dataSource.saveLocalDraft(result.plan);
       final updatedPlans = await widget.dataSource.loadPlans();
+      await _refreshEngineStatus();
       if (!mounted) return;
       setState(() {
         _plans = updatedPlans;
@@ -444,10 +470,13 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         _editingPlan = result.plan;
         _editingIsDuplicate = false;
       });
+      final providerSummary = result.generationMeta.isSimulated
+          ? 'en modo simulado offline'
+          : 'con ${result.generationMeta.provider.toUpperCase()} (${result.generationMeta.model})';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Propuesta "${result.plan.titulo}" generada en modo simulado offline y abierta para revisión.',
+            'Propuesta "${result.plan.titulo}" generada $providerSummary y abierta para revisión.',
           ),
           backgroundColor: PlannerPalette.of(context).accent,
         ),
@@ -896,6 +925,10 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
             widget.engineClient != null ? _handleGenerateWithEngine : null,
         isGenerating: _isGeneratingWithEngine,
         generationError: _generationError,
+        engineStatus: _engineStatus,
+        forceSimulated: _forceSimulatedInRealMode,
+        onToggleForceSimulated: (v) =>
+            setState(() => _forceSimulatedInRealMode = v),
         onSwitchToAdvanced: (req) => setState(() {
           _pendingDraftRequest =
               req.copyWith(creationMode: PlannerCreationMode.advanced);
@@ -922,6 +955,10 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
             widget.engineClient != null ? _handleGenerateWithEngine : null,
         isGenerating: _isGeneratingWithEngine,
         generationError: _generationError,
+        engineStatus: _engineStatus,
+        forceSimulated: _forceSimulatedInRealMode,
+        onToggleForceSimulated: (v) =>
+            setState(() => _forceSimulatedInRealMode = v),
         onSwitchToQuick: (req) => setState(() {
           _pendingDraftRequest =
               req.copyWith(creationMode: PlannerCreationMode.quick);
@@ -952,6 +989,12 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
                 children: [
                   if (_recoverableSession != null) ...[
                     _buildRecoverableSessionBanner(pal, _recoverableSession!),
+                    const SizedBox(height: 12),
+                  ],
+                  if (_lastServerGeneratedPlan != null &&
+                      !_dismissedLastServerPlan) ...[
+                    _buildLastServerGeneratedPlanBanner(
+                        pal, _lastServerGeneratedPlan!),
                     const SizedBox(height: 12),
                   ],
                   _buildHeaderBanner(pal),
@@ -1053,6 +1096,106 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
                 icon: const Icon(Icons.play_arrow_rounded, size: 18),
                 label: Text(
                   'Reanudar clase',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLastServerGeneratedPlanBanner(
+    PlannerPalette pal,
+    ClassPlanModel plan,
+  ) {
+    final modelName = plan.generationMeta?.model ?? 'gpt-4o-mini';
+    final sim = plan.generationMeta?.isSimulated == true;
+    return Container(
+      key: const Key('hub_last_generated_plan_banner'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: pal.infoBlueBg,
+        borderRadius: BorderRadius.circular(GingaRadius.lg),
+        border: Border.all(color: pal.infoBlue.withValues(alpha: 0.45)),
+      ),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 10,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 580),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.auto_awesome_outlined,
+                    color: pal.infoBlue, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Última clase generada lista para editar',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: pal.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${plan.titulo} · ${plan.duracionTotal} min · ${plan.bloques.length} bloques (${sim ? 'simulado' : modelName})',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          color: pal.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              TextButton(
+                key: const Key('hub_dismiss_last_generated_btn'),
+                onPressed: () =>
+                    setState(() => _dismissedLastServerPlan = true),
+                child: Text(
+                  'Ocultar',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: pal.textSecondary,
+                  ),
+                ),
+              ),
+              ElevatedButton.icon(
+                key: const Key('hub_open_last_generated_btn'),
+                onPressed: () => setState(() {
+                  _activeCreationMode = null;
+                  _editingPlan = plan;
+                  _editingIsDuplicate = false;
+                }),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 42),
+                  backgroundColor: pal.accent,
+                  foregroundColor: pal.onAccent,
+                ),
+                icon: const Icon(Icons.edit_note_rounded, size: 18),
+                label: Text(
+                  'Abrir en Editor',
                   style: GoogleFonts.montserrat(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,

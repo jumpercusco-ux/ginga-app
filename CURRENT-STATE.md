@@ -3,10 +3,10 @@
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-26  
 > **Rama Actual:** `feat/ped03-biblioteca-curricular` (base `main` `fd891a7` intacta; sin merge ni despliegue)  
-> **Commits de Respaldo PED-03 / PED-04:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · `93ee84b` (cierre PED-04B1) · `62bb7f8` (cierre `PED-04B2` / `PED-04B2-UX`) · `a966b6c` (cierre `PED-04C1`) · `2b68974` (`PED-04C2-B`: motor pedagógico offline y benchmark) · cierre `PED-04C2-C` pendiente de commit en `feat/ped03-biblioteca-curricular`  
-> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** ✅ `2b68974` en `success` ([run #45874926380](https://github.com/jumpercusco-ux/ginga-app/actions/runs/45874926380): `Flutter Web & Unit Tests` + `Node.js 22 & Agent Quality Benchmark`); actualización `PED-04C2-C` lista para respaldo y verificación CI  
+> **Commits de Respaldo PED-03 / PED-04:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · `93ee84b` (cierre PED-04B1) · `62bb7f8` (cierre `PED-04B2` / `PED-04B2-UX`) · `a966b6c` (cierre `PED-04C1`) · `2b68974` (`PED-04C2-B`) · `753d686` (`PED-04C2-C`) · cierre `PED-04C2-D` respaldado en `feat/ped03-biblioteca-curricular`  
+> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** ✅ `753d686` en `success`; pipeline `.github/workflows/ci.yml` ampliado con suites modulares, de presupuesto y estructurales `PED-04C2-D`  
 > **Producción Intacta:** `whatsappWebhook v69` (Cloud Functions Gen 1, Node.js 22), web `https://www.gingaperu.com`, proyecto `capoeirafiu-ea8ljo`  
-> **Estado Actual:** **PED-04C2-C INTEGRADO Y VERIFICADO OFFLINE EN `feat/ped03-biblioteca-curricular` (`HttpLocalPlannerV2Client` -> `planner_v2_local_server.js`, PROVEEDOR REAL DESHABILITADO, PREVIEW `8097` ACTIVO)**
+> **Estado Actual:** **PED-04C2-D VALIDADO EN PILOTO REAL LOCAL (`gpt-4o-mini` MODULAR, 1 CLASE INFANTIL COMPLETA LISTA EN EDITOR FLUTTER) · EVALUACIÓN HUMANA EN TATAMI PENDIENTE · PRODUCCIÓN INTACTA**
 
 ---
 
@@ -558,6 +558,19 @@ flowchart TD
   - `flutter analyze` (`No issues found!`), `flutter test` (**`73/73 All tests passed!`** con [planificador_v2_integration_test.dart](file:///Users/jumper/ginga_app/test/planificador_v2_integration_test.dart)).
   - Suites Node: `validate_curriculum_catalog.js` (`PASS`), `verify_planner_v2_catalog_sync.js` (`PASS`), `test_curriculum_importer.js` (`6/6`), `test_reservation_date_semantics.js` (`8/8`), `test_agent_evaluations.js` (`9/9`), `test_planner_v2_quality.js` (`6/6 + 20/20`), `test_planner_v2_local_server_e2e.js` (`PASS`).
   - Endpoints vivos verificados en `http://127.0.0.1:8097/` (`SW 404`, `health: simulated_offline`, `generate` HTTP `200` para `Infantil M/J 18:00` y `Adultos M/J 19:00`).
+
+### 10.6. Estabilización Modular y Piloto Real Local Controlado (`PED-04C2-D`)
+
+- **Arquitectura Modular por Bloques y Esquema Slim (`functions/planner_v2/`):**
+  - [temporal_planner.js](file:///Users/jumper/ginga_app/functions/planner_v2/temporal_planner.js) + [context_builder.js](file:///Users/jumper/ginga_app/functions/planner_v2/context_builder.js) pre-asignan duraciones exactas, recursos obligatorios/opcionales y movimientos FIU por slot antes de llamar al proveedor.
+  - [response_schema.js](file:///Users/jumper/ginga_app/functions/planner_v2/response_schema.js) incorpora `OPENAI_STRICT_BLOCK_V2_JSON_SCHEMA` (`1,566` chars / 12 campos creativos) y [block_assembler.js](file:///Users/jumper/ginga_app/functions/planner_v2/block_assembler.js) asigna determinísticamente IDs, duraciones, orígenes, vínculos, `cantiga_id: null` y honestidad de video; [prompt_builder.js](file:///Users/jumper/ginga_app/functions/planner_v2/prompt_builder.js) reduce la entrada a `~879–950` tokens por bloque sin duplicación.
+  - [plan_repairer.js](file:///Users/jumper/ginga_app/functions/planner_v2/plan_repairer.js) ejecuta bloques en oleadas (`blockConcurrency: 2`), repara únicamente los bloques fallidos en 1 pase paralelo y corrige el reporte `repair_attempts_used`; [plan_validator.js](file:///Users/jumper/ginga_app/functions/planner_v2/plan_validator.js) exige 3 dimensiones ejecutables no solapadas en juegos infantiles (`GAME_MISSING_EXECUTABLE_RULES`: preparación espacial, reglas/señales y rondas/rotación, `>= 75` chars sin contar `Tiempos internos (...)`).
+  - [pilot_budget_guard.js](file:///Users/jumper/ginga_app/functions/planner_v2/pilot_budget_guard.js) reserva peor caso multi-bloque (iniciales + reparación simultánea) y persiste consumo acumulado en disco; [llm_adapter.js](file:///Users/jumper/ginga_app/functions/planner_v2/llm_adapter.js) soporta probe `GET /v1/models` y fallback ante `MODEL_ACCESS_DENIED`; [auth_and_quota_guard.js](file:///Users/jumper/ginga_app/functions/planner_v2/auth_and_quota_guard.js) y [callable_handler.js](file:///Users/jumper/ginga_app/functions/planner_v2/callable_handler.js) dejan listo el contrato callable futuro (`FirestoreTransactionQuotaStore`) sin tocar `functions/index.js`.
+- **Cliente Flutter y Servidor Local (`planner_v2_engine_client.dart`, `planner_hub_body.dart`, `planner_v2_local_server.js`):**
+  - Eliminado el reintento automático ante `504`, ampliado `HttpLocalPlannerV2Client.timeout` a `120s`, añadido `GET /api/planner-v2/last-status` y banner **«Abrir en Editor»** en el Hub sin consumir nuevas llamadas pagadas.
+- **Resultado del Piloto Real (`gpt-4o-mini`, intento `6/8`) y Pruebas:**
+  - Clase real `Infantil M/J 18:00 · Técnicas · Juegos · Acrobacias · Musicalidad (60 min)` en [autonomous_pilot_result.json](file:///Users/jumper/ginga_app/scratch/autonomous_pilot_result.json): **`21,494 ms`**, **`4` bloques (`12+26+11+11=60 min`)**, **`8` ejercicios**, **`4` llamadas** (`repairs=0`), **`$0.002063` USD**, recurso `idea_res_02` integrado (`teacher_resource: 1`), `0` FIU adultos, `"Marinheiro só"` con `cantiga_id: null`, validación estructural **`PASS`** (`88/100` heurístico y revalidación positiva bajo la regla de 3 dimensiones). Saldo acumulado detenido en **`$0.01189 / $0.10` USD** (`$0.08811` restantes, `6/8` generaciones).
+  - Suites verificadas en verde: `validate_curriculum_catalog.js`, `verify_planner_v2_catalog_sync.js`, `test_curriculum_importer.js` (`6/6`), `test_planner_v2_modular_stabilization.js`, `test_planner_v2_pilot_and_budget.js` (`6/6`), `test_planner_v2_structural_engine.js` (`4/4`), `test_planner_v2_local_server_e2e.js`, `test_planner_v2_quality.js` (`6/6 + 20/20`, `93.9/100`), `test_reservation_date_semantics.js` (`8/8`), `test_agent_evaluations.js` (`9/9`), `flutter analyze --no-fatal-warnings --no-fatal-infos` y `flutter test` (**`75/75 All tests passed!`**). Evaluación pedagógica humana en tatami pendiente.
 
 ---
 

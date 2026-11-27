@@ -158,8 +158,34 @@ class SimulatedPlannerProvider {
       plan.bloques[0].ejercicios[0].curriculum_movement_ids = ['queixada'];
       plan.bloques[0].ejercicios[0].content_origin = 'official_fiu_curriculum';
     } else if (fault === 'unrepairable') {
-      this.faultSequence.unshift('duration_mismatch');
-      plan.bloques[0].duracion_min += 5;
+      this.faultSequence.unshift('missing_required_resource');
+      for (const blk of plan.bloques) {
+        for (const ex of blk.ejercicios) {
+          ex.linked_resource_ids = [];
+          ex.resource_usage_notes = {};
+          ex.video_reference_note = null;
+          ex.content_origin = ex.curriculum_movement_ids.length > 0 ? 'official_fiu_curriculum' : 'ai_complementary_proposal';
+          ex.activity_authoring =
+            ex.curriculum_movement_ids.length > 0 ? 'ai_exercise_from_official_fiu' : 'ai_complementary_proposal';
+        }
+      }
+    }
+
+    for (const blk of plan.bloques || []) {
+      for (const ex of blk.ejercicios || []) {
+        if (!Array.isArray(ex.tiempos_internos) || ex.tiempos_internos.length === 0) {
+          const d = Math.max(1, Number(ex.duracion_min || 1));
+          if (d >= 3) {
+            const p1 = Math.max(1, Math.floor(d / 3));
+            ex.tiempos_internos = [
+              { etapa: 'preparación guiada', minutos: p1 },
+              { etapa: 'práctica activa y rotación', minutos: d - p1 },
+            ];
+          } else {
+            ex.tiempos_internos = [{ etapa: 'ejecución continua', minutos: d }];
+          }
+        }
+      }
     }
 
     const outJson = JSON.stringify(plan);
@@ -584,7 +610,7 @@ class SimulatedPlannerProvider {
     ];
 
     // Block 2: Independent technical progressions BEFORE combining (plus teacher resources if selected)
-    const techSlotsCount = reqResources.length > 0 ? 3 : 2;
+    const techSlotsCount = 2 + reqResources.length;
     const techDurs = splitDurationAmongCount(blockDurs[1], techSlotsCount);
     const pairOrg = singleInstructorGuard ? 'Todos simultáneamente' : 'Rotación por parejas';
     const coreTechExercises = [
@@ -648,14 +674,14 @@ class SimulatedPlannerProvider {
       },
     ];
 
-    if (reqResources.length > 0) {
-      const r0 = reqResources[0];
+    for (let ri = 0; ri < reqResources.length; ri++) {
+      const r0 = reqResources[ri];
       coreTechExercises.push({
-        exercise_id: 'ex_inf_2_3',
+        exercise_id: `ex_inf_2_${3 + ri}`,
         nombre: r0.title,
         tipo_actividad: 'juego_dinamico',
-        detalle: `Preparación y dinámica del recurso del profesor ${floorPhrase}. Reglas y rotaciones continuas por señal sonora: ${r0.usage_note || r0.notes || 'participación simultánea en rondas cortas con variantes por nivel.'} ${buildTimedBreakdown(techDurs[2], ['preparación del recurso', 'rondas de ejecución guiada'])}`,
-        duracion_min: techDurs[2],
+        detalle: `Preparación y dinámica del recurso del profesor ${floorPhrase}. Reglas y rotaciones continuas por señal sonora: ${r0.usage_note || r0.notes || 'participación simultánea en rondas cortas con variantes por nivel.'} ${buildTimedBreakdown(techDurs[2 + ri], ['preparación del recurso', 'rondas de ejecución guiada'])}`,
+        duracion_min: techDurs[2 + ri],
         organizacion: 'Todos simultáneamente',
         supervision_instructors_needed: 1,
         materiales: [],
@@ -916,7 +942,10 @@ class SimulatedPlannerProvider {
 
     // Add independent technical progression BEFORE combining when >=2 FIU movements are selected
     const addPrepStep = reqMovIds.length >= 2 && !techRes ? 1 : 0;
-    const needSlots = (techRes ? 1 : 0) + (reqMovIds.length > 0 || !techRes ? 1 : 0) + addPrepStep + extraResources.length;
+    const needSlots =
+      techRes && reqMovIds.length > 0
+        ? 1 + (reqMovIds.length > 1 ? 1 : 0) + extraResources.length
+        : (techRes ? 1 : 0) + (reqMovIds.length > 0 || !techRes ? 1 : 0) + addPrepStep + extraResources.length;
     const techSubDurs = splitDurationAmongCount(blockDurs[1], Math.max(1, needSlots));
     let slotIdx = 0;
 

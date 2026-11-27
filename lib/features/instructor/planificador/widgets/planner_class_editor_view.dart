@@ -682,7 +682,7 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
             key: const Key('editor_generated_mode_banner'),
             title: _plan.generationMeta!.isSimulated
                 ? 'Propuesta generada · Modo simulado offline (Motor V2)'
-                : 'Propuesta generada por Motor V2 (${_plan.generationMeta!.model})',
+                : 'Propuesta generada · Proveedor ${_plan.generationMeta!.provider.toUpperCase()} (${_plan.generationMeta!.model})${_plan.generationMeta!.repairAttemptsUsed > 0 ? ' · ${_plan.generationMeta!.repairAttemptsUsed} reparación' : ''}',
             message: [
               ..._plan.generationMeta!.transparencyNotices,
               if (_plan.generationMeta!.continuityAppliedNote.isNotEmpty)

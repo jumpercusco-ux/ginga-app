@@ -6,15 +6,30 @@
 
 **Regla invariante:** Ninguna clave de OpenAI ni credencial de API se incluirá jamás en el cliente Flutter, compilación web o navegador.
 
-### Arquitectura de habilitación controlada
-1. **Exportación en Cloud Functions Gen 1 (aislada de `whatsappWebhook` y `generarPlanClaseIA`):**
-   - Exponer una función dedicada `exports.generarPlanClaseV2` en [functions/index.js](file:///Users/jumper/ginga_app/functions/index.js) con `secrets: ['OPENAI_API_KEY']`, `timeoutSeconds: 60`, `memory: '512MB'`.
-   - Configurar en entorno de servidor (nunca desde el cliente):
-     - `PLANNER_V2_REAL_PROVIDER=true` (solo en el entorno autorizado; apagado por defecto en desarrollo).
-     - `PLANNER_V2_MODEL=gpt-4.1-mini` (primario) y `PLANNER_V2_FALLBACK_MODEL=gpt-4o-mini` (alternativa).
-2. **Cliente Flutter (`FirebaseFunctionsPlannerV2Client` a implementar en `PED-04C2-D`):**
-   - En producción, implementar una segunda subclase de `PlannerV2EngineClient` que invoque `FirebaseFunctions.instance.httpsCallable('generarPlanClaseV2')` enviando únicamente `request.toPlannerV2RequestMap(requestId: ...)`.
-   - El servidor ignora o rechaza (`FORBIDDEN_CLIENT_POLICY_OVERRIDE`) cualquier parámetro de proveedor, modelo, cuota o reparación enviado desde el cliente.
+### A. Habilitación real aislada exclusivamente en servidor local de desarrollo (`PED-04C2-D`)
+1. El servidor local [scripts/planner_v2_local_server.js](file:///Users/jumper/ginga_app/scripts/planner_v2_local_server.js) **arranca deshabilitado por defecto** (`mode=simulated_offline`, `real_provider_enabled=false`).
+2. Para habilitar el proveedor real (`gpt-4.1-mini`) únicamente tras autorización del propietario:
+   - Exportar la clave únicamente en esa sesión de terminal local (sin escribirla en `.env` versionado ni código):
+     `export PLANNER_V2_OPENAI_API_KEY="<TU_CLAVE_DEV>"` (o `OPENAI_API_KEY`).
+   - Iniciar el servidor local con `--enable-real-openai` y tope presupuestal estricto (`--budget-usd 0.10 --max-real-generations 4`):
+     ```bash
+     node scripts/planner_v2_local_server.js \
+       --static-dir /tmp/ginga_ped04c2c_8097 \
+       --port 8097 \
+       --enable-real-openai \
+       --budget-usd 0.10 \
+       --max-real-generations 4
+     ```
+   - Incluso con `--enable-real-openai`, el botón discreto `Cambiar a simulado` en la UI (y `force_simulated: true` fuera de `request`) mantiene disponible el modo simulado offline sin costo.
+3. Para ejecutar el piloto automatizado de 4 generaciones (`USD 0.10` máximo acumulado):
+   - Primero validar en seco (`0` llamadas pagadas):
+     `node scripts/run_planner_v2_real_pilot.js --dry-run`
+   - Solo tras autorización explícita, ejecutar:
+     `PLANNER_V2_ALLOW_PAID_PILOT=YES PLANNER_V2_OPENAI_API_KEY="<TU_CLAVE_DEV>" node scripts/run_planner_v2_real_pilot.js --authorize-paid-pilot`
+
+### B. Contrato preparado para futura Cloud Function en producción (no desplegada aún)
+1. Contrato callable implementado y probado en Firebase Emulator (`demo-ginga-test`): [callable_handler.js](file:///Users/jumper/ginga_app/functions/planner_v2/callable_handler.js) + `FirestoreTransactionQuotaStore` en [auth_and_quota_guard.js](file:///Users/jumper/ginga_app/functions/planner_v2/auth_and_quota_guard.js) + `FirebaseFunctionsPlannerV2Client` en [planner_v2_engine_client.dart](file:///Users/jumper/ginga_app/lib/features/instructor/planificador/services/planner_v2_engine_client.dart).
+2. `functions/index.js`, `firestore.rules`, cuentas productivas y `generarPlanClaseIA` V1 permanecen intactos hasta aprobación de despliegue.
 
 ---
 

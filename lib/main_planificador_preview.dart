@@ -70,6 +70,7 @@ class _PlanificadorPreviewAppState extends State<PlanificadorPreviewApp> {
   late PlannerPreviewScenario _scenario;
   _PreviewViewport _viewport = _PreviewViewport.desktop;
   int _resetNonce = 0;
+  PlannerV2EngineStatus? _engineStatus;
 
   @override
   void initState() {
@@ -83,6 +84,15 @@ class _PlanificadorPreviewAppState extends State<PlanificadorPreviewApp> {
     } else {
       _loadLocalCurriculum();
     }
+    _fetchEngineStatus();
+  }
+
+  Future<void> _fetchEngineStatus() async {
+    final token = Uri.base.queryParameters['token'];
+    final status =
+        await HttpLocalPlannerV2Client(previewToken: token).fetchHealthStatus();
+    if (!mounted || status == null) return;
+    setState(() => _engineStatus = status);
   }
 
   Future<void> _loadLocalCurriculum() async {
@@ -164,7 +174,9 @@ class _PlanificadorPreviewAppState extends State<PlanificadorPreviewApp> {
                   borderRadius: BorderRadius.circular(GingaRadius.full),
                 ),
                 child: Text(
-                  'PREVIEW AISLADO · SIN FIREBASE NI IA PAGA',
+                  _engineStatus?.realProviderEnabled == true
+                      ? 'PREVIEW LOCAL · OPENAI REAL (TOPE \$0.10)'
+                      : 'PREVIEW AISLADO · SIN FIREBASE NI IA PAGA',
                   style: GoogleFonts.montserrat(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,

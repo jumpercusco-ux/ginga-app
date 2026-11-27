@@ -46,6 +46,11 @@ async function main() {
     const health = await healthResp.json();
     assert.strictEqual(health.mode, 'simulated_offline');
     assert.strictEqual(health.real_provider_enabled, false);
+    assert.strictEqual(typeof health.real_provider_credentials_present, 'boolean');
+    assert.strictEqual(health.primary_model, 'gpt-4o-mini');
+    assert(Array.isArray(health.accessible_models));
+    assert.strictEqual(health.pilot_budget.max_budget_usd, 0.10);
+    assert.strictEqual(health.pilot_budget.max_generations, 4);
 
     // 3. Infantil M/J 18:00 (5-11 años, sin asumir materiales ni colchonetas, sin Bananeira/Ponte)
     const kidsResp = await postJson(`${baseUrl}/api/planner-v2/generate`, {

@@ -6,6 +6,7 @@ import '../../../../core/theme/ginga_theme.dart';
 import '../../../biblioteca/curriculo_biblioteca_screen.dart';
 import '../../../biblioteca/widgets/biblioteca_user_context.dart';
 import '../models/class_plan_models.dart';
+import '../services/planner_v2_engine_client.dart';
 import '../theme/planner_palette.dart';
 import 'planner_shared_widgets.dart';
 
@@ -21,6 +22,9 @@ class PlannerQuickCreateView extends StatefulWidget {
   final Future<void> Function(ClassPlanDraftRequest)? onGenerateWithEngine;
   final bool isGenerating;
   final String? generationError;
+  final PlannerV2EngineStatus? engineStatus;
+  final bool forceSimulated;
+  final ValueChanged<bool>? onToggleForceSimulated;
   final ValueChanged<ClassPlanDraftRequest> onSwitchToAdvanced;
   final VoidCallback onCancel;
 
@@ -35,6 +39,9 @@ class PlannerQuickCreateView extends StatefulWidget {
     this.onGenerateWithEngine,
     this.isGenerating = false,
     this.generationError,
+    this.engineStatus,
+    this.forceSimulated = false,
+    this.onToggleForceSimulated,
     required this.onSwitchToAdvanced,
     required this.onCancel,
   });
@@ -255,14 +262,40 @@ class _PlannerQuickCreateViewState extends State<PlannerQuickCreateView> {
                             color: pal.accent,
                             icon: Icons.flash_on_rounded,
                           ),
-                          if (widget.onGenerateWithEngine != null)
+                          if (widget.onGenerateWithEngine != null) ...[
                             PlannerBadge(
                               key: const Key('quick_simulated_mode_badge'),
-                              label: 'Motor V2 · Modo simulado offline',
-                              color: pal.infoBlue,
-                              backgroundColor: pal.infoBlueBg,
+                              label: (widget.engineStatus?.realProviderEnabled ==
+                                          true &&
+                                      !widget.forceSimulated)
+                                  ? 'Motor V2 · OpenAI (${widget.engineStatus!.primaryModel}) · Local'
+                                  : 'Motor V2 · Modo simulado offline',
+                              color: (widget.engineStatus?.realProviderEnabled ==
+                                          true &&
+                                      !widget.forceSimulated)
+                                  ? pal.accent
+                                  : pal.infoBlue,
+                              backgroundColor:
+                                  (widget.engineStatus?.realProviderEnabled ==
+                                              true &&
+                                          !widget.forceSimulated)
+                                      ? null
+                                      : pal.infoBlueBg,
                               icon: Icons.auto_awesome_outlined,
                             ),
+                            if (widget.engineStatus?.realProviderEnabled ==
+                                    true &&
+                                widget.onToggleForceSimulated != null)
+                              PlannerChoicePill(
+                                key: const Key('quick_toggle_simulated_pill'),
+                                label: widget.forceSimulated
+                                    ? 'Usar OpenAI real'
+                                    : 'Cambiar a simulado',
+                                selected: widget.forceSimulated,
+                                onTap: () => widget.onToggleForceSimulated!(
+                                    !widget.forceSimulated),
+                              ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 6),
