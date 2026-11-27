@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/ginga_theme.dart';
+import '../../core/utils/user_role_utils.dart';
 import 'dart:ui' as ui;
 
 // Colores fijos (no los tokens adaptativos de GingaColors) — esta pantalla
@@ -88,15 +89,10 @@ class _LoginScreenState extends State<LoginScreen> {
       // 3 — Navegar según el rol
       if (doc.exists) {
         final rol = doc.data()?['rol'] ?? 'alumno';
-        switch (rol) {
-          case 'profesor':
-            context.go('/instructor-clase');
-            break;
-          case 'administrador':
-            context.go('/home'); // TODO: ruta admin
-            break;
-          default:
-            context.go('/home');
+        if (UserRoleUtils.isStaff(rol)) {
+          context.go('/instructor-clase');
+        } else {
+          context.go('/home');
         }
       } else {
         // Usuario sin perfil → crear perfil

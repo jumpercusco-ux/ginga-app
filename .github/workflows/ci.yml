@@ -96,6 +96,6 @@ jobs:
           node scripts/test_planner_v2_structural_engine.js
           node scripts/test_planner_v2_local_server_e2e.js
 
-      - name: Run Firestore security rules & PED-05 persistence emulator suite
+      - name: Run Firestore security rules, PED-05 persistence & PED-06A security emulator suites
         run: |
-          firebase emulators:exec --only firestore --project demo-ginga-test 'node real_agent_harness/test_firestore_rules.js && node scripts/test_curriculum_firestore_rules.js && node scripts/test_curriculum_importer.js && node scripts/test_ped05_firestore_persistence_emulator.js'
+          firebase emulators:exec --only firestore --project demo-ginga-test 'node real_agent_harness/test_firestore_rules.js && node scripts/test_curriculum_firestore_rules.js && node scripts/test_curriculum_importer.js && node scripts/test_ped05_firestore_persistence_emulator.js && node scripts/test_ped06a_security_emulator.js'

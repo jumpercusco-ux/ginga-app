@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../utils/user_role_utils.dart';
 
 class CantigasService {
   CantigasService._();
@@ -8,6 +10,16 @@ class CantigasService {
   /// Inicializa la colección /cantigas con cantigas mockup de capoeira si está vacía
   Future<void> inicializarCantigasSiVacia() async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) return;
+      final rol = userDoc.data()?['rol'] ?? 'alumno';
+      if (!UserRoleUtils.isStaff(rol)) {
+        debugPrint('Inicialización de cantigas omitida: usuario sin rol docente/admin ($rol).');
+        return;
+      }
+
       final query = await FirebaseFirestore.instance.collection('cantigas').limit(1).get();
       if (query.docs.isEmpty) {
         debugPrint('Inicializando colección /cantigas en Firestore...');

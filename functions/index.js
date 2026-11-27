@@ -1,7 +1,9 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
-admin.initializeApp();
+if (!admin.apps || !admin.apps.length) {
+  admin.initializeApp();
+}
 
 /**
  * Trigger que se ejecuta cada vez que se crea una nueva notificación en el buzón
@@ -3543,6 +3545,143 @@ exports.whatsappWebhook = functions
     }
   });
 
+// ============================================================================
+//  HELPERS DE SEGURIDAD, ROLES, RATE LIMIT Y ANTI-SSRF (PED-06A)
+// ============================================================================
+const RUNTIME_RATE_LIMIT_BUCKETS = new Map();
+
+function normalizeUserRole(rawRole) {
+  const norm = String(rawRole || '').trim().toLowerCase();
+  if (norm === 'administrador' || norm === 'admin') return 'admin';
+  if (norm === 'profesor' || norm === 'instructor' || norm === 'teacher') return 'profesor';
+  if (!norm) return 'alumno';
+  return norm;
+}
+
+function resolveRoleFromDecodedToken(token = {}) {
+  if (!token || typeof token !== 'object') return null;
+  if (token.admin === true) return 'admin';
+  if (token.profesor === true || token.instructor === true || token.teacher === true) return 'profesor';
+  if (typeof token.rol === 'string' && token.rol.trim()) {
+    return normalizeUserRole(token.rol);
+  }
+  return null;
+}
+
+async function resolveActorRoleFromTokenAndDb({ uid, token }) {
+  const claimRole = resolveRoleFromDecodedToken(token);
+  if (claimRole) return claimRole;
+  if (!uid) return 'alumno';
+  const userSnap = await admin.firestore().collection('users').doc(uid).get();
+  if (!userSnap.exists) return 'alumno';
+  const data = userSnap.data() || {};
+  return normalizeUserRole(data.rol);
+}
+
+async function assertCallableRole(context, allowedRoles = ['profesor', 'admin']) {
+  const uid = context?.auth?.uid ? String(context.auth.uid).trim() : '';
+  if (!uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Debes iniciar sesión.');
+  }
+  const token = context?.auth?.token || {};
+  const role = await resolveActorRoleFromTokenAndDb({ uid, token });
+  if (!allowedRoles.includes(role)) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'No tienes permisos suficientes para ejecutar esta operación.'
+    );
+  }
+  return { uid, role };
+}
+
+function assertRuntimeRateLimit({ scope, actorId, maxRequests, windowMs, nowMs = Date.now() }) {
+  const key = `${scope}::${actorId}`;
+  if (RUNTIME_RATE_LIMIT_BUCKETS.size > 1000) {
+    RUNTIME_RATE_LIMIT_BUCKETS.clear();
+  }
+  const existing = RUNTIME_RATE_LIMIT_BUCKETS.get(key) || [];
+  const active = existing.filter((ts) => nowMs - ts < windowMs);
+  if (active.length >= maxRequests) {
+    return { allowed: false, remaining: 0 };
+  }
+  active.push(nowMs);
+  RUNTIME_RATE_LIMIT_BUCKETS.set(key, active);
+  return { allowed: true, remaining: maxRequests - active.length };
+}
+
+async function verifyHttpAdminRequest(req, res, { requirePost = true } = {}) {
+  if (requirePost && req.method !== 'POST') {
+    res.status(405).json({ error: 'Method Not Allowed. Usa POST.' });
+    return null;
+  }
+  const authHeader = String(req.get?.('Authorization') || req.headers?.authorization || '').trim();
+  if (!authHeader.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Se requiere cabecera Authorization: Bearer <ID_TOKEN>.' });
+    return null;
+  }
+  const idToken = authHeader.slice(7).trim();
+  if (!idToken) {
+    res.status(401).json({ error: 'Token Bearer vacío.' });
+    return null;
+  }
+  let decoded;
+  try {
+    decoded = await admin.auth().verifyIdToken(idToken);
+  } catch (_) {
+    res.status(401).json({ error: 'Token de autenticación inválido o expirado.' });
+    return null;
+  }
+  const tokenRole = resolveRoleFromDecodedToken(decoded);
+  if (tokenRole !== 'admin') {
+    res.status(403).json({
+      error: 'Acceso denegado: se requiere Custom Claim firmado de administrador.',
+    });
+    return null;
+  }
+  return { uid: String(decoded.uid || decoded.sub || ''), token: decoded, role: 'admin' };
+}
+
+function isSafePublicHttpUrl(rawUrl) {
+  const raw = String(rawUrl || '').trim();
+  if (!raw || raw.length > 2048) return false;
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (_) {
+    return false;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+  if (parsed.username || parsed.password) return false;
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!host) return false;
+  if (
+    host === 'localhost' ||
+    host === '::1' ||
+    host === '0.0.0.0' ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal')
+  ) {
+    return false;
+  }
+  // Bloquear IPv4 privadas, loopback, link-local y metadata cloud (169.254.169.254)
+  const ipv4Match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4Match) {
+    const [a, b] = [Number(ipv4Match[1]), Number(ipv4Match[2])];
+    if (a === 10 || a === 127 || a === 0) return false;
+    if (a === 169 && b === 254) return false;
+    if (a === 192 && b === 168) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a >= 224) return false;
+  }
+  if (host.includes(':')) {
+    // Bloquear rangos IPv6 locales/loopback
+    if (host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80') || host === '::') {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * Callable usada por la pantalla de leads del instructor para responder manualmente
  * por WhatsApp (toma control humano cuando `ai_habilitada` está en false).
@@ -3550,30 +3689,51 @@ exports.whatsappWebhook = functions
 exports.sendManualWhatsAppMessage = functions
   .runWith({ secrets: ['META_WHATSAPP_TOKEN', 'META_PHONE_NUMBER_ID'] })
   .https.onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'Debes iniciar sesión.');
-    }
-    const { leadId, texto } = data || {};
-    if (!leadId || !texto) {
-      throw new functions.https.HttpsError('invalid-argument', 'Falta leadId o texto.');
+    const actor = await assertCallableRole(context, ['profesor', 'admin']);
+    const rate = assertRuntimeRateLimit({
+      scope: 'sendManualWhatsAppMessage',
+      actorId: actor.uid,
+      maxRequests: 20,
+      windowMs: 60 * 1000,
+    });
+    if (!rate.allowed) {
+      throw new functions.https.HttpsError(
+        'resource-exhausted',
+        'Demasiados envíos manuales en un minuto. Intenta nuevamente en unos segundos.'
+      );
     }
 
-    const enviado = await enviarMensajeWhatsApp(leadId, texto);
+    const rawLeadId = typeof data?.leadId === 'string' ? data.leadId.trim() : '';
+    const rawTexto = typeof data?.texto === 'string' ? data.texto.trim() : '';
+    if (!rawLeadId || rawLeadId.length > 40 || !/^[a-zA-Z0-9+_.-]+$/.test(rawLeadId)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Identificador leadId inválido.');
+    }
+    if (!rawTexto || rawTexto.length > 2000) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'El mensaje debe tener entre 1 y 2000 caracteres.'
+      );
+    }
+
+    const leadRef = admin.firestore().collection('whatsapp_leads').doc(rawLeadId);
+    const leadDoc = await leadRef.get();
+    if (!leadDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'No se encontró el lead especificado.');
+    }
+
+    const enviado = await enviarMensajeWhatsApp(rawLeadId, rawTexto);
     if (!enviado) {
       throw new functions.https.HttpsError('internal', 'No se pudo enviar el mensaje por WhatsApp.');
     }
 
-    const leadRef = admin.firestore().collection('whatsapp_leads').doc(leadId);
     await leadRef.collection('mensajes').add({
       from: 'profesor',
-      texto,
+      sender_uid: actor.uid,
+      texto: rawTexto,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     const updates = { ultima_interaccion: admin.firestore.FieldValue.serverTimestamp() };
-    // Si el profesor responde manualmente un lead que "requería atención", se
-    // asume que ya lo está atendiendo — se limpia la etiqueta automáticamente.
-    const leadDoc = await leadRef.get();
     if (leadDoc.data()?.status === 'requiere_atencion') {
       updates.status = 'conversando';
     }
@@ -3585,9 +3745,24 @@ exports.sendManualWhatsAppMessage = functions
 /**
  * Tarea administrativa puntual para migrar mensajes de reacciones antiguas en Firestore
  * y limpiar placeholders con corchetes en leads y reservas.
+ * Por seguridad opera en `dry_run: true` salvo `{ apply: true }`.
  */
 exports.migrarMensajesHistoricos = functions.https.onRequest(async (req, res) => {
   try {
+    const adminActor = await verifyHttpAdminRequest(req, res, { requirePost: true });
+    if (!adminActor) return;
+    const rate = assertRuntimeRateLimit({
+      scope: 'migrarMensajesHistoricos',
+      actorId: adminActor.uid,
+      maxRequests: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!rate.allowed) {
+      res.status(429).json({ error: 'Rate limit excedido para migración administrativa.' });
+      return;
+    }
+
+    const applyChanges = req.body?.apply === true;
     const leadsSnap = await admin.firestore().collection('whatsapp_leads').get();
     let updatedMsgs = 0;
     let deletedRobotic = 0;
@@ -3611,7 +3786,7 @@ exports.migrarMensajesHistoricos = functions.https.onRequest(async (req, res) =>
       }
 
       if (needUpdate) {
-        await leadDoc.ref.update(patch);
+        if (applyChanges) await leadDoc.ref.update(patch);
         fixedLeads++;
       }
 
@@ -3620,10 +3795,10 @@ exports.migrarMensajesHistoricos = functions.https.onRequest(async (req, res) =>
         const m = msgDoc.data();
         const txt = m.texto || '';
         if (txt.includes('reaction') && txt.includes('no soportado')) {
-          await msgDoc.ref.update({ texto: 'Reaccionó con 👍' });
+          if (applyChanges) await msgDoc.ref.update({ texto: 'Reaccionó con 👍' });
           updatedMsgs++;
         } else if (txt.includes('Por ahora solo puedo leer mensajes de texto')) {
-          await msgDoc.ref.delete();
+          if (applyChanges) await msgDoc.ref.delete();
           deletedRobotic++;
         }
       }
@@ -3635,15 +3810,22 @@ exports.migrarMensajesHistoricos = functions.https.onRequest(async (req, res) =>
       const r = rDoc.data();
       const n = (r.nombre_persona || '').trim();
       if (n.startsWith('[') || n.toLowerCase().includes('nombre de tu')) {
-        await rDoc.ref.update({ nombre_persona: 'Hijo (12 años)' });
+        if (applyChanges) await rDoc.ref.update({ nombre_persona: 'Hijo (12 años)' });
         fixedRes++;
       }
     }
 
-    res.json({ success: true, fixedLeads, updatedMsgs, deletedRobotic, fixedRes });
+    res.json({
+      success: true,
+      dry_run: !applyChanges,
+      fixedLeads,
+      updatedMsgs,
+      deletedRobotic,
+      fixedRes,
+    });
   } catch (err) {
     console.error('Error migrando mensajes:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno ejecutando la migración administrativa.' });
   }
 });
 
@@ -3893,6 +4075,31 @@ exports.ejecutarStressTestAI = functions
   .runWith({ secrets: WHATSAPP_SECRETS, timeoutSeconds: 300, memory: '512MB' })
   .https.onRequest(async (req, res) => {
     try {
+      const adminActor = await verifyHttpAdminRequest(req, res, { requirePost: true });
+      if (!adminActor) return;
+      if (process.env.ALLOW_STRESS_TEST_HTTP !== 'true' && !process.env.FIRESTORE_EMULATOR_HOST) {
+        res.status(403).json({
+          error: 'STRESS_TEST_DISABLED: habilita ALLOW_STRESS_TEST_HTTP=true explícitamente para ejecutar pruebas de estrés.',
+        });
+        return;
+      }
+      if (req.body?.confirm_stress_test !== true) {
+        res.status(400).json({
+          error: 'Falta confirmación explícita confirm_stress_test: true en el cuerpo JSON.',
+        });
+        return;
+      }
+      const rate = assertRuntimeRateLimit({
+        scope: 'ejecutarStressTestAI',
+        actorId: adminActor.uid,
+        maxRequests: 3,
+        windowMs: 60 * 60 * 1000,
+      });
+      if (!rate.allowed) {
+        res.status(429).json({ error: 'Rate limit excedido para ejecutarStressTestAI.' });
+        return;
+      }
+
       const escenarios = [
         {
           id: 1,
@@ -4062,7 +4269,7 @@ exports.ejecutarStressTestAI = functions
  * Helper para obtener miniatura mediante OpenGraph (Instagram, TikTok, Web)
  */
 async function obtenerOgImage(url) {
-  if (!url || !url.startsWith('http')) return null;
+  if (!isSafePublicHttpUrl(url)) return null;
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 7000);
@@ -4125,22 +4332,43 @@ exports.generarMiniaturaIdea = functions.firestore
  */
 exports.actualizarMiniaturasExistentes = functions.https.onRequest(async (req, res) => {
   try {
+    const adminActor = await verifyHttpAdminRequest(req, res, { requirePost: true });
+    if (!adminActor) return;
+    const rate = assertRuntimeRateLimit({
+      scope: 'actualizarMiniaturasExistentes',
+      actorId: adminActor.uid,
+      maxRequests: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!rate.allowed) {
+      res.status(429).json({ error: 'Rate limit excedido para actualizarMiniaturasExistentes.' });
+      return;
+    }
+
+    const applyChanges = req.body?.apply === true;
     const snap = await admin.firestore().collection('instructor_ideas').get();
     let actualizadas = 0;
+    let bloqueadasSsrf = 0;
     for (const doc of snap.docs) {
       const d = doc.data();
       if (d.tipo === 'link' && d.url && !d.thumbnail_url) {
+        if (!isSafePublicHttpUrl(d.url)) {
+          bloqueadasSsrf++;
+          continue;
+        }
         let thumb = resolverMiniaturaDeUrl(d.url);
-        if (!thumb) thumb = await obtenerOgImage(d.url);
-        if (thumb) {
-          await doc.ref.update({ thumbnail_url: thumb });
+        if (!thumb && applyChanges) thumb = await obtenerOgImage(d.url);
+        if (thumb || !applyChanges) {
+          if (applyChanges && thumb) {
+            await doc.ref.update({ thumbnail_url: thumb });
+          }
           actualizadas++;
         }
       }
     }
-    res.json({ success: true, actualizadas });
+    res.json({ success: true, dry_run: !applyChanges, actualizadas, bloqueadasSsrf });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error procesando miniaturas existentes.' });
   }
 });
 
@@ -4151,17 +4379,56 @@ exports.actualizarMiniaturasExistentes = functions.https.onRequest(async (req, r
 exports.generarPlanClaseIA = functions
   .runWith({ secrets: ['OPENAI_API_KEY'], timeoutSeconds: 60, memory: '256MB' })
   .https.onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'Debes haber iniciado sesión como instructor.');
+    const actor = await assertCallableRole(context, ['profesor', 'admin']);
+    const rate = assertRuntimeRateLimit({
+      scope: 'generarPlanClaseIA',
+      actorId: actor.uid,
+      maxRequests: 4,
+      windowMs: 60 * 1000,
+    });
+    if (!rate.allowed) {
+      throw new functions.https.HttpsError(
+        'resource-exhausted',
+        'Demasiadas generaciones por minuto. Espera unos segundos antes de reintentar.'
+      );
     }
 
-    const {
-      nivel = 'Adultos',
-      duracion = 60,
-      enfoque = 'Técnica & Movilidad',
-      ideas_seleccionadas = [],
-      instrucciones_adicionales = ''
-    } = data || {};
+    const rawNivel = typeof data?.nivel === 'string' ? data.nivel.trim() : 'Adultos';
+    const nivel = rawNivel || 'Adultos';
+    const rawDuracion = data?.duracion === undefined ? 60 : Number(data.duracion);
+    const duracion = Math.trunc(rawDuracion);
+    if (!Number.isFinite(rawDuracion) || duracion < 20 || duracion > 180) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'La duración debe estar entre 20 y 180 minutos.'
+      );
+    }
+    if (nivel.length > 40) {
+      throw new functions.https.HttpsError('invalid-argument', 'Nivel excede longitud máxima.');
+    }
+    const enfoque = typeof data?.enfoque === 'string' ? data.enfoque.trim() : 'Técnica & Movilidad';
+    if (enfoque.length > 120) {
+      throw new functions.https.HttpsError('invalid-argument', 'Enfoque excede longitud máxima.');
+    }
+    const instrucciones_adicionales =
+      typeof data?.instrucciones_adicionales === 'string'
+        ? data.instrucciones_adicionales.trim()
+        : '';
+    if (instrucciones_adicionales.length > 800) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Las instrucciones adicionales no pueden superar 800 caracteres.'
+      );
+    }
+    const ideas_seleccionadas = Array.isArray(data?.ideas_seleccionadas)
+      ? data.ideas_seleccionadas
+      : [];
+    if (ideas_seleccionadas.length > 25) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Máximo 25 ideas seleccionadas por solicitud.'
+      );
+    }
 
     let ideasContexto = Array.isArray(ideas_seleccionadas) ? [...ideas_seleccionadas] : [];
     if (ideasContexto.length === 0) {
@@ -4322,6 +4589,15 @@ module.exports.__internals = {
   extraerCatalogoClasesOficiales,
   validarAfirmacionesComerciales,
   generarRespuestaComercialOficial,
+  normalizeUserRole,
+  resolveRoleFromDecodedToken,
+  resolveActorRoleFromTokenAndDb,
+  assertCallableRole,
+  verifyHttpAdminRequest,
+  isSafePublicHttpUrl,
+  obtenerOgImage,
+  assertRuntimeRateLimit,
+  _resetRuntimeRateLimits: () => RUNTIME_RATE_LIMIT_BUCKETS.clear(),
 };
 
 

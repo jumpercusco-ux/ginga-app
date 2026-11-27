@@ -9,6 +9,24 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
+## [PED-06A] — 2026-11-27
+### [BLOQUEADORES P0 DE SEGURIDAD RESUELTOS EN FIRESTORE RULES, CLOUD FUNCTIONS Y ROLES · EMULATOR `12/12` + FLUTTER `90/90` · GUÍA STAGING · CERO PRODUCCIÓN]
+- **Seguridad Firestore (`firestore.rules`):**
+  - Eliminado acceso amplio de colecciones legacy (`request.auth != null`) añadiendo regla explícita de denegación por defecto (`match /{document=**} { allow read, write: if false; }`).
+  - Endurecido `/users/{userId}` contra lectura cruzada de PII y escalación de privilegios (`rol`, `corda`, `clase_id`, `fecha_inicio`, `uid`, `email`), preservando auto-registro `alumno`/`nuevo`, edición acotada de perfil/FCM/QR, transiciones válidas de estado (`nuevo -> prueba`, `activo -> inactivo`) y envíos a buzones `users/{uid}/notificaciones` hacia `isStaff()`.
+  - Restringido estrictamente `/whatsapp_leads` y subcolección `mensajes` a `isStaff()`. Protegidas `clases` (decremento controlado `-1` en `cupos_disponibles`), `asistencias` (verificación contra `sesiones` QR activas), `reservas`, `sesiones`, `pedidos`, `pagos`, `tutoriales`, `cantigas`, `eventos`, `productos` y `config`, manteniendo intacta la exigencia exclusiva de Custom Claims firmados en `curriculum_*`.
+- **Seguridad Cloud Functions (`functions/index.js` + `functions/planner_v2/`):**
+  - Agregados helpers de autenticación, roles (`normalizeUserRole`, `resolveRoleFromDecodedToken`, `assertCallableRole`, `verifyHttpAdminRequest`), rate limit en memoria (`assertRuntimeRateLimit`) y filtro anti-SSRF (`isSafePublicHttpUrl` rechazando metadata cloud, loopback, RFC1918 y credenciales embebidas en `obtenerOgImage`).
+  - Protegidos `migrarMensajesHistoricos`, `ejecutarStressTestAI` (`ALLOW_STRESS_TEST_HTTP` + `confirm_stress_test === true`), `actualizarMiniaturasExistentes` (`dry_run: true` por defecto), `sendManualWhatsAppMessage` (`profesor`/`admin`, `20/min`, `leadId`/texto) y `generarPlanClaseIA` (`profesor`/`admin`, `4/min`, límites de duración `20..180`); alineado `assertAuthorizedActor` en [auth_and_quota_guard.js](file:///Users/jumper/ginga_app/functions/planner_v2/auth_and_quota_guard.js). Pipeline `whatsappWebhook` intacto.
+- **Unificación de Roles, Guardas Flutter, Migración y Guía de Staging:**
+  - Creado [user_role_utils.dart](file:///Users/jumper/ginga_app/lib/core/utils/user_role_utils.dart) (`UserRoleUtils` + pruebas en [user_role_utils_test.dart](file:///Users/jumper/ginga_app/test/user_role_utils_test.dart)) e integrado en `login_screen.dart`, `splash_screen.dart`, `instructor_clase_screen.dart`, `agent_feedback_service.dart`, `biblioteca_user_context.dart`, `tutoriales_service.dart`, `eventos_service.dart` y [cantigas_service.dart](file:///Users/jumper/ginga_app/lib/core/services/cantigas_service.dart) (evitando `PERMISSION_DENIED` de seed automático al iniciar sesión como alumno).
+  - Creados [migrate_auth_roles_and_claims.js](file:///Users/jumper/ginga_app/scripts/migrate_auth_roles_and_claims.js) (`--dry-run` e `--apply` idempotente, exclusivo de Emulator) y [PED06A_SECURITY_AND_STAGING_GUIDE.md](file:///Users/jumper/ginga_app/docs/PED06A_SECURITY_AND_STAGING_GUIDE.md).
+- **Verificación Real (`demo-ginga-test` + Flutter + CI):**
+  - [test_ped06a_security_emulator.js](file:///Users/jumper/ginga_app/scripts/test_ped06a_security_emulator.js): **`12/12` PASS (100%)** junto a `test_firestore_rules.js` (`9/9`), `test_curriculum_firestore_rules.js` (`7/7`), `test_curriculum_importer.js` (`6/6`) y `test_ped05_firestore_persistence_emulator.js` (`12/12`) en Emulator e integrados en [.github/workflows/ci.yml](file:///Users/jumper/ginga_app/.github/workflows/ci.yml).
+  - `flutter analyze --no-fatal-warnings --no-fatal-infos` (exit `0`), `flutter test` (**`90/90 All tests passed!`**), y todas las suites Node CI (`11/11` benchmarks/evaluaciones/fechas/catálogo/planner/copiloto) en verde. Presupuestos `pilot_ped04c2d` (`$0.020187 / $0.10`) y `copilot_ped04c3` (`$0.004682 / $0.05`) intactos.
+
+---
+
 ## [PED-05] — 2026-11-27
 ### [PERSISTENCIA REAL FIRESTORE, CICLO DE VIDA Y CONTINUIDAD MULTIDISPOSITIVO VERIFICADOS EN FIRESTORE EMULATOR (`feat/ped03-biblioteca-curricular`) · CERO ESCRITURAS PRODUCCIÓN · CERO OPENAI PAGADO]
 - **Modelos, Ciclo de Vida y Continuidad Real por Grupo (`lib/features/instructor/planificador/models/`):**

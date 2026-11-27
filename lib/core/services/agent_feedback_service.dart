@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/agent_feedback.dart';
+import '../utils/user_role_utils.dart';
 
 /// Servicio para la captura, trazabilidad y gestión de incidencias de feedback del agente GINGA.
 class AgentFeedbackService {
@@ -46,9 +47,9 @@ class AgentFeedbackService {
 
     final userDoc = await _firestore.collection('users').doc(user.uid).get();
     final data = userDoc.data() ?? {};
-    final rol = (data['rol'] ?? 'alumno').toString().toLowerCase();
+    final rol = UserRoleUtils.normalizeRole(data['rol']);
 
-    if (rol != 'profesor' && rol != 'admin') {
+    if (!UserRoleUtils.isStaff(rol)) {
       throw StateError('Acceso denegado: solo instructores y administradores pueden reportar incidencias.');
     }
 
@@ -158,7 +159,7 @@ class AgentFeedbackService {
       AgentFeedbackStatus.closed,
     ];
 
-    if (estadosAdmin.contains(nuevoEstado) && rol != 'admin') {
+    if (estadosAdmin.contains(nuevoEstado) && !UserRoleUtils.isAdmin(rol)) {
       throw StateError(
         'Acceso denegado: Solo administradores pueden autorizar, marcar como desplegada o cerrar una incidencia ($nuevoEstado).',
       );

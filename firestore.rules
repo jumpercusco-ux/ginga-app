@@ -1,156 +1,247 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // ==========================================
-    // REGLA PARA PERFILES DE USUARIO Y NOTIFICACIONES
+    // HELPERS GLOBALES DE AUTORIZACIÓN Y ROLES (PED-06A)
+    // ==========================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function hasUserDoc() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userDocRole() {
+      return hasUserDoc()
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol
+        : null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        request.auth.token.rol in ['admin', 'administrador'] ||
+        userDocRole() in ['admin', 'administrador']
+      );
+    }
+
+    function isStaff() {
+      return isAdmin() || (
+        isSignedIn() && (
+          request.auth.token.profesor == true ||
+          request.auth.token.instructor == true ||
+          request.auth.token.rol in ['profesor', 'instructor'] ||
+          userDocRole() in ['profesor', 'instructor']
+        )
+      );
+    }
+
+    function isOwnerUserProfileUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return isSignedIn() &&
+        request.auth.uid == resource.id &&
+        changed.hasOnly([
+          'nombre', 'foto_url', 'telefono', 'dni', 'genero', 'grupo_sanguineo',
+          'fecha_nacimiento', 'contacto_emergencia_nombre',
+          'contacto_emergencia_telefono', 'observaciones_medicas', 'updated_at',
+          'fcm_token', 'notifications_enabled', 'hasSeenWalkthrough',
+          'logros_celebrados', 'sede', 'status'
+        ]) &&
+        !('rol' in changed) &&
+        !('corda' in changed) &&
+        !('clase_id' in changed) &&
+        !('fecha_inicio' in changed) &&
+        !('uid' in changed) &&
+        !('email' in changed) &&
+        (
+          !('status' in changed) ||
+          request.resource.data.status == resource.data.status ||
+          (resource.data.status == 'nuevo' && request.resource.data.status == 'prueba') ||
+          (resource.data.status == 'activo' && request.resource.data.status == 'inactivo')
+        );
+    }
+
+    // ==========================================
+    // REGLA PARA PERFILES DE USUARIO Y NOTIFICACIONES (P0 RESUELTO)
     // ==========================================
     match /users/{userId} {
-      allow read, write: if request.auth != null;
-      
-      // Permitir que cualquier usuario autenticado envíe una notificación (create),
-      // pero solo el dueño del buzón pueda leerla o gestionarla (read, update, delete)
+      // Solo el propietario de la cuenta o el staff (profesor/admin) puede leer un perfil con PII.
+      allow read: if isSignedIn() && (request.auth.uid == userId || isStaff());
+
+      // Creación:
+      // - Admin puede crear cualquier perfil
+      // - Profesor/staff solo puede matricular alumnos ('rol == alumno')
+      // - Usuario recién registrado solo puede crear su propio documento con rol 'alumno' y status 'nuevo'
+      allow create: if isAdmin() ||
+        (isStaff() && request.resource.data.rol == 'alumno') ||
+        (
+          isSignedIn() &&
+          request.auth.uid == userId &&
+          request.resource.data.rol == 'alumno' &&
+          (!('status' in request.resource.data) || request.resource.data.status == 'nuevo') &&
+          (!('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid)
+        );
+
+      // Actualización:
+      // - Admin puede actualizar cualquier perfil
+      // - Profesor solo puede gestionar perfiles con rol 'alumno' sin elevar roles
+      // - El propietario solo puede editar su ficha personal/UX/estado acotado (nunca rol, corda ni clase_id)
+      allow update: if isAdmin() ||
+        (
+          isStaff() &&
+          resource.data.rol == 'alumno' &&
+          request.resource.data.rol == resource.data.rol
+        ) ||
+        (isSignedIn() && request.auth.uid == userId && isOwnerUserProfileUpdate());
+
+      allow delete: if isAdmin();
+
+      // Buzón de notificaciones:
+      // - Solo dueño (o admin) lee, marca como leído o elimina
+      // - Creación permitida para el propio usuario, staff, o destino con rol docente/admin (avisos de reserva/tienda)
       match /notificaciones/{notificacionId} {
-        allow read, update, delete: if request.auth != null && request.auth.uid == userId;
-        allow create: if request.auth != null;
+        allow read, update, delete: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        allow create: if isSignedIn() && (
+          request.auth.uid == userId ||
+          isStaff() ||
+          (
+            exists(/databases/$(database)/documents/users/$(userId)) &&
+            get(/databases/$(database)/documents/users/$(userId)).data.rol in ['profesor', 'instructor', 'admin', 'administrador']
+          )
+        );
       }
 
       // Registro de compensaciones de membresía (feriados, inasistencias, congelar)
       match /compensaciones/{compensacionId} {
-        allow read: if request.auth != null && (
-          request.auth.uid == userId ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor'
-        );
-        allow write: if request.auth != null &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor';
-      }
-    }
-    
-    // ==========================================
-    // REGLA PARA LA TIENDA (CATÁLOGO DE PRODUCTOS)
-    // ==========================================
-    match /productos/{productId} {
-      // Cualquier alumno autenticado puede ver el catálogo
-      allow read: if request.auth != null;
-      
-      // Solo los usuarios con rol 'profesor' pueden crear, editar o eliminar productos
-      allow write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor';
-    }
-    
-    // REGLA PARA LOS PEDIDOS DE LA TIENDA
-    match /pedidos/{pedidoId} {
-      // Alumnos e instructores autenticados pueden crear o leer los pedidos
-      allow read, write: if request.auth != null;
-    }
-    
-    // ==========================================
-    // REGLAS GENERALES PARA CLASES, ASISTENCIAS Y SESIONES
-    // ==========================================
-    match /clases/{claseId} {
-      allow read: if request.auth != null;
-      
-      // Permitir que los alumnos actualicen cupos al reservar
-      allow update: if request.auth != null;
-      
-      // Solo profesores pueden crear o eliminar clases
-      allow create, delete: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor';
-    }
-    
-    match /asistencias/{asistenciaId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /reservas/{reservaId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /sesiones/{sesionId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    // ==========================================
-    // REGLA PARA LOS PAGOS Y TRANSACCIONES 💰 (¡NUEVO!)
-    // ==========================================
-    match /pagos/{pagoId} {
-      // Los alumnos pueden leer únicamente sus propios recibos de pago.
-      // Los instructores/profesores pueden leer todos los pagos para ver el consolidado financiero.
-      allow read: if request.auth != null && (
-        resource.data.user_id == request.auth.uid ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor'
-      );
-      
-      // Solo los usuarios con rol 'profesor' pueden registrar, modificar o borrar transacciones contables
-      allow write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor';
-    }
-    
-    // ==========================================
-    // REGLA PARA LA BIBLIOTECA (TUTORIALES / LECCIONES)
-    // ==========================================
-    match /tutoriales/{tutorialId} {
-      // Cualquier alumno autenticado puede ver las lecciones
-      allow read: if request.auth != null;
-      
-      // Solo los usuarios con rol 'profesor' pueden crear, editar o eliminar lecciones
-      allow write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor';
-    }
-    
-    // ==========================================
-    // REGLA PARA EL CANCIONERO (CANTIGAS / AUDIO REAL)
-    // ==========================================
-    match /cantigas/{cantigaId} {
-      // Cualquier alumno autenticado puede ver y reproducir las canciones
-      allow read: if request.auth != null;
-      
-      // Permite inicializar y sembrar el catálogo de cantigas a usuarios autenticados
-      allow write: if request.auth != null;
-    }
-    
-    // ==========================================
-    // REGLA PARA LOS EVENTOS Y REGISTROS (TALLERES)
-    // ==========================================
-    match /eventos/{eventId} {
-      // Cualquier alumno autenticado puede ver y leer los eventos programados
-      allow read: if request.auth != null;
-      
-      // Permite inicializar y gestionar eventos a usuarios autenticados
-      allow write: if request.auth != null;
-      
-      // Subcolección para los registros de asistencia al taller
-      match /registros/{userId} {
-        // Los alumnos pueden confirmar e inscribirse a sí mismos
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if isSignedIn() && (request.auth.uid == userId || isStaff());
+        allow write: if isStaff();
       }
     }
 
     // ==========================================
-    // REGLAS DEL PLANIFICADOR PEDAGÓGICO Y PIZARRA (PED-05)
-    // Aislamiento estricto por instructor y rol, estados válidos e inmutabilidad histórica.
-    // NOTA BLOQUEADORES P0 PREEXISTENTES: `users/{userId}` y colecciones legacy siguen abiertos
-    // en otros bloques hasta la fase dedicada de endurecimiento de auth/migración de roles.
+    // REGLA PARA LA TIENDA Y PEDIDOS (P0 RESUELTO)
+    // ==========================================
+    match /productos/{productId} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /pedidos/{pedidoId} {
+      allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isStaff());
+      allow create: if isStaff() || (
+        isSignedIn() &&
+        request.resource.data.user_id == request.auth.uid &&
+        request.resource.data.status == 'pendiente' &&
+        request.resource.data.items is list &&
+        request.resource.data.total is number &&
+        request.resource.data.total >= 0
+      );
+      allow update, delete: if isStaff();
+    }
+
+    // ==========================================
+    // REGLAS PARA CLASES, ASISTENCIAS, RESERVAS Y SESIONES QR (P0 RESUELTO)
+    // ==========================================
+    match /clases/{claseId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isStaff();
+      // El alumno solo puede decrementar cupos_disponibles en exactamente 1 al reservar clase de prueba.
+      allow update: if isStaff() || (
+        isSignedIn() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cupos_disponibles']) &&
+        request.resource.data.cupos_disponibles is int &&
+        resource.data.cupos_disponibles is int &&
+        request.resource.data.cupos_disponibles == resource.data.cupos_disponibles - 1 &&
+        request.resource.data.cupos_disponibles >= 0
+      );
+    }
+
+    match /asistencias/{asistenciaId} {
+      allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isStaff());
+      // El alumno solo puede registrar SU propia asistencia contra una sesión QR activa.
+      allow create: if isStaff() || (
+        isSignedIn() &&
+        request.resource.data.user_id == request.auth.uid &&
+        request.resource.data.sesion_id is string &&
+        request.resource.data.sesion_id.size() > 0 &&
+        exists(/databases/$(database)/documents/sesiones/$(request.resource.data.sesion_id)) &&
+        get(/databases/$(database)/documents/sesiones/$(request.resource.data.sesion_id)).data.activa == true
+      );
+      allow update, delete: if isStaff();
+    }
+
+    match /reservas/{reservaId} {
+      allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isStaff());
+      allow create: if isStaff() || (
+        isSignedIn() &&
+        request.resource.data.user_id == request.auth.uid &&
+        request.resource.data.status == 'confirmado' &&
+        request.resource.data.clase_id is string &&
+        request.resource.data.clase_id.size() > 0
+      );
+      allow update: if isStaff() || (
+        isSignedIn() &&
+        resource.data.user_id == request.auth.uid &&
+        request.resource.data.user_id == resource.data.user_id &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        request.resource.data.status in ['asistido', 'cancelado']
+      );
+      allow delete: if isStaff();
+    }
+
+    match /sesiones/{sesionId} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    // ==========================================
+    // REGLA PARA PAGOS Y CONFIGURACIÓN DEL NEGOCIO
+    // ==========================================
+    match /pagos/{pagoId} {
+      allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isStaff());
+      allow write: if isStaff();
+    }
+
+    match /config/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ==========================================
+    // REGLA PARA BIBLIOTECA, CANCIONERO Y EVENTOS (P0 RESUELTO)
+    // ==========================================
+    match /tutoriales/{tutorialId} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /cantigas/{cantigaId} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /eventos/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+
+      match /registros/{userId} {
+        allow read, create, update: if isSignedIn() && (request.auth.uid == userId || isStaff());
+        allow delete: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      }
+    }
+
+    // ==========================================
+    // REGLAS DEL PLANIFICADOR PEDAGÓGICO Y PIZARRA (PED-05 / PED-06A)
     // ==========================================
     function isPlannerAdmin() {
-      return request.auth != null && (
-        request.auth.token.admin == true ||
-        request.auth.token.rol == 'admin' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'admin')
-      );
+      return isAdmin();
     }
 
     function isPlannerInstructor() {
-      return isPlannerAdmin() || (
-        request.auth != null && (
-          request.auth.token.profesor == true ||
-          request.auth.token.instructor == true ||
-          request.auth.token.rol == 'profesor' ||
-          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'profesor')
-        )
-      );
+      return isStaff();
     }
 
     function isValidPlanStatus(status) {
@@ -261,12 +352,12 @@ service cloud.firestore {
     }
 
     // ==========================================
-    // REGLA PARA LEADS Y MENSAJES DE WHATSAPP
+    // REGLA PARA LEADS Y MENSAJES DE WHATSAPP (P0 RESUELTO)
     // ==========================================
     match /whatsapp_leads/{leadId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isStaff();
       match /mensajes/{msgId} {
-        allow read, write: if request.auth != null;
+        allow read, write: if isStaff();
       }
     }
 
@@ -274,18 +365,8 @@ service cloud.firestore {
     // REGLA PARA FEEDBACK Y EVALUACIONES DEL AGENTE IA GINGA 🤖
     // ==========================================
     match /agent_feedback/{feedbackId} {
-      function getUserData() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      }
       function isTeacherOrAdmin() {
-        return request.auth != null &&
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          getUserData().rol in ['profesor', 'admin'];
-      }
-      function isAdmin() {
-        return request.auth != null &&
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          getUserData().rol == 'admin';
+        return isStaff();
       }
 
       // 1. LECTURA: Solo profesores o administradores autenticados
@@ -316,8 +397,7 @@ service cloud.firestore {
       // 3. ACTUALIZACIÓN / TRIAJE:
       // - Requiere rol profesor o admin
       // - CAMPOS DE AUDITORÍA INMUTABLES: no se permite alterar id, lead, mensaje, autor, fecha ni contenido original
-      // - PRIVILEGIOS DE ESTADO: Solo un 'admin' puede marcar incidencias como 'approved', 'deployed' o 'closed'
-      // - Los profesores ordinarios solo pueden actualizar diagnóstico y transicionar estados de análisis
+      // - PRIVILEGIOS DE ESTADO: Solo un 'admin'/'administrador' puede marcar incidencias como 'approved', 'deployed' o 'closed'
       allow update: if isTeacherOrAdmin() &&
         request.resource.data.feedback_id == resource.data.feedback_id &&
         request.resource.data.lead_id == resource.data.lead_id &&
@@ -336,33 +416,21 @@ service cloud.firestore {
     }
 
     match /agent_evaluations/{caseId} {
-      function getUserData() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      }
-      function isTeacherOrAdmin() {
-        return request.auth != null &&
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          getUserData().rol in ['profesor', 'admin'];
-      }
+      allow read: if isStaff();
 
-      // Lectura permitida a docentes y admins
-      allow read: if isTeacherOrAdmin();
-
-      // Creación y actualización con validación de campos mínimos
-      allow create, update: if isTeacherOrAdmin() &&
+      allow create, update: if isStaff() &&
         request.resource.data.case_id is string && request.resource.data.case_id.size() > 0 &&
         request.resource.data.category is string &&
         request.resource.data.scenario is string &&
         request.resource.data.created_at is timestamp;
 
-      // Inmutabilidad de benchmarks de calidad
       allow delete: if false;
     }
 
     // ==========================================
     // REGLAS PARA EL CATÁLOGO CURRICULAR FIU (PED-03A)
     // Lectura unificada para usuarios autenticados;
-    // escritura estrictamente administrativa; borrado bloqueado.
+    // escritura estrictamente administrativa por Custom Claims; borrado bloqueado.
     // ==========================================
     function isCurriculumAdmin() {
       return request.auth != null && (
@@ -372,7 +440,7 @@ service cloud.firestore {
     }
 
     match /curriculum_meta/{docId} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow create, update: if isCurriculumAdmin() &&
         request.resource.data.catalog_id is string &&
         request.resource.data.schema_version is string;
@@ -380,7 +448,7 @@ service cloud.firestore {
     }
 
     match /curriculum_movements/{movementId} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow create, update: if isCurriculumAdmin() &&
         request.resource.data.movement_id == movementId &&
         request.resource.data.canonical_name is string &&
@@ -396,7 +464,7 @@ service cloud.firestore {
     }
 
     match /curriculum_cordas/{cordaId} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow create, update: if isCurriculumAdmin() &&
         request.resource.data.corda_id == cordaId &&
         request.resource.data.track_id in ['adulto', 'infantil'] &&
@@ -406,7 +474,7 @@ service cloud.firestore {
     }
 
     match /curriculum_blocks/{blockId} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow create, update: if isCurriculumAdmin() &&
         request.resource.data.block_id == blockId &&
         request.resource.data.track_id in ['adulto', 'infantil'] &&
@@ -415,7 +483,7 @@ service cloud.firestore {
     }
 
     match /curriculum_tutorial_links/{linkId} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow create, update: if isCurriculumAdmin() &&
         request.resource.data.tutorial_doc_id == linkId &&
         request.resource.data.movement_ids is list;
@@ -423,11 +491,16 @@ service cloud.firestore {
     }
 
     match /curriculum_glossary_links/{linkId} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow create, update: if isCurriculumAdmin() &&
         request.resource.data.termino_glosario is string &&
         request.resource.data.movement_ids is list;
       allow delete: if false;
+    }
+
+    // Denegación explícita por defecto para cualquier colección no listada.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

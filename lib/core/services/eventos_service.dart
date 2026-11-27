@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../utils/user_role_utils.dart';
 
 class EventosService {
   EventosService._();
@@ -23,8 +24,8 @@ class EventosService {
       }
       final userData = userDoc.data();
       final rol = userData != null ? userData['rol'] : 'alumno';
-      if (rol != 'profesor') {
-        debugPrint('Sembrado de eventos mockup omitido: El usuario actual no tiene rol de profesor ($rol).');
+      if (!UserRoleUtils.isStaff(rol)) {
+        debugPrint('Sembrado de eventos mockup omitido: El usuario actual no tiene rol autorizado ($rol).');
         return;
       }
       
@@ -83,8 +84,8 @@ class EventosService {
       if (!userDoc.exists) return;
       final userData = userDoc.data();
       final rol = userData != null ? userData['rol'] : 'alumno';
-      if (rol != 'profesor') {
-        debugPrint('Sembrado de entreno 30 de Mayo omitido: El usuario actual no tiene rol de profesor ($rol).');
+      if (!UserRoleUtils.isStaff(rol)) {
+        debugPrint('Sembrado de entreno 30 de Mayo omitido: El usuario actual no tiene rol autorizado ($rol).');
         return;
       }
 

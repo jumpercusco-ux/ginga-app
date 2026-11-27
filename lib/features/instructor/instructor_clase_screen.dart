@@ -7,6 +7,7 @@ import '../../core/theme/ginga_theme.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/eventos_service.dart';
 import '../../core/services/tutoriales_service.dart';
+import '../../core/utils/user_role_utils.dart';
 import '../perfil/progreso_screen.dart';
 import 'qr_generator_screen.dart';
 import 'instructor_alumnos_screen.dart';
@@ -133,7 +134,7 @@ class _InstructorClaseScreenState extends State<InstructorClaseScreen> {
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
           final rol = data['rol'] ?? 'alumno';
-          if (rol != 'profesor' && rol != 'administrador') {
+          if (!UserRoleUtils.isStaff(rol)) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (context.mounted) {
                 context.go('/home');

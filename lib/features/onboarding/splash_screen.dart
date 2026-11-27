@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/utils/user_role_utils.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -123,7 +124,7 @@ class _SplashScreenState extends State<SplashScreen>
 
       if (doc.exists) {
         final rol = doc.data()?['rol'] ?? 'alumno';
-        if (rol == 'profesor') {
+        if (UserRoleUtils.isStaff(rol)) {
           context.go('/instructor-clase');
         } else {
           context.go('/home');

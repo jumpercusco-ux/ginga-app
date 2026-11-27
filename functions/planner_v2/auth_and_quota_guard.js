@@ -3,7 +3,8 @@
 const crypto = require('crypto');
 const { PlannerV2Error } = require('./errors');
 
-const ALLOWED_CLAIM_KEYS = ['instructor', 'teacher', 'admin', 'curriculum_admin'];
+const ALLOWED_CLAIM_KEYS = ['instructor', 'profesor', 'teacher', 'admin', 'curriculum_admin'];
+const ALLOWED_TOKEN_ROLES = new Set(['instructor', 'profesor', 'teacher', 'admin', 'administrador']);
 
 /**
  * Verifies actor authorization strictly via signed Firebase Auth Custom Claims.
@@ -38,6 +39,10 @@ function assertAuthorizedActor(authContext, serverConfig) {
   }
 
   const matched = ALLOWED_CLAIM_KEYS.filter((k) => token[k] === true);
+  const rawTokenRole = typeof token.rol === 'string' ? token.rol.trim().toLowerCase() : '';
+  if (rawTokenRole && ALLOWED_TOKEN_ROLES.has(rawTokenRole)) {
+    matched.push(`rol:${rawTokenRole}`);
+  }
   if (matched.length === 0) {
     throw new PlannerV2Error(
       'FORBIDDEN_ROLE',

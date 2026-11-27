@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import '../../../core/models/cuerdas_fiu.dart';
+import '../../../core/utils/user_role_utils.dart';
 
 /// Contexto del usuario actual dentro de la Biblioteca unificada.
 /// Conserva exactamente las reglas de bloqueo de tutoriales vigentes sin ampliar permisos.
@@ -88,7 +89,7 @@ class BibliotecaUserContextProvider extends StatelessWidget {
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
           corda = (data['corda'] ?? 'Crua').toString();
-          rol = (data['rol'] ?? 'alumno').toString().toLowerCase();
+          rol = UserRoleUtils.normalizeRole(data['rol']);
           nombre = (data['nombre'] ?? 'Capoeirista').toString();
         }
 
