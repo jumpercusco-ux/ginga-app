@@ -582,4 +582,6 @@ async function buildValidatedContext({
 module.exports = {
   assertNoClientPolicyOverrides,
   buildValidatedContext,
+  extractRequestedTechnicalMovements,
+  detectSimultaneousParticipationRequested,
 };

@@ -16,6 +16,7 @@ const path = require('path');
 const { URL } = require('url');
 const {
   generateClassPlanV2,
+  runPedagogicalCopilotV1,
   getServerConfig,
   resolveServerOpenAiApiKey,
   hasServerOpenAiCredentials,
@@ -53,11 +54,15 @@ function parseCliArgs(argv) {
     staticDir: '',
     token: '',
     enableRealOpenAi: process.env.PLANNER_V2_ENABLE_REAL_OPENAI === 'true',
+    enableRealCopilotOpenAi: false,
     maxBudgetUsd: 0.10,
     maxRealGenerations: 4,
+    copilotBudgetUsd: 0.10,
+    copilotMaxGenerations: 20,
     model: '',
     fallbackModel: '',
     budgetStateFile: '',
+    copilotBudgetStateFile: '',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -66,11 +71,15 @@ function parseCliArgs(argv) {
     else if (a === '--static-dir' && argv[i + 1]) args.staticDir = path.resolve(argv[++i]);
     else if (a === '--token' && argv[i + 1]) args.token = argv[++i];
     else if (a === '--enable-real-openai') args.enableRealOpenAi = true;
+    else if (a === '--enable-real-copilot-openai') args.enableRealCopilotOpenAi = true;
     else if (a === '--budget-usd' && argv[i + 1]) args.maxBudgetUsd = Number(argv[++i]);
     else if (a === '--max-real-generations' && argv[i + 1]) args.maxRealGenerations = Number(argv[++i]);
+    else if (a === '--copilot-budget-usd' && argv[i + 1]) args.copilotBudgetUsd = Number(argv[++i]);
+    else if (a === '--copilot-max-generations' && argv[i + 1]) args.copilotMaxGenerations = Number(argv[++i]);
     else if (a === '--model' && argv[i + 1]) args.model = argv[++i];
     else if (a === '--fallback-model' && argv[i + 1]) args.fallbackModel = argv[++i];
     else if (a === '--budget-state-file' && argv[i + 1]) args.budgetStateFile = path.resolve(argv[++i]);
+    else if (a === '--copilot-budget-state-file' && argv[i + 1]) args.copilotBudgetStateFile = path.resolve(argv[++i]);
   }
   return args;
 }
@@ -152,11 +161,15 @@ function createPlannerV2LocalServer({
   host = '127.0.0.1',
   token = '',
   enableRealOpenAi = false,
+  enableRealCopilotOpenAi = false,
   maxBudgetUsd = 0.10,
   maxRealGenerations = 4,
+  copilotBudgetUsd = 0.10,
+  copilotMaxGenerations = 20,
   model = '',
   fallbackModel = '',
   budgetStateFile = '',
+  copilotBudgetStateFile = '',
 } = {}) {
   const nonLoopback = !isLoopbackHost(host);
   if (nonLoopback && (!token || token.trim().length < 4)) {
@@ -166,18 +179,22 @@ function createPlannerV2LocalServer({
   }
 
   const credentialsPresent = hasServerOpenAiCredentials();
-  if (enableRealOpenAi === true && !credentialsPresent) {
+  if ((enableRealOpenAi === true || enableRealCopilotOpenAi === true) && !credentialsPresent) {
     throw new Error(
-      'Faltan credenciales de OpenAI en el servidor (PLANNER_V2_OPENAI_API_KEY o OPENAI_API_KEY) para iniciar con --enable-real-openai.'
+      'Faltan credenciales de OpenAI en el servidor (PLANNER_V2_OPENAI_API_KEY o OPENAI_API_KEY) para iniciar con proveedor real.'
     );
   }
 
   const effectiveReal = enableRealOpenAi === true && credentialsPresent;
+  const effectiveCopilotReal = enableRealCopilotOpenAi === true && credentialsPresent;
   const safeBudgetUsd = Math.min(0.10, Math.max(0.01, Number(maxBudgetUsd || 0.10)));
   const safeMaxGens = Math.max(1, Math.min(12, Number(maxRealGenerations || 4)));
   const resolvedBudgetStateFile =
     budgetStateFile ||
     (effectiveReal ? path.join(__dirname, '..', 'scratch', 'pilot_ped04c2d_budget_state.json') : '');
+  const resolvedCopilotBudgetStateFile =
+    copilotBudgetStateFile ||
+    (effectiveCopilotReal ? path.join(__dirname, '..', 'scratch', 'copilot_ped04c3_budget_state.json') : '');
 
   const baseConfig = getServerConfig({
     primaryModel: model || undefined,
@@ -185,10 +202,16 @@ function createPlannerV2LocalServer({
   });
   const catalog = loadVerifiedCatalog();
   const quotaStore = new InMemoryAtomicQuotaStore();
+  const copilotQuotaStore = new InMemoryAtomicQuotaStore();
   const budgetGuard = new AtomicPilotBudgetGuard({
     maxBudgetUsd: safeBudgetUsd,
     maxGenerations: safeMaxGens,
     stateFilePath: resolvedBudgetStateFile,
+  });
+  const copilotBudgetGuard = new AtomicPilotBudgetGuard({
+    maxBudgetUsd: Math.min(0.25, Math.max(0.01, Number(copilotBudgetUsd || 0.10))),
+    maxGenerations: Math.max(1, Math.min(50, Number(copilotMaxGenerations || 20))),
+    stateFilePath: resolvedCopilotBudgetStateFile,
   });
   const runtimeModelState = {
     primaryModel: baseConfig.primaryModel,
@@ -287,8 +310,54 @@ function createPlannerV2LocalServer({
         catalog_movements_count: catalog.movementsCount,
         loopback_only: !nonLoopback,
         pilot_budget: budgetGuard.getSnapshot(),
+        copilot_budget: copilotBudgetGuard.getSnapshot(),
+        copilot_real_provider_enabled: effectiveCopilotReal,
         generation_progress: generationProgress,
       });
+      return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/planner-v2/copilot') {
+      try {
+        const body = await readJsonBody(req);
+        const forceSimulated = body.force_simulated === true || !effectiveCopilotReal;
+        const previewCatalog = body.preview_resources_catalog || body.available_resources || [];
+        const resourceRepository = buildEphemeralResourceRepo(previewCatalog);
+        const response = await runPedagogicalCopilotV1({
+          request: {
+            ...body,
+            available_resources: previewCatalog,
+          },
+          authContext: {},
+          deps: {
+            catalog,
+            quotaStore: copilotQuotaStore,
+            budgetGuard: !forceSimulated ? copilotBudgetGuard : null,
+            resourceRepository,
+          },
+          serverOverrides: {
+            providerMode: !forceSimulated ? 'openai' : 'simulated',
+            realProviderEnabled: !forceSimulated,
+            allowLocalDevSimulatedBypass: true,
+            primaryModel: runtimeModelState.primaryModel,
+            fallbackModel: runtimeModelState.fallbackModel,
+          },
+        });
+        sendJson(res, 200, response);
+      } catch (err) {
+        if (err instanceof PlannerV2Error) {
+          sendJson(res, err.httpStatus || 400, err.toSafeResponse());
+        } else {
+          sendJson(res, 500, {
+            status: 'error',
+            error: {
+              code: 'INTERNAL_ERROR',
+              message: err?.message || 'Error inesperado en Copiloto GINGA.',
+              retryable: true,
+            },
+          });
+        }
+      }
       return;
     }
 

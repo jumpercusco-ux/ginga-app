@@ -28,6 +28,7 @@ enum PlannerPreviewScenario {
   quickCreate('Creación Rápida'),
   advancedCreate('Creación Avanzada'),
   editorV2('Editor · Clase V2'),
+  copilotInfantil8of8('Copiloto · Infantil 8/8'),
   editorManual('Editor · Desde cero'),
   liveClass('En Vivo · Clase V2');
 
@@ -75,8 +76,8 @@ class _PlanificadorPreviewAppState extends State<PlanificadorPreviewApp> {
   @override
   void initState() {
     super.initState();
-    _plannerDataSource =
-        widget.initialDataSource ?? InMemoryPlannerDataSource.demoFixtures();
+    _plannerDataSource = widget.initialDataSource ??
+        InMemoryPlannerDataSource.copilotDemoFixtures();
     _scenario = widget.initialScenario;
     if (widget.initialCurriculumDataSource != null) {
       _curriculumRepository =
@@ -261,8 +262,11 @@ class _PlanificadorPreviewAppState extends State<PlanificadorPreviewApp> {
       PlannerPreviewScenario.adultosMj19 => 'clase_adultos_mj_1900',
       _ => null,
     };
-    final initialEditingPlanId =
-        _scenario == PlannerPreviewScenario.editorV2 ? 'v2_plan_adulto_01' : null;
+    final initialEditingPlanId = _scenario == PlannerPreviewScenario.editorV2
+        ? 'v2_plan_adulto_01'
+        : _scenario == PlannerPreviewScenario.copilotInfantil8of8
+            ? 'v2_plan_infantil_8of8_demo'
+            : null;
     final initialLivePlanId =
         _scenario == PlannerPreviewScenario.liveClass ? 'v2_plan_adulto_01' : null;
     final initialCreateManual =

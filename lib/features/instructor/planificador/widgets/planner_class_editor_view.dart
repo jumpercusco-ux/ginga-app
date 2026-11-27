@@ -3,20 +3,25 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/services/curriculum_repository.dart';
 import '../../../../core/theme/ginga_theme.dart';
 import '../models/class_plan_models.dart';
+import '../models/copilot_models.dart';
 import '../services/class_plan_editor_operations.dart';
+import '../services/copilot_operation_applier.dart';
+import '../services/planner_copilot_client.dart';
 import '../theme/planner_palette.dart';
+import 'planner_copilot_panel.dart';
 import 'planner_exercise_editor_panel.dart';
 import 'planner_shared_widgets.dart';
 
-/// Editor Pedagógico de Clases V2 (PED-04B2).
+/// Editor Pedagógico de Clases V2 (PED-04B2 / PED-04C3).
 /// Soporta clases creadas desde cero, borradores V2 y planes V1 heredados,
-/// con control permanente de tiempos y edición contextual por ejercicio.
+/// con control permanente de tiempos, edición contextual y Copiloto IA.
 class PlannerClassEditorView extends StatefulWidget {
   final ClassPlanModel initialPlan;
   final bool isDuplicateCopy;
   final List<PlannerResourceItem> resources;
   final CurriculumRepository? curriculumRepository;
   final Map<String, String> movementNamesById;
+  final PlannerCopilotClient? copilotClient;
   final Future<PlannerResourceItem?> Function()? onCreateLocalResource;
   final ValueChanged<PlannerResourceItem>? onOpenResource;
   final ValueChanged<ClassPlanModel> onSavePlan;
@@ -29,6 +34,7 @@ class PlannerClassEditorView extends StatefulWidget {
     this.resources = const [],
     this.curriculumRepository,
     this.movementNamesById = const {},
+    this.copilotClient,
     this.onCreateLocalResource,
     this.onOpenResource,
     required this.onSavePlan,
@@ -54,6 +60,11 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
   bool _metadataExpanded = false;
   bool _showTimingWarnings = false;
   final Set<String> _collapsedBlockIds = {};
+
+  bool _copilotOpen = false;
+  List<CopilotChatMessage> _copilotMessages = const [];
+  final List<ClassPlanModel> _copilotUndoStack = [];
+  final ValueNotifier<int> _copilotSheetTick = ValueNotifier<int>(0);
 
   late Map<String, String> _movementNamesById;
   late List<PlannerResourceItem> _resources;
@@ -146,10 +157,150 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
     _groupNameCtrl.dispose();
     _consejosCtrl.dispose();
     _objectiveInputCtrl.dispose();
+    _copilotSheetTick.dispose();
     for (final ctrl in _blockNameCtrls.values) {
       ctrl.dispose();
     }
     super.dispose();
+  }
+
+  PlannerCopilotClient get _effectiveCopilotClient =>
+      widget.copilotClient ?? OfflineSimulatedPlannerCopilotClient();
+
+  void _syncMetadataControllers(ClassPlanModel plan) {
+    _titleCtrl.text = plan.titulo;
+    _enfoqueCtrl.text = plan.enfoque;
+    _groupNameCtrl.text = plan.groupName;
+    _consejosCtrl.text = plan.consejosInstructor ?? '';
+  }
+
+  void _applyCopilotProposal(CopilotChatMessage msg) {
+    final proposal = msg.response;
+    if (proposal == null) return;
+    try {
+      final applied = CopilotOperationApplier.applyProposal(
+        currentPlan: _plan,
+        proposal: proposal,
+        availableResources: _resources,
+      );
+      setState(() {
+        _copilotUndoStack.add(_plan);
+        _plan = applied;
+        _syncMetadataControllers(applied);
+        _syncBlockControllers();
+        _copilotMessages = [
+          for (final m in _copilotMessages)
+            if (m.id == msg.id)
+              m.copyWith(resolution: CopilotProposalResolution.applied)
+            else
+              m,
+        ];
+        _copilotSheetTick.value++;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Cambios del Copiloto aplicados al borrador (puedes usar Deshacer IA).',
+          ),
+          backgroundColor: PlannerPalette.of(context).accent,
+        ),
+      );
+    } on CopilotDraftConflictException catch (e) {
+      setState(() {
+        _copilotMessages = [
+          for (final m in _copilotMessages)
+            if (m.id == msg.id)
+              m.copyWith(
+                resolution: CopilotProposalResolution.staleConflict,
+                conflictNotice: e.message,
+              )
+            else
+              m,
+        ];
+        _copilotSheetTick.value++;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: PlannerPalette.of(context).amber,
+        ),
+      );
+    }
+  }
+
+  void _undoLastCopilotApply() {
+    if (_copilotUndoStack.isEmpty) return;
+    final previous = _copilotUndoStack.removeLast();
+    setState(() {
+      _plan = previous;
+      _syncMetadataControllers(previous);
+      _syncBlockControllers();
+      var marked = false;
+      final reversed = _copilotMessages.reversed.toList();
+      for (var i = 0; i < reversed.length; i++) {
+        if (!marked &&
+            reversed[i].resolution == CopilotProposalResolution.applied) {
+          reversed[i] = reversed[i].copyWith(
+            resolution: CopilotProposalResolution.undone,
+          );
+          marked = true;
+        }
+      }
+      _copilotMessages = reversed.reversed.toList();
+      _copilotSheetTick.value++;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Último cambio del Copiloto revertido.'),
+        backgroundColor: PlannerPalette.of(context).infoBlue,
+      ),
+    );
+  }
+
+  Future<void> _toggleOrOpenCopilot() async {
+    final isDesktop = MediaQuery.of(context).size.width >= 1024;
+    if (isDesktop) {
+      setState(() {
+        _copilotOpen = !_copilotOpen;
+      });
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => FractionallySizedBox(
+        heightFactor: 0.88,
+        child: ValueListenableBuilder<int>(
+          valueListenable: _copilotSheetTick,
+          builder: (_, __, ___) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
+            ),
+            child: PlannerCopilotPanel(
+              currentPlan: _plan,
+              currentDraftVersion: computeDraftVersion(_plan),
+              selectedBlock: _selectedPair?.block,
+              selectedExercise: _selectedPair?.exercise,
+              availableResources: _resources,
+              copilotClient: _effectiveCopilotClient,
+              messages: _copilotMessages,
+              onMessagesChanged: (next) {
+                setState(() {
+                  _copilotMessages = next;
+                  _copilotSheetTick.value++;
+                });
+              },
+              onApplyProposal: _applyCopilotProposal,
+              canUndo: _copilotUndoStack.isNotEmpty,
+              onUndoLastApply: _undoLastCopilotApply,
+              onClose: () => Navigator.of(sheetCtx).pop(),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _applyPlanUpdate(ClassPlanModel nextPlan) {
@@ -223,6 +374,7 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
       setState(() {
         _selectedBlockId = block.blockId;
         _selectedExerciseId = exercise.exerciseId;
+        _copilotOpen = false;
       });
       return;
     }
@@ -458,6 +610,44 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              OutlinedButton.icon(
+                key: const Key('editor_copilot_toggle_button'),
+                onPressed: _toggleOrOpenCopilot,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 42),
+                  side: BorderSide(
+                    color: _copilotOpen ? pal.accent : pal.border,
+                  ),
+                  backgroundColor:
+                      _copilotOpen ? pal.accent.withValues(alpha: 0.12) : null,
+                  foregroundColor:
+                      _copilotOpen ? pal.accent : pal.textPrimary,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                icon: const Icon(Icons.auto_awesome_outlined, size: 16),
+                label: Text(
+                  'Copiloto IA',
+                  style: GoogleFonts.montserrat(
+                      fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (_copilotUndoStack.isNotEmpty)
+                OutlinedButton.icon(
+                  key: const Key('editor_copilot_undo_button'),
+                  onPressed: _undoLastCopilotApply,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 42),
+                    side: BorderSide(color: pal.infoBlue),
+                    foregroundColor: pal.infoBlue,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  icon: const Icon(Icons.undo_rounded, size: 16),
+                  label: Text(
+                    'Deshacer IA',
+                    style: GoogleFonts.montserrat(
+                        fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                ),
               OutlinedButton.icon(
                 key: const Key('editor_duplicate_plan_button'),
                 onPressed: _duplicateWholeClassInEditor,
@@ -1742,6 +1932,28 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
     PlannerPalette pal,
     ClassPlanTimingSummary timing,
   ) {
+    if (_copilotOpen) {
+      return PlannerCopilotPanel(
+        currentPlan: _plan,
+        currentDraftVersion: computeDraftVersion(_plan),
+        selectedBlock: _selectedPair?.block,
+        selectedExercise: _selectedPair?.exercise,
+        availableResources: _resources,
+        copilotClient: _effectiveCopilotClient,
+        messages: _copilotMessages,
+        onMessagesChanged: (next) {
+          setState(() {
+            _copilotMessages = next;
+            _copilotSheetTick.value++;
+          });
+        },
+        onApplyProposal: _applyCopilotProposal,
+        canUndo: _copilotUndoStack.isNotEmpty,
+        onUndoLastApply: _undoLastCopilotApply,
+        onClose: () => setState(() => _copilotOpen = false),
+      );
+    }
+
     final pair = _selectedPair;
     if (pair != null) {
       return PlannerExerciseEditorPanel(

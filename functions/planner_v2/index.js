@@ -22,6 +22,15 @@ const { SimulatedPlannerProvider } = require('./simulated_provider');
 const { validateAndRepairPlan, generateAndValidateModularPlan } = require('./plan_repairer');
 const { HEURISTIC_PRIVACY_DISCLAIMER } = require('./pii_and_injection_guard');
 const { PlannerTelemetryLogger } = require('./telemetry');
+const { runPedagogicalCopilotV1 } = require('./copilot_engine');
+const {
+  COPILOT_CONTRACT_VERSION,
+  COPILOT_OPERATION_TYPES,
+  OPENAI_STRICT_COPILOT_V1_JSON_SCHEMA,
+  computeDraftVersionHash,
+} = require('./copilot_schema');
+const { applyCopilotOperationsToPlan, buildCopilotDiffSummary } = require('./copilot_operations');
+const { SimulatedCopilotProvider } = require('./copilot_simulated_provider');
 
 function buildExcludedAndTransparencyNotices(context, repairResult) {
   const notices = [];
@@ -513,6 +522,14 @@ async function generateClassPlanV2({
 
 module.exports = {
   generateClassPlanV2,
+  runPedagogicalCopilotV1,
+  applyCopilotOperationsToPlan,
+  buildCopilotDiffSummary,
+  computeDraftVersionHash,
+  COPILOT_CONTRACT_VERSION,
+  COPILOT_OPERATION_TYPES,
+  OPENAI_STRICT_COPILOT_V1_JSON_SCHEMA,
+  SimulatedCopilotProvider,
   getServerConfig,
   resolveServerOpenAiApiKey,
   hasServerOpenAiCredentials,

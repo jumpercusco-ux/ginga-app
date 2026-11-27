@@ -6,6 +6,7 @@ import '../models/class_plan_models.dart';
 import '../models/live_session_models.dart';
 import '../services/class_plan_editor_operations.dart';
 import '../services/live_session_persistence.dart';
+import '../services/planner_copilot_client.dart';
 import '../services/planner_data_source.dart';
 import '../services/planner_v2_engine_client.dart';
 import '../theme/planner_palette.dart';
@@ -21,6 +22,7 @@ class PlannerHubBody extends StatefulWidget {
   final PlannerDataSource dataSource;
   final CurriculumRepository? curriculumRepository;
   final PlannerV2EngineClient? engineClient;
+  final PlannerCopilotClient? copilotClient;
   final PlannerHubTab initialTab;
   final PlannerCreationMode? initialCreationMode;
   final String? initialGroupIdForCreation;
@@ -45,6 +47,7 @@ class PlannerHubBody extends StatefulWidget {
     required this.dataSource,
     this.curriculumRepository,
     this.engineClient,
+    this.copilotClient,
     this.initialTab = PlannerHubTab.plans,
     this.initialCreationMode,
     this.initialGroupIdForCreation,
@@ -892,6 +895,14 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
     }
 
     if (_editingPlan != null) {
+      final resolvedCopilot = widget.copilotClient ??
+          (widget.engineClient is HttpLocalPlannerV2Client
+              ? HttpLocalPlannerCopilotClient(
+                  baseUrl: (widget.engineClient as HttpLocalPlannerV2Client).baseUrl,
+                  previewToken:
+                      (widget.engineClient as HttpLocalPlannerV2Client).previewToken,
+                )
+              : OfflineSimulatedPlannerCopilotClient());
       return PlannerClassEditorView(
         key: ValueKey('class_editor_${_editingPlan!.id}_$_editingIsDuplicate'),
         initialPlan: _editingPlan!,
@@ -899,6 +910,7 @@ class _PlannerHubBodyState extends State<PlannerHubBody> {
         resources: _resources,
         curriculumRepository: widget.curriculumRepository,
         movementNamesById: _movementNamesById,
+        copilotClient: resolvedCopilot,
         onCreateLocalResource:
             widget.dataSource is InMemoryPlannerDataSource
                 ? _createLocalResourceFromEditor

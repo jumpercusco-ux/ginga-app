@@ -92,6 +92,7 @@ jobs:
           node scripts/test_planner_v2_pedagogical_quality_ped04c2e.js
           node scripts/test_planner_v2_modular_stabilization.js
           node scripts/test_planner_v2_pilot_and_budget.js
+          node scripts/test_planner_v2_copilot_ped04c3.js
           node scripts/test_planner_v2_structural_engine.js
           node scripts/test_planner_v2_local_server_e2e.js
 
