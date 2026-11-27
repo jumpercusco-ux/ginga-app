@@ -3,10 +3,10 @@
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-27  
 > **Rama Actual:** `feat/ped03-biblioteca-curricular` (base `main` `fd891a7` intacta; sin merge ni despliegue)  
-> **Commits de Respaldo PED-03 / PED-04 / PED-05 / PED-06A:** `613cefe` (Biblioteca Curricular FIU V1, `29` archivos) · `74f1fcc` (cierre PED-03C-CI) · `93ee84b` (cierre PED-04B1) · `62bb7f8` (cierre `PED-04B2` / `PED-04B2-UX`) · `a966b6c` (cierre `PED-04C1`) · `2b68974` (`PED-04C2-B`) · `753d686` (`PED-04C2-C`) · `cac524d` (`PED-04C2-D`) · `0451294` (`PED-04C2-E`) · `4a15613` (`PED-04C3` offline) · `9cc4a60` (`PED-04C3` real + Keychain) · `43665df` (`PED-05`) · cierre `PED-06A` sobre `feat/ped03-biblioteca-curricular`
-> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** pipeline [.github/workflows/ci.yml](file:///Users/jumper/ginga_app/.github/workflows/ci.yml) actualizado con `test_ped06a_security_emulator.js` (`12/12`), `test_ped05_firestore_persistence_emulator.js` (`12/12`), `test_curriculum_firestore_rules.js` (`7/7`), `test_curriculum_importer.js` (`6/6`) y `test_firestore_rules.js` (`9/9`) en Firestore Emulator (`demo-ginga-test`)
+> **Commits de Respaldo PED-03 / PED-04 / PED-05 / PED-06:** `613cefe` ... · `9cc4a60` (`PED-04C3`) · `43665df` (`PED-05`) · `f38247f` (`PED-06A`) · cierre preparación `PED-06B` sobre `feat/ped03-biblioteca-curricular`
+> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** ✅ `f38247f` (`46007663709`) en `success`; pipeline [.github/workflows/ci.yml](file:///Users/jumper/ginga_app/.github/workflows/ci.yml) actualizado con `test_p1a_runtime_guard.js` (`27/27`), `test_qa_regressions.js` (`33/33`) y `test_ped06b_staging_integral_emulator.js` en Firestore Emulator (`demo-ginga-test`)
 > **Producción Intacta:** `whatsappWebhook v69` (Cloud Functions Gen 1, Node.js 22), web `https://www.gingaperu.com`, proyecto `capoeirafiu-ea8ljo`
-> **Estado Actual:** **PED-06A COMPLETADO Y VERIFICADO LOCALMENTE (`12/12` SEGURIDAD EMULATOR `demo-ginga-test` + `12/12` PED-05 + `9/9` + `7/7` + `6/6` EMULATOR + `90/90` FLUTTER + `11/11` SUITES NODE CI + MIGRACIÓN ROLES `--dry-run`/`--apply` + GUÍA STAGING) · PILOTO `8/8` (`$0.020187 / $0.10`) Y COPILOTO (`$0.004682 / $0.05`) INTACTOS · LISTO PARA FUTURO `PED-06B` (BAJO APROBACIÓN) SIN CAMBIOS EN PRODUCCIÓN**
+> **Estado Actual:** **PED-06B PREPARACIÓN TÉCNICA Y SUITE INTEGRAL COMPLETADAS EN LOCAL/EMULATOR (`15` PASOS + COMPATIBILIDAD + CUOTAS TRANSACCIONALES + MULTI-ENV FLUTTER + HOSTING CONFIG + GUÍA APROVISIONAMIENTO) · DETENIDO ANTES DE CREACIÓN CLOUD/FACTURACIÓN `ginga-staging` A ESPERA DE AUTORIZACIÓN · SIN CAMBIOS EN PRODUCCIÓN NI INICIO DE `PED-06C`**
 
 ---
 

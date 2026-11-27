@@ -101,15 +101,20 @@ service cloud.firestore {
 
       // Buzón de notificaciones:
       // - Solo dueño (o admin) lee, marca como leído o elimina
-      // - Creación permitida para el propio usuario, staff, o destino con rol docente/admin (avisos de reserva/tienda)
+      // - Creación permitida para staff, o para el propio usuario/hacia staff con leido no marcado true
       match /notificaciones/{notificacionId} {
         allow read, update, delete: if isSignedIn() && (request.auth.uid == userId || isAdmin());
         allow create: if isSignedIn() && (
-          request.auth.uid == userId ||
           isStaff() ||
           (
-            exists(/databases/$(database)/documents/users/$(userId)) &&
-            get(/databases/$(database)/documents/users/$(userId)).data.rol in ['profesor', 'instructor', 'admin', 'administrador']
+            (
+              request.auth.uid == userId ||
+              (
+                exists(/databases/$(database)/documents/users/$(userId)) &&
+                get(/databases/$(database)/documents/users/$(userId)).data.rol in ['profesor', 'instructor', 'admin', 'administrador']
+              )
+            ) &&
+            (!('leido' in request.resource.data) || request.resource.data.leido == false)
           )
         );
       }
@@ -148,27 +153,34 @@ service cloud.firestore {
     match /clases/{claseId} {
       allow read: if isSignedIn();
       allow create, delete: if isStaff();
-      // El alumno solo puede decrementar cupos_disponibles en exactamente 1 al reservar clase de prueba.
+      // El alumno solo puede decrementar cupos_disponibles en exactamente 1 al reservar clase de prueba,
+      // de forma atómica con su transición users/{uid}.status ('nuevo' -> 'prueba').
       allow update: if isStaff() || (
         isSignedIn() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cupos_disponibles']) &&
         request.resource.data.cupos_disponibles is int &&
         resource.data.cupos_disponibles is int &&
         request.resource.data.cupos_disponibles == resource.data.cupos_disponibles - 1 &&
-        request.resource.data.cupos_disponibles >= 0
+        request.resource.data.cupos_disponibles >= 0 &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'nuevo' &&
+        getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'prueba'
       );
     }
 
     match /asistencias/{asistenciaId} {
       allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isStaff());
-      // El alumno solo puede registrar SU propia asistencia contra una sesión QR activa.
+      // El alumno solo puede registrar SU propia asistencia única (${sesion_id}_${uid}) contra una sesión QR activa y coherente.
       allow create: if isStaff() || (
         isSignedIn() &&
         request.resource.data.user_id == request.auth.uid &&
         request.resource.data.sesion_id is string &&
         request.resource.data.sesion_id.size() > 0 &&
+        asistenciaId == request.resource.data.sesion_id + '_' + request.auth.uid &&
         exists(/databases/$(database)/documents/sesiones/$(request.resource.data.sesion_id)) &&
-        get(/databases/$(database)/documents/sesiones/$(request.resource.data.sesion_id)).data.activa == true
+        get(/databases/$(database)/documents/sesiones/$(request.resource.data.sesion_id)).data.activa == true &&
+        request.resource.data.clase_id == get(/databases/$(database)/documents/sesiones/$(request.resource.data.sesion_id)).data.clase_id &&
+        request.resource.data.fecha == get(/databases/$(database)/documents/sesiones/$(request.resource.data.sesion_id)).data.fecha
       );
       allow update, delete: if isStaff();
     }
@@ -180,7 +192,8 @@ service cloud.firestore {
         request.resource.data.user_id == request.auth.uid &&
         request.resource.data.status == 'confirmado' &&
         request.resource.data.clase_id is string &&
-        request.resource.data.clase_id.size() > 0
+        request.resource.data.clase_id.size() > 0 &&
+        exists(/databases/$(database)/documents/clases/$(request.resource.data.clase_id))
       );
       allow update: if isStaff() || (
         isSignedIn() &&

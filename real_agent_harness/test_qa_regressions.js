@@ -14,7 +14,7 @@ async function runRegressionSuite() {
   console.log('   Validación determinista y offline sobre backend real');
   console.log('================================================================\n');
 
-  const harness = new RealAgentHarness();
+  const harness = new RealAgentHarness({ fixedNowIso: '2026-11-18T10:00:00-05:00' });
   const internals = harness.internals;
   const firestore = harness.firestore;
   const {

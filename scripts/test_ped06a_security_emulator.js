@@ -398,36 +398,78 @@ async function main() {
     );
     assert.strictEqual(rAluEditClass.status, 403);
 
-    // Alumno puede decrementar cupos_disponibles en exactamente 1 (transacción reserva)
-    const rCupo = await restRequest(
+    // Alumno NO puede decrementar cupos sin transición atómica nuevo -> prueba
+    const rCupoStandalone = await restRequest(
       'PATCH',
       `${docPath('clases', 'clase_1')}?updateMask.fieldPaths=cupos_disponibles`,
       { fields: toFields({ cupos_disponibles: 4 }) },
-      tokAlu1
+      tokAlu3
     );
-    assert.strictEqual(rCupo.status, 200);
+    assert.strictEqual(rCupoStandalone.status, 403, 'Debe rechazar decremento suelto de cupos');
 
-    // Alumno NO puede registrar asistencia sobre sesión cerrada ni a nombre de otro
+    // Alumno SÍ puede decrementar cupos_disponibles en exactamente 1 dentro de commit atómico nuevo -> prueba
+    const rCupoCommit = await restRequest(
+      'POST',
+      `/v1/projects/${PROJECT_ID}/databases/(default)/documents:commit`,
+      {
+        writes: [
+          {
+            update: {
+              name: `projects/${PROJECT_ID}/databases/(default)/documents/clases/clase_1`,
+              fields: toFields({ cupos_disponibles: 4 }),
+            },
+            updateMask: { fieldPaths: ['cupos_disponibles'] },
+          },
+          {
+            update: {
+              name: `projects/${PROJECT_ID}/databases/(default)/documents/users/alumno_3`,
+              fields: toFields({ status: 'prueba' }),
+            },
+            updateMask: { fieldPaths: ['status'] },
+          },
+        ],
+      },
+      tokAlu3
+    );
+    assert.strictEqual(rCupoCommit.status, 200);
+
+    // Alumno NO puede registrar asistencia sobre sesión cerrada, a nombre de otro, ID arbitrario ni clase falsificada
     const rAsisClosed = await restRequest(
       'POST',
-      docPath('asistencias'),
-      { fields: toFields({ user_id: 'alumno_1', sesion_id: 'sesion_qr_cerrada', clase_id: 'clase_1' }) },
+      `${docPath('asistencias')}?documentId=sesion_qr_cerrada_alumno_1`,
+      { fields: toFields({ user_id: 'alumno_1', sesion_id: 'sesion_qr_cerrada', clase_id: 'clase_1', fecha: '2026-11-27' }) },
       tokAlu1
     );
     assert.strictEqual(rAsisClosed.status, 403);
 
     const rAsisSpoof = await restRequest(
       'POST',
-      docPath('asistencias'),
-      { fields: toFields({ user_id: 'alumno_2', sesion_id: 'sesion_qr_activa', clase_id: 'clase_1' }) },
+      `${docPath('asistencias')}?documentId=sesion_qr_activa_alumno_2`,
+      { fields: toFields({ user_id: 'alumno_2', sesion_id: 'sesion_qr_activa', clase_id: 'clase_1', fecha: '2026-11-27' }) },
       tokAlu1
     );
     assert.strictEqual(rAsisSpoof.status, 403);
 
-    const rAsisValid = await restRequest(
+    const rAsisRandomId = await restRequest(
       'POST',
       docPath('asistencias'),
-      { fields: toFields({ user_id: 'alumno_1', sesion_id: 'sesion_qr_activa', clase_id: 'clase_1' }) },
+      { fields: toFields({ user_id: 'alumno_1', sesion_id: 'sesion_qr_activa', clase_id: 'clase_1', fecha: '2026-11-27' }) },
+      tokAlu1
+    );
+    assert.strictEqual(rAsisRandomId.status, 403, 'Debe rechazar asistencia con ID arbitrario');
+
+    const rAsisFakeClass = await restRequest(
+      'POST',
+      `${docPath('asistencias')}?documentId=sesion_qr_activa_alumno_1`,
+      { fields: toFields({ user_id: 'alumno_1', sesion_id: 'sesion_qr_activa', clase_id: 'clase_falsa', fecha: '2026-11-27' }) },
+      tokAlu1
+    );
+    assert.strictEqual(rAsisFakeClass.status, 403, 'Debe rechazar asistencia con clase_id alterado');
+
+    const rAsisValid = await restRequest(
+      'POST',
+      `${docPath('asistencias')}?documentId=sesion_qr_activa_alumno_1`,
+      { fields: toFields({ user_id: 'alumno_1', sesion_id: 'sesion_qr_activa', clase_id: 'clase_1', fecha: '2026-11-27' }) },
       tokAlu1
     );
     assert.strictEqual(rAsisValid.status, 200);

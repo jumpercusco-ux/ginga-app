@@ -99,7 +99,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       final String userName = userDoc.exists ? (userDoc.data()?['nombre'] ?? 'Sin nombre') : 'Sin nombre';
       final String userEmail = userDoc.exists ? (userDoc.data()?['email'] ?? '') : '';
 
-      await FirebaseFirestore.instance.collection('asistencias').add({
+      await FirebaseFirestore.instance
+          .collection('asistencias')
+          .doc('${sesionId}_$uid')
+          .set({
         'sesion_id': sesionId,
         'user_id': uid,
         'user_name': userName,

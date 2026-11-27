@@ -78,8 +78,11 @@ jobs:
       - name: Run date & schedule semantics test suite
         run: node real_agent_harness/test_reservation_date_semantics.js
 
-      - name: Run agent continuous evaluations suite (Accostupa & AgentFeedback)
-        run: node real_agent_harness/test_agent_evaluations.js
+      - name: Run agent continuous & WhatsApp security regressions
+        run: |
+          node real_agent_harness/test_agent_evaluations.js
+          node real_agent_harness/test_p1a_runtime_guard.js
+          node real_agent_harness/test_qa_regressions.js
 
       - name: Run FIU catalog & Planner V2 sync validation
         run: |
@@ -96,6 +99,6 @@ jobs:
           node scripts/test_planner_v2_structural_engine.js
           node scripts/test_planner_v2_local_server_e2e.js
 
-      - name: Run Firestore security rules, PED-05 persistence & PED-06A security emulator suites
+      - name: Run Firestore security rules, PED-05 persistence, PED-06A & PED-06B staging emulator suites
         run: |
-          firebase emulators:exec --only firestore --project demo-ginga-test 'node real_agent_harness/test_firestore_rules.js && node scripts/test_curriculum_firestore_rules.js && node scripts/test_curriculum_importer.js && node scripts/test_ped05_firestore_persistence_emulator.js && node scripts/test_ped06a_security_emulator.js'
+          firebase emulators:exec --only firestore --project demo-ginga-test 'node real_agent_harness/test_firestore_rules.js && node scripts/test_curriculum_firestore_rules.js && node scripts/test_curriculum_importer.js && node scripts/test_ped05_firestore_persistence_emulator.js && node scripts/test_ped06a_security_emulator.js && node scripts/test_ped06b_staging_integral_emulator.js'

@@ -9,6 +9,19 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
+## [PED-06B-PREP] — 2026-11-27
+### [ESTABILIZACIÓN CI WHATSAPP, CALLABLES V2 + CUOTAS TRANSACCIONALES, MULTI-ENTORNO FLUTTER Y SUITE INTEGRAL STAGING EN EMULATOR · CERO CLOUD/BILLING HASTA AUTORIZACIÓN]
+- **Estabilización de Suites con Reloj Determinista (`real_agent_harness/`):**
+  - Añadido `fixedNowIso` (`DeterministicDate` dentro de `vm.compileFunction`) y soporte `.region()`/`require('./planner_v2/...')` en [loader.js](file:///Users/jumper/ginga_app/real_agent_harness/loader.js), logrando **`27/27 PASS`** en [test_p1a_runtime_guard.js](file:///Users/jumper/ginga_app/real_agent_harness/test_p1a_runtime_guard.js) y **`33/33 PASS`** en [test_qa_regressions.js](file:///Users/jumper/ginga_app/real_agent_harness/test_qa_regressions.js) bajo `TZ=UTC` y `TZ=America/Lima` sin alterar lógica productiva; reincorporadas en [.github/workflows/ci.yml](file:///Users/jumper/ginga_app/.github/workflows/ci.yml).
+- **Reglas Indirectas, Callables V2 y Cuotas Transaccionales (`firestore.rules` + `functions/index.js`):**
+  - Endurecida actualización de `clases.cupos_disponibles` exigiendo transición atómica `users/{uid}.status: nuevo -> prueba` (`getAfter`), `asistencias` con ID determinista `${sesion_id}_${uid}` ([qr_scanner_screen.dart](file:///Users/jumper/ginga_app/lib/features/home/qr_scanner_screen.dart)) y coincidencia de `clase_id`/`fecha`, existencia de clase en `reservas` y `!leido` en creación no-staff de `notificaciones`.
+  - Añadido `assertTransactionalRateLimit` sobre `_quota_runtime` (`sendManualWhatsAppMessage` y `generarPlanClaseIA`) y exportados oficialmente `generarPlanClaseV2` (`180s`, `512MB`) y `copilotoPedagogicoV1` (`90s`, `512MB`) en `us-central1` operando en modo simulado por defecto.
+- **Flutter Multi-Entorno, App Check Web, Hosting y Preparación Staging:**
+  - Creados [ginga_environment.dart](file:///Users/jumper/ginga_app/lib/core/config/ginga_environment.dart) y [ginga_environment_test.dart](file:///Users/jumper/ginga_app/test/ginga_environment_test.dart), cableados en [main.dart](file:///Users/jumper/ginga_app/lib/main.dart) (`ReCaptchaV3Provider` Web App Check + emuladores opcionales) y `hosting` en [firebase.json](file:///Users/jumper/ginga_app/firebase.json), manteniendo intacto [lib/firebase_options.dart](file:///Users/jumper/ginga_app/lib/firebase_options.dart).
+  - Creados sembrador sintético Zero-PII [seed_staging_synthetic_data.js](file:///Users/jumper/ginga_app/scripts/seed_staging_synthetic_data.js), suite integral [test_ped06b_staging_integral_emulator.js](file:///Users/jumper/ginga_app/scripts/test_ped06b_staging_integral_emulator.js) (15 pasos + compatibilidad + `_quota_runtime`, **`6/6` bloques PASS** en `demo-ginga-test`) y plan de aprovisionamiento/costos/rollback/tablet [PED06B_STAGING_PROVISIONING_PLAN.md](file:///Users/jumper/ginga_app/docs/PED06B_STAGING_PROVISIONING_PLAN.md).
+
+---
+
 ## [PED-06A] — 2026-11-27
 ### [BLOQUEADORES P0 DE SEGURIDAD RESUELTOS EN FIRESTORE RULES, CLOUD FUNCTIONS Y ROLES · EMULATOR `12/12` + FLUTTER `90/90` · GUÍA STAGING · CERO PRODUCCIÓN]
 - **Seguridad Firestore (`firestore.rules`):**

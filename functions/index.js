@@ -1,6 +1,10 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
+const {
+  createGenerateClassPlanV2CallableHandler,
+  createPedagogicalCopilotV1CallableHandler,
+} = require('./planner_v2/callable_handler');
 if (!admin.apps || !admin.apps.length) {
   admin.initializeApp();
 }
@@ -3609,6 +3613,44 @@ function assertRuntimeRateLimit({ scope, actorId, maxRequests, windowMs, nowMs =
   return { allowed: true, remaining: maxRequests - active.length };
 }
 
+async function assertTransactionalRateLimit({
+  scope,
+  actorId,
+  maxRequests,
+  windowMs,
+  nowMs = Date.now(),
+}) {
+  const safeScope = String(scope || 'fn').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const safeActor = String(actorId || 'anon').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const db = admin.firestore ? admin.firestore() : null;
+  if (!db || typeof db.runTransaction !== 'function') {
+    return assertRuntimeRateLimit({ scope, actorId, maxRequests, windowMs, nowMs });
+  }
+  const docId = `${safeScope}_${safeActor}`.slice(0, 120);
+  const ref = db.collection('_quota_runtime').doc(docId);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() || {} : {};
+    const rawTimestamps = Array.isArray(data.timestamps_ms) ? data.timestamps_ms : [];
+    const active = rawTimestamps.filter((ts) => typeof ts === 'number' && nowMs - ts < windowMs);
+    if (active.length >= maxRequests) {
+      return { allowed: false, remaining: 0, transactional: true };
+    }
+    active.push(nowMs);
+    tx.set(
+      ref,
+      {
+        scope: safeScope,
+        actor_id: safeActor,
+        timestamps_ms: active,
+        updated_at_ms: nowMs,
+      },
+      { merge: true }
+    );
+    return { allowed: true, remaining: maxRequests - active.length, transactional: true };
+  });
+}
+
 async function verifyHttpAdminRequest(req, res, { requirePost = true } = {}) {
   if (requirePost && req.method !== 'POST') {
     res.status(405).json({ error: 'Method Not Allowed. Usa POST.' });
@@ -3690,7 +3732,7 @@ exports.sendManualWhatsAppMessage = functions
   .runWith({ secrets: ['META_WHATSAPP_TOKEN', 'META_PHONE_NUMBER_ID'] })
   .https.onCall(async (data, context) => {
     const actor = await assertCallableRole(context, ['profesor', 'admin']);
-    const rate = assertRuntimeRateLimit({
+    const rate = await assertTransactionalRateLimit({
       scope: 'sendManualWhatsAppMessage',
       actorId: actor.uid,
       maxRequests: 20,
@@ -4380,7 +4422,7 @@ exports.generarPlanClaseIA = functions
   .runWith({ secrets: ['OPENAI_API_KEY'], timeoutSeconds: 60, memory: '256MB' })
   .https.onCall(async (data, context) => {
     const actor = await assertCallableRole(context, ['profesor', 'admin']);
-    const rate = assertRuntimeRateLimit({
+    const rate = await assertTransactionalRateLimit({
       scope: 'generarPlanClaseIA',
       actorId: actor.uid,
       maxRequests: 4,
@@ -4550,6 +4592,50 @@ ${ideasContexto && ideasContexto.length > 0 ? `- Ideas / Clips disponibles en la
     }
   });
 
+/**
+ * Callable Function V2 (PED-04C2 / PED-06B): Generador modular pedagógico con cuota transaccional.
+ * Por defecto opera en modo simulado salvo habilitación explícita de entorno en servidor.
+ */
+exports.generarPlanClaseV2 = functions
+  .region('us-central1')
+  .runWith({ timeoutSeconds: 180, memory: '512MB' })
+  .https.onCall(async (data, context) => {
+    const realEnabled =
+      process.env.PLANNER_V2_REAL_PROVIDER_ENABLED === 'true' &&
+      Boolean(String(process.env.OPENAI_API_KEY || '').trim());
+    const handler = createGenerateClassPlanV2CallableHandler({
+      db: admin.firestore(),
+      allowLiveFirestore: true,
+      serverOverrides: {
+        providerMode: realEnabled ? 'openai' : 'simulated',
+        realProviderEnabled: realEnabled,
+      },
+    });
+    return handler(data, context);
+  });
+
+/**
+ * Callable Function Copiloto V1 (PED-04C3 / PED-06B): Copiloto pedagógico tipado con cuota transaccional.
+ * Por defecto opera en modo simulado salvo habilitación explícita de entorno en servidor.
+ */
+exports.copilotoPedagogicoV1 = functions
+  .region('us-central1')
+  .runWith({ timeoutSeconds: 90, memory: '512MB' })
+  .https.onCall(async (data, context) => {
+    const realEnabled =
+      process.env.PLANNER_V2_COPILOT_REAL_ENABLED === 'true' &&
+      Boolean(String(process.env.OPENAI_API_KEY || '').trim());
+    const handler = createPedagogicalCopilotV1CallableHandler({
+      db: admin.firestore(),
+      allowLiveFirestore: true,
+      serverOverrides: {
+        providerMode: realEnabled ? 'openai' : 'simulated',
+        realProviderEnabled: realEnabled,
+      },
+    });
+    return handler(data, context);
+  });
+
 module.exports.__internals = {
   DEFAULT_SYSTEM_PROMPT,
   obtenerSystemPrompt,
@@ -4597,6 +4683,7 @@ module.exports.__internals = {
   isSafePublicHttpUrl,
   obtenerOgImage,
   assertRuntimeRateLimit,
+  assertTransactionalRateLimit,
   _resetRuntimeRateLimits: () => RUNTIME_RATE_LIMIT_BUCKETS.clear(),
 };
 

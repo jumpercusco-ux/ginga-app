@@ -8,7 +8,13 @@
 
 - **Proyecto:** `/Users/jumper/ginga_app`
 - **Rama Activa:** `feat/ped03-biblioteca-curricular` (derivada de `main` `fd891a7` / `v1.0.0-feedback-v1`; `main` permanece intacta sin merge).
-- **Frente Activo (`PED-06A` COMPLETADO Y VERIFICADO LOCALMENTE / EMULATOR SUITE):**
+- **Frente Activo (`PED-06B` PREPARACIÓN TÉCNICA COMPLETA · PENDIENTE SOLO AUTORIZACIÓN CLOUD/BILLING PARA `ginga-staging`):**
+  - **`PED-06B` — Staging y Validación Integral Multidispositivo (Preparación Local y Emulador):**
+    - **Regresiones deterministas en CI:** [loader.js](file:///Users/jumper/ginga_app/real_agent_harness/loader.js) añade soporte de reloj determinista (`fixedNowIso`) sin alterar código productivo de WhatsApp, estabilizando al 100% [test_p1a_runtime_guard.js](file:///Users/jumper/ginga_app/real_agent_harness/test_p1a_runtime_guard.js) (`27/27 PASS`) y [test_qa_regressions.js](file:///Users/jumper/ginga_app/real_agent_harness/test_qa_regressions.js) (`33/33 PASS`) en `TZ=UTC` y `TZ=America/Lima`, ya reincorporados en [.github/workflows/ci.yml](file:///Users/jumper/ginga_app/.github/workflows/ci.yml).
+    - **Cierre de brechas indirectas y cuotas transaccionales:** [firestore.rules](file:///Users/jumper/ginga_app/firestore.rules) exige transición atómica `users/{uid}.status: nuevo -> prueba` al decrementar `clases.cupos_disponibles` (con `getAfter`), ID compuesto `${sesion_id}_${uid}` y verificación de `clase_id`/`fecha` en `asistencias` (alineado con [qr_scanner_screen.dart](file:///Users/jumper/ginga_app/lib/features/home/qr_scanner_screen.dart)), existencia real de `clases/{claseId}` en `reservas` y `!leido` en creación no-staff de `notificaciones`. [functions/index.js](file:///Users/jumper/ginga_app/functions/index.js) incorpora `assertTransactionalRateLimit` sobre `_quota_runtime` (`sendManualWhatsAppMessage` y `generarPlanClaseIA`) y registra oficialmente los callables `generarPlanClaseV2` y `copilotoPedagogicoV1` (`us-central1`, modo simulado por defecto, cero OpenAI pagado).
+    - **Configuración Flutter Multi-Entorno, App Check Web y Hosting:** Creado [ginga_environment.dart](file:///Users/jumper/ginga_app/lib/core/config/ginga_environment.dart) (+ [ginga_environment_test.dart](file:///Users/jumper/ginga_app/test/ginga_environment_test.dart)) con bloqueo estricto si `GINGA_ENV=staging` apunta a `capoeirafiu-ea8ljo`, soporte Web App Check reCAPTCHA v3 / Emulator en [main.dart](file:///Users/jumper/ginga_app/lib/main.dart) y sección `hosting` en [firebase.json](file:///Users/jumper/ginga_app/firebase.json) preservando [lib/firebase_options.dart](file:///Users/jumper/ginga_app/lib/firebase_options.dart).
+    - **Sembrador Sintético, Suite Integral 15 Pasos y Guía Cloud:** Creados [seed_staging_synthetic_data.js](file:///Users/jumper/ginga_app/scripts/seed_staging_synthetic_data.js) (`--dry-run`/`--apply` idempotente Zero-PII), [test_ped06b_staging_integral_emulator.js](file:///Users/jumper/ginga_app/scripts/test_ped06b_staging_integral_emulator.js) (15 pasos Planificador V2 + compatibilidad + cuotas `_quota_runtime` en Emulator `demo-ginga-test`) y [PED06B_STAGING_PROVISIONING_PLAN.md](file:///Users/jumper/ginga_app/docs/PED06B_STAGING_PROVISIONING_PLAN.md). **Sin creación de proyecto cloud, sin Blaze habilitado, sin cambios en producción ni inicio de `PED-06C`.**
+- **Frente Anterior (`PED-06A` COMPLETADO Y VERIFICADO LOCALMENTE / EMULATOR SUITE):**
   - **`PED-06A` — Seguridad P0 (`firestore.rules`, Cloud Functions, Roles y Preparación Staging):** Implementado y verificado al 100% sobre **Firebase Firestore Emulator (`demo-ginga-test`, cero escrituras a producción y cero llamadas pagadas a OpenAI)**.
     - **Reglas Firestore endurecidas ([firestore.rules](file:///Users/jumper/ginga_app/firestore.rules)):** Bloqueo anónimo y de lectura/escritura PII de terceros en `users/{userId}`, acotación de auto-registro (`rol == 'alumno'`, `status == 'nuevo'`) y actualizaciones del propietario (`affectedKeys().hasOnly(...)`), restricción estricta de `whatsapp_leads` y `mensajes` a `isStaff()`, validación de `asistencias` contra sesiones QR activas, protección de `clases`, `reservas`, `pedidos`, `pagos`, `tutoriales`, `cantigas`, `eventos`, `productos`, `config`, denegación explícita por defecto (`match /{document=**} { allow read, write: if false; }`) y consistencia `admin`/`administrador` sin relajar el requisito de Custom Claims en `curriculum_*`.
     - **Endurecimiento Cloud Functions ([functions/index.js](file:///Users/jumper/ginga_app/functions/index.js) + [auth_and_quota_guard.js](file:///Users/jumper/ginga_app/functions/planner_v2/auth_and_quota_guard.js)):** `verifyHttpAdminRequest` (`POST`, Bearer token + Custom Claim `admin`), `assertCallableRole`, rate limiting en memoria y filtro anti-SSRF (`isSafePublicHttpUrl` en `obtenerOgImage`) protegiendo `migrarMensajesHistoricos` (`dry_run: true` por defecto), `ejecutarStressTestAI` (`ALLOW_STRESS_TEST_HTTP` + `confirm_stress_test === true`), `actualizarMiniaturasExistentes` (`dry_run: true`), `sendManualWhatsAppMessage` (`profesor`/`admin`, `20/min`, validación de `leadId`/texto) y `generarPlanClaseIA` (`profesor`/`admin`, `4/min`, límites de duración y payload); `assertAuthorizedActor` del Motor V2/Copiloto alineado con claims `profesor`/`instructor`/`admin`/`administrador`. Pipeline `whatsappWebhook` preservado.
@@ -100,9 +106,9 @@ node scripts/validate_curriculum_catalog.js
 node scripts/test_curriculum_importer.js
 
 # 3. Suites reales en Firebase Firestore Emulator con Java 21 (solo demo-ginga-test)
-PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" JAVA_HOME="/opt/homebrew/opt/openjdk@21" firebase emulators:exec --only firestore --project demo-ginga-test "node real_agent_harness/test_firestore_rules.js && node scripts/test_curriculum_firestore_rules.js && node scripts/test_curriculum_importer.js && node scripts/test_ped05_firestore_persistence_emulator.js && node scripts/test_ped06a_security_emulator.js"
+PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" JAVA_HOME="/opt/homebrew/opt/openjdk@21" firebase emulators:exec --only firestore --project demo-ginga-test "node real_agent_harness/test_firestore_rules.js && node scripts/test_curriculum_firestore_rules.js && node scripts/test_curriculum_importer.js && node scripts/test_ped05_firestore_persistence_emulator.js && node scripts/test_ped06a_security_emulator.js && node scripts/test_ped06b_staging_integral_emulator.js"
 
-# 4. Análisis estático y suite completa Flutter (90 pruebas)
+# 4. Análisis estático y suite completa Flutter (95 pruebas)
 /Users/jumper/development/flutter/bin/flutter analyze --no-fatal-warnings --no-fatal-infos
 /Users/jumper/development/flutter/bin/flutter test
 
@@ -119,9 +125,9 @@ node real_agent_harness/test_qa_regressions.js
 
 ## 4. Qué Sigue Exactamente (Siguiente Tarea)
 
-1. **Aprobación explícita para crear infraestructura de Staging (`PED-06B`):**
-   - Seguir [PED06A_SECURITY_AND_STAGING_GUIDE.md](file:///Users/jumper/ginga_app/docs/PED06A_SECURITY_AND_STAGING_GUIDE.md) cuando el propietario autorice crear el proyecto separado `ginga-staging`, habilitar Firebase Auth + Secret Manager aislado + App Check y ejecutar la validación multidispositivo (PC + tablet + celular) sobre staging.
-   - **No iniciar `PED-06B`, desplegar rules/functions ni modificar producción (`capoeirafiu-ea8ljo`) sin autorización explícita.**
+1. **Autorización explícita del propietario para aprovisionar `ginga-staging` (y continuar despliegue staging `PED-06B`):**
+   - Confirmar cuenta propietaria Firebase (`capoeirafiuapp@gmail.com`), creación de `ginga-staging` en `us-central1`, facturación Blaze con alerta/presupuesto `$5 USD/mes` y App Check reCAPTCHA v3 según [PED06B_STAGING_PROVISIONING_PLAN.md](file:///Users/jumper/ginga_app/docs/PED06B_STAGING_PROVISIONING_PLAN.md).
+   - **No crear infraestructura cloud, habilitar facturación, desplegar rules/functions ni iniciar `PED-06C` sin autorización explícita.**
 
 ---
 

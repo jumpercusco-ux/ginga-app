@@ -13,11 +13,15 @@ const { MockOpenAIAdapter } = require('./openai_adapter');
 const { MockWhatsAppAdapter } = require('./whatsapp_adapter');
 
 class RealAgentHarness {
-  constructor() {
+  constructor({ fixedNowIso = null } = {}) {
     this.firestore = new InMemoryFirestore();
     this.openai = new MockOpenAIAdapter();
     this.whatsapp = new MockWhatsAppAdapter();
     this.admin = createMockAdmin(this.firestore);
+    this.fixedNowMs = fixedNowIso ? Date.parse(fixedNowIso) : null;
+    if (fixedNowIso && !Number.isFinite(this.fixedNowMs)) {
+      throw new Error(`Invalid fixedNowIso in RealAgentHarness: ${fixedNowIso}`);
+    }
     this.module = null;
     this.internals = null;
     this.toolExecutionLog = [];
@@ -81,6 +85,7 @@ Object.assign(module.exports.__internals, {
         onWrite: (fn) => fn,
       };
       const obj = {
+        region: () => obj,
         runWith: () => obj,
         https: { onRequest: (fn) => fn, onCall: (fn) => fn },
         firestore: { document: () => docBuilder },
@@ -92,6 +97,9 @@ Object.assign(module.exports.__internals, {
     const customRequire = (id) => {
       if (id === 'firebase-admin') return this.admin;
       if (id === 'firebase-functions') return mockFunctionsBuilder();
+      if (typeof id === 'string' && (id.startsWith('./') || id.startsWith('../'))) {
+        return require(path.resolve(__dirname, '../functions', id));
+      }
       try {
         return require(id);
       } catch (e) {
@@ -122,10 +130,28 @@ Object.assign(module.exports.__internals, {
       };
     };
 
+    const NativeDate = Date;
+    const fixedNowMs = this.fixedNowMs;
+    const EffectiveDate =
+      fixedNowMs === null
+        ? NativeDate
+        : class DeterministicDate extends NativeDate {
+            constructor(...args) {
+              if (args.length === 0) {
+                super(fixedNowMs);
+              } else {
+                super(...args);
+              }
+            }
+            static now() {
+              return fixedNowMs;
+            }
+          };
+
     const mod = { exports: {} };
     const compiledFn = vm.compileFunction(
       wrappedCode,
-      ['exports', 'require', 'module', '__filename', '__dirname', 'fetch'],
+      ['exports', 'require', 'module', '__filename', '__dirname', 'fetch', 'Date'],
       { filename: indexPath }
     );
 
@@ -135,7 +161,8 @@ Object.assign(module.exports.__internals, {
       mod,
       indexPath,
       path.resolve(__dirname, '../functions'),
-      customFetch
+      customFetch,
+      EffectiveDate
     );
 
     this.module = mod.exports;

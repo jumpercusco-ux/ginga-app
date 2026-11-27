@@ -35,7 +35,7 @@ const { RealAgentHarness } = require('./loader');
 const { MockTimestamp } = require('./in_memory_firestore');
 
 async function runP1aTests() {
-  const harness = new RealAgentHarness();
+  const harness = new RealAgentHarness({ fixedNowIso: '2026-11-11T16:35:00-05:00' });
   const results = [];
 
   console.log('================================================================');

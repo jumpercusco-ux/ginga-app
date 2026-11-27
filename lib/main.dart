@@ -5,8 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
-import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'core/config/ginga_environment.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/ginga_theme.dart';
 import 'core/theme/theme_manager.dart';
@@ -15,11 +16,19 @@ import 'core/services/notification_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+    options: GingaEnvironment.resolveFirebaseOptions(),
   );
   await ThemeManager.instance.init();
 
-  // Inicializar Firebase App Check para bloquear accesos no autorizados y bots (solo en móviles por ahora)
+  if (GingaEnvironment.useEmulator) {
+    final host = GingaEnvironment.emulatorHost;
+    await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+    FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
+    FirebaseFunctions.instanceFor(region: 'us-central1')
+        .useFunctionsEmulator(host, 5001);
+  }
+
+  // Inicializar Firebase App Check (móvil siempre; web cuando se configura site key)
   if (!kIsWeb) {
     await FirebaseAppCheck.instance.activate(
       androidProvider: kDebugMode 
@@ -28,6 +37,10 @@ void main() async {
       appleProvider: kDebugMode 
           ? AppleProvider.debug 
           : AppleProvider.appAttest,
+    );
+  } else if (GingaEnvironment.appCheckWebSiteKey.isNotEmpty) {
+    await FirebaseAppCheck.instance.activate(
+      webProvider: ReCaptchaV3Provider(GingaEnvironment.appCheckWebSiteKey),
     );
   }
 
