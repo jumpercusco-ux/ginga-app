@@ -7,6 +7,7 @@ import 'features/biblioteca/curriculo_biblioteca_screen.dart';
 import 'features/biblioteca/widgets/biblioteca_user_context.dart';
 import 'features/instructor/instructor_pizarra_screen.dart';
 import 'features/instructor/planificador/models/class_plan_models.dart';
+import 'features/instructor/planificador/services/planner_copilot_client.dart';
 import 'features/instructor/planificador/services/planner_data_source.dart';
 import 'features/instructor/planificador/services/planner_v2_engine_client.dart';
 
@@ -175,9 +176,11 @@ class _PlanificadorPreviewAppState extends State<PlanificadorPreviewApp> {
                   borderRadius: BorderRadius.circular(GingaRadius.full),
                 ),
                 child: Text(
-                  _engineStatus?.realProviderEnabled == true
-                      ? 'PREVIEW LOCAL · OPENAI REAL (TOPE \$0.10)'
-                      : 'PREVIEW AISLADO · SIN FIREBASE NI IA PAGA',
+                  _engineStatus?.copilotRealProviderEnabled == true
+                      ? 'COPILOTO · OPENAI REAL (${_engineStatus?.primaryModel ?? 'gpt-4o-mini'} · TOPE \$0.05)'
+                      : _engineStatus?.realProviderEnabled == true
+                          ? 'PREVIEW LOCAL · OPENAI REAL (TOPE \$0.10)'
+                          : 'PREVIEW AISLADO · SIN FIREBASE NI IA PAGA',
                   style: GoogleFonts.montserrat(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
@@ -281,6 +284,7 @@ class _PlanificadorPreviewAppState extends State<PlanificadorPreviewApp> {
           dataSource: _plannerDataSource,
           curriculumRepository: _curriculumRepository,
           engineClient: HttpLocalPlannerV2Client(previewToken: previewToken),
+          copilotClient: HttpLocalPlannerCopilotClient(previewToken: previewToken),
           initialTab: initialTab,
           initialCreationMode: initialMode,
           initialGroupIdForCreation: initialGroupIdForCreation,

@@ -518,6 +518,25 @@ class _PlannerCopilotPanelState extends State<PlannerCopilotPanel> {
                   ),
                 ),
               ),
+              if (resp != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: (resp.isSimulated ? pal.textSecondary : pal.accent)
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(GingaRadius.full),
+                  ),
+                  child: Text(
+                    resp.isSimulated
+                        ? 'Simulado offline'
+                        : 'OpenAI · ${resp.modelName ?? 'gpt-4o-mini'}',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: resp.isSimulated ? pal.textSecondary : pal.accent,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 6),

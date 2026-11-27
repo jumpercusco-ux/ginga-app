@@ -17,6 +17,11 @@ abstract class PlannerCopilotClient {
     List<CopilotChatMessage> conversationHistory = const [],
     List<String>? confirmedMaterials,
   });
+
+  Future<List<CopilotChatMessage>> fetchSavedPreviewSession({
+    required ClassPlanModel plan,
+  }) async =>
+      const [];
 }
 
 /// Cliente HTTP hacia `/api/planner-v2/copilot` del servidor local aislado.
@@ -30,14 +35,120 @@ class HttpLocalPlannerCopilotClient implements PlannerCopilotClient {
     this.baseUrl = '',
     this.previewToken,
     http.Client? httpClient,
-    this.timeout = const Duration(seconds: 45),
+    this.timeout = const Duration(seconds: 55),
   }) : _http = httpClient ?? http.Client();
 
-  Uri _copilotUri() {
+  Uri _copilotUri([String suffix = '/api/planner-v2/copilot']) {
     final base = baseUrl.trim();
-    if (base.isEmpty) return Uri.parse('/api/planner-v2/copilot');
+    if (base.isEmpty) return Uri.parse(suffix);
     final clean = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
-    return Uri.parse('$clean/api/planner-v2/copilot');
+    return Uri.parse('$clean$suffix');
+  }
+
+  @override
+  Future<List<CopilotChatMessage>> fetchSavedPreviewSession({
+    required ClassPlanModel plan,
+  }) async {
+    final headers = <String, String>{
+      if (previewToken != null && previewToken!.trim().isNotEmpty)
+        'X-Preview-Token': previewToken!.trim(),
+    };
+    try {
+      final resp = await _http
+          .get(
+            _copilotUri('/api/planner-v2/copilot/last-session'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 6));
+      if (resp.statusCode < 200 || resp.statusCode >= 300) return const [];
+      final decoded = jsonDecode(resp.body);
+      if (decoded is! Map || decoded['has_session'] != true) return const [];
+      final session = decoded['session'];
+      if (session is! Map) return const [];
+      final turns = session['turns'];
+      if (turns is! List || turns.isEmpty) return const [];
+
+      final draftVersion = computeDraftVersion(plan);
+      final out = <CopilotChatMessage>[];
+      var idx = 0;
+      for (final rawTurn in turns) {
+        if (rawTurn is! Map) continue;
+        final userText = rawTurn['user_message']?.toString().trim() ?? '';
+        final rawResp = rawTurn['response'];
+        final turnTs = DateTime.tryParse(rawTurn['timestamp']?.toString() ?? '') ??
+            DateTime.now();
+        if (userText.isNotEmpty) {
+          out.add(
+            CopilotChatMessage(
+              id: 'saved_u_${idx++}',
+              isUser: true,
+              text: userText,
+              timestamp: turnTs,
+            ),
+          );
+        }
+        if (rawResp is Map) {
+          final respMap = Map<String, dynamic>.from(rawResp);
+          final parsed = _parseOkTurnResponse(
+            respMap,
+            planId: plan.id,
+            baseDraftVersion: draftVersion,
+          );
+          out.add(
+            CopilotChatMessage(
+              id: 'saved_a_${idx++}',
+              isUser: false,
+              text: parsed.assistantMessage,
+              timestamp: turnTs,
+              response: parsed,
+            ),
+          );
+        }
+      }
+      return out;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  static CopilotTurnResponse _parseOkTurnResponse(
+    Map<String, dynamic> decoded, {
+    required String planId,
+    required String baseDraftVersion,
+  }) {
+    final rawProposed = decoded['proposed_plan'];
+    final proposed = rawProposed is Map
+        ? ClassPlanModel.fromMap(
+            planId,
+            Map<String, dynamic>.from(rawProposed),
+          )
+        : null;
+    final genMeta = decoded['generation_meta'] is Map
+        ? Map<String, dynamic>.from(decoded['generation_meta'] as Map)
+        : const <String, dynamic>{};
+    return CopilotTurnResponse(
+      mode: CopilotMode.fromId(decoded['mode']?.toString()),
+      baseDraftVersion: baseDraftVersion,
+      resultingDraftVersion:
+          decoded['resulting_draft_version']?.toString() ?? baseDraftVersion,
+      assistantMessage: decoded['assistant_message']?.toString() ?? '',
+      pedagogicalNotes: ((decoded['pedagogical_notes'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+      conflictReason: decoded['conflict_reason']?.toString(),
+      safeAlternative: decoded['safe_alternative']?.toString(),
+      operations: ((decoded['operations'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((m) => CopilotOperation.fromMap(Map<String, dynamic>.from(m)))
+          .toList(),
+      diffSummary: ((decoded['diff_summary'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((m) => CopilotDiffItem.fromMap(Map<String, dynamic>.from(m)))
+          .toList(),
+      proposedPlan: proposed,
+      isSimulated: genMeta['is_simulated'] != false,
+      modelName: genMeta['model']?.toString(),
+    );
   }
 
   @override
@@ -106,35 +217,10 @@ class HttpLocalPlannerCopilotClient implements PlannerCopilotClient {
       if (resp.statusCode >= 200 &&
           resp.statusCode < 300 &&
           decoded['status'] == 'ok') {
-        final rawProposed = decoded['proposed_plan'];
-        final proposed = rawProposed is Map
-            ? ClassPlanModel.fromMap(
-                plan.id,
-                Map<String, dynamic>.from(rawProposed),
-              )
-            : null;
-        return CopilotTurnResponse(
-          mode: CopilotMode.fromId(decoded['mode']?.toString()),
+        return _parseOkTurnResponse(
+          decoded,
+          planId: plan.id,
           baseDraftVersion: baseDraftVersion,
-          resultingDraftVersion:
-              decoded['resulting_draft_version']?.toString() ?? baseDraftVersion,
-          assistantMessage: decoded['assistant_message']?.toString() ?? '',
-          pedagogicalNotes: ((decoded['pedagogical_notes'] as List?) ?? const [])
-              .map((e) => e.toString())
-              .toList(),
-          conflictReason: decoded['conflict_reason']?.toString(),
-          safeAlternative: decoded['safe_alternative']?.toString(),
-          operations: ((decoded['operations'] as List?) ?? const [])
-              .whereType<Map>()
-              .map((m) => CopilotOperation.fromMap(Map<String, dynamic>.from(m)))
-              .toList(),
-          diffSummary: ((decoded['diff_summary'] as List?) ?? const [])
-              .whereType<Map>()
-              .map((m) => CopilotDiffItem.fromMap(Map<String, dynamic>.from(m)))
-              .toList(),
-          proposedPlan: proposed,
-          isSimulated:
-              (decoded['generation_meta'] as Map?)?['is_simulated'] != false,
         );
       }
 
@@ -169,7 +255,7 @@ class HttpLocalPlannerCopilotClient implements PlannerCopilotClient {
 }
 
 /// Proveedor simulado 100% offline para pruebas deterministas y fallback sin red.
-class OfflineSimulatedPlannerCopilotClient implements PlannerCopilotClient {
+class OfflineSimulatedPlannerCopilotClient extends PlannerCopilotClient {
   @override
   Future<CopilotTurnResponse> sendMessage({
     required ClassPlanModel plan,

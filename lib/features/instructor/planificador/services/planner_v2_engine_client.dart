@@ -7,26 +7,34 @@ import '../models/class_plan_models.dart';
 class PlannerV2EngineStatus {
   final String mode;
   final bool realProviderEnabled;
+  final bool copilotRealProviderEnabled;
   final bool credentialsPresent;
   final String primaryModel;
   final Map<String, dynamic> pilotBudget;
+  final Map<String, dynamic> copilotBudget;
 
   const PlannerV2EngineStatus({
     required this.mode,
     required this.realProviderEnabled,
+    this.copilotRealProviderEnabled = false,
     this.credentialsPresent = false,
     this.primaryModel = 'gpt-4.1-mini',
     this.pilotBudget = const {},
+    this.copilotBudget = const {},
   });
 
   factory PlannerV2EngineStatus.fromHealthJson(Map<String, dynamic> json) {
     return PlannerV2EngineStatus(
       mode: json['mode']?.toString() ?? 'simulated_offline',
       realProviderEnabled: json['real_provider_enabled'] == true,
+      copilotRealProviderEnabled: json['copilot_real_provider_enabled'] == true,
       credentialsPresent: json['real_provider_credentials_present'] == true,
       primaryModel: json['primary_model']?.toString() ?? 'gpt-4.1-mini',
       pilotBudget: json['pilot_budget'] is Map
           ? Map<String, dynamic>.from(json['pilot_budget'] as Map)
+          : const {},
+      copilotBudget: json['copilot_budget'] is Map
+          ? Map<String, dynamic>.from(json['copilot_budget'] as Map)
           : const {},
     );
   }

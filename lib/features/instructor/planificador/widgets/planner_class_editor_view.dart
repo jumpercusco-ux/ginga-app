@@ -97,6 +97,22 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
     _consejosCtrl = TextEditingController(text: _plan.consejosInstructor ?? '');
     _syncBlockControllers();
     _loadCurriculumNames();
+    _loadSavedCopilotSessionIfDemo();
+  }
+
+  Future<void> _loadSavedCopilotSessionIfDemo() async {
+    final client = widget.copilotClient;
+    if (client == null || _plan.id != 'v2_plan_infantil_8of8_demo') return;
+    final saved = await client.fetchSavedPreviewSession(plan: _plan);
+    if (!mounted || saved.isEmpty || _copilotMessages.isNotEmpty) return;
+    final isDesktop = MediaQuery.of(context).size.width >= 1024;
+    setState(() {
+      _copilotMessages = saved;
+      if (isDesktop) {
+        _copilotOpen = true;
+      }
+      _copilotSheetTick.value++;
+    });
   }
 
   @override

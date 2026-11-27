@@ -63,6 +63,7 @@ class OpenAiStructuredProvider {
         ? OPENAI_STRICT_CLASS_PLAN_V2_JSON_SCHEMA
         : schema;
     const isBlockSchema = wireSchema === OPENAI_STRICT_BLOCK_V2_JSON_SCHEMA;
+    const isCopilotSchema = wireSchema?.name === 'ginga_pedagogical_copilot_v1';
 
     const started = Date.now();
     try {
@@ -148,9 +149,11 @@ class OpenAiStructuredProvider {
       let parsedPlan;
       try {
         const decoded = JSON.parse(choice.message?.content || '');
-        parsedPlan = isBlockSchema
-          ? normalizeOpenAiWireBlock(decoded)
-          : normalizeOpenAiWirePlan(decoded);
+        parsedPlan = isCopilotSchema
+          ? decoded
+          : isBlockSchema
+            ? normalizeOpenAiWireBlock(decoded)
+            : normalizeOpenAiWirePlan(decoded);
       } catch (parseErr) {
         throw new PlannerV2Error(
           'PROVIDER_TRUNCATED_OUTPUT',

@@ -120,9 +120,9 @@ async function runPedagogicalCopilotV1({
               promptBundle,
               schema: promptBundle.schema,
               model: serverConfig.primaryModel,
-              timeoutMs: 30000,
+              timeoutMs: 40000,
               maxOutputTokens: 1600,
-              temperature: 0.3,
+              temperature: 0.25,
               serverConfig,
               context: ctxArg.validationContext,
             });

@@ -155,6 +155,7 @@ class CopilotTurnResponse {
   final List<CopilotDiffItem> diffSummary;
   final ClassPlanModel? proposedPlan;
   final bool isSimulated;
+  final String? modelName;
 
   const CopilotTurnResponse({
     required this.mode,
@@ -168,6 +169,7 @@ class CopilotTurnResponse {
     this.diffSummary = const [],
     this.proposedPlan,
     this.isSimulated = true,
+    this.modelName,
   });
 
   bool get hasApplicableChanges =>

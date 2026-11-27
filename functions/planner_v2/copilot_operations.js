@@ -51,6 +51,18 @@ function scaleInternalTimingsForDuration(existingTimings, targetDur) {
   ];
 }
 
+function normalizeCopilotOrganization(raw) {
+  const clean = String(raw || '').trim();
+  if (!clean) return '';
+  const low = clean.toLowerCase();
+  if (low.includes('pareja')) return 'Rotación por parejas';
+  if (low.includes('estacion')) return 'Estaciones simultáneas';
+  if (low.includes('simult')) return 'Todos simultáneamente';
+  if (low.includes('turno')) return 'Turnos';
+  if (low.includes('personalizada')) return 'Organización personalizada';
+  return clean;
+}
+
 function applyExercisePatchFields(targetEx, op, context, catalog) {
   const stringFields = [
     'nombre',
@@ -64,8 +76,8 @@ function applyExercisePatchFields(targetEx, op, context, catalog) {
     'sugerencias_ia',
   ];
   for (const f of stringFields) {
-    if (typeof op[f] === 'string' && op[f] !== null) {
-      targetEx[f] = op[f].trim();
+    if (typeof op[f] === 'string' && op[f].trim().length > 0) {
+      targetEx[f] = f === 'organizacion' ? normalizeCopilotOrganization(op[f]) : op[f].trim();
     }
   }
   if (Number.isInteger(op.duracion_min) && op.duracion_min >= 1) {
@@ -100,6 +112,16 @@ function applyExercisePatchFields(targetEx, op, context, catalog) {
       etapa: String(t?.etapa || '').trim(),
       minutos: Number(t?.minutos || 1),
     }));
+  }
+  const expectedSum = Number(targetEx.duracion_min || 1);
+  const currentSum = (Array.isArray(targetEx.tiempos_internos) ? targetEx.tiempos_internos : []).reduce(
+    (acc, t) => acc + Number(t?.minutos || 0),
+    0
+  );
+  if (expectedSum > 0 && (!Array.isArray(targetEx.tiempos_internos) || targetEx.tiempos_internos.length === 0 || currentSum !== expectedSum)) {
+    targetEx.tiempos_internos = scaleInternalTimingsForDuration(targetEx.tiempos_internos, expectedSum);
+  }
+  if (Array.isArray(targetEx.tiempos_internos) && targetEx.tiempos_internos.length > 0) {
     syncInternalTimingsIntoDetalle(targetEx);
   }
   const meta = computeExpectedAuthoringAndOrigins(targetEx, catalog);
@@ -178,6 +200,7 @@ function applyCopilotOperationsToPlan(basePlan, operations, { context, catalog, 
         ex.resource_usage_notes = {};
         ex.video_reference_note = null;
         ex.observaciones_profesor = '';
+        ex.tiempos_internos = [];
         ex.duracion_min = preservedDur;
         ex.exercise_id = preservedId;
         applyExercisePatchFields(ex, op, context, catalog);
@@ -313,7 +336,12 @@ function applyCopilotOperationsToPlan(basePlan, operations, { context, catalog, 
             `Integrar recurso '${resMeta.title}' en la dinámica.`,
         };
         if (typeof op.nombre === 'string' && op.nombre.trim()) ex.nombre = op.nombre.trim();
-        if (typeof op.detalle === 'string' && op.detalle.trim()) ex.detalle = op.detalle.trim();
+        if (typeof op.detalle === 'string' && op.detalle.trim()) {
+          ex.detalle = op.detalle.trim();
+          if (Array.isArray(ex.tiempos_internos) && ex.tiempos_internos.length > 0) {
+            syncInternalTimingsIntoDetalle(ex);
+          }
+        }
         const hasVideoUrl =
           resMeta.hasExternalVideo === true ||
           resMeta.has_external_video === true ||

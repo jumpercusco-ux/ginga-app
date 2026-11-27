@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:ginga_app/core/theme/ginga_theme.dart';
 import 'package:ginga_app/features/instructor/planificador/models/class_plan_models.dart';
 import 'package:ginga_app/features/instructor/planificador/models/copilot_models.dart';
@@ -28,6 +31,12 @@ class _ErrorCopilotClient implements PlannerCopilotClient {
   }) async {
     throw error;
   }
+
+  @override
+  Future<List<CopilotChatMessage>> fetchSavedPreviewSession({
+    required ClassPlanModel plan,
+  }) async =>
+      const [];
 }
 
 void main() {
@@ -379,5 +388,80 @@ void main() {
       errors.where((e) => e.exceptionAsString().contains('RenderFlex overflowed')),
       isEmpty,
     );
+  });
+
+  test('15. HttpLocalPlannerCopilotClient usa POST HTTP real y carga sesión guardada sin simulador local', () async {
+    String? postedPath;
+    final mockHttp = MockClient((req) async {
+      if (req.method == 'POST' && req.url.path == '/api/planner-v2/copilot') {
+        postedPath = req.url.path;
+        return http.Response(
+          jsonEncode({
+            'status': 'ok',
+            'mode': 'consult',
+            'resulting_draft_version': 'srv_v1',
+            'assistant_message': 'Respuesta real de OpenAI sobre Armada.',
+            'pedagogical_notes': ['Mirada antes de patear'],
+            'operations': [],
+            'diff_summary': [],
+            'generation_meta': {
+              'provider': 'openai',
+              'model': 'gpt-4o-mini',
+              'is_simulated': false,
+            },
+          }),
+          200,
+        );
+      }
+      if (req.method == 'GET' &&
+          req.url.path == '/api/planner-v2/copilot/last-session') {
+        return http.Response(
+          jsonEncode({
+            'status': 'ok',
+            'has_session': true,
+            'session': {
+              'turns': [
+                {
+                  'user_message': 'Consulta real Armada',
+                  'timestamp': '2026-11-27T07:00:00Z',
+                  'response': {
+                    'status': 'ok',
+                    'mode': 'consult',
+                    'assistant_message': 'Sesión guardada OpenAI.',
+                    'generation_meta': {
+                      'provider': 'openai',
+                      'model': 'gpt-4o-mini',
+                      'is_simulated': false,
+                    },
+                  },
+                },
+              ],
+            },
+          }),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+
+    final client = HttpLocalPlannerCopilotClient(
+      baseUrl: 'http://127.0.0.1:8097',
+      httpClient: mockHttp,
+    );
+    final resp = await client.sendMessage(
+      plan: infantil8of8,
+      baseDraftVersion: computeDraftVersion(infantil8of8),
+      message: '¿Qué errores debo corregir al enseñar Armada?',
+      availableResources: resources,
+    );
+    expect(postedPath, '/api/planner-v2/copilot');
+    expect(resp.isSimulated, false);
+    expect(resp.modelName, 'gpt-4o-mini');
+    expect(resp.assistantMessage, contains('OpenAI'));
+
+    final saved = await client.fetchSavedPreviewSession(plan: infantil8of8);
+    expect(saved.length, 2);
+    expect(saved.last.response?.isSimulated, false);
+    expect(saved.last.response?.modelName, 'gpt-4o-mini');
   });
 }

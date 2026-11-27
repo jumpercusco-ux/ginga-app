@@ -13,6 +13,8 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { execFileSync } = require('child_process');
 const { URL } = require('url');
 const {
   generateClassPlanV2,
@@ -57,8 +59,8 @@ function parseCliArgs(argv) {
     enableRealCopilotOpenAi: false,
     maxBudgetUsd: 0.10,
     maxRealGenerations: 4,
-    copilotBudgetUsd: 0.10,
-    copilotMaxGenerations: 20,
+    copilotBudgetUsd: 0.05,
+    copilotMaxGenerations: 6,
     model: '',
     fallbackModel: '',
     budgetStateFile: '',
@@ -68,7 +70,7 @@ function parseCliArgs(argv) {
     const a = argv[i];
     if (a === '--host' && argv[i + 1]) args.host = argv[++i];
     else if (a === '--port' && argv[i + 1]) args.port = Number(argv[++i]);
-    else if (a === '--static-dir' && argv[i + 1]) args.staticDir = path.resolve(argv[++i]);
+    else if ((a === '--static-dir' || a === '--web-dir') && argv[i + 1]) args.staticDir = path.resolve(argv[++i]);
     else if (a === '--token' && argv[i + 1]) args.token = argv[++i];
     else if (a === '--enable-real-openai') args.enableRealOpenAi = true;
     else if (a === '--enable-real-copilot-openai') args.enableRealCopilotOpenAi = true;
@@ -87,6 +89,28 @@ function parseCliArgs(argv) {
 function isLoopbackHost(host) {
   const clean = String(host || '').trim().toLowerCase();
   return clean === '127.0.0.1' || clean === 'localhost' || clean === '::1';
+}
+
+function hydrateOpenAiKeyFromMacKeychainIfNeeded() {
+  if (hasServerOpenAiCredentials()) return true;
+  if (process.platform !== 'darwin' || process.env.PLANNER_V2_DISABLE_KEYCHAIN === '1') {
+    return false;
+  }
+  try {
+    const account = os.userInfo().username;
+    const key = execFileSync(
+      'security',
+      ['find-generic-password', '-a', account, '-s', 'ginga-dev-openai-api-key', '-w'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+    ).trim();
+    if (key) {
+      process.env.OPENAI_API_KEY = key;
+      return true;
+    }
+  } catch (_) {
+    // Keychain item absent or inaccessible
+  }
+  return false;
 }
 
 function sendJson(res, statusCode, body) {
@@ -164,8 +188,8 @@ function createPlannerV2LocalServer({
   enableRealCopilotOpenAi = false,
   maxBudgetUsd = 0.10,
   maxRealGenerations = 4,
-  copilotBudgetUsd = 0.10,
-  copilotMaxGenerations = 20,
+  copilotBudgetUsd = 0.05,
+  copilotMaxGenerations = 6,
   model = '',
   fallbackModel = '',
   budgetStateFile = '',
@@ -178,10 +202,13 @@ function createPlannerV2LocalServer({
     );
   }
 
+  if (enableRealOpenAi === true || enableRealCopilotOpenAi === true) {
+    hydrateOpenAiKeyFromMacKeychainIfNeeded();
+  }
   const credentialsPresent = hasServerOpenAiCredentials();
   if ((enableRealOpenAi === true || enableRealCopilotOpenAi === true) && !credentialsPresent) {
     throw new Error(
-      'Faltan credenciales de OpenAI en el servidor (PLANNER_V2_OPENAI_API_KEY o OPENAI_API_KEY) para iniciar con proveedor real.'
+      'Faltan credenciales de OpenAI en memoria o macOS Keychain (ginga-dev-openai-api-key). Ejecuta ./scripts/setup_local_openai_keychain.sh para iniciar con proveedor real.'
     );
   }
 
@@ -209,8 +236,8 @@ function createPlannerV2LocalServer({
     stateFilePath: resolvedBudgetStateFile,
   });
   const copilotBudgetGuard = new AtomicPilotBudgetGuard({
-    maxBudgetUsd: Math.min(0.25, Math.max(0.01, Number(copilotBudgetUsd || 0.10))),
-    maxGenerations: Math.max(1, Math.min(50, Number(copilotMaxGenerations || 20))),
+    maxBudgetUsd: Math.min(0.10, Math.max(0.01, Number(copilotBudgetUsd || 0.05))),
+    maxGenerations: Math.max(1, Math.min(12, Number(copilotMaxGenerations || 6))),
     stateFilePath: resolvedCopilotBudgetStateFile,
   });
   const runtimeModelState = {
@@ -245,7 +272,7 @@ function createPlannerV2LocalServer({
   let lastErrorSummary = null;
 
   async function probeOpenAiModels(fetchImpl = null) {
-    if (!effectiveReal) return runtimeModelState;
+    if (!effectiveReal && !effectiveCopilotReal) return runtimeModelState;
     const probe = await listAccessibleOpenAiModels({
       apiKey: resolveServerOpenAiApiKey(),
       fetchImpl,
@@ -305,6 +332,7 @@ function createPlannerV2LocalServer({
         fallback_model: runtimeModelState.fallbackModel,
         accessible_models: runtimeModelState.accessibleModels,
         model_probe_checked: runtimeModelState.modelProbeChecked,
+        model_probe_error: runtimeModelState.modelProbeError,
         engine_version: baseConfig.engineVersion,
         catalog_sha256: catalog.sha256,
         catalog_movements_count: catalog.movementsCount,
@@ -313,6 +341,24 @@ function createPlannerV2LocalServer({
         copilot_budget: copilotBudgetGuard.getSnapshot(),
         copilot_real_provider_enabled: effectiveCopilotReal,
         generation_progress: generationProgress,
+      });
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/api/planner-v2/copilot/last-session') {
+      const sessionPath = path.join(__dirname, '..', 'scratch', 'copilot_ped04c3_last_session.json');
+      let sessionData = null;
+      if (fs.existsSync(sessionPath)) {
+        try {
+          sessionData = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
+        } catch (_) {
+          sessionData = null;
+        }
+      }
+      sendJson(res, 200, {
+        status: 'ok',
+        has_session: Boolean(sessionData && Array.isArray(sessionData.turns) && sessionData.turns.length > 0),
+        session: sessionData,
       });
       return;
     }
@@ -343,8 +389,18 @@ function createPlannerV2LocalServer({
             fallbackModel: runtimeModelState.fallbackModel,
           },
         });
+        const gm = response.generation_meta || {};
+        const ct = response.cost_telemetry || {};
+        const cb = ct.copilot_budget || copilotBudgetGuard.getSnapshot();
+        console.log(
+          `[copilot-v1] provider=${gm.provider || 'unknown'} model=${gm.model || 'unknown'} op_mode=${response.mode} latency=${ct.latency_ms ?? 0}ms tokens=${ct.input_tokens ?? 0}/${ct.output_tokens ?? 0} cost=$${Number(ct.estimated_cost_usd ?? 0).toFixed(6)} spent=$${Number(cb.spent_usd ?? 0).toFixed(6)}/$${Number(cb.max_budget_usd ?? 0.05).toFixed(2)} turns=${cb.completed_generations ?? 0}/${cb.max_generations ?? 6}`
+        );
         sendJson(res, 200, response);
       } catch (err) {
+        const cb = copilotBudgetGuard.getSnapshot();
+        console.error(
+          `[copilot-v1] ERROR code=${err?.code || 'INTERNAL_ERROR'} http=${err?.httpStatus || 500} msg=${err?.message || ''} spent=$${Number(cb.spent_usd ?? 0).toFixed(6)}/$${Number(cb.max_budget_usd ?? 0.05).toFixed(2)} turns=${cb.completed_generations ?? 0}/${cb.max_generations ?? 6}`
+        );
         if (err instanceof PlannerV2Error) {
           sendJson(res, err.httpStatus || 400, err.toSafeResponse());
         } else {
@@ -537,7 +593,9 @@ function createPlannerV2LocalServer({
 
   server.plannerV2Meta = {
     effectiveReal,
+    effectiveCopilotReal,
     budgetGuard,
+    copilotBudgetGuard,
     runtimeModelState,
     probeOpenAiModels,
   };
@@ -548,22 +606,27 @@ if (require.main === module) {
   (async () => {
     const args = parseCliArgs(process.argv.slice(2));
     const server = createPlannerV2LocalServer(args);
-    const modeLabel = server.plannerV2Meta.effectiveReal ? 'openai_real_local_dev' : 'simulated_offline';
-    if (server.plannerV2Meta.effectiveReal) {
+    const modeLabel = server.plannerV2Meta.effectiveCopilotReal
+      ? 'copilot_openai_real_local_dev'
+      : server.plannerV2Meta.effectiveReal
+        ? 'openai_real_local_dev'
+        : 'simulated_offline';
+    if (server.plannerV2Meta.effectiveReal || server.plannerV2Meta.effectiveCopilotReal) {
       const state = await server.plannerV2Meta.probeOpenAiModels();
       const pb = server.plannerV2Meta.budgetGuard.getSnapshot();
+      const cb = server.plannerV2Meta.copilotBudgetGuard.getSnapshot();
       const availStr =
         state.accessibleModels.length > 0
           ? state.accessibleModels.join(', ')
           : `prioridad por defecto (probe=${state.modelProbeError || 'omitido'})`;
       console.log(
-        `[planner-v2] Modelos: ${availStr} | Activo: ${state.primaryModel} | Fallback: ${state.fallbackModel || 'ninguno'} | Presupuesto acumulado: $${pb.spent_usd.toFixed(4)}/$${pb.max_budget_usd.toFixed(2)} (gens ${pb.completed_generations}/${pb.max_generations}, calls=${pb.total_llm_calls})`
+        `[planner-v2] Modelos: ${availStr} | Activo: ${state.primaryModel} | Piloto generador (intacto): $${pb.spent_usd.toFixed(6)}/$${pb.max_budget_usd.toFixed(2)} (${pb.completed_generations}/${pb.max_generations}) | Copiloto: $${cb.spent_usd.toFixed(6)}/$${cb.max_budget_usd.toFixed(2)} (${cb.completed_generations}/${cb.max_generations})`
       );
     }
     server.listen(args.port, args.host, () => {
       const tokenHint = !isLoopbackHost(args.host) && args.token ? `/?token=${args.token}` : '/';
       console.log(
-        `GINGA Planner V2 Local Preview Server active at http://${args.host}:${args.port}${tokenHint} (mode=${modeLabel}, model=${server.plannerV2Meta.runtimeModelState.primaryModel}, staticDir=${args.staticDir || 'API-only'}, maxBudgetUsd=${server.plannerV2Meta.budgetGuard.maxBudgetUsd})`
+        `GINGA Planner V2 Local Preview Server active at http://${args.host}:${args.port}${tokenHint} (mode=${modeLabel}, model=${server.plannerV2Meta.runtimeModelState.primaryModel}, staticDir=${args.staticDir || 'API-only'}, copilotBudgetUsd=${server.plannerV2Meta.copilotBudgetGuard.maxBudgetUsd})`
       );
     });
   })().catch((err) => {

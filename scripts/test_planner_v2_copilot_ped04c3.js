@@ -13,11 +13,14 @@ const {
   runPedagogicalCopilotV1,
   loadVerifiedCatalog,
   InMemoryAtomicQuotaStore,
+  AtomicPilotBudgetGuard,
+  OpenAiStructuredProvider,
   computeDraftVersionHash,
   COPILOT_OPERATION_TYPES,
   OPENAI_STRICT_COPILOT_V1_JSON_SCHEMA,
 } = require('../functions/planner_v2');
 const { createPlannerV2LocalServer } = require('./planner_v2_local_server');
+const { buildCopilotPrompts } = require('../functions/planner_v2/copilot_context_and_prompt');
 
 function loadInfantil8of8Plan() {
   const file = path.join(__dirname, '..', 'scratch', 'autonomous_pilot_result.json');
@@ -579,6 +582,82 @@ async function main() {
     await new Promise((resolve) => srv.close(resolve));
   }
   console.log('[PASS] 10_http_copilot_e2e_y_presupuesto_separado');
+
+  // 11. Mocked OpenAiStructuredProvider preserves Copilot schema, Flutter plan.toMap() normalizes cleanly, & budget limit $0.05 / 6 turns
+  const mockedOpenAi = new OpenAiStructuredProvider({
+    apiKey: 'sk-test-mocked-key',
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          usage: { prompt_tokens: 900, completion_tokens: 180 },
+          choices: [
+            {
+              finish_reason: 'stop',
+              message: {
+                content: JSON.stringify({
+                  mode: 'consult',
+                  assistant_message: 'En Armada con principiantes cuida mirada sobre el hombro antes de girar.',
+                  pedagogical_notes: ['Giro de cadera previo'],
+                  conflict_reason: null,
+                  safe_alternative: null,
+                  operations: [],
+                }),
+              },
+            },
+          ],
+        };
+      },
+    }),
+  });
+  const flutterWirePlan = JSON.parse(JSON.stringify(basePlan));
+  for (const b of flutterWirePlan.bloques) {
+    for (const e of b.ejercicios) {
+      delete e.tipo_actividad;
+      delete e.activity_authoring;
+      delete e.source_origins;
+    }
+  }
+  const copilotBudget = new AtomicPilotBudgetGuard({ maxBudgetUsd: 0.05, maxGenerations: 6 });
+  const mockPromptProvider = {
+    name: 'openai',
+    async proposeTurn({ copilotContext }) {
+      const pb = buildCopilotPrompts(copilotContext);
+      const gen = await mockedOpenAi.generateStructured({
+        promptBundle: pb,
+        schema: pb.schema,
+        model: 'gpt-4o-mini',
+        timeoutMs: 10000,
+        maxOutputTokens: 1600,
+        temperature: 0.25,
+        serverConfig: { realProviderEnabled: true },
+      });
+      return { rawOutput: gen.rawPlan, usage: gen.usage };
+    },
+  };
+  const resMockedOpenAi = await runPedagogicalCopilotV1({
+    request: {
+      request_id: 'cop_t11_mock_openai',
+      plan: flutterWirePlan,
+      message: '¿Qué errores debo corregir al enseñar Armada a principiantes?',
+    },
+    authContext: actorAuth,
+    deps: {
+      catalog,
+      quotaStore: new InMemoryAtomicQuotaStore(),
+      budgetGuard: copilotBudget,
+      resourceRepository: resRepo,
+      provider: mockPromptProvider,
+    },
+  });
+  assert.strictEqual(resMockedOpenAi.mode, 'consult');
+  assert(resMockedOpenAi.assistant_message.includes('Armada'));
+  assert.strictEqual(resMockedOpenAi.generation_meta.is_simulated, false);
+  assert.strictEqual(resMockedOpenAi.cost_telemetry.copilot_budget.max_budget_usd, 0.05);
+  assert.strictEqual(resMockedOpenAi.cost_telemetry.copilot_budget.max_generations, 6);
+  assert.strictEqual(resMockedOpenAi.cost_telemetry.copilot_budget.completed_generations, 1);
+  console.log('[PASS] 11_llm_adapter_copilot_y_normalizacion_flutter');
 
   console.log('ALL_PED04C3_COPILOT_BACKEND_TESTS_PASSED');
 }

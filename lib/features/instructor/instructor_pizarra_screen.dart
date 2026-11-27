@@ -16,6 +16,7 @@ import '../../core/theme/ginga_theme.dart';
 import '../../core/widgets/video_player_modal.dart';
 import 'planificador/models/class_plan_models.dart';
 import 'planificador/services/live_session_persistence.dart';
+import 'planificador/services/planner_copilot_client.dart';
 import 'planificador/services/planner_data_source.dart';
 import 'planificador/services/planner_v2_engine_client.dart';
 import 'planificador/theme/planner_palette.dart';
@@ -348,6 +349,7 @@ class InstructorPizarraScreen extends StatefulWidget {
   final PlannerDataSource? dataSource;
   final CurriculumRepository? curriculumRepository;
   final PlannerV2EngineClient? engineClient;
+  final PlannerCopilotClient? copilotClient;
   final PlannerHubTab initialTab;
   final PlannerCreationMode? initialCreationMode;
   final String? initialGroupIdForCreation;
@@ -364,6 +366,7 @@ class InstructorPizarraScreen extends StatefulWidget {
     this.dataSource,
     this.curriculumRepository,
     this.engineClient,
+    this.copilotClient,
     this.initialTab = PlannerHubTab.plans,
     this.initialCreationMode,
     this.initialGroupIdForCreation,
@@ -412,6 +415,7 @@ class _InstructorPizarraScreenState extends State<InstructorPizarraScreen> {
       dataSource: _effectiveDataSource,
       curriculumRepository: widget.curriculumRepository,
       engineClient: widget.engineClient,
+      copilotClient: widget.copilotClient,
       initialTab: widget.initialTab,
       initialCreationMode: widget.initialCreationMode,
       initialGroupIdForCreation: widget.initialGroupIdForCreation,
