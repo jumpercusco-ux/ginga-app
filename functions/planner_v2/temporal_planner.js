@@ -38,6 +38,30 @@ function distributeExactMinutes(totalMinutes, weights) {
   return allocs;
 }
 
+function buildInternalStageTemplate(duracionMin) {
+  const safeDur = Math.max(1, Number(duracionMin || 1));
+  if (safeDur < 4) {
+    return {
+      min_internal_stages: 1,
+      suggested_stage_minutes: [safeDur],
+    };
+  }
+  if (safeDur <= 6) {
+    const s1 = 2;
+    return {
+      min_internal_stages: 2,
+      suggested_stage_minutes: [s1, safeDur - s1],
+    };
+  }
+  const s1 = 2;
+  const s3 = Math.max(2, Math.floor(safeDur * 0.28));
+  const s2 = safeDur - s1 - s3;
+  return {
+    min_internal_stages: 2,
+    suggested_stage_minutes: [s1, s2, s3],
+  };
+}
+
 function splitBlockIntoExerciseSlots(blockId, blockDurationMin, desiredCount) {
   const maxSlotsPossible = Math.max(1, Math.min(5, Math.floor(blockDurationMin / 2)));
   const count = Math.max(1, Math.min(desiredCount, maxSlotsPossible));
@@ -46,27 +70,52 @@ function splitBlockIntoExerciseSlots(blockId, blockDurationMin, desiredCount) {
   return durs.map((dur, idx) => ({
     exercise_id: `${blockId}_ex_${idx + 1}`,
     duracion_min: dur,
+    ...buildInternalStageTemplate(dur),
     assigned_resource_ids: [],
     assigned_movement_ids: [],
   }));
 }
 
 function scoreBlockForResource(block, resource) {
-  const txt = `${resource?.category || ''} ${resource?.title || ''} ${resource?.type || ''} ${resource?.notes || ''}`.toLowerCase();
-  const isMusic = /musica|m[uú]sica|roda|canto|berimbau|pandeiro|atabaque|corrido|ladainha/i.test(txt);
-  const isWarmup = /calentamiento|activaci[oó]n|movilidad/i.test(txt);
-  const isFloor = /suelo|acrobacia|a[uú]|rol[eê]|bananeira|macaco/i.test(txt);
+  const catTypeTitle = `${resource?.category || ''} ${resource?.type || ''} ${resource?.title || ''}`.toLowerCase();
+  const usageNote = String(resource?.usage_note || '').toLowerCase();
+
+  const isExplicitMusicCategory = /\b(musicalidad|m[uú]sica|roda|canto|coro|toques|instrumentos?|ladainha|corrido)\b/i.test(
+    catTypeTitle
+  );
+  const isWarmup = /\b(calentamiento|activaci[oó]n|movilidad)\b/i.test(`${catTypeTitle} ${usageNote}`);
+  const isFloor = /\b(suelo|acrobacia|a[uú]|rol[eê]|bananeira|macaco)\b/i.test(`${catTypeTitle} ${usageNote}`);
+  const isExplicitGame = /\b(juego|juegos|din[aá]mica|l[uú]dic)\b/i.test(catTypeTitle);
+  const isExplicitTech = /\b(t[eé]cnica|drill|secuencia|combate|parejas)\b/i.test(catTypeTitle);
+  const isGameOrTech =
+    isExplicitGame ||
+    isExplicitTech ||
+    /\b(esquiva|central|principal|aplicaci[oó]n)\b/i.test(`${catTypeTitle} ${usageNote}`);
 
   if (block.fase_tipo === 'recurso_profesor') return 100;
-  if (isMusic) {
-    if (block.fase_tipo === 'musicalidad' || block.fase_tipo === 'roda_musicalidad') return 95;
-    return 10;
+  if (isExplicitMusicCategory) {
+    if (block.fase_tipo === 'musicalidad' || block.fase_tipo === 'roda_musicalidad') return 98;
+    return 15;
   }
-  if (isWarmup && block.fase_tipo === 'calentamiento') return 90;
-  if (isFloor && block.fase_tipo === 'acrobacias_suelo') return 88;
-  if (block.fase_tipo === 'juegos' || block.fase_tipo === 'tecnica' || block.fase_tipo === 'angola') return 80;
-  if (block.fase_tipo === 'acrobacias_suelo') return 40;
-  if (block.fase_tipo === 'calentamiento') return 30;
+  if (isWarmup && block.fase_tipo === 'calentamiento') return 92;
+  if (isFloor && block.fase_tipo === 'acrobacias_suelo') return 90;
+  if (isExplicitGame && !isExplicitTech) {
+    if (block.fase_tipo === 'juegos') return 98;
+    if (block.fase_tipo === 'tecnica' || block.fase_tipo === 'angola') return 88;
+    if (block.fase_tipo === 'roda_musicalidad') return 15;
+  }
+  if (isExplicitTech) {
+    if (block.fase_tipo === 'tecnica' || block.fase_tipo === 'angola') return 98;
+    if (block.fase_tipo === 'juegos') return 88;
+    if (block.fase_tipo === 'roda_musicalidad') return 15;
+  }
+  if (isGameOrTech) {
+    if (block.fase_tipo === 'juegos' || block.fase_tipo === 'tecnica' || block.fase_tipo === 'angola') return 96;
+    if (block.fase_tipo === 'roda_musicalidad') return 15;
+  }
+  if (block.fase_tipo === 'juegos' || block.fase_tipo === 'tecnica' || block.fase_tipo === 'angola') return 82;
+  if (block.fase_tipo === 'acrobacias_suelo') return 45;
+  if (block.fase_tipo === 'calentamiento') return 35;
   return 20;
 }
 
@@ -220,17 +269,93 @@ function buildFlexibleTemporalBlueprint(context) {
       blockSpecs = rawSpecs.map((s, i) => ({ ...s, duracion_min: durs[i] }));
     } else {
       // 50-79 min Infantil (default 60 / 75 min)
+      const requestedMovHint =
+        Array.isArray(context.requestedTechnicalMovements) && context.requestedTechnicalMovements.length > 0
+          ? ` (${context.requestedTechnicalMovements.join(', ')})`
+          : '';
+      const hasTecnicaFocus =
+        /t[eé]cnic/i.test(focusesJoined) ||
+        (Array.isArray(context.requestedTechnicalMovements) && context.requestedTechnicalMovements.length >= 2);
+      const hasJuegosFocus = /juego/i.test(focusesJoined);
       const rawSpecs = includeRoda
-        ? [
-            { fase_tipo: 'calentamiento', role_hint: 'Calentamiento lúdico con juegos breves y reglas claras', weight: 12, slots: 2 },
-            { fase_tipo: 'juegos', role_hint: 'Progresiones técnicas breves independientes + dinámica principal y recursos', weight: 24 + resourcesCount * 3, slots: Math.min(4, 2 + (resourcesCount > 0 ? 1 : 0)) },
-            { fase_tipo: 'acrobacias_suelo', role_hint: 'Control corporal y desplazamientos seguros según superficie', weight: 12, slots: 2 },
-            { fase_tipo: 'roda_musicalidad', role_hint: 'Canción infantil tradicional, palmas y mini-roda cuidada', weight: 12, slots: 1 },
-          ]
+        ? hasTecnicaFocus && hasJuegosFocus
+          ? [
+              {
+                fase_tipo: 'calentamiento',
+                role_hint: 'Calentamiento lúdico de capoeira (ginga base, movilidad articular y señales simultáneas sin filas)',
+                weight: 10,
+                slots: 2,
+              },
+              {
+                fase_tipo: 'tecnica',
+                role_hint: `Progresiones técnicas reales de capoeira${requestedMovHint} diferenciadas por nivel sin filas (no usar progresion_suelo ni juegos genéricos)`,
+                weight: 16,
+                slots: 2,
+              },
+              {
+                fase_tipo: 'juegos',
+                role_hint: 'Juegos de capoeira aplicados sin filas ni eliminaciones + recurso obligatorio del profesor',
+                weight: 12,
+                slots: Math.min(3, Math.max(2, resourcesCount + 1)),
+              },
+              {
+                fase_tipo: 'acrobacias_suelo',
+                role_hint: 'Movimientos de suelo de capoeira seguros según superficie (preparación progresiva de Aú con apoyos de manos, Cocorinha y Rolê; cero volteretas)',
+                weight: 11,
+                slots: 2,
+              },
+              {
+                fase_tipo: 'roda_musicalidad',
+                role_hint: 'Musicalidad ejecutable (canto responsorial con canción real, palmas/pulso y mini-roda dialogada) + cierre positivo',
+                weight: 11,
+                slots: 1,
+              },
+            ]
+          : [
+              {
+                fase_tipo: 'calentamiento',
+                role_hint: 'Calentamiento lúdico de capoeira (ginga base, movilidad y señales simultáneas)',
+                weight: 12,
+                slots: 2,
+              },
+              {
+                fase_tipo: 'juegos',
+                role_hint: `Progresiones técnicas independientes de capoeira${requestedMovHint} + juegos técnicos aplicados sin filas y recurso del profesor`,
+                weight: 24 + resourcesCount * 3,
+                slots: Math.min(4, 2 + (resourcesCount > 0 ? 1 : 0)),
+              },
+              {
+                fase_tipo: 'acrobacias_suelo',
+                role_hint: 'Movimientos de suelo de capoeira seguros según superficie (Cocorinha, Rolê, Negativa, progresiones bajas de Aú)',
+                weight: 12,
+                slots: 2,
+              },
+              {
+                fase_tipo: 'roda_musicalidad',
+                role_hint: 'Musicalidad ejecutable (canto responsorial, palmas y mini-roda dialogada) + cierre positivo',
+                weight: 12,
+                slots: 1,
+              },
+            ]
         : [
-            { fase_tipo: 'calentamiento', role_hint: 'Calentamiento lúdico y activación motora', weight: 14, slots: 2 },
-            { fase_tipo: 'juegos', role_hint: 'Progresiones técnicas breves y juegos por niveles', weight: 30 + resourcesCount * 3, slots: Math.min(4, 3) },
-            { fase_tipo: 'vuelta_calma', role_hint: 'Control corporal suave, estiramiento lúdico y cierre', weight: 16, slots: 2 },
+            {
+              fase_tipo: 'calentamiento',
+              role_hint: 'Calentamiento lúdico de capoeira y activación simultánea',
+              weight: 14,
+              slots: 2,
+            },
+            {
+              fase_tipo: 'juegos',
+              role_hint: `Progresiones técnicas breves de capoeira${requestedMovHint} y juegos técnicos por niveles`,
+              weight: 30 + resourcesCount * 3,
+              slots: Math.min(4, 3),
+            },
+            {
+              fase_tipo: 'vuelta_calma',
+              role_hint: 'Control corporal en suelo seguro, estiramiento y cierre positivo',
+              weight: 16,
+              slots: 2,
+            },
           ];
       const durs = distributeExactMinutes(durationMin, rawSpecs.map((s) => s.weight));
       blockSpecs = rawSpecs.map((s, i) => ({ ...s, duracion_min: durs[i] }));

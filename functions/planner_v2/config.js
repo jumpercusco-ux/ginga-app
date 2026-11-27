@@ -56,7 +56,7 @@ function getServerConfig(serverOverrides = {}) {
       maxRepairAttempts: 1,
       blockMaxOutputTokens: Number.isInteger(serverOverrides.blockMaxOutputTokens)
         ? serverOverrides.blockMaxOutputTokens
-        : 1600,
+        : 2000,
       blockTimeoutMs: Number.isInteger(serverOverrides.blockTimeoutMs) ? serverOverrides.blockTimeoutMs : 30000,
       blockRepairTimeoutMs: Number.isInteger(serverOverrides.blockRepairTimeoutMs)
         ? serverOverrides.blockRepairTimeoutMs

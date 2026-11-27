@@ -412,6 +412,82 @@ function safeNotifyProgress(onProgress, event) {
   }
 }
 
+function preserveValidExercisesOnBlockRepair(
+  prevPlan,
+  blockIdx,
+  repairedBlock,
+  prevErrors,
+  context,
+  catalog,
+  fixesApplied = []
+) {
+  const prevBlock = prevPlan?.bloques?.[blockIdx];
+  if (!prevBlock || !repairedBlock || !Array.isArray(repairedBlock.ejercicios)) {
+    return repairedBlock;
+  }
+  const prevExs = Array.isArray(prevBlock.ejercicios) ? prevBlock.ejercicios : [];
+  const repExs = repairedBlock.ejercicios;
+  const blockWideError = (prevErrors || []).some(
+    (e) =>
+      String(e?.message || '').includes(prevBlock.block_id) &&
+      ['NON_EXECUTABLE_MUSICALITY', 'MISSING_REQUESTED_MOVEMENT_COVERAGE'].includes(e.code)
+  );
+
+  const preservedFields = [
+    'seguridad',
+    'diferenciacion_principiantes',
+    'diferenciacion_intermedios',
+    'diferenciacion_avanzados',
+    'sugerencias_ia',
+  ];
+
+  const mergedExs = repExs.map((repEx, ei) => {
+    const prevEx = prevExs[ei];
+    if (!prevEx || !repEx) return repEx;
+    const candidate = JSON.parse(JSON.stringify(repEx));
+
+    // Preserve previously populated non-empty valid fields if accidentally cleared by repair
+    for (const field of preservedFields) {
+      if (String(candidate[field] || '').trim() === '' && String(prevEx[field] || '').trim() !== '') {
+        candidate[field] = prevEx[field];
+        fixesApplied.push(`preserve_valid_field:${prevEx.exercise_id}:${field}`);
+      }
+    }
+    if (
+      Array.isArray(candidate.technical_movement_refs) &&
+      candidate.technical_movement_refs.length === 0 &&
+      Array.isArray(prevEx.technical_movement_refs) &&
+      prevEx.technical_movement_refs.length > 0
+    ) {
+      candidate.technical_movement_refs = [...prevEx.technical_movement_refs];
+      fixesApplied.push(`preserve_valid_field:${prevEx.exercise_id}:technical_movement_refs`);
+    }
+
+    const prevHadError = (prevErrors || []).some((e) => String(e?.message || '').includes(prevEx.exercise_id));
+    if (!prevHadError && !blockWideError) {
+      const probePlan = JSON.parse(JSON.stringify(prevPlan));
+      probePlan.bloques[blockIdx] = {
+        ...repairedBlock,
+        ejercicios: repairedBlock.ejercicios.map((exItem, idx) => (idx === ei ? candidate : exItem)),
+      };
+      const probeEval = validateGeneratedPlan(probePlan, context, catalog);
+      const introducedError = probeEval.structuralValidation.errors.some((e) =>
+        String(e?.message || '').includes(prevEx.exercise_id)
+      );
+      if (introducedError) {
+        fixesApplied.push(`preserve_valid_exercise:${prevEx.exercise_id}`);
+        return JSON.parse(JSON.stringify(prevEx));
+      }
+    }
+    return candidate;
+  });
+
+  return {
+    ...repairedBlock,
+    ejercicios: mergedExs,
+  };
+}
+
 /**
  * Modular Block-by-Block Orchestrator + Targeted Single-Block Repair (`PED-04C2-D`).
  * Generates each block independently with a slim strict schema, bounded wave concurrency,
@@ -438,7 +514,7 @@ async function generateAndValidateModularPlan({
   }
 
   const concurrency = Math.max(1, Math.min(4, Number(serverConfig?.budget?.blockConcurrency || 2)));
-  const blockMaxOutputTokens = Number(serverConfig?.budget?.blockMaxOutputTokens || 1600);
+  const blockMaxOutputTokens = Number(serverConfig?.budget?.blockMaxOutputTokens || 2000);
   const blockTimeoutMs = Number(serverConfig?.budget?.blockTimeoutMs || 30000);
   const blockRepairTimeoutMs = Number(serverConfig?.budget?.blockRepairTimeoutMs || 30000);
   const maxRepairAttempts = Number(serverConfig?.budget?.maxRepairAttempts ?? 1);
@@ -663,7 +739,16 @@ async function generateAndValidateModularPlan({
             (usageAcc.estimatedCostUsd + Number(gen.usage?.estimatedCostUsd || 0)).toFixed(6)
           );
           usageAcc.callsMade += 1;
-          assembledBlocks[bi] = assembleBlockFromAiDraft(gen.rawPlan, targetSpec, context, catalog);
+          const assembledRepaired = assembleBlockFromAiDraft(gen.rawPlan, targetSpec, context, catalog);
+          assembledBlocks[bi] = preserveValidExercisesOnBlockRepair(
+            currentPlan,
+            bi,
+            assembledRepaired,
+            evaluation.structuralValidation.errors,
+            context,
+            catalog,
+            allDetFixes
+          );
         } else if (!firstRepairError) {
           firstRepairError = {
             err: outcome.reason,

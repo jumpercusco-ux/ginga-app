@@ -54,6 +54,51 @@ const VALID_SCOPES = new Set([
 const VALID_FLOOR_TYPES = new Set(['tatami', 'madera', 'cemento', 'exterior', 'pasto', 'desconocido']);
 const VALID_SPACE_SIZES = new Set(['amplio', 'mediano', 'reducido', 'desconocido']);
 
+const CAPOEIRA_MOVEMENT_EXTRACTORS = [
+  { name: 'Ginga', re: /\bginga\b/i },
+  { name: 'Armada', re: /\barmada\b/i },
+  { name: 'Aú', re: /\bau\b/i },
+  { name: 'Cocorinha', re: /\bcocorinha\b/i },
+  { name: 'Esquiva lateral', re: /\besquiva\s+lateral\b/i },
+  { name: 'Esquiva básica', re: /\besquiva\s+basica\b/i },
+  { name: 'Esquiva baixa', re: /\besquiva\s+baixa\b/i },
+  { name: 'Esquiva', re: /\besquivas?\b/i },
+  { name: 'Queixada', re: /\bqueixada\b/i },
+  { name: 'Meia-lua de frente', re: /\bmeia[-\s]?lua\s+de\s+frente\b/i },
+  { name: 'Meia-lua de compasso', re: /\bmeia[-\s]?lua\s+de\s+compasso\b/i },
+  { name: 'Rolê', re: /\brole\b/i },
+  { name: 'Negativa', re: /\bnegativa\b/i },
+  { name: 'Bênção', re: /\bbencao\b/i },
+  { name: 'Martelo', re: /\bmartelo\b/i },
+  { name: 'Chapa', re: /\bchapa\b/i },
+  { name: 'Macaco', re: /\bmacaco\b/i },
+];
+
+function extractRequestedTechnicalMovements(objectives, freeInstructions) {
+  const combined = [...(Array.isArray(objectives) ? objectives : []), String(freeInstructions || '')].join(' ');
+  // Normalize diacritics to ASCII so JS \b word boundaries work reliably on "Aú", "Rolê", "Bênção".
+  const asciiCombined = combined
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const found = [];
+  for (const item of CAPOEIRA_MOVEMENT_EXTRACTORS) {
+    if (item.name === 'Esquiva' && found.some((m) => m.startsWith('Esquiva '))) {
+      continue;
+    }
+    if (item.re.test(asciiCombined)) {
+      found.push(item.name);
+    }
+  }
+  return found;
+}
+
+function detectSimultaneousParticipationRequested(audienceType, objectives, freeInstructions) {
+  if (audienceType === 'infantil') return true;
+  const combined = [...(Array.isArray(objectives) ? objectives : []), String(freeInstructions || '')].join(' ');
+  return /simult[aá]ne|sin\s+filas?|sin\s+esperas?|sin\s+colas?|sin\s+elimin/i.test(combined);
+}
+
 function assertNoClientPolicyOverrides(request) {
   const violated = [];
   for (const key of FORBIDDEN_TOP_LEVEL_CLIENT_KEYS) {
@@ -401,6 +446,15 @@ async function buildValidatedContext({
   const sanitizedGroupLabel = cleanText(groupCtx.group_label || `Grupo ${audienceType}`, 80);
   const sanitizedSpaceNotes = cleanText(space.spaceNotesRaw || '', 240);
   const sanitizedContinuitySummary = cleanText(request.continuity_summary || '', 300);
+  const requestedTechnicalMovements = extractRequestedTechnicalMovements(
+    sanitizedObjectives,
+    sanitizedFreeInstructions
+  );
+  const simultaneousParticipationRequested = detectSimultaneousParticipationRequested(
+    audienceType,
+    sanitizedObjectives,
+    sanitizedFreeInstructions
+  );
 
   // LLM-safe payload strictly stripped of internal UIDs, group IDs, session IDs, request IDs, and raw URLs
   const llmPayloadContext = {
@@ -442,6 +496,8 @@ async function buildValidatedContext({
       focuses,
       focus: focuses.join(' · '),
       objectives: sanitizedObjectives,
+      requested_technical_movements: requestedTechnicalMovements,
+      simultaneous_participation_requested: simultaneousParticipationRequested,
       materials_known: materialsKnown,
       materials,
       include_musicality_roda: includeMusicalityRoda,
@@ -462,6 +518,7 @@ async function buildValidatedContext({
     audienceType,
     curriculumScope,
     focuses,
+    requestedTechnicalMovements,
     selectedMovements: validatedMovements,
     selectedResources: validatedResources,
     includeMusicalityRoda,
@@ -497,6 +554,8 @@ async function buildValidatedContext({
     focuses,
     focusLabel: focuses.join(' · '),
     objectives: sanitizedObjectives,
+    requestedTechnicalMovements,
+    simultaneousParticipationRequested,
     materialsKnown,
     materials,
     includeMusicalityRoda,

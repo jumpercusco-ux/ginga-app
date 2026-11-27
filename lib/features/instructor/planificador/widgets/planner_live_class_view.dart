@@ -1231,6 +1231,16 @@ class _PlannerLiveClassViewState extends State<PlannerLiveClassView>
               backgroundColor: pal.infoBlueBg,
             ),
           ],
+          if (ej.aiSuggestions != null && ej.aiSuggestions!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            PlannerNoticeBanner(
+              title: 'Sugerencia pedagógica IA',
+              message: ej.aiSuggestions!,
+              icon: Icons.auto_awesome_outlined,
+              color: pal.textSecondary,
+              backgroundColor: pal.surfaceAlt,
+            ),
+          ],
           if (ej.curriculumMovementIds.isNotEmpty) ...[
             const SizedBox(height: 14),
             Text(

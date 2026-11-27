@@ -522,6 +522,9 @@ class SimulatedPlannerProvider {
               source_origins: ['ai_complementary_proposal'],
               activity_authoring: 'ai_complementary_proposal',
               curriculum_movement_ids: [],
+              ...(Array.isArray(context.requestedTechnicalMovements) && context.requestedTechnicalMovements.length > 0
+                ? { technical_movement_refs: context.requestedTechnicalMovements }
+                : {}),
               linked_resource_ids: [],
               resource_usage_notes: {},
               cancionero_reference: buildCancioneroRef('A hora é essa', 'São Bento Grande', audienceFit),
@@ -548,6 +551,9 @@ class SimulatedPlannerProvider {
     const wantsArmadaAu = /armada/i.test(context.freeInstructions) && /a[uú]/i.test(context.freeInstructions);
 
     const reqResources = context.selectedResources;
+    const requestedMovs = Array.isArray(context.requestedTechnicalMovements)
+      ? context.requestedTechnicalMovements
+      : [];
     const gameMats = pickAvailableMaterialList(context, ['Conos', 'Pandeiro']);
     const soilMats = safeMats ? pickAvailableMaterialList(context, ['Colchonetas', 'Conos']) : pickAvailableMaterialList(context, ['Conos']);
     const rodaMats = pickAvailableMaterialList(context, ['Berimbau', 'Pandeiro']);
@@ -559,7 +565,7 @@ class SimulatedPlannerProvider {
         exercise_id: 'ex_inf_1_1',
         nombre: 'Activación lúdica "Animales de la Selva" (Sapo, Cangrejo y movilidad)',
         tipo_actividad: 'juego_dinamico',
-        detalle: `Preparación: todos dispersos a 1.5 m ${floorPhrase}. Reglas: desplazarse imitando animales al toque del pandeiro cambiando de dirección con la señal "¡Estatua!". Rotación libre en todo el espacio sin filas. ${buildTimedBreakdown(warmupDurs[0], ['preparación e inicio suave', '2 rondas de desplazamiento animal', 'soltar muñecas y tobillos'])}`,
+        detalle: `Preparación: todos dispersos a 1.5 m ${floorPhrase}. Reglas: desplazarse en base animal de Capoeira (sapo y cangrejo) ${gameMats.some((m) => /pandeiro/i.test(m)) ? 'al toque del pandeiro' : 'con palmas del profesor (o pandeiro si hay disponible)'}, cambiando de dirección con la señal "¡Estatua!". Rotación libre en todo el espacio sin filas. ${buildTimedBreakdown(warmupDurs[0], ['preparación e inicio suave', '2 rondas de desplazamiento animal', 'soltar muñecas y tobillos'])}`,
         duracion_min: warmupDurs[0],
         organizacion: 'Todos simultáneamente',
         supervision_instructors_needed: 1,
@@ -585,7 +591,7 @@ class SimulatedPlannerProvider {
         exercise_id: 'ex_inf_1_2',
         nombre: 'Juego "El Semáforo de Ginga y Cocorinha"',
         tipo_actividad: 'juego_dinamico',
-        detalle: `Preparación: marcas visuales separadas 1.5 m ${floorPhrase}. Reglas: todos en Ginga continua al pulso; señal "¡Águila!" = bajar a Cocorinha protegiendo el rostro; señal "¡Cambio!" = girar hacia otro frente. Rondas rápidas con variantes por edad. ${buildTimedBreakdown(warmupDurs[1], ['reglas con demo visual', '3 rondas activas con cambio de señal', 'pausa breve de agua'])}`,
+        detalle: `Preparación: marcas visuales separadas 1.5 m ${floorPhrase}. Reglas: todos en Ginga continua al pulso; señal "¡Águila!" = bajar a Cocorinha o esquiva protegiendo el rostro; señal "¡Cambio!" = girar hacia otro frente. Rondas rápidas con variantes por edad. ${buildTimedBreakdown(warmupDurs[1], ['reglas con demo visual', '3 rondas activas con cambio de señal', 'pausa breve de agua'])}`,
         duracion_min: warmupDurs[1],
         organizacion: 'Todos simultáneamente',
         supervision_instructors_needed: 1,
@@ -621,8 +627,8 @@ class SimulatedPlannerProvider {
           : 'Progresión técnica independiente 1: Base de Ginga y Cocorinha en espejo',
         tipo_actividad: 'juego_dinamico',
         detalle: wantsArmadaAu
-          ? `Preparación: parejas a 2 metros de distancia ${floorPhrase}. Reglas: antes de combinar movimientos, practican de forma independiente la Armada controlada girando cadera y pasando el pie sobre un marcador imaginario al escuchar la señal "¡Viento!". Rondas alternadas por rol con rotación cada 2 minutos y variantes por edad (${context.ageMin}–${context.ageMax} años). ${buildTimedBreakdown(techDurs[0], ['preparación y postura de pies', 'rondas alternadas por rol con rotación', 'feedback breve'])}`
-          : `Preparación: todos en 2 líneas paralelas enfrentadas ${floorPhrase}. Reglas: trabajan de forma independiente la postura de Ginga y el descenso seguro de Cocorinha al ritmo del profesor, rotando pareja cada ronda con variantes según experiencia. ${buildTimedBreakdown(techDurs[0], ['alineación base de Ginga', 'rondas en espejo con Cocorinha y rotación'])}`,
+          ? `Preparación: parejas a 2 metros de distancia ${floorPhrase}. Reglas: antes de combinar movimientos, practican de forma independiente la Armada controlada girando cadera y pasando el pie sobre un marcador imaginario al escuchar la señal "¡Viento!".${requestedMovs.length > 0 ? ` Enfoque técnico solicitado: ${requestedMovs.join(', ')}.` : ''} Rondas alternadas por rol con rotación cada 2 minutos y variantes por edad (${context.ageMin}–${context.ageMax} años). ${buildTimedBreakdown(techDurs[0], ['preparación y postura de pies', 'rondas alternadas por rol con rotación', 'feedback breve'])}`
+          : `Preparación: todos en 2 líneas paralelas enfrentadas ${floorPhrase}. Reglas: trabajan de forma independiente la postura de Ginga y el descenso seguro de Cocorinha al ritmo del profesor, rotando pareja cada ronda con variantes según experiencia.${requestedMovs.length > 0 ? ` Enfoque técnico solicitado: ${requestedMovs.join(', ')}.` : ''} ${buildTimedBreakdown(techDurs[0], ['alineación base de Ginga', 'rondas en espejo con Cocorinha y rotación'])}`,
         duracion_min: techDurs[0],
         organizacion: pairOrg,
         supervision_instructors_needed: 1,
@@ -639,6 +645,7 @@ class SimulatedPlannerProvider {
         source_origins: ['ai_complementary_proposal'],
         activity_authoring: 'ai_complementary_proposal',
         curriculum_movement_ids: [],
+        technical_movement_refs: requestedMovs.length > 0 ? requestedMovs : ['Ginga', 'Cocorinha'],
         linked_resource_ids: [],
         resource_usage_notes: {},
         cancionero_reference: null,
@@ -819,11 +826,11 @@ class SimulatedPlannerProvider {
           },
           {
             exercise_id: 'ex_inf_4_2',
-            nombre: 'Roda infantil cooperativa por turnos cortos',
+            nombre: 'Roda infantil cooperativa con rotación por parejas',
             tipo_actividad: 'musicalidad_roda',
-            detalle: `Preparación: círculo amplio sosteniendo palmas y el canto "Sim sim sim, não não não". Reglas: parejas entran al centro por turnos de 30–40 segundos aplicando Ginga, Cocorinha, Armada o Aú según nivel, rotando al toque de señal. ${buildTimedBreakdown(rodaDurs[1], ['apertura de juego guiado', 'rondas rápidas garantizando participación de todos'])}`,
+            detalle: `Preparación: círculo amplio sosteniendo palmas y el canto "Sim sim sim, não não não". Reglas: parejas entran al centro por rondas cortas de 30–40 segundos aplicando Ginga, Cocorinha, Armada o Aú según nivel, rotando al toque de señal sin eliminaciones. ${buildTimedBreakdown(rodaDurs[1], ['apertura de juego guiado', 'rondas rápidas garantizando participación de todos'])}`,
             duracion_min: rodaDurs[1],
-            organizacion: 'Turnos',
+            organizacion: 'Rotación por parejas',
             supervision_instructors_needed: 1,
             materiales: rodaMats,
             seguridad: 'Juego cooperativo sin contacto; mantener tamaño uniforme de la roda.',
@@ -924,6 +931,7 @@ class SimulatedPlannerProvider {
     const resources = context.selectedResources;
     const reqMovIds = movs.map((m) => m.movement_id);
     const movNames = movs.map((m) => m.canonical_name);
+    const reqTechMovs = Array.isArray(context.requestedTechnicalMovements) ? context.requestedTechnicalMovements : [];
 
     const isCordaMatch = context.cordaMeta ? `${context.cordaMeta.nombre_manual}` : 'Base general';
     const pairOrg = singleInstructorGuard ? 'Todos simultáneamente' : 'Rotación por parejas';
@@ -976,6 +984,7 @@ class SimulatedPlannerProvider {
         source_origins: ['teacher_resource', 'official_fiu_curriculum'],
         activity_authoring: 'teacher_resource_with_official_fiu_movements',
         curriculum_movement_ids: [primaryMovId],
+        ...(reqTechMovs.length > 0 ? { technical_movement_refs: reqTechMovs } : {}),
         linked_resource_ids: [techRes.resource_id],
         resource_usage_notes: buildResourceUsageMap(techRes),
         cancionero_reference: null,
@@ -1015,11 +1024,12 @@ class SimulatedPlannerProvider {
     } else {
       if (techRes) {
         const durT = techSubDurs[slotIdx++];
+        const reqTech = Array.isArray(context.requestedTechnicalMovements) ? context.requestedTechnicalMovements : [];
         techExercises.push({
           exercise_id: 'ex_ad_2_1',
           nombre: techRes.title,
           tipo_actividad: 'drill_parejas',
-          detalle: `Aplicación práctica del recurso del profesor ${floorPhrase}: ${techRes.usage_note || techRes.notes || 'trabajo en parejas simultáneas.'} ${buildTimedBreakdown(durT, ['pauta técnica inicial', 'rondas de práctica con rotación'])}`,
+          detalle: `Aplicación práctica del recurso del profesor ${floorPhrase}: ${techRes.usage_note || techRes.notes || 'trabajo en parejas simultáneas.'}${reqTech.length > 0 ? ` Integrando ${reqTech.join(', ')}.` : ''} ${buildTimedBreakdown(durT, ['pauta técnica inicial', 'rondas de práctica con rotación'])}`,
           duracion_min: durT,
           organizacion: pairOrg,
           supervision_instructors_needed: 1,
@@ -1036,6 +1046,7 @@ class SimulatedPlannerProvider {
           source_origins: ['teacher_resource'],
           activity_authoring: 'teacher_resource',
           curriculum_movement_ids: [],
+          ...(reqTech.length > 0 ? { technical_movement_refs: reqTech } : {}),
           linked_resource_ids: [techRes.resource_id],
           resource_usage_notes: buildResourceUsageMap(techRes),
           cancionero_reference: null,
@@ -1079,7 +1090,7 @@ class SimulatedPlannerProvider {
           exercise_id: `ex_ad_2_${slotIdx}`,
           nombre: `Secuencia guiada desde currículo FIU: ${movNames.join(' + ')}`,
           tipo_actividad: isAngola ? 'angola_dialogo' : 'drill_parejas',
-          detalle: `Actividad diseñada en parejas ${floorPhrase} integrando ${movNames.join(' y ')} sin colas ni pausas muertas.${wantsRepeat ? ` Retoma explícitamente el refuerzo pendiente: ${context.continuityContext?.reinforce_content || 'repetición técnica justificada'}.` : ''} ${buildTimedBreakdown(durSeq, ['acoplamiento lento en pareja', 'rondas de diálogo continuo con rotación'])}`,
+          detalle: `Actividad diseñada en parejas ${floorPhrase} integrando ${movNames.join(' y ')} sin colas ni pausas muertas.${wantsRepeat ? ` Retoma explícitamente el refuerzo pendiente: ${context.continuityContext?.reinforce_content || 'repetición técnica justificada'}.` : ''}${reqTechMovs.length > 0 ? ` Refuerzo técnico solicitado: ${reqTechMovs.join(', ')}.` : ''} ${buildTimedBreakdown(durSeq, ['acoplamiento lento en pareja', 'rondas de diálogo continuo con rotación'])}`,
           duracion_min: durSeq,
           organizacion: pairOrg,
           supervision_instructors_needed: 1,
@@ -1096,6 +1107,7 @@ class SimulatedPlannerProvider {
           source_origins: ['official_fiu_curriculum', 'ai_designed_activity'],
           activity_authoring: 'ai_exercise_from_official_fiu',
           curriculum_movement_ids: reqMovIds,
+          ...(reqTechMovs.length > 0 ? { technical_movement_refs: reqTechMovs } : {}),
           linked_resource_ids: [],
           resource_usage_notes: {},
           cancionero_reference: null,
@@ -1103,13 +1115,16 @@ class SimulatedPlannerProvider {
         });
       } else if (!techRes) {
         const durBase = techSubDurs[slotIdx++];
+        const reqTech = Array.isArray(context.requestedTechnicalMovements) ? context.requestedTechnicalMovements : [];
         techExercises.push({
           exercise_id: 'ex_ad_2_1',
           nombre: isAngola
             ? 'Diálogo de Juego Bajo: Negativa, Chamada y Salida Circular'
-            : 'Secuencia adaptativa en parejas de base, esquiva y salida lateral',
+            : reqTech.length > 0
+              ? `Secuencia adaptativa en parejas: ${reqTech.join(' y ')}`
+              : 'Secuencia adaptativa en parejas de base, esquiva y salida lateral',
           tipo_actividad: isAngola ? 'angola_dialogo' : 'drill_parejas',
-          detalle: `Práctica simultánea en parejas ${floorPhrase} adaptada al alcance '${context.curriculumScope}' sin atribución automática al currículo Adulto FIU. ${buildTimedBreakdown(durBase, ['progresión técnica individual', 'rondas continuas cambiando pareja'])}`,
+          detalle: `Práctica simultánea en parejas ${floorPhrase} adaptada al alcance '${context.curriculumScope}' sin atribución automática al currículo Adulto FIU.${reqTech.length > 0 ? ` Trabajo técnico enfocado en ${reqTech.join(' y ')}.` : ''} ${buildTimedBreakdown(durBase, ['progresión técnica individual', 'rondas continuas cambiando pareja'])}`,
           duracion_min: durBase,
           organizacion: pairOrg,
           supervision_instructors_needed: 1,
@@ -1126,6 +1141,7 @@ class SimulatedPlannerProvider {
           source_origins: ['ai_complementary_proposal'],
           activity_authoring: 'ai_complementary_proposal',
           curriculum_movement_ids: [],
+          ...(reqTech.length > 0 ? { technical_movement_refs: reqTech } : {}),
           linked_resource_ids: [],
           resource_usage_notes: {},
           cancionero_reference: null,
@@ -1262,7 +1278,7 @@ class SimulatedPlannerProvider {
             tipo_actividad: 'musicalidad_roda',
             detalle: musRes
               ? `Aplicación en roda del recurso '${musRes.title}' ${floorPhrase}. ${musRes.usage_note || musRes.notes || 'Rotaciones rápidas manteniendo coro activo y diálogo técnico.'} ${buildTimedBreakdown(blockDurs[3], ['afinación de coro y palmas', 'rondas continuas de roda'])}`
-              : `Roda guiada en círculo único ${floorPhrase} cantando "${rodaSongTitle}" y aplicando el objetivo del día en turnos rápidos de 45–60 segundos. ${buildTimedBreakdown(blockDurs[3], ['apertura vocal e instrumental', 'entradas rotativas de juego dialogado'])}`,
+              : `Roda guiada en círculo único ${floorPhrase} cantando en coro responsorial "${rodaSongTitle}" con palmas al pulso de la bateria y aplicando el objetivo del día en rotaciones rápidas de 45–60 segundos. ${buildTimedBreakdown(blockDurs[3], ['apertura vocal e instrumental', 'entradas rotativas de juego dialogado'])}`,
             duracion_min: blockDurs[3],
             organizacion: 'Todos simultáneamente',
             supervision_instructors_needed: 1,

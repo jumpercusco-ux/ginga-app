@@ -227,7 +227,7 @@ class HttpLocalPlannerV2Client implements PlannerV2EngineClient {
     this.baseUrl = '',
     this.previewToken,
     http.Client? httpClient,
-    this.timeout = const Duration(seconds: 120),
+    this.timeout = const Duration(seconds: 180),
   }) : _http = httpClient ?? http.Client();
 
   Uri _endpointUri(String suffix) {

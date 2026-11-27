@@ -58,6 +58,8 @@ class _PlannerExerciseEditorPanelState
   late TextEditingController _safetyCtrl;
   late TextEditingController _notesCtrl;
   final TextEditingController _customMaterialCtrl = TextEditingController();
+  final TextEditingController _customTechRefCtrl = TextEditingController();
+  final List<TextEditingController> _timingLabelCtrls = [];
   final Map<String, TextEditingController> _resourceNoteCtrls = {};
   bool _customOrgSelected = false;
 
@@ -65,6 +67,15 @@ class _PlannerExerciseEditorPanelState
   late List<PlannerResourceItem> _availableResources;
 
   static const List<int> _quickDurations = [5, 8, 10, 12, 15, 20];
+  static const List<String> _quickInfantilTechRefs = [
+    'Ginga',
+    'Cocorinha',
+    'Esquiva lateral',
+    'Armada',
+    'Aú',
+    'Rolê',
+    'Meia-lua de frente',
+  ];
   static const List<String> _standardOrgOptions = [
     'Todos simultáneamente',
     'Rotación por parejas',
@@ -122,7 +133,83 @@ class _PlannerExerciseEditorPanelState
     _advancedCtrl.text = ex.differentiationAdvanced ?? '';
     _safetyCtrl.text = ex.safetyNote ?? '';
     _notesCtrl.text = ex.observacionesProfesor ?? '';
+    _syncTimingControllers(ex.internalTimings);
     _syncResourceNoteControllers(resetText: true);
+  }
+
+  void _syncTimingControllers(List<PlannerInternalTiming> timings) {
+    for (final ctrl in _timingLabelCtrls) {
+      ctrl.dispose();
+    }
+    _timingLabelCtrls.clear();
+    for (final t in timings) {
+      _timingLabelCtrls.add(TextEditingController(text: t.etapa));
+    }
+  }
+
+  void _addTimingStage() {
+    setState(() {
+      final used = _draft.internalTimings.fold<int>(0, (acc, t) => acc + t.minutos);
+      final target = _draft.duracionMin ?? 6;
+      final suggested = (target - used) > 0 ? (target - used) : 2;
+      final stage = PlannerInternalTiming(
+        etapa: _draft.internalTimings.isEmpty
+            ? 'Preparación y demostración'
+            : 'Ejecución por rondas',
+        minutos: suggested,
+      );
+      _draft = _draft.copyWith(
+        internalTimings: [..._draft.internalTimings, stage],
+      );
+      _timingLabelCtrls.add(TextEditingController(text: stage.etapa));
+    });
+  }
+
+  void _updateTimingMinutes(int index, int nextMinutes) {
+    if (index < 0 || index >= _draft.internalTimings.length) return;
+    setState(() {
+      final list = List<PlannerInternalTiming>.from(_draft.internalTimings);
+      list[index] = list[index].copyWith(minutos: nextMinutes);
+      _draft = _draft.copyWith(internalTimings: list);
+    });
+  }
+
+  void _removeTimingStage(int index) {
+    if (index < 0 || index >= _draft.internalTimings.length) return;
+    setState(() {
+      final list = List<PlannerInternalTiming>.from(_draft.internalTimings)
+        ..removeAt(index);
+      final removedCtrl = _timingLabelCtrls.removeAt(index);
+      removedCtrl.dispose();
+      _draft = _draft.copyWith(internalTimings: list);
+    });
+  }
+
+  void _toggleTechRef(String name) {
+    final clean = name.trim();
+    if (clean.isEmpty) return;
+    final list = List<String>.from(_draft.technicalMovementRefs);
+    if (list.contains(clean)) {
+      list.remove(clean);
+    } else {
+      list.add(clean);
+    }
+    setState(() {
+      _draft = _draft.copyWith(technicalMovementRefs: list);
+    });
+  }
+
+  void _addCustomTechRef() {
+    final clean = _customTechRefCtrl.text.trim();
+    if (clean.isEmpty) return;
+    if (!_draft.technicalMovementRefs.contains(clean)) {
+      setState(() {
+        _draft = _draft.copyWith(
+          technicalMovementRefs: [..._draft.technicalMovementRefs, clean],
+        );
+      });
+    }
+    _customTechRefCtrl.clear();
   }
 
   void _syncResourceNoteControllers({bool resetText = false}) {
@@ -163,6 +250,10 @@ class _PlannerExerciseEditorPanelState
     _safetyCtrl.dispose();
     _notesCtrl.dispose();
     _customMaterialCtrl.dispose();
+    _customTechRefCtrl.dispose();
+    for (final ctrl in _timingLabelCtrls) {
+      ctrl.dispose();
+    }
     for (final ctrl in _resourceNoteCtrls.values) {
       ctrl.dispose();
     }
@@ -429,11 +520,27 @@ class _PlannerExerciseEditorPanelState
       }
     }
 
+    final collectedTimings = <PlannerInternalTiming>[];
+    for (int i = 0; i < _draft.internalTimings.length; i++) {
+      final label = i < _timingLabelCtrls.length
+          ? _timingLabelCtrls[i].text.trim()
+          : _draft.internalTimings[i].etapa;
+      if (label.isNotEmpty) {
+        collectedTimings.add(
+          PlannerInternalTiming(
+            etapa: label,
+            minutos: _draft.internalTimings[i].minutos,
+          ),
+        );
+      }
+    }
+
     return _draft.copyWith(
       nombre: cleanName.isNotEmpty ? cleanName : 'Ejercicio sin título',
       detalle: _detailCtrl.text.trim(),
       organizacion: cleanOrg.isNotEmpty ? cleanOrg : null,
       clearOrganizacion: cleanOrg.isEmpty,
+      internalTimings: collectedTimings,
       resourceUsageNotes: collectedResNotes,
       differentiationBeginner: cleanBeginner.isNotEmpty ? cleanBeginner : null,
       clearDifferentiationBeginner: cleanBeginner.isEmpty,
@@ -581,6 +688,10 @@ class _PlannerExerciseEditorPanelState
                         ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+
+                  // Tiempos internos por etapa (estructurado y retrocompatible)
+                  _buildInternalTimingsSection(pal),
                   const SizedBox(height: 14),
 
                   // Descripción paso a paso
@@ -800,6 +911,8 @@ class _PlannerExerciseEditorPanelState
                             color: pal.amber,
                             backgroundColor: pal.amberBg,
                           ),
+                          const SizedBox(height: 10),
+                          _buildNonCurricularTechRefsSection(pal),
                         ],
 
                         if (_draft.curriculumMovementIds.isNotEmpty) ...[
@@ -1098,9 +1211,73 @@ class _PlannerExerciseEditorPanelState
                             ),
                           ),
                           const SizedBox(height: 10),
+                          if (_draft.aiSuggestions != null &&
+                              _draft.aiSuggestions!.trim().isNotEmpty) ...[
+                            Container(
+                              key: const Key('ex_editor_ai_suggestions_box'),
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: pal.infoBlueBg,
+                                borderRadius:
+                                    BorderRadius.circular(GingaRadius.md),
+                                border: Border.all(
+                                    color:
+                                        pal.infoBlue.withValues(alpha: 0.35)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.auto_awesome_outlined,
+                                          size: 15, color: pal.infoBlue),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          'Sugerencia pedagógica IA',
+                                          style: GoogleFonts.montserrat(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w800,
+                                            color: pal.infoBlue,
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        key: const Key(
+                                            'ex_editor_clear_ai_suggestion_btn'),
+                                        tooltip: 'Ocultar sugerencia IA',
+                                        constraints: const BoxConstraints(),
+                                        padding: EdgeInsets.zero,
+                                        icon: Icon(Icons.close,
+                                            size: 15, color: pal.textSecondary),
+                                        onPressed: () => setState(() {
+                                          _draft = _draft.copyWith(
+                                              clearAiSuggestions: true);
+                                        }),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _draft.aiSuggestions!.trim(),
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 12,
+                                      color: pal.textPrimary,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
                           const Align(
                             alignment: Alignment.centerLeft,
-                            child: PlannerFieldLabel('Observaciones del profesor', optional: true),
+                            child: PlannerFieldLabel(
+                              'Observaciones del profesor (propias)',
+                              optional: true,
+                            ),
                           ),
                           TextField(
                             key: const Key('ex_editor_teacher_notes_field'),
@@ -1171,6 +1348,237 @@ class _PlannerExerciseEditorPanelState
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInternalTimingsSection(PlannerPalette pal) {
+    final totalStagesMin =
+        _draft.internalTimings.fold<int>(0, (acc, t) => acc + t.minutos);
+    final targetMin = _draft.duracionMin;
+    final hasMismatch = _draft.internalTimings.isNotEmpty &&
+        targetMin != null &&
+        totalStagesMin != targetMin;
+
+    return Container(
+      key: const Key('ex_editor_internal_timings_section'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: pal.background,
+        borderRadius: BorderRadius.circular(GingaRadius.md),
+        border: Border.all(
+          color: hasMismatch ? pal.amber.withValues(alpha: 0.6) : pal.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Tiempos internos por etapa',
+                style: GoogleFonts.montserrat(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: pal.textPrimary,
+                ),
+              ),
+              if (_draft.internalTimings.isNotEmpty)
+                PlannerBadge(
+                  label: targetMin != null
+                      ? 'Suma: $totalStagesMin/$targetMin min'
+                      : 'Suma: $totalStagesMin min',
+                  color: hasMismatch ? pal.amber : pal.accent,
+                  backgroundColor: hasMismatch ? pal.amberBg : pal.surfaceTint,
+                ),
+            ],
+          ),
+          if (_draft.internalTimings.isEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Opcional: divide la ejecución en etapas reales (ej. Preparación, Progresión, Rondas).',
+              style: GoogleFonts.montserrat(
+                fontSize: 11,
+                color: pal.textSecondary,
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 8),
+            for (int i = 0; i < _draft.internalTimings.length; i++) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: Key('ex_editor_timing_label_$i'),
+                      controller: i < _timingLabelCtrls.length
+                          ? _timingLabelCtrls[i]
+                          : null,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        color: pal.textPrimary,
+                      ),
+                      decoration: plannerInputDecoration(
+                        pal,
+                        hintText: 'Nombre de etapa',
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  PlannerStepperField(
+                    key: Key('ex_editor_timing_min_$i'),
+                    label: 'Min',
+                    value: _draft.internalTimings[i].minutos,
+                    suffix: 'm',
+                    min: 1,
+                    max: 90,
+                    onChanged: (v) => _updateTimingMinutes(i, v),
+                  ),
+                  IconButton(
+                    key: Key('ex_editor_timing_del_$i'),
+                    icon: const Icon(Icons.close, size: 16),
+                    color: pal.textSecondary,
+                    tooltip: 'Quitar etapa',
+                    onPressed: () => _removeTimingStage(i),
+                  ),
+                ],
+              ),
+              if (i < _draft.internalTimings.length - 1)
+                const SizedBox(height: 6),
+            ],
+          ],
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              key: const Key('ex_editor_add_timing_stage_btn'),
+              onPressed: _addTimingStage,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 36),
+                side: BorderSide(color: pal.border),
+                foregroundColor: pal.textPrimary,
+              ),
+              icon: const Icon(Icons.add, size: 15),
+              label: Text(
+                'Añadir etapa interna',
+                style: GoogleFonts.montserrat(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNonCurricularTechRefsSection(PlannerPalette pal) {
+    return Container(
+      key: const Key('ex_editor_tech_refs_section'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: pal.surface,
+        borderRadius: BorderRadius.circular(GingaRadius.md),
+        border: Border.all(color: pal.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Referencias técnicas de Capoeira (no curriculares)',
+            style: GoogleFonts.montserrat(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: pal.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            'Permite anotar técnicas reales apropiadas para niños sin desbloquear el currículo adulto oficial ni inventar cordas.',
+            style: GoogleFonts.montserrat(
+              fontSize: 11,
+              color: pal.textSecondary,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final mov in _quickInfantilTechRefs)
+                PlannerChoicePill(
+                  key: Key('ex_editor_tech_pill_$mov'),
+                  label: mov,
+                  selected: _draft.technicalMovementRefs.contains(mov),
+                  onTap: () => _toggleTechRef(mov),
+                ),
+            ],
+          ),
+          if (_draft.technicalMovementRefs
+              .any((m) => !_quickInfantilTechRefs.contains(m))) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final extra in _draft.technicalMovementRefs
+                    .where((x) => !_quickInfantilTechRefs.contains(x)))
+                  Chip(
+                    label: Text(
+                      extra,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: pal.textPrimary,
+                      ),
+                    ),
+                    backgroundColor: pal.background,
+                    onDeleted: () => _toggleTechRef(extra),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: const Key('ex_editor_custom_tech_ref_field'),
+                  controller: _customTechRefCtrl,
+                  onSubmitted: (_) => _addCustomTechRef(),
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    color: pal.textPrimary,
+                  ),
+                  decoration: plannerInputDecoration(
+                    pal,
+                    hintText: 'Otro movimiento (ej. Esquiva baixa)',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                key: const Key('ex_editor_add_tech_ref_btn'),
+                onPressed: _addCustomTechRef,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 40),
+                  side: BorderSide(color: pal.border),
+                  foregroundColor: pal.textPrimary,
+                ),
+                child: const Text('Añadir'),
+              ),
+            ],
           ),
         ],
       ),

@@ -13,6 +13,31 @@ const FORBIDDEN_UNVALIDATED_INFANTIL_FIU_CLAIM_RE =
 const EXIGENT_INVERSION_RE =
   /\b(bananeira|ponte|parada\s+de\s+m[aã]o|queda\s+de\s+rim)\b/i;
 
+const GENERIC_NON_CAPOEIRA_GAME_RE =
+  /\b(juego\s+de\s+las\s+estatuas|juego\s+de\s+la\s+silla|carrera\s+de\s+(?:los\s+)?animales|carrera\s+de\s+relevos)\b/i;
+
+const CAPOEIRA_CORE_TERM_RE =
+  /\b(ginga|cocorinha|esquiva|armada|queixada|a[uú]|rol[eê]|negativa|b[eê]n[cç][aã]o|martelo|roda|berimbau|pandeiro|atabaque|corrido|ladainha|angola)\b/i;
+
+const ELIMINATION_MECHANIC_RE =
+  /\b(queda\s+eliminado|eliminando\s+una\s+silla|el\s+[uú]ltimo\s+en\s+quedar|van\s+saliendo\s+eliminados)\b/i;
+
+const QUEUE_LINE_MECHANIC_RE =
+  /\b(se\s+coloca(?:n)?\s+en\s+fila|formar\s+una\s+fila|cola\s+de\s+espera|esperan\s+su\s+turno\s+en\s+fila)\b/i;
+
+const UNSAFE_ROLL_TUMBLE_RE =
+  /\b(voltereta|rodar\s+hacia\s+adelante|rodar\s+como\s+una\s+bola|maroma)\b/i;
+
+const UNDECLARED_CHAIR_PROSE_RE =
+  /\b(coloca\s+sillas|sillas\s+en\s+c[ií]rculo|sin\s+silla|una\s+silla|las\s+sillas)\b/i;
+
+const UNDECLARED_CONE_PROSE_RE =
+  /\b(conos\s+en\s+el\s+suelo|coloca\s+conos|entre\s+conos)\b/i;
+
+const INSTRUMENT_MENTION_RE = /\b(berimbau|pandeiro|atabaque)\b/i;
+const INSTRUMENT_ALTERNATIVE_RE =
+  /\b(palmas|voz|canto|corporal|alternativa|si\s+no\s+hay|si\s+est[aá]\s+disponible|sin\s+instrumento)\b/i;
+
 function normalizeMaterialKey(value) {
   return String(value || '')
     .trim()
@@ -295,6 +320,80 @@ function validateGeneratedPlan(plan, context, catalog) {
         }
       }
 
+      // Pedagogical quality rules (PED-04C2-E)
+      const exPedagogicalText = `${ex.nombre} ${ex.detalle} ${ex.diferenciacion_principiantes || ''} ${ex.diferenciacion_intermedios || ''} ${ex.diferenciacion_avanzados || ''}`;
+      if (GENERIC_NON_CAPOEIRA_GAME_RE.test(`${ex.nombre} ${ex.detalle}`)) {
+        addError(
+          'GENERIC_NON_CAPOEIRA_EXERCISE',
+          `Ejercicio ${ex.exercise_id} propone una dinámica genérica ajena a la Capoeira ("${ex.nombre}").`
+        );
+      }
+      if (
+        context.simultaneousParticipationRequested === true &&
+        (ELIMINATION_MECHANIC_RE.test(`${ex.nombre} ${ex.detalle}`) ||
+          QUEUE_LINE_MECHANIC_RE.test(`${ex.nombre} ${ex.detalle}`) ||
+          String(ex.organizacion || '').trim() === 'Turnos')
+      ) {
+        addError(
+          'ELIMINATION_OR_QUEUE_WHEN_SIMULTANEOUS_REQUESTED',
+          `Ejercicio ${ex.exercise_id} introduce filas, eliminaciones o turnos pasivos cuando se requiere participación simultánea.`
+        );
+      }
+      if (String(ex.organizacion || '').trim().length > 50) {
+        addError(
+          'UNSTRUCTURED_ORGANIZATION_PROSE',
+          `Ejercicio ${ex.exercise_id} usa texto libre extenso en 'organizacion' en lugar de una modalidad pedagógica estándar.`
+        );
+      }
+      if (
+        (context.space.floorType !== 'tatami' || context.space.availableMats !== true) &&
+        UNSAFE_ROLL_TUMBLE_RE.test(exPedagogicalText)
+      ) {
+        addError(
+          'UNSAFE_ROLL_OR_TUMBLE_ON_UNCONFIRMED_FLOOR',
+          `Ejercicio ${ex.exercise_id} incluye voltereta o rodada en suelo sin tatami ni colchonetas confirmados.`
+        );
+      }
+      const linkedResourcesText = (context.selectedResources || [])
+        .filter((r) => resIds.includes(r.resource_id))
+        .map((r) => `${r.title || ''} ${r.notes || ''} ${r.usage_note || ''}`)
+        .join(' ');
+      if (
+        UNDECLARED_CHAIR_PROSE_RE.test(ex.detalle || '') &&
+        !declaredMaterialsLower.has('silla') &&
+        !declaredMaterialsLower.has('sillas') &&
+        !/\bsillas?\b/i.test(linkedResourcesText)
+      ) {
+        addError(
+          'UNDECLARED_MATERIAL_OR_INSTRUMENT_IN_PROSE',
+          `Ejercicio ${ex.exercise_id} exige sillas en su descripción sin material declarado.`
+        );
+      }
+      if (
+        resIds.length === 0 &&
+        UNDECLARED_CONE_PROSE_RE.test(ex.detalle || '') &&
+        !declaredMaterialsLower.has('cono') &&
+        !declaredMaterialsLower.has('conos')
+      ) {
+        addError(
+          'UNDECLARED_MATERIAL_OR_INSTRUMENT_IN_PROSE',
+          `Ejercicio ${ex.exercise_id} exige conos en su descripción sin material declarado.`
+        );
+      }
+      const mentionedInstrumentMatch = String(ex.detalle || '').match(INSTRUMENT_MENTION_RE);
+      if (
+        mentionedInstrumentMatch &&
+        !declaredMaterialsLower.has(normalizeMaterialKey(mentionedInstrumentMatch[1])) &&
+        !INSTRUMENT_ALTERNATIVE_RE.test(
+          `${ex.detalle || ''} ${ex.seguridad || ''} ${ex.sugerencias_ia || ''} ${ex.observaciones_profesor || ''}`
+        )
+      ) {
+        addError(
+          'UNDECLARED_MATERIAL_OR_INSTRUMENT_IN_PROSE',
+          `Ejercicio ${ex.exercise_id} menciona '${mentionedInstrumentMatch[1]}' no confirmado sin indicar alternativa viable (palmas/voz/percusión corporal).`
+        );
+      }
+
       // Acrobacias / combat separation & unrequested complex acrobatics
       if (blk.fase_tipo === 'tecnica' && ex.tipo_actividad === 'progresion_suelo') {
         addError(
@@ -342,6 +441,12 @@ function validateGeneratedPlan(plan, context, catalog) {
               `Los tiempos_internos de ${ex.exercise_id} suman ${sum} min pero duracion_min=${eDur} min.`
             );
           }
+        }
+        if (structuredTimings.length === 1 && Number(eDur) >= 4) {
+          addError(
+            'TRIVIAL_INTERNAL_TIMINGS',
+            `Ejercicio ${ex.exercise_id} (${eDur} min) repite una sola etapa en tiempos_internos en lugar de desglosar fases reales de ejecución.`
+          );
         }
       }
 
@@ -510,6 +615,86 @@ function validateGeneratedPlan(plan, context, catalog) {
         'MISSING_REQUIRED_RESOURCE',
         `El recurso obligatorio '${reqRes.resource_id}' (${reqRes.title}) no fue incluido en ningún ejercicio.`
       );
+    }
+  }
+
+  // Capoeira specialization, requested technical movements, and executable musicality checks (PED-04C2-E)
+  const serializedBlocksText = JSON.stringify(bloques);
+  if (context.allowAiComplementaryProposals !== false && !CAPOEIRA_CORE_TERM_RE.test(serializedBlocksText)) {
+    addError(
+      'GENERIC_NON_CAPOEIRA_EXERCISE',
+      'La clase generada carece de vocabulario y contenidos técnicos reales de Capoeira.'
+    );
+  }
+  const requestedTech =
+    context.allowAiComplementaryProposals !== false && Array.isArray(context.requestedTechnicalMovements)
+      ? context.requestedTechnicalMovements
+      : [];
+  const executionCoverageText = bloques
+    .flatMap((b) => [
+      b.fase || '',
+      ...(Array.isArray(b.ejercicios) ? b.ejercicios : []).flatMap((e) => [
+        e.nombre || '',
+        e.detalle || '',
+        e.diferenciacion_principiantes || '',
+        e.diferenciacion_intermedios || '',
+        e.diferenciacion_avanzados || '',
+        ...(Array.isArray(e.technical_movement_refs) ? e.technical_movement_refs : []),
+        ...(Array.isArray(e.curriculum_movement_ids) ? e.curriculum_movement_ids : []),
+      ]),
+    ])
+    .join(' ');
+  const normalizedBlocksAscii = executionCoverageText
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase();
+  for (const movName of requestedTech) {
+    const cleanMov = movName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[_-]+/g, ' ')
+      .toLowerCase();
+    const escapedMov = cleanMov.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const patternBody = cleanMov === 'esquiva' ? 'esquivas?' : escapedMov;
+    const movWordRe = new RegExp(`\\b${patternBody}\\b`, 'i');
+    if (!movWordRe.test(normalizedBlocksAscii)) {
+      addError(
+        'MISSING_REQUESTED_MOVEMENT_COVERAGE',
+        `El movimiento solicitado explícitamente '${movName}' no fue cubierto en la clase.`
+      );
+    }
+  }
+  const musicalityRequested = context.focuses.some((f) => /musicalidad|roda/i.test(f));
+  if (musicalityRequested) {
+    const musicBlocks = bloques.filter((b) => b.fase_tipo === 'musicalidad' || b.fase_tipo === 'roda_musicalidad');
+    for (const mb of musicBlocks) {
+      const mText = (mb.ejercicios || [])
+        .map((e) => `${e.nombre || ''} ${e.detalle || ''}`)
+        .join(' ');
+      const hasVocal = /\b(canto|cantar|cantando|coro|responsorial|estribillo|melod[ií]a)\b/i.test(mText);
+      const hasRhythm = /\b(palmas|pulso|ritmo|toques?|berimbau|pandeiro|atabaque|eco\s+r[ií]tmico)\b/i.test(mText);
+      const hasRodaOrGroupPractice =
+        /\b(roda|c[ií]rculo|juego|alternan|rotaci[oó]n|rondas?|ensamble|grupal|parejas|arcos|puxador)\b/i.test(mText);
+      const isExecutable =
+        mb.fase_tipo === 'roda_musicalidad'
+          ? hasVocal && hasRhythm && hasRodaOrGroupPractice
+          : (hasVocal || hasRhythm) && hasRodaOrGroupPractice;
+      if (!isExecutable) {
+        const missingDims = [];
+        if (mb.fase_tipo === 'roda_musicalidad') {
+          if (!hasVocal) missingDims.push('canto/coro responsorial');
+          if (!hasRhythm) missingDims.push('palmas/pulso rítmico');
+          if (!hasRodaOrGroupPractice) missingDims.push('práctica grupal/roda en círculo');
+        } else {
+          if (!hasVocal && !hasRhythm) missingDims.push('canto o palmas/ritmo');
+          if (!hasRodaOrGroupPractice) missingDims.push('práctica grupal/roda en círculo');
+        }
+        addError(
+          'NON_EXECUTABLE_MUSICALITY',
+          `Bloque musical '${mb.block_id}' no describe práctica ejecutable completa. Falta explícitamente: ${missingDims.join(', ')}.`
+        );
+      }
     }
   }
 

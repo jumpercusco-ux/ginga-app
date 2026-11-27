@@ -1,31 +1,48 @@
 'use strict';
 
 const { computeExpectedAuthoringAndOrigins } = require('./plan_validator');
-const { syncInternalTimingsIntoDetalle } = require('./response_schema');
+const { syncInternalTimingsIntoDetalle, ORGANIZATION_MODE_ENUM, FASE_TIPO_ENUM } = require('./response_schema');
 
-function defaultFaseLabel(faseTipo) {
+function humanReadableFaseLabel(faseTipo, context) {
+  const focuses = Array.isArray(context?.focuses) ? context.focuses.join(' ').toLowerCase() : '';
   switch (faseTipo) {
     case 'calentamiento':
-      return 'Calentamiento y Activación';
+      return 'Calentamiento';
     case 'tecnica':
-      return 'Bloque Técnico';
+      return 'Técnica y progresiones';
     case 'juegos':
-      return 'Juegos Motores y Progresiones';
+      return 'Juegos de capoeira';
     case 'acrobacias_suelo':
-      return 'Control Corporal y Suelo Seguro';
+      return 'Acrobacias y movimientos de suelo';
     case 'musicalidad':
-      return 'Musicalidad y Ritmo';
+      return 'Musicalidad y ritmo';
     case 'angola':
-      return 'Juego y Diálogo de Angola';
+      return 'Juego y diálogo de Angola';
     case 'roda_musicalidad':
-      return 'Roda y Musicalidad';
+      return 'Roda y musicalidad';
     case 'vuelta_calma':
-      return 'Vuelta a la Calma y Cierre';
+      return 'Vuelta a la calma y cierre';
     case 'recurso_profesor':
-      return 'Bloque con Recursos del Profesor';
+      return 'Bloque con recursos del profesor';
     default:
-      return 'Bloque de Clase';
+      return 'Bloque de clase';
   }
+}
+
+function normalizeOrganizationLabel(rawOrg, context) {
+  const txt = String(rawOrg || '').trim();
+  if (ORGANIZATION_MODE_ENUM.includes(txt)) {
+    return txt;
+  }
+  const low = txt.toLowerCase();
+  if (/pareja/i.test(low)) return 'Rotación por parejas';
+  if (/estaci[oó]n/i.test(low) && !((context?.instructorsAvailable || 1) === 1 && (context?.participants || 0) >= 15)) {
+    return 'Estaciones simultáneas';
+  }
+  if (/turno|fila/i.test(low) && !context?.simultaneousParticipationRequested) {
+    return 'Turnos';
+  }
+  return 'Todos simultáneamente';
 }
 
 /**
@@ -95,13 +112,21 @@ function assembleBlockFromAiDraft(aiBlock, blockSpec, context, catalog) {
       };
     }
 
+    const technicalMovementRefs = [
+      ...new Set(
+        (Array.isArray(rawEx.technical_movement_refs) ? rawEx.technical_movement_refs : [])
+          .map((m) => String(m || '').trim())
+          .filter(Boolean)
+      ),
+    ];
+
     const assembledEx = {
       exercise_id: exerciseId,
       nombre: String(rawEx.nombre || `Actividad ${ei + 1}`).trim(),
       tipo_actividad: String(rawEx.tipo_actividad || 'ejercicio_tecnico').trim(),
       detalle: String(rawEx.detalle || '').trim(),
       duracion_min: duracionMin,
-      organizacion: String(rawEx.organizacion || 'Todos simultáneamente').trim(),
+      organizacion: normalizeOrganizationLabel(rawEx.organizacion, context),
       supervision_instructors_needed: 1,
       materiales: Array.isArray(rawEx.materiales)
         ? rawEx.materiales.map((m) => String(m || '').trim()).filter(Boolean)
@@ -110,7 +135,9 @@ function assembleBlockFromAiDraft(aiBlock, blockSpec, context, catalog) {
       diferenciacion_principiantes: String(rawEx.diferenciacion_principiantes || '').trim(),
       diferenciacion_intermedios: String(rawEx.diferenciacion_intermedios || '').trim(),
       diferenciacion_avanzados: String(rawEx.diferenciacion_avanzados || '').trim(),
-      observaciones_profesor: String(rawEx.observaciones_profesor || '').trim(),
+      sugerencias_ia: String(rawEx.sugerencias_ia || '').trim(),
+      observaciones_profesor: '',
+      technical_movement_refs: technicalMovementRefs,
       content_origin: expectedMeta.content_origin,
       source_origins: expectedMeta.source_origins,
       activity_authoring: expectedMeta.activity_authoring,
@@ -128,9 +155,16 @@ function assembleBlockFromAiDraft(aiBlock, blockSpec, context, catalog) {
     assembledExercises.push(assembledEx);
   }
 
+  const rawFase = String(aiBlock?.fase || '').trim();
+  const isRawTechnicalLabel =
+    !rawFase ||
+    FASE_TIPO_ENUM.includes(rawFase.toLowerCase()) ||
+    /^[a-z0-9_]+$/.test(rawFase) ||
+    /^bloque\s+blk_/i.test(rawFase);
+
   return {
     block_id: blockSpec.block_id,
-    fase: String(aiBlock?.fase || defaultFaseLabel(blockSpec.fase_tipo)).trim(),
+    fase: isRawTechnicalLabel ? humanReadableFaseLabel(blockSpec.fase_tipo, context) : rawFase,
     fase_tipo: blockSpec.fase_tipo,
     duracion_min: blockSpec.duracion_min,
     ejercicios: assembledExercises,

@@ -404,12 +404,13 @@ async function testT3Level1ArithmeticReconciliationZeroExtraLlmCalls() {
   // block 0 exercises sum to 11 instead of 12, block 3 sum is 10 instead of 12 (total 58 vs 60),
   // plus exercise tiempos_internos sums to 5 while exercise duracion_min is 6.
   const minorDriftWire = buildBlueprintCompliantWirePlan(ctx);
+  const lastIdx = minorDriftWire.bloques.length - 1;
   minorDriftWire.bloques[0].ejercicios[0].duracion_min = Math.max(1, minorDriftWire.bloques[0].ejercicios[0].duracion_min - 1);
-  minorDriftWire.bloques[3].duracion_min = Math.max(2, minorDriftWire.bloques[3].duracion_min - 2);
-  minorDriftWire.bloques[3].ejercicios[0].duracion_min = minorDriftWire.bloques[3].duracion_min;
-  minorDriftWire.bloques[3].ejercicios[0].tiempos_internos = [
+  minorDriftWire.bloques[lastIdx].duracion_min = Math.max(2, minorDriftWire.bloques[lastIdx].duracion_min - 2);
+  minorDriftWire.bloques[lastIdx].ejercicios[0].duracion_min = minorDriftWire.bloques[lastIdx].duracion_min;
+  minorDriftWire.bloques[lastIdx].ejercicios[0].tiempos_internos = [
     { etapa: 'coro inicial', minutos: 2 },
-    { etapa: 'roda guiada', minutos: 3 }, // sums to 5 != 12 after reconcile, within drift if small
+    { etapa: 'roda guiada', minutos: 3 },
   ];
 
   // Make minor internal timing drift within 35% threshold
@@ -417,11 +418,11 @@ async function testT3Level1ArithmeticReconciliationZeroExtraLlmCalls() {
     { etapa: 'preparación', minutos: 2 },
     { etapa: 'rondas', minutos: Math.max(1, minorDriftWire.bloques[1].ejercicios[0].duracion_min - 3) },
   ];
-  // Reset block 3 timings accurately except block 0/1
-  const b3Dur = minorDriftWire.bloques[3].duracion_min;
-  minorDriftWire.bloques[3].ejercicios[0].tiempos_internos = [
+  // Reset last block timings accurately
+  const lastDur = minorDriftWire.bloques[lastIdx].duracion_min;
+  minorDriftWire.bloques[lastIdx].ejercicios[0].tiempos_internos = [
     { etapa: 'coro', minutos: 2 },
-    { etapa: 'roda', minutos: Math.max(1, b3Dur - 2) },
+    { etapa: 'roda', minutos: Math.max(1, lastDur - 2) },
   ];
 
   let calls = 0;

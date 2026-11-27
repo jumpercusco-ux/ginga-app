@@ -33,6 +33,13 @@ const FASE_TIPO_ENUM = [
   'recurso_profesor',
 ];
 
+const ORGANIZATION_MODE_ENUM = [
+  'Todos simultáneamente',
+  'Rotación por parejas',
+  'Estaciones simultáneas',
+  'Turnos',
+];
+
 const CLASS_PLAN_V2_JSON_SCHEMA = Object.freeze({
   name: 'ginga_class_plan_v2',
   strict: true,
@@ -277,7 +284,10 @@ const OPENAI_STRICT_CLASS_PLAN_V2_JSON_SCHEMA = Object.freeze({
                       'cierre',
                     ],
                   },
-                  detalle: { type: 'string' },
+                  detalle: {
+              type: 'string',
+              description: 'Pasos ejecutables (Preparación, Reglas/señales, Rondas/rotación; bloques musicales: canto, palmas y roda).',
+            },
                   duracion_min: { type: 'integer' },
                   organizacion: { type: 'string' },
                   supervision_instructors_needed: { type: 'integer' },
@@ -373,7 +383,8 @@ const OPENAI_STRICT_BLOCK_V2_JSON_SCHEMA = Object.freeze({
             'diferenciacion_principiantes',
             'diferenciacion_intermedios',
             'diferenciacion_avanzados',
-            'observaciones_profesor',
+            'sugerencias_ia',
+            'technical_movement_refs',
             'tiempos_internos',
             'cancionero_reference',
           ],
@@ -391,16 +402,21 @@ const OPENAI_STRICT_BLOCK_V2_JSON_SCHEMA = Object.freeze({
                 'cierre',
               ],
             },
-            detalle: { type: 'string' },
-            organizacion: { type: 'string' },
+            detalle: {
+              type: 'string',
+              description: 'Pasos ejecutables (Preparación, Reglas/señales, Rondas/rotación; bloques musicales: canto, palmas y roda).',
+            },
+            organizacion: { type: 'string', enum: ORGANIZATION_MODE_ENUM },
             materiales: { type: 'array', items: { type: 'string' } },
             seguridad: { type: 'string' },
             diferenciacion_principiantes: { type: 'string' },
             diferenciacion_intermedios: { type: 'string' },
             diferenciacion_avanzados: { type: 'string' },
-            observaciones_profesor: { type: 'string' },
+            sugerencias_ia: { type: 'string' },
+            technical_movement_refs: { type: 'array', items: { type: 'string' } },
             tiempos_internos: {
               type: 'array',
+              description: 'Si duracion_min >= 4: obligatorio >= 2 etapas reales cuya suma iguale duracion_min.',
               items: {
                 type: 'object',
                 additionalProperties: false,
@@ -507,6 +523,7 @@ module.exports = {
   SOURCE_ORIGIN_ITEM_ENUM,
   ACTIVITY_AUTHORING_ENUM,
   FASE_TIPO_ENUM,
+  ORGANIZATION_MODE_ENUM,
   CLASS_PLAN_V2_JSON_SCHEMA,
   OPENAI_STRICT_CLASS_PLAN_V2_JSON_SCHEMA,
   OPENAI_STRICT_BLOCK_V2_JSON_SCHEMA,

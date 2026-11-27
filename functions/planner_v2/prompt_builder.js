@@ -191,26 +191,56 @@ function buildSingleBlockPrompts(
 
   const isInfantil = context.audienceType === 'infantil';
   const safeGround = context.space.floorType === 'tatami' && context.space.availableMats === true;
+  const requestedMovs = Array.isArray(context.requestedTechnicalMovements)
+    ? context.requestedTechnicalMovements
+    : [];
+  const simultaneousReq = context.simultaneousParticipationRequested === true;
+
+  const faseActivityHint = (() => {
+    switch (blockSpec.fase_tipo) {
+      case 'musicalidad':
+      case 'roda_musicalidad':
+        return 'usa tipo_actividad="musicalidad_roda"';
+      case 'acrobacias_suelo':
+        return 'usa tipo_actividad="progresion_suelo" o "ejercicio_tecnico"';
+      case 'vuelta_calma':
+        return 'usa tipo_actividad="cierre"';
+      case 'tecnica':
+        return 'usa tipo_actividad="ejercicio_tecnico" o "drill_parejas"';
+      default:
+        return 'usa tipo_actividad="juego_dinamico", "ejercicio_tecnico" o "drill_parejas"';
+    }
+  })();
+
   const systemLines = [
-    'Diseñador pedagógico de Capoeira (GINGA Cusco). Genera SOLO 1 bloque en JSON estricto.',
+    'Especialista pedagógico en CAPOEIRA (FIU Cusco). Genera SOLO 1 bloque JSON.',
+    '- CAPOEIRA REAL: prohibidos juegos genéricos sin capoeira (Estatuas, Silla, Carrera de Animales/Relevos). Usa movimientos reales (Ginga, Cocorinha, Esquiva, Armada, Aú, Rolê, Negativa).',
     isInfantil
-      ? `- Público INFANTIL (${context.ageMin}–${context.ageMax} años): NUNCA atribuyas currículo/graduaciones Infantiles FIU ni uses acrobacias complejas (s-dobrado, mortal, parafuso, flick, macaco solto, pião de cabeça).`
+      ? `- INFANTIL (${context.ageMin}–${context.ageMax}a): sin currículo/graduación FIU infantil ni acrobacias complejas (s-dobrado, mortal, parafuso, flick, macaco solto, pião); usa "technical_movement_refs".`
       : context.audienceType === 'mixto'
-        ? '- Público MIXTO: dinámicas escalables sin currículo adulto FIU.'
-        : '- Público ADULTOS: progresiones técnicas seguras; no mezcles progresion_suelo dentro de fase_tipo="tecnica".',
+        ? '- MIXTO: dinámicas escalables sin currículo adulto FIU.'
+        : '- ADULTOS: progresiones seguras; no mezcles progresion_suelo en fase_tipo="tecnica".',
+    requestedMovs.length > 0
+      ? `- OBLIGATORIO cubrir progresiones de [${requestedMovs.join(', ')}] en "detalle" y "technical_movement_refs".`
+      : '- Registra los movimientos trabajados en "technical_movement_refs".',
+    simultaneousReq
+      ? '- SIMULTÁNEO: prohibidas filas, relevos en fila, eliminaciones y organizacion="Turnos". Usa "Todos simultáneamente", "Rotación por parejas" o "Estaciones simultáneas".'
+      : '- Usa organizacion del enum permitido.',
     !safeGround
-      ? '- PISO/COLCHONETAS: sin tatami+colchonetas confirmados -> PROHIBIDO Bananeira, Ponte, Parada de mão, Queda de rim, caídas de impacto o mencionar "sobre el tatami" o "colchonetas" en materiales.'
-      : '- Superficie tatami con colchonetas confirmada: exige progresión gradual y control.',
+      ? '- SIN TATAMI/COLCHONETAS: prohibido Bananeira, Ponte, Parada de mão, Queda de rim, volteretas, "rodar hacia adelante/como bola", maromas o citar tatami/colchonetas.'
+      : '- Tatami+colchonetas confirmados: progresión controlada.',
     context.materialsKnown
-      ? `- Materiales disponibles: [${context.materials.join(', ')}]. Solo usa nombres exactos de esa lista o [].`
-      : '- Materiales desconocidos: usa materiales=[] si no requiere material (nunca "Ninguno" ni "Colchonetas").',
-    '- Supervisión y organización: evita estaciones de suelo múltiples si hay 1 instructor y >= 15 alumnos; describe paso a paso (>= 60 chars en detalle).',
-    '- JUEGOS E INFANTIL: si tipo_actividad="juego_dinamico", escribe en "detalle" el formato exacto "Preparación: ... Reglas y señales: ... Rondas y rotación: ..."; además, en TODO ejercicio infantil detalla tiempos_internos [{etapa, minutos}] sumando exactamente el duracion_min asignado al slot.',
-    '- TIPO DE ACTIVIDAD POR FASE: en fase_tipo="roda_musicalidad" o "musicalidad" usa tipo_actividad="musicalidad_roda"; en "acrobacias_suelo" usa "progresion_suelo" o "ejercicio_tecnico"; en "vuelta_calma" usa "cierre".',
+      ? `- Materiales: solo [${context.materials.join(', ')}] o []; prohibido añadir sillas/conos/cuerdas extras.`
+      : '- Materiales/instrumentos NO confirmados: materiales=[]; cero sillas/conos en prosa; si citas berimbau/pandeiro indica alternativa con palmas/voz/percusión corporal.',
+    '- EJECUTABLE: en "detalle" incluye Objetivo, Preparación, Paso a paso, Reglas/señales, Rondas/rotación; en "sugerencias_ia" errores frecuentes y correcciones.',
+    '- TIEMPOS INTERNOS: ejercicios >= 4 min EXIGEN >= 2 etapas reales en "tiempos_internos" siguiendo "suggested_stage_minutes" (suma exacta = duracion_min; NUNCA 1 sola etapa).',
+    blockSpec.include_cancionero
+      ? '- MUSICALIDAD EJECUTABLE: canto responsorial, palmas/pulso y mini-roda/roda dialogada.'
+      : `- FASE Y TIPO: ${faseActivityHint}; "fase" legible en español.`,
     activeLevels.length > 0
-      ? `- Diferenciación obligatoria en TODOS los ejercicios: completa con instrucciones concretas y distintas ${activeLevels.join(', ')} (sin duplicar texto entre principiantes y avanzados).`
-      : '- Diferenciación: incluye variantes progresivas en principiantes, intermedios y avanzados.',
-    '- Zero-PII: cero fechas numéricas, correos, teléfonos o nombres propios de alumnos.',
+      ? `- Progresiones distintas obligatorias en ${activeLevels.join(', ')}.`
+      : '- Progresiones claras por nivel.',
+    '- Zero-PII: cero fechas numéricas, correos, teléfonos o nombres propios.',
   ];
   const systemPrompt = systemLines.join('\n');
 
@@ -240,6 +270,10 @@ function buildSingleBlockPrompts(
     return {
       slot_number: si + 1,
       duracion_min: slot.duracion_min,
+      min_internal_stages: slot.min_internal_stages || (slot.duracion_min >= 4 ? 2 : 1),
+      suggested_stage_minutes: Array.isArray(slot.suggested_stage_minutes)
+        ? slot.suggested_stage_minutes
+        : [slot.duracion_min],
       ...(slotResources.length > 0 ? { integrate_teacher_resources: slotResources } : {}),
       ...(slotMovements.length > 0 ? { integrate_fiu_movements: slotMovements } : {}),
     };
@@ -263,10 +297,13 @@ function buildSingleBlockPrompts(
         avanzados: context.expDist?.avanzados || 0,
       },
       focuses: context.focuses,
+      ...(requestedMovs.length > 0 ? { requested_technical_movements: requestedMovs } : {}),
+      simultaneous_participation_requested: simultaneousReq,
       space_size: context.space.spaceSize,
       floor_type: context.space.floorType,
       available_mats: context.space.availableMats,
       instructors_available: context.instructorsAvailable,
+      materials_confirmed: context.materialsKnown ? context.materials : [],
     },
     ...(context.freeInstructions ? { teacher_instructions: context.freeInstructions } : {}),
     ...(context.continuityContext
@@ -284,10 +321,38 @@ function buildSingleBlockPrompts(
     ? repairErrors.map((err, idx) => `${idx + 1}. [${err.code}] ${err.message}`)
     : [];
 
+  const errorCodesSet = new Set(Array.isArray(repairErrors) ? repairErrors.map((e) => e.code) : []);
+  const repairDirectives = [];
+  if (repairErrors) {
+    if (errorCodesSet.has('TRIVIAL_INTERNAL_TIMINGS') || errorCodesSet.has('INTERNAL_TIMING_SUM_MISMATCH')) {
+      repairDirectives.push(
+        'Para TRIVIAL_INTERNAL_TIMINGS: REEMPLAZA cualquier tiempos_internos de 1 sola etapa por >= 2 etapas pedagógicas reales (ej. Preparación + Ejecución guiada + Rondas/ajuste) usando "slots[i].suggested_stage_minutes" cuya suma iguale exactamente duracion_min.'
+      );
+    }
+    if (errorCodesSet.has('NON_EXECUTABLE_MUSICALITY')) {
+      repairDirectives.push(
+        'Para NON_EXECUTABLE_MUSICALITY: incluye explícitamente en "detalle" las 3 dimensiones: (1) canto/coro responsorial con canción real, (2) palmas/pulso rítmico (alternativa palmas/voz si no hay instrumentos), (3) práctica grupal en roda/círculo rotando parejas.'
+      );
+    }
+    if (errorCodesSet.has('GAME_MISSING_EXECUTABLE_RULES')) {
+      repairDirectives.push(
+        'Para GAME_MISSING_EXECUTABLE_RULES: en cada juego_dinamico redacta "Preparación: ... Reglas y señales: ... Rondas y rotación: ..." (>= 75 caracteres).'
+      );
+    }
+    if (errorCodesSet.has('UNDECLARED_MATERIAL_OR_INSTRUMENT_IN_PROSE')) {
+      repairDirectives.push(
+        'Para UNDECLARED_MATERIAL_OR_INSTRUMENT_IN_PROSE: deja materiales=[], quita sillas/conos no confirmados y si mencionas pandeiro/berimbau/atabaque añade "(alternativa: palmas y voz si no hay instrumento disponible)".'
+      );
+    }
+    repairDirectives.push(
+      'ANTI-REGRESIÓN: conserva intactos los ejercicios y campos que ya eran válidos (nombre, organizacion, seguridad, diferenciacion_*, sugerencias_ia, technical_movement_refs) modificando únicamente lo necesario para corregir los errores listados.'
+    );
+  }
+
   const userLines = [
     repairErrors
-      ? `REPARA SOLO ESTE BLOQUE (corrigiendo el 100% de estos errores): ${numberedErrors.join(' | ')}. Para cualquier juego_dinamico, escribe en "detalle" explícitamente "Preparación: ... Reglas y señales: ... Rondas y rotación: ...".`
-      : `Genera exactamente ${slotsCompact.length} ejercicio(s) en el arreglo "ejercicios" respetando en orden las duraciones y recursos de "slots".`,
+      ? `REPARA SOLO ESTE BLOQUE (corrigiendo el 100% de estos errores): ${numberedErrors.join(' | ')}.${repairDirectives.length > 0 ? ` ${repairDirectives.join(' ')}` : ''}`
+      : `Genera exactamente ${slotsCompact.length} ejercicio(s) en el arreglo "ejercicios" respetando en orden las duraciones, min_internal_stages/suggested_stage_minutes y recursos de "slots".`,
     blockSpec.include_cancionero
       ? `En "cancionero_reference" incluye una canción tradicional real apropiada para ${context.audienceType} (ej. Infantil: "Marinheiro só" o "Sim sim sim, não não não"; Adultos: "Paraná ê" o "Dona Maria do Camboatá").`
       : 'Si este bloque no trabaja canto/roda, pon cancionero_reference: null.',

@@ -90,7 +90,7 @@ class AtomicPilotBudgetGuard {
     maxRepairAttempts = 1,
     mode = 'monolithic',
     blocksCount = 4,
-    blockMaxOutputTokens = 1600,
+    blockMaxOutputTokens = 2000,
   } = {}) {
     if (mode === 'modular') {
       const safeBlocks = Math.max(1, Number(blocksCount || 4));
@@ -144,7 +144,7 @@ class AtomicPilotBudgetGuard {
     maxRepairAttempts = 1,
     mode = 'monolithic',
     blocksCount = 4,
-    blockMaxOutputTokens = 1600,
+    blockMaxOutputTokens = 2000,
   }) {
     const cleanId = String(requestId || '').trim();
     if (!cleanId) {

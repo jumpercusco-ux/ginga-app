@@ -62,10 +62,13 @@ function buildProfessorInfantilPayload(requestId) {
       session_config: {
         duration_min: 60,
         focuses: ['Técnicas', 'Juegos', 'Acrobacias', 'Musicalidad'],
-        objectives: ['Coordinar ginga básica y esquiva lúdica por señales'],
+        objectives: [
+          'Trabajar Ginga, Armada y Aú mediante progresiones diferenciadas por nivel, esquivas, juegos de capoeira, musicalidad y participación simultánea.',
+        ],
         include_musicality_roda: true,
         allow_ai_complementary_proposals: true,
-        free_instructions: 'Mantener participación simultánea y rotaciones ágiles para multinivel.',
+        free_instructions:
+          'Principiantes: iniciación a Armada y preparación de Aú mediante apoyos progresivos de manos. Avanzados: perfeccionamiento de Armada y Aú según capacidades confirmadas. Todos deben mantenerse activos, evitando filas, eliminaciones y tiempos muertos.',
       },
       selected_movements: [],
       selected_resources: [

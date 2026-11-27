@@ -1098,6 +1098,36 @@ class ClassPlanDraftRequest {
       };
 }
 
+class PlannerInternalTiming {
+  final String etapa;
+  final int minutos;
+
+  const PlannerInternalTiming({
+    required this.etapa,
+    required this.minutos,
+  });
+
+  PlannerInternalTiming copyWith({
+    String? etapa,
+    int? minutos,
+  }) =>
+      PlannerInternalTiming(
+        etapa: etapa ?? this.etapa,
+        minutos: (minutos ?? this.minutos).clamp(1, 180),
+      );
+
+  factory PlannerInternalTiming.fromMap(Map<String, dynamic> map) =>
+      PlannerInternalTiming(
+        etapa: (map['etapa'] ?? '').toString().trim(),
+        minutos: ((map['minutos'] as num?)?.toInt() ?? 1).clamp(1, 180),
+      );
+
+  Map<String, dynamic> toMap() => {
+        'etapa': etapa,
+        'minutos': minutos,
+      };
+}
+
 class ClassPlanExercise {
   final String exerciseId;
   final String nombre;
@@ -1106,6 +1136,9 @@ class ClassPlanExercise {
   final String? organizacion;
   final List<String> materiales;
   final String? observacionesProfesor;
+  final String? aiSuggestions;
+  final List<String> technicalMovementRefs;
+  final List<PlannerInternalTiming> internalTimings;
   final ContentOrigin contentOrigin;
   final List<String> curriculumMovementIds;
   final List<String> linkedResourceIds;
@@ -1128,6 +1161,9 @@ class ClassPlanExercise {
     this.organizacion,
     this.materiales = const [],
     this.observacionesProfesor,
+    this.aiSuggestions,
+    this.technicalMovementRefs = const [],
+    this.internalTimings = const [],
     this.contentOrigin = ContentOrigin.aiComplementaryProposal,
     this.curriculumMovementIds = const [],
     this.linkedResourceIds = const [],
@@ -1168,6 +1204,10 @@ class ClassPlanExercise {
     List<String>? materiales,
     String? observacionesProfesor,
     bool clearObservacionesProfesor = false,
+    String? aiSuggestions,
+    bool clearAiSuggestions = false,
+    List<String>? technicalMovementRefs,
+    List<PlannerInternalTiming>? internalTimings,
     ContentOrigin? contentOrigin,
     List<String>? curriculumMovementIds,
     List<String>? linkedResourceIds,
@@ -1201,6 +1241,12 @@ class ClassPlanExercise {
       observacionesProfesor: clearObservacionesProfesor
           ? null
           : (observacionesProfesor ?? this.observacionesProfesor),
+      aiSuggestions:
+          clearAiSuggestions ? null : (aiSuggestions ?? this.aiSuggestions),
+      technicalMovementRefs: List<String>.unmodifiable(
+          technicalMovementRefs ?? this.technicalMovementRefs),
+      internalTimings: List<PlannerInternalTiming>.unmodifiable(
+          internalTimings ?? this.internalTimings),
       contentOrigin: contentOrigin ?? this.contentOrigin,
       curriculumMovementIds: List<String>.unmodifiable(
           curriculumMovementIds ?? this.curriculumMovementIds),
@@ -1282,6 +1328,16 @@ class ClassPlanExercise {
       return s.isEmpty || s.toLowerCase() == 'null' ? null : s;
     }
 
+    final techRefs = ((map['technical_movement_refs'] as List?) ?? const [])
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final timings = ((map['tiempos_internos'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => PlannerInternalTiming.fromMap(Map<String, dynamic>.from(e)))
+        .where((t) => t.etapa.isNotEmpty)
+        .toList();
+
     return ClassPlanExercise(
       exerciseId: (map['exercise_id'] as String?)?.trim().isNotEmpty == true
           ? map['exercise_id'].toString()
@@ -1292,6 +1348,9 @@ class ClassPlanExercise {
       organizacion: cleanOpt(map['organizacion']),
       materiales: matList,
       observacionesProfesor: cleanOpt(map['observaciones_profesor']),
+      aiSuggestions: cleanOpt(map['sugerencias_ia']),
+      technicalMovementRefs: techRefs,
+      internalTimings: timings,
       contentOrigin: origin,
       curriculumMovementIds: movIds,
       linkedResourceIds: resIds,
@@ -1325,6 +1384,12 @@ class ClassPlanExercise {
         if (observacionesProfesor != null &&
             observacionesProfesor!.trim().isNotEmpty)
           'observaciones_profesor': observacionesProfesor!.trim(),
+        if (aiSuggestions != null && aiSuggestions!.trim().isNotEmpty)
+          'sugerencias_ia': aiSuggestions!.trim(),
+        if (technicalMovementRefs.isNotEmpty)
+          'technical_movement_refs': technicalMovementRefs,
+        if (internalTimings.isNotEmpty)
+          'tiempos_internos': internalTimings.map((t) => t.toMap()).toList(),
         'content_origin': contentOrigin.id,
         if (curriculumMovementIds.isNotEmpty)
           'curriculum_movement_ids': curriculumMovementIds,
@@ -1359,15 +1424,62 @@ class ClassPlanExercise {
 class ClassPlanBlock {
   final String blockId;
   final String fase;
+  final String? faseTipo;
   final int duracionMin;
   final List<ClassPlanExercise> ejercicios;
 
   const ClassPlanBlock({
     required this.blockId,
     required this.fase,
+    this.faseTipo,
     required this.duracionMin,
     required this.ejercicios,
   });
+
+  static String normalizeDisplayFase(
+    String rawFase, {
+    String? faseTipo,
+    String? enfoque,
+  }) {
+    final trimmed = rawFase.trim();
+    final rawLower = trimmed.toLowerCase();
+    final typeKey = (faseTipo ?? '').trim().toLowerCase();
+    final isRawTechnical = trimmed.isEmpty ||
+        RegExp(r'^[a-z0-9_]+$').hasMatch(trimmed) ||
+        rawLower == typeKey ||
+        RegExp(r'^bloque\s+blk_', caseSensitive: false).hasMatch(trimmed);
+
+    if (!isRawTechnical) return trimmed;
+
+    final key = typeKey.isNotEmpty ? typeKey : rawLower;
+    final hasTechFocus =
+        (enfoque ?? '').toLowerCase().contains('técnica') ||
+            (enfoque ?? '').toLowerCase().contains('tecnica');
+    switch (key) {
+      case 'calentamiento':
+        return 'Calentamiento';
+      case 'tecnica':
+        return 'Técnica y progresiones';
+      case 'juegos':
+        return hasTechFocus
+            ? 'Técnica y progresiones'
+            : 'Juegos y dinámicas de capoeira';
+      case 'acrobacias_suelo':
+        return 'Acrobacias y movimientos de suelo';
+      case 'musicalidad':
+        return 'Musicalidad y ritmo';
+      case 'roda_musicalidad':
+        return 'Roda y musicalidad';
+      case 'angola':
+        return 'Juego y diálogo de Angola';
+      case 'vuelta_calma':
+        return 'Vuelta a la calma y cierre';
+      case 'recurso_profesor':
+        return 'Recursos del profesor';
+      default:
+        return trimmed.isNotEmpty ? trimmed : 'Bloque de clase';
+    }
+  }
 
   int get exercisesTotalDurationMin =>
       ejercicios.fold<int>(0, (acc, e) => acc + (e.duracionMin ?? 0));
@@ -1383,12 +1495,14 @@ class ClassPlanBlock {
   ClassPlanBlock copyWith({
     String? blockId,
     String? fase,
+    String? faseTipo,
     int? duracionMin,
     List<ClassPlanExercise>? ejercicios,
   }) {
     return ClassPlanBlock(
       blockId: blockId ?? this.blockId,
       fase: fase ?? this.fase,
+      faseTipo: faseTipo ?? this.faseTipo,
       duracionMin: (duracionMin ?? this.duracionMin).clamp(0, 300),
       ejercicios: List<ClassPlanExercise>.unmodifiable(
           ejercicios ?? this.ejercicios),
@@ -1398,13 +1512,26 @@ class ClassPlanBlock {
   factory ClassPlanBlock.fromMap(
     Map<String, dynamic> map, {
     required int blockIndex,
+    String? enfoque,
   }) {
     final rawEj = map['ejercicios'] as List? ?? const [];
+    final rawTipo = map['fase_tipo']?.toString().trim();
+    final safeTipo =
+        rawTipo != null && rawTipo.isNotEmpty && rawTipo.toLowerCase() != 'null'
+            ? rawTipo
+            : null;
+    final rawFase = (map['fase'] as String? ?? '').trim();
+    final displayFase = normalizeDisplayFase(
+      rawFase.isNotEmpty ? rawFase : 'Bloque ${blockIndex + 1}',
+      faseTipo: safeTipo,
+      enfoque: enfoque,
+    );
     return ClassPlanBlock(
       blockId: (map['block_id'] as String?)?.trim().isNotEmpty == true
           ? map['block_id'].toString()
           : 'blk_$blockIndex',
-      fase: (map['fase'] as String? ?? 'Bloque ${blockIndex + 1}').trim(),
+      fase: displayFase,
+      faseTipo: safeTipo,
       duracionMin: (map['duracion_min'] as num?)?.toInt() ?? 10,
       ejercicios: [
         for (int i = 0; i < rawEj.length; i++)
@@ -1420,6 +1547,8 @@ class ClassPlanBlock {
   Map<String, dynamic> toMap() => {
         'block_id': blockId,
         'fase': fase,
+        if (faseTipo != null && faseTipo!.trim().isNotEmpty)
+          'fase_tipo': faseTipo!.trim(),
         'duracion_min': duracionMin,
         'ejercicios': ejercicios.map((e) => e.toMap()).toList(),
       };
@@ -1718,6 +1847,7 @@ class ClassPlanModel {
             ClassPlanBlock.fromMap(
               Map<String, dynamic>.from(rawBloques[i] as Map),
               blockIndex: i,
+              enfoque: (map['enfoque'] as String? ?? '').trim(),
             ),
       ],
       consejosInstructor: map['consejos_instructor']?.toString(),

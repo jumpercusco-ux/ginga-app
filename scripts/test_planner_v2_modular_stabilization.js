@@ -97,16 +97,17 @@ function buildSlimBlockOpenAiBody(blockSpec, { audienceType = 'infantil', inject
           : isGame
             ? 'juego_dinamico'
             : 'ejercicio_tecnico',
-      detalle:
-        'Preparación en círculo amplio con distancia de seguridad; reglas claras por señales del berimbau o pandeiro; ' +
-        'rondas cortas continuas con rotación simultánea de todo el grupo sin esperas.',
+      detalle: isMusic
+        ? 'Objetivo: integrar canto responsorial, palmas y roda dialogada. Preparación: círculo amplio en el área de práctica; al pulso de las palmas (alternativa si no hay pandeiro), inician coro y entran parejas en rondas de 45 segundos rotando sin espera.'
+        : 'Objetivo: mejorar esquiva y ginga continua. Preparación: ubicados en parejas o círculo amplio con distancia segura; reglas claras con señales de palmas o pandeiro (si hay disponible); rondas activas con rotación simultánea de todo el grupo.',
       organizacion: 'Todos simultáneamente',
       materiales: [],
       seguridad: 'Mantener al menos 1.5 metros libres y detener movimiento ante señal.',
       diferenciacion_principiantes: 'Ginga alta lenta y esquiva lateral pausada con apoyo visual.',
       diferenciacion_intermedios: 'Encadenar ginga con esquiva al primer pulso sin perder balance.',
       diferenciacion_avanzados: 'Cambios de dirección fluidos y rolê bajo controlado entre señales.',
-      observaciones_profesor: 'Reforzar postura de mirada al frente y participación alegre.',
+      sugerencias_ia: 'Corregir postura de guardia alta y fomentar mirada al frente.',
+      technical_movement_refs: ['Ginga', 'Esquiva lateral', 'Cocorinha', 'Rolê'],
       tiempos_internos:
         dur >= 2 && half + rem === dur && dur > 1
           ? [
@@ -271,24 +272,24 @@ async function main() {
   assert.strictEqual(happyRes.status, 'ok');
   assert.strictEqual(happyRes.generation_meta.generation_strategy, 'modular_block_v2');
   assert.strictEqual(happyRes.generation_meta.repair_attempts_used, 0);
-  assert.strictEqual(happyRes.generation_meta.llm_calls_made, 4);
+  assert.strictEqual(happyRes.generation_meta.llm_calls_made, 5);
   assert.strictEqual(happyRes.plan.duracion_total, 60);
-  assert.strictEqual(happyRes.plan.bloques.length, 4);
+  assert.strictEqual(happyRes.plan.bloques.length, 5);
   assert.strictEqual(happyRes.validation_report.structural.passed, true);
   assert(happyRes.validation_report.structural.required_resources_covered);
   assert(happyRes.validation_report.structural.curriculum_track_respected);
   assert(happyRes.validation_report.pedagogical_heuristic.score_total >= 90);
-  assert(wallMs < 480, `Expected parallel wave latency < 480ms (sequential would be ~560ms), got ${wallMs}ms`);
+  assert(wallMs < 620, `Expected 3-wave parallel latency < 620ms (sequential would be ~700ms), got ${wallMs}ms`);
   assert(progressEvents.some((e) => e.stage === 'generating_blocks'), 'Must emit block generation progress');
   assert(progressEvents.some((e) => e.stage === 'validating'), 'Must emit validation progress');
   assert.strictEqual(guard1.getSnapshot().completed_generations, 1);
-  assert.strictEqual(guard1.getSnapshot().total_llm_calls, 4);
+  assert.strictEqual(guard1.getSnapshot().total_llm_calls, 5);
   assert(guard1.getSnapshot().spent_usd > 0 && guard1.getSnapshot().spent_usd < 0.01);
   console.log(`[ok] Happy modular Infantil repro: calls=${happyRes.generation_meta.llm_calls_made}, cost=$${happyRes.cost_telemetry.estimated_cost_usd}, wall=${wallMs}ms, heuristic=${happyRes.validation_report.pedagogical_heuristic.score_total}/100`);
 
-  // 3. Partial single-block failure (blk_3 injects Bananeira without mats) -> ONLY blk_3 is repaired!
+  // 3. Partial single-block failure (blk_4 acrobacias_suelo injects Bananeira without mats) -> ONLY blk_4 is repaired!
   const callsPerBlock = [];
-  let blk3Calls = 0;
+  let blk4Calls = 0;
   const repairProvider = new OpenAiStructuredProvider({
     apiKey: 'dummy_test_key_offline',
     fetchImpl: async (_url, opts) => {
@@ -300,15 +301,15 @@ async function main() {
       const isRepair = userMsg.includes('REPARA SOLO ESTE BLOQUE');
       callsPerBlock.push({ blockId: spec.block_id, isRepair });
 
-      if (spec.block_id === 'blk_3') {
-        blk3Calls += 1;
+      if (spec.block_id === 'blk_4') {
+        blk4Calls += 1;
         return {
           ok: true,
           status: 200,
           json: async () =>
             buildSlimBlockOpenAiBody(spec, {
               audienceType: 'infantil',
-              injectBananeira: blk3Calls === 1,
+              injectBananeira: blk4Calls === 1,
             }),
         };
       }
@@ -321,7 +322,7 @@ async function main() {
   });
 
   const repairRes = await generateClassPlanV2({
-    request: buildProfessorInfantilAdvancedRequest('req_infantil_repair_blk3'),
+    request: buildProfessorInfantilAdvancedRequest('req_infantil_repair_blk4'),
     authContext: actorAuth,
     deps: {
       catalog,
@@ -339,8 +340,8 @@ async function main() {
   });
 
   assert.strictEqual(repairRes.generation_meta.repair_attempts_used, 1);
-  assert.deepStrictEqual(repairRes.generation_meta.repaired_block_ids, ['blk_3']);
-  assert.strictEqual(repairRes.generation_meta.llm_calls_made, 5);
+  assert.deepStrictEqual(repairRes.generation_meta.repaired_block_ids, ['blk_4']);
+  assert.strictEqual(repairRes.generation_meta.llm_calls_made, 6);
   assert.strictEqual(
     callsPerBlock.filter((c) => c.isRepair).length,
     1,
@@ -348,12 +349,12 @@ async function main() {
   );
   assert.strictEqual(
     callsPerBlock.find((c) => c.isRepair).blockId,
-    'blk_3',
-    'Must repair ONLY blk_3 without regenerating blk_1, blk_2, blk_4'
+    'blk_4',
+    'Must repair ONLY blk_4 without regenerating blk_1, blk_2, blk_3, blk_5'
   );
-  console.log('[ok] Targeted single-block repair passed: repaired ONLY blk_3 (calls=5, repairs=1)');
+  console.log('[ok] Targeted single-block repair passed: repaired ONLY blk_4 (calls=6, repairs=1)');
 
-  // 4. Timeout on Wave 2 (blk_3) settles EXACT partial usage (blk_1 & blk_2 cost) cleanly
+  // 4. Timeout on Wave 2 (blk_4) settles EXACT partial usage cleanly
   const timeoutProvider = new OpenAiStructuredProvider({
     apiKey: 'dummy_test_key_offline',
     fetchImpl: async (_url, opts) => {
@@ -362,7 +363,7 @@ async function main() {
       const match = userMsg.match(/"block_position":"(\d+)\/(\d+)"/);
       const blkIdx = Number(match[1]) - 1;
       const spec = ctx.temporalBlueprint.blocks[blkIdx];
-      if (spec.block_id === 'blk_3') {
+      if (spec.block_id === 'blk_4') {
         const abortErr = new Error('The operation was aborted due to timeout');
         abortErr.name = 'AbortError';
         throw abortErr;
@@ -378,7 +379,7 @@ async function main() {
   let caughtTimeout = null;
   try {
     await generateClassPlanV2({
-      request: buildProfessorInfantilAdvancedRequest('req_infantil_timeout_blk3'),
+      request: buildProfessorInfantilAdvancedRequest('req_infantil_timeout_blk4'),
       authContext: actorAuth,
       deps: {
         catalog,
@@ -401,7 +402,7 @@ async function main() {
 
   assert(caughtTimeout instanceof PlannerV2Error);
   assert.strictEqual(caughtTimeout.code, 'PROVIDER_TIMEOUT');
-  assert.strictEqual(caughtTimeout.details.failed_block_id, 'blk_3');
+  assert.strictEqual(caughtTimeout.details.failed_block_id, 'blk_4');
   assert(caughtTimeout.details.partial_usage.callsMade >= 2, 'Wave 1 completed calls must be settled');
   assert.strictEqual(guard1.getSnapshot().completed_generations, 3);
   console.log(`[ok] Partial wave timeout settled cleanly: failed=${caughtTimeout.details.failed_block_id}, completed_gens=${guard1.getSnapshot().completed_generations}`);
@@ -610,7 +611,7 @@ async function main() {
   assert(videoEx && /no inspecciona/i.test(videoEx.video_reference_note));
   console.log('[ok] Adulto FIU modular + video honesty + precedence passed');
 
-  // 8. Multi-block subset repair in 1 parallel pass (blk_1 + blk_3 fail; blk_2 + blk_4 untouched)
+  // 8. Multi-block subset repair in 1 parallel pass (blk_1 + blk_4 fail; blk_2, blk_3, blk_5 untouched)
   // AND Spanish natural game wording accepted vs vague game rejected
   const subsetRepairCalls = [];
   const blockAttemptCounts = {};
@@ -628,15 +629,15 @@ async function main() {
 
       const bodyObj = buildSlimBlockOpenAiBody(spec, { audienceType: 'infantil' });
       const parsedContent = JSON.parse(bodyObj.choices[0].message.content);
-      if ((spec.block_id === 'blk_1' || spec.block_id === 'blk_3') && blockAttemptCounts[spec.block_id] === 1) {
+      if ((spec.block_id === 'blk_1' || spec.block_id === 'blk_4') && blockAttemptCounts[spec.block_id] === 1) {
         // Vague game fails GAME_MISSING_EXECUTABLE_RULES
         parsedContent.ejercicios[0].tipo_actividad = 'juego_dinamico';
         parsedContent.ejercicios[0].detalle = 'Jugar libremente por la sala.';
-      } else {
-        // Natural Spanish game structure (setup + cue + turns >= 60 chars, without literal stem "regla") passes
+      } else if (spec.block_id !== 'blk_5') {
+        // Natural Spanish game structure (setup + cue + turns >= 75 chars, without literal stem "regla") passes
         parsedContent.ejercicios[0].tipo_actividad = 'juego_dinamico';
         parsedContent.ejercicios[0].detalle =
-          'Ubicados en círculo amplio en parejas manteniendo distancia segura; al toque del berimbau cambian de lado y alternan turno cada 45 segundos.';
+          'Ubicados en círculo amplio en parejas manteniendo distancia segura; al toque de palmas (o berimbau si está disponible) practican Ginga, cambian de lado y alternan turno cada 45 segundos en rondas.';
       }
       bodyObj.choices[0].message.content = JSON.stringify(parsedContent);
       return { ok: true, status: 200, json: async () => bodyObj };
@@ -661,11 +662,11 @@ async function main() {
   });
   assert.strictEqual(subsetRes.validation_report.structural.passed, true);
   assert.strictEqual(subsetRes.generation_meta.repair_attempts_used, 1);
-  assert.deepStrictEqual(subsetRes.generation_meta.repaired_block_ids, ['blk_1', 'blk_3']);
-  assert.strictEqual(subsetRes.generation_meta.llm_calls_made, 6);
+  assert.deepStrictEqual(subsetRes.generation_meta.repaired_block_ids, ['blk_1', 'blk_4']);
+  assert.strictEqual(subsetRes.generation_meta.llm_calls_made, 7);
   assert.deepStrictEqual(
     subsetRepairCalls.filter((c) => c.isRepair).map((c) => c.blockId),
-    ['blk_1', 'blk_3']
+    ['blk_1', 'blk_4']
   );
   console.log('[ok] Multi-block subset repair in 1 pass + natural Spanish game rules verified');
 
@@ -682,26 +683,26 @@ async function main() {
     'Must reject game lacking spatial setup & rules/cues even if long and containing "rondas"'
   );
 
-  // 10. Multi-block budget worst-case reservation covers ALL initial blocks + ALL repaired blocks simultaneously
+  // 10. Multi-block budget worst-case reservation covers ALL initial blocks + ALL repaired blocks simultaneously (2000 out tokens)
   const singleRepairCost = guard1.estimateWorstCaseGenerationUsd({
     model: 'gpt-4o-mini',
     estimatedInputTokens: 950,
-    blockMaxOutputTokens: 1600,
-    blocksCount: 4,
+    blockMaxOutputTokens: 2000,
+    blocksCount: 5,
     mode: 'modular',
     maxRepairAttempts: 0,
   });
   const multiRepairWorst = guard1.estimateWorstCaseGenerationUsd({
     model: 'gpt-4o-mini',
     estimatedInputTokens: 950,
-    blockMaxOutputTokens: 1600,
-    blocksCount: 4,
+    blockMaxOutputTokens: 2000,
+    blocksCount: 5,
     mode: 'modular',
     maxRepairAttempts: 1,
   });
   assert(
     multiRepairWorst > singleRepairCost * 2,
-    `Multi-block modular budget worst-case (${multiRepairWorst}) must reserve initial 4 blocks + 4 simultaneous repaired blocks`
+    `Multi-block modular budget worst-case (${multiRepairWorst}) must reserve initial 5 blocks + 5 simultaneous repaired blocks`
   );
   console.log(`[ok] 3-dimension executable game validator & multi-block budget worst-case ($${multiRepairWorst}) verified`);
 

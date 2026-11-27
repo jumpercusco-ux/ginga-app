@@ -299,6 +299,7 @@ class ClassPlanEditorOperations {
     final copy = ClassPlanBlock(
       blockId: newBlockId,
       fase: '${orig.fase} (Copia)',
+      faseTipo: orig.faseTipo,
       duracionMin: orig.duracionMin,
       ejercicios: copiedExercises,
     );
@@ -466,6 +467,7 @@ class ClassPlanEditorOperations {
         ClassPlanBlock(
           blockId: b.blockId,
           fase: b.fase,
+          faseTipo: b.faseTipo,
           duracionMin: b.duracionMin,
           ejercicios: [
             for (final e in b.ejercicios) e.copyWith(),

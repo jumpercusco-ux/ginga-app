@@ -338,7 +338,7 @@ void main() {
       baseUrl: 'http://127.0.0.1:8097',
       httpClient: recoveryHttp,
     );
-    expect(recoveryClient.timeout, const Duration(seconds: 120));
+    expect(recoveryClient.timeout, const Duration(seconds: 180));
     final recovered = await recoveryClient.fetchLastCompletedPlan();
     expect(recovered?.plan.titulo, 'Recuperada Infantil M/J 18:00');
     expect(recovered?.generationMeta.isSimulated, isFalse);
@@ -593,5 +593,151 @@ void main() {
 
     expect(realStatusEngine.receivedForceSimulatedFlags, [true]);
     expect(find.byType(PlannerClassEditorView), findsOneWidget);
+  });
+
+  testWidgets(
+      'PED-04C2-E Editor: nombres legibles, tiempos internos editables, sugerencia IA separada y referencias infantiles sin FIU adulto',
+      (tester) async {
+    tester.view.physicalSize = const Size(1440, 960);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final planFromBackend = ClassPlanModel.fromMap('plan_ped04c2e_ui', {
+      'schema_version': 2,
+      'titulo': 'Infantil M/J 18:00 · Técnica y Juegos',
+      'duracion_total': 20,
+      'nivel': 'Infantil',
+      'audience_type': 'infantil',
+      'curriculum_scope': 'infantil_fiu_pending',
+      'enfoque': 'Técnicas · Juegos',
+      'objetivo': 'Progresiones de Ginga y Aú',
+      'bloques': [
+        {
+          'block_id': 'blk_1',
+          'fase': 'calentamiento',
+          'fase_tipo': 'calentamiento',
+          'duracion_min': 10,
+          'ejercicios': [
+            {
+              'exercise_id': 'ex_c1',
+              'nombre': 'Ginga y Cocorinha al pulso',
+              'detalle': 'Preparación en círculo amplio; reglas y rondas.',
+              'duracion_min': 10,
+              'organizacion': 'Todos simultáneamente',
+              'sugerencias_ia': 'Cuidar postura erguida al pasar atrás en Ginga.',
+              'observaciones_profesor': '',
+              'technical_movement_refs': ['Ginga'],
+              'tiempos_internos': [
+                {'etapa': 'Activación y pulso', 'minutos': 4},
+                {'etapa': 'Rondas activas', 'minutos': 6},
+              ],
+              'content_origin': 'ai_complementary_proposal',
+              'curriculum_movement_ids': [],
+              'linked_resource_ids': [],
+            },
+          ],
+        },
+        {
+          'block_id': 'blk_2',
+          'fase': 'acrobacias_suelo',
+          'fase_tipo': 'acrobacias_suelo',
+          'duracion_min': 10,
+          'ejercicios': [],
+        },
+      ],
+    });
+
+    expect(planFromBackend.bloques[0].fase, 'Calentamiento');
+    expect(planFromBackend.bloques[0].faseTipo, 'calentamiento');
+    expect(planFromBackend.bloques[0].blockId, 'blk_1');
+    expect(
+      planFromBackend.bloques[1].fase,
+      'Acrobacias y movimientos de suelo',
+    );
+
+    ClassPlanModel? savedPlan;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: gingaLightTheme,
+        home: Scaffold(
+          body: PlannerClassEditorView(
+            initialPlan: planFromBackend,
+            onSavePlan: (p) => savedPlan = p,
+            onCancel: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Calentamiento'), findsWidgets);
+    expect(find.text('Etapas: 4m + 6m'), findsOneWidget);
+    expect(find.text('Capoeira: Ginga'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('ex_edit_ex_c1')));
+    await tester.tap(find.byKey(const Key('ex_edit_ex_c1')));
+    await tester.pumpAndSettle();
+
+    // Tiempos internos estructurados visibles y editables + añadir etapa
+    expect(
+      find.byKey(const Key('ex_editor_internal_timings_section')),
+      findsOneWidget,
+    );
+    expect(find.text('Suma: 10/10 min'), findsOneWidget);
+
+    // En Infantil, currículo FIU adulto sigue bloqueado pero permite referencias técnicas no curriculares
+    expect(
+      find.text('Currículo Adulto FIU bloqueado en clase Infantil'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('ex_editor_tech_refs_section')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('ex_editor_tech_pill_Aú')));
+    await tester.tap(find.byKey(const Key('ex_editor_tech_pill_Aú')));
+    await tester.pumpAndSettle();
+
+    // Expandir sección de materiales/seguridad/observaciones y comprobar separación IA vs profesor
+    await tester.ensureVisible(
+      find.text('Materiales, seguridad y observaciones (opcional)'),
+    );
+    await tester.tap(
+      find.text('Materiales, seguridad y observaciones (opcional)'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('ex_editor_ai_suggestions_box')),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Cuidar postura erguida al pasar atrás en Ginga.'),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const Key('ex_editor_teacher_notes_field')),
+      'Nota propia del profesor para reforzar balance.',
+    );
+    await tester.pump();
+
+    await tester.ensureVisible(find.byKey(const Key('ex_editor_apply_button')));
+    await tester.tap(find.byKey(const Key('ex_editor_apply_button')));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('editor_save_button')));
+    await tester.tap(find.byKey(const Key('editor_save_button')));
+    await tester.pumpAndSettle();
+
+    expect(savedPlan, isNotNull);
+    final updatedEx = savedPlan!.bloques[0].ejercicios[0];
+    expect(updatedEx.technicalMovementRefs, ['Ginga', 'Aú']);
+    expect(updatedEx.curriculumMovementIds, isEmpty);
+    expect(
+      updatedEx.aiSuggestions,
+      'Cuidar postura erguida al pasar atrás en Ginga.',
+    );
+    expect(
+      updatedEx.observacionesProfesor,
+      'Nota propia del profesor para reforzar balance.',
+    );
+    expect(updatedEx.internalTimings.length, 2);
   });
 }

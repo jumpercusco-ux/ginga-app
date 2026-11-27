@@ -60,12 +60,12 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
 
   static const List<int> _presetDurations = [45, 60, 75, 90];
   static const List<String> _suggestedPhases = [
-    'Calentamiento & Activación',
-    'Técnica & Progresiones',
-    'Movimientos de Suelo & Floreios',
-    'Juegos & Dinámicas',
-    'Roda & Musicalidad',
-    'Vuelta a la Calma & Cierre',
+    'Calentamiento',
+    'Técnica y progresiones',
+    'Acrobacias y movimientos de suelo',
+    'Juegos y dinámicas de capoeira',
+    'Roda y musicalidad',
+    'Vuelta a la calma y cierre',
   ];
 
   @override
@@ -1635,6 +1635,8 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
             ),
           ),
           if (ex.curriculumMovementIds.isNotEmpty ||
+              ex.technicalMovementRefs.isNotEmpty ||
+              ex.internalTimings.isNotEmpty ||
               ex.linkedResourceIds.isNotEmpty ||
               ex.materiales.isNotEmpty ||
               ex.cancioneroReference != null ||
@@ -1652,6 +1654,19 @@ class _PlannerClassEditorViewState extends State<PlannerClassEditorView> {
                     label: 'FIU: ${_movementLabel(movId)}',
                     color: pal.accent,
                     icon: Icons.verified_outlined,
+                  ),
+                for (final tech in ex.technicalMovementRefs)
+                  PlannerBadge(
+                    label: 'Capoeira: $tech',
+                    color: pal.textPrimary,
+                    icon: Icons.sports_martial_arts_outlined,
+                  ),
+                if (ex.internalTimings.isNotEmpty)
+                  PlannerBadge(
+                    label:
+                        'Etapas: ${ex.internalTimings.map((t) => '${t.minutos}m').join(' + ')}',
+                    color: pal.textSecondary,
+                    icon: Icons.timelapse_outlined,
                   ),
                 for (final resId in ex.linkedResourceIds)
                   Builder(
