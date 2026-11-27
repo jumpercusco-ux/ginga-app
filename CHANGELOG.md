@@ -9,6 +9,17 @@ Las entradas se clasifican rigurosamente según su estado de despliegue:
 
 ---
 
+## [PED-06B-LIVE] — 2026-11-27
+### [STAGING PROVISIONADO Y VERIFICADO REMOTAMENTE EN `ginga-capoeira-staging` (`https://ginga-capoeira-staging.web.app`) · `0` PRODUCCIÓN · `0` OPENAI PAGADO]
+- **Infraestructura Aislada y Presupuesto (`capoeirafiuapp@gmail.com`):**
+  - Creado **`ginga-capoeira-staging`** (`113866371476`) en `us-central1` con `My Billing Account` (`017B04-148E04-2AD9B1`) y presupuesto mensual aislado **`PEN 18`** (~USD 5, `50%/90%/100%`, `0fb16e7d-4ede-4a0e-a391-fdb9933cc8de`) sin tocar `capoeirafiu-ea8ljo`.
+  - Habilitados Auth Email/Password + Custom Claims (`prof_staging@ginga.test`, `admin_staging@ginga.test`, `alumno_staging_1@ginga.test`), Firestore Native (`us-central1`, reglas e índices), Hosting HTTPS (`https://ginga-capoeira-staging.web.app`) y API `firebaseappcheck.googleapis.com` (registro manual de clave reCAPTCHA v3 pendiente para enforcement Web).
+- **Cloud Functions Selectivas, Portabilidad Linux y Verificación Remota:**
+  - Desplegadas exclusivamente `generarPlanClaseV2` (`180s`, `512MB`, `maxInstances: 2`), `copilotoPedagogicoV1` (`90s`, `512MB`, `maxInstances: 2`) y `onNotificationCreated` (`256MB`) en `us-central1` con proveedor simulado por defecto; añadido `invokePlannerCallable` en [functions/index.js](file:///Users/jumper/ginga_app/functions/index.js) para mapear errores a `functions.https.HttpsError`.
+  - Añadido soporte REST Bearer sin llaves en disco a [seed_staging_synthetic_data.js](file:///Users/jumper/ginga_app/scripts/seed_staging_synthetic_data.js) (`10` docs sintéticos + `164` FIU aplicados), creado verificador multiplataforma [verify_staging_remote.js](file:///Users/jumper/ginga_app/scripts/verify_staging_remote.js) (**`5/5` bloques PASS** en vivo + clase demo infantil `plan_demo_infantil_staging_01`) y documentada guía reproducible Linux para futuro `PED-06R` en [PED06B_STAGING_PROVISIONING_PLAN.md](file:///Users/jumper/ginga_app/docs/PED06B_STAGING_PROVISIONING_PLAN.md).
+
+---
+
 ## [PED-06B-PREP] — 2026-11-27
 ### [ESTABILIZACIÓN CI WHATSAPP, CALLABLES V2 + CUOTAS TRANSACCIONALES, MULTI-ENTORNO FLUTTER Y SUITE INTEGRAL STAGING EN EMULATOR · CERO CLOUD/BILLING HASTA AUTORIZACIÓN]
 - **Estabilización de Suites con Reloj Determinista (`real_agent_harness/`):**

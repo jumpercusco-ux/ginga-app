@@ -12,6 +12,8 @@
  */
 
 const fs = require('fs');
+const http = require('http');
+const https = require('https');
 const path = require('path');
 const admin = require('../functions/node_modules/firebase-admin');
 const { runImport, computeContentHash } = require('./import_curriculum_to_firestore');
@@ -54,6 +56,108 @@ function assertSafeTarget(projectId, allowStaging) {
       `BLOQUEADO: sin FIRESTORE_EMULATOR_HOST debes autorizar explícitamente --allow-staging=${projectId}.`
     );
   }
+}
+
+function toFsVal(v) {
+  if (v === null || v === undefined) return { nullValue: null };
+  if (typeof v === 'string') return { stringValue: v };
+  if (typeof v === 'boolean') return { booleanValue: v };
+  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(toFsVal) } };
+  if (typeof v === 'object') return { mapValue: { fields: toFsFields(v) } };
+  return { stringValue: String(v) };
+}
+
+function toFsFields(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) out[k] = toFsVal(v);
+  }
+  return out;
+}
+
+function fromFsVal(v) {
+  if (!v || typeof v !== 'object') return v;
+  if ('stringValue' in v) return v.stringValue;
+  if ('integerValue' in v) return Number(v.integerValue);
+  if ('doubleValue' in v) return Number(v.doubleValue);
+  if ('booleanValue' in v) return Boolean(v.booleanValue);
+  if ('nullValue' in v) return null;
+  if ('timestampValue' in v) return v.timestampValue;
+  if ('arrayValue' in v) return ((v.arrayValue && v.arrayValue.values) || []).map(fromFsVal);
+  if ('mapValue' in v) return fromFsFields((v.mapValue && v.mapValue.fields) || {});
+  return v;
+}
+
+function fromFsFields(fields = {}) {
+  const out = {};
+  for (const [k, v] of Object.entries(fields)) out[k] = fromFsVal(v);
+  return out;
+}
+
+function createRestBearerStore(projectId, accessToken) {
+  function request(method, reqPath, body = null) {
+    return new Promise((resolve, reject) => {
+      const payload = body ? JSON.stringify(body) : null;
+      const req = https.request(
+        {
+          hostname: 'firestore.googleapis.com',
+          port: 443,
+          path: reqPath,
+          method,
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'x-goog-user-project': projectId,
+            'Content-Type': 'application/json',
+            ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
+          },
+        },
+        (res) => {
+          let data = '';
+          res.on('data', (c) => (data += c));
+          res.on('end', () => {
+            let parsed = null;
+            try {
+              parsed = data ? JSON.parse(data) : null;
+            } catch (_) {
+              parsed = data;
+            }
+            resolve({ status: res.statusCode, body: parsed });
+          });
+        }
+      );
+      req.on('error', reject);
+      if (payload) req.write(payload);
+      req.end();
+    });
+  }
+
+  const base = `/v1/projects/${projectId}/databases/(default)/documents`;
+  return {
+    kind: 'REST_BEARER_STAGING',
+    async getDoc(collection, docId) {
+      const res = await request('GET', `${base}/${collection}/${encodeURIComponent(docId)}`);
+      if (res.status === 404) return null;
+      if (res.status >= 400) throw new Error(`Firestore REST GET ${collection}/${docId} HTTP ${res.status}: ${JSON.stringify(res.body)}`);
+      return fromFsFields(res.body.fields || {});
+    },
+    async setDoc(collection, docId, payload) {
+      const res = await request('PATCH', `${base}/${collection}/${encodeURIComponent(docId)}`, {
+        fields: toFsFields(payload),
+      });
+      if (res.status >= 400) throw new Error(`Firestore REST PATCH ${collection}/${docId} HTTP ${res.status}: ${JSON.stringify(res.body)}`);
+    },
+    async mergeDocIfExists(collection, docId, partialData) {
+      const existing = await this.getDoc(collection, docId);
+      if (!existing) return false;
+      const keys = Object.keys(partialData).map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+      const res = await request('PATCH', `${base}/${collection}/${encodeURIComponent(docId)}?${keys}`, {
+        fields: toFsFields(partialData),
+      });
+      if (res.status >= 400) throw new Error(`Firestore REST MERGE ${collection}/${docId} HTTP ${res.status}: ${JSON.stringify(res.body)}`);
+      return true;
+    },
+  };
 }
 
 function createAdminCurriculumStore(db) {
@@ -222,14 +326,22 @@ async function seedSyntheticStagingData({
   allowStaging = '',
   includeCurriculum = true,
   db = null,
+  accessToken = process.env.GCLOUD_ACCESS_TOKEN || '',
 } = {}) {
   assertSafeTarget(projectId, allowStaging);
 
-  if (!db) {
-    if (!admin.apps.length) {
-      admin.initializeApp({ projectId });
+  const useBearerRest = Boolean(String(accessToken || '').trim()) && !process.env.FIRESTORE_EMULATOR_HOST && !db;
+  let store = null;
+  if (useBearerRest) {
+    store = createRestBearerStore(projectId, String(accessToken).trim());
+  } else {
+    if (!db) {
+      if (!admin.apps.length) {
+        admin.initializeApp({ projectId });
+      }
+      db = admin.firestore();
     }
-    db = admin.firestore();
+    store = createAdminCurriculumStore(db);
   }
 
   const fixtures = buildSyntheticFixtures();
@@ -244,9 +356,7 @@ async function seedSyntheticStagingData({
 
   for (const item of fixtures) {
     const contentHash = computeContentHash(item.data);
-    const ref = db.collection(item.collection).doc(item.docId);
-    const snap = await ref.get();
-    const existing = snap.exists ? snap.data() || null : null;
+    const existing = await store.getDoc(item.collection, item.docId);
     if (existing && existing.seed_hash === contentHash) {
       report.synthetic_skipped += 1;
       continue;
@@ -257,13 +367,14 @@ async function seedSyntheticStagingData({
       report.synthetic_created += 1;
     }
     if (apply) {
-      await ref.set({ ...item.data, seed_hash: contentHash }, { merge: true });
+      const merged = existing ? { ...existing, ...item.data, seed_hash: contentHash } : { ...item.data, seed_hash: contentHash };
+      await store.setDoc(item.collection, item.docId, merged);
     }
   }
 
   if (includeCurriculum) {
     const catalogData = JSON.parse(fs.readFileSync(CATALOG_PATH, 'utf8'));
-    report.curriculum = await runImport(catalogData, createAdminCurriculumStore(db), {
+    report.curriculum = await runImport(catalogData, store, {
       dryRun: !apply,
       syncTutorialRefs: false,
       allowLiveWrite: !process.env.FIRESTORE_EMULATOR_HOST,

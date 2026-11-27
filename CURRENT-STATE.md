@@ -2,11 +2,12 @@
 
 > **Documento Maestro de Estado y Arquitectura**  
 > **Última Actualización:** 2026-11-27  
-> **Rama Actual:** `feat/ped03-biblioteca-curricular` (base `main` `fd891a7` intacta; sin merge ni despliegue)  
-> **Commits de Respaldo PED-03 / PED-04 / PED-05 / PED-06:** `613cefe` ... · `9cc4a60` (`PED-04C3`) · `43665df` (`PED-05`) · `f38247f` (`PED-06A`) · cierre preparación `PED-06B` sobre `feat/ped03-biblioteca-curricular`
-> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** ✅ `f38247f` (`46007663709`) en `success`; pipeline [.github/workflows/ci.yml](file:///Users/jumper/ginga_app/.github/workflows/ci.yml) actualizado con `test_p1a_runtime_guard.js` (`27/27`), `test_qa_regressions.js` (`33/33`) y `test_ped06b_staging_integral_emulator.js` en Firestore Emulator (`demo-ginga-test`)
+> **Rama Actual:** `feat/ped03-biblioteca-curricular` (base `main` `fd891a7` intacta; sin merge ni despliegue productivo)  
+> **Commits de Respaldo PED-03 / PED-04 / PED-05 / PED-06:** `613cefe` ... · `9cc4a60` (`PED-04C3`) · `43665df` (`PED-05`) · `f38247f` (`PED-06A`) · `a82f152` (`PED-06B-PREP`) · cierre vivo `PED-06B` sobre `feat/ped03-biblioteca-curricular`
+> **CI GitHub Actions (`feat/ped03-biblioteca-curricular`):** ✅ `a82f152` (`46010551771`) en `success`; pipeline [.github/workflows/ci.yml](file:///Users/jumper/ginga_app/.github/workflows/ci.yml) incluye `test_p1a_runtime_guard.js` (`27/27`), `test_qa_regressions.js` (`33/33`) y `6/6` suites en Firestore Emulator (`demo-ginga-test`)
+> **Staging Vivo (`ginga-capoeira-staging`, `capoeirafiuapp@gmail.com`):** ✅ **`https://ginga-capoeira-staging.web.app`** · Firestore `us-central1` · Auth Email/Password + Custom Claims · 3 Functions selectivas (`generarPlanClaseV2`, `copilotoPedagogicoV1`, `onNotificationCreated`, `maxInstances: 2`, IA simulada) · Presupuesto alerta `PEN 18` (~USD 5, `50%/90%/100%`) aislado · Verificación remota `5/5 PASS`
 > **Producción Intacta:** `whatsappWebhook v69` (Cloud Functions Gen 1, Node.js 22), web `https://www.gingaperu.com`, proyecto `capoeirafiu-ea8ljo`
-> **Estado Actual:** **PED-06B PREPARACIÓN TÉCNICA Y SUITE INTEGRAL COMPLETADAS EN LOCAL/EMULATOR (`15` PASOS + COMPATIBILIDAD + CUOTAS TRANSACCIONALES + MULTI-ENV FLUTTER + HOSTING CONFIG + GUÍA APROVISIONAMIENTO) · DETENIDO ANTES DE CREACIÓN CLOUD/FACTURACIÓN `ginga-staging` A ESPERA DE AUTORIZACIÓN · SIN CAMBIOS EN PRODUCCIÓN NI INICIO DE `PED-06C`**
+> **Estado Actual:** **PED-06B COMPLETADO Y VERIFICADO REMOTAMENTE EN `ginga-capoeira-staging` (`5/5` E2E REMOTO + `6/6` EMULATOR + `95/95` FLUTTER + CI VERDE) · LISTO PARA VALIDACIÓN EN MAC/TABLET · SIN CAMBIOS EN PRODUCCIÓN, SIN `PED-06C` NI `PED-06R`**
 
 ---
 

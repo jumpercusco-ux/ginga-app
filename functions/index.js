@@ -4592,13 +4592,46 @@ ${ideasContexto && ideasContexto.length > 0 ? `- Ideas / Clips disponibles en la
     }
   });
 
+const PLANNER_CALLABLE_VALID_CODES = new Set([
+  'cancelled',
+  'unknown',
+  'invalid-argument',
+  'deadline-exceeded',
+  'not-found',
+  'already-exists',
+  'permission-denied',
+  'resource-exhausted',
+  'failed-precondition',
+  'aborted',
+  'out-of-range',
+  'unimplemented',
+  'internal',
+  'unavailable',
+  'data-loss',
+  'unauthenticated',
+]);
+
+async function invokePlannerCallable(handler, data, context) {
+  try {
+    return await handler(data, context);
+  } catch (err) {
+    if (err instanceof functions.https.HttpsError) throw err;
+    const code = PLANNER_CALLABLE_VALID_CODES.has(err?.code) ? err.code : 'internal';
+    throw new functions.https.HttpsError(
+      code,
+      err?.message || 'Error inesperado en Planner V2.',
+      err?.details
+    );
+  }
+}
+
 /**
  * Callable Function V2 (PED-04C2 / PED-06B): Generador modular pedagógico con cuota transaccional.
  * Por defecto opera en modo simulado salvo habilitación explícita de entorno en servidor.
  */
 exports.generarPlanClaseV2 = functions
   .region('us-central1')
-  .runWith({ timeoutSeconds: 180, memory: '512MB' })
+  .runWith({ timeoutSeconds: 180, memory: '512MB', maxInstances: 2 })
   .https.onCall(async (data, context) => {
     const realEnabled =
       process.env.PLANNER_V2_REAL_PROVIDER_ENABLED === 'true' &&
@@ -4611,7 +4644,7 @@ exports.generarPlanClaseV2 = functions
         realProviderEnabled: realEnabled,
       },
     });
-    return handler(data, context);
+    return invokePlannerCallable(handler, data, context);
   });
 
 /**
@@ -4620,7 +4653,7 @@ exports.generarPlanClaseV2 = functions
  */
 exports.copilotoPedagogicoV1 = functions
   .region('us-central1')
-  .runWith({ timeoutSeconds: 90, memory: '512MB' })
+  .runWith({ timeoutSeconds: 90, memory: '512MB', maxInstances: 2 })
   .https.onCall(async (data, context) => {
     const realEnabled =
       process.env.PLANNER_V2_COPILOT_REAL_ENABLED === 'true' &&
@@ -4633,7 +4666,7 @@ exports.copilotoPedagogicoV1 = functions
         realProviderEnabled: realEnabled,
       },
     });
-    return handler(data, context);
+    return invokePlannerCallable(handler, data, context);
   });
 
 module.exports.__internals = {
